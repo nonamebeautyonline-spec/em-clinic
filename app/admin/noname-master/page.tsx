@@ -510,24 +510,28 @@ export default function NonameMasterPage() {
                 <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
                   発送日
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
-                  追跡番号
-                </th>
-                <th className="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase">
-                  変更
-                </th>
+                {statusFilter !== "refund_cancel" && (
+                  <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
+                    追跡番号
+                  </th>
+                )}
+                {statusFilter !== "refund_cancel" && (
+                  <th className="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase">
+                    変更
+                  </th>
+                )}
                 <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
                   回数
                 </th>
                 <th className="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase">
-                  返金
+                  {statusFilter === "refund_cancel" ? "ステータス" : "返金"}
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-200">
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan={14} className="px-6 py-8 text-center text-slate-500">
+                  <td colSpan={statusFilter === "refund_cancel" ? 12 : 14} className="px-6 py-8 text-center text-slate-500">
                     注文データがありません
                   </td>
                 </tr>
@@ -555,21 +559,13 @@ export default function NonameMasterPage() {
                         >
                           {order.payment_method}
                         </span>
-                        {/* ステータスバッジ */}
-                        {order.refund_status === "COMPLETED" && (
-                          <span className="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800">返金完了</span>
-                        )}
-                        {order.refund_status === "PENDING" && (
-                          <span className="px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-800">返金待ち</span>
-                        )}
-                        {order.refund_status === "FAILED" && (
-                          <span className="px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-800">返金失敗</span>
-                        )}
-                        {(order.refund_status === "CANCELLED" || (order.status === "cancelled" && !order.refund_status)) && (
-                          <span className="px-2 py-0.5 text-xs rounded-full bg-slate-200 text-slate-600">キャンセル</span>
-                        )}
-                        {!order.refund_status && order.status === "pending_confirmation" && (
-                          <span className="px-2 py-0.5 text-xs rounded-full bg-yellow-100 text-yellow-800">確認待ち</span>
+                        {/* ステータスバッジ（返金・キャンセル以外のフィルター時のみ表示） */}
+                        {statusFilter !== "refund_cancel" && (
+                          <>
+                            {!order.refund_status && order.status === "pending_confirmation" && (
+                              <span className="px-2 py-0.5 text-xs rounded-full bg-yellow-100 text-yellow-800">確認待ち</span>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>
@@ -672,6 +668,7 @@ export default function NonameMasterPage() {
                         "-"
                       )}
                     </td>
+                    {statusFilter !== "refund_cancel" && (
                     <td className="px-3 py-2 whitespace-nowrap text-sm font-mono">
                       {order.tracking_number ? (
                         <a
@@ -706,6 +703,8 @@ export default function NonameMasterPage() {
                         </div>
                       )}
                     </td>
+                    )}
+                    {statusFilter !== "refund_cancel" && (
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-center relative">
                       {order.tracking_number ? (
                         <div className="relative inline-block">
@@ -779,13 +778,27 @@ export default function NonameMasterPage() {
                         <span className="text-slate-400">-</span>
                       )}
                     </td>
+                    )}
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-center">
                       <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-semibold">
                         {order.purchase_count}
                       </span>
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-center">
-                      {order.refund_status === "COMPLETED" ? (
+                      {statusFilter === "refund_cancel" ? (
+                        // 返金・キャンセルフィルター時: ステータス列
+                        order.refund_status === "COMPLETED" ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">返金済</span>
+                        ) : order.refund_status === "PENDING" ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">返金待ち</span>
+                        ) : order.refund_status === "FAILED" ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">返金失敗</span>
+                        ) : order.status === "cancelled" ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-200 text-slate-600">キャンセル</span>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )
+                      ) : order.refund_status === "COMPLETED" ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                           返金済
                         </span>
