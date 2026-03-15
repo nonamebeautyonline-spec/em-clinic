@@ -139,6 +139,11 @@ function ScrollableTabRow({
 export default function LineLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
+  // 流入経路はLINE機能とは独立したページ — タブナビを表示しない
+  if (pathname === "/admin/line/tracking-sources") {
+    return <>{children}</>;
+  }
+
   const isActive = (href: string) => {
     if (href === "/admin/line" || href === "/admin/line/friends") return pathname === href;
     return pathname === href || pathname?.startsWith(href + "/");
