@@ -89,78 +89,76 @@ export async function GET(req: NextRequest) {
 
     if (missingPinIds.length > 0) {
       const tid = effectiveTenantId;
-      // friend_summaries から取得
-      const { data: pinRows } = await supabaseAdmin
-        .from("friend_summaries")
-        .select(`
-          patient_id,
-          last_msg_content, last_msg_at, last_incoming_at,
-          last_template_content, last_event_content, last_event_type,
-          last_outgoing_content, last_outgoing_at,
-          patients!inner(name, line_id, line_display_name, line_picture_url),
-          patient_marks(mark)
-        `)
-        .in("patient_id", missingPinIds)
-        .eq("tenant_id", tid);
+      // FK制約が未定義のため、個別テーブルを別々にクエリして手動結合
+      const [fsRes, ptRes, pmRes] = await Promise.all([
+        supabaseAdmin
+          .from("friend_summaries")
+          .select("patient_id, last_msg_content, last_msg_at, last_incoming_at, last_template_content, last_event_content, last_event_type, last_outgoing_content, last_outgoing_at")
+          .in("patient_id", missingPinIds)
+          .eq("tenant_id", tid),
+        supabaseAdmin
+          .from("patients")
+          .select("patient_id, name, line_id, line_display_name, line_picture_url")
+          .in("patient_id", missingPinIds)
+          .eq("tenant_id", tid),
+        supabaseAdmin
+          .from("patient_marks")
+          .select("patient_id, mark")
+          .in("patient_id", missingPinIds),
+      ]);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const fsRows = (fsRes.data || []) as any[];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ptMap = new Map(((ptRes.data || []) as any[]).map(r => [r.patient_id, r]));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pmMap = new Map(((pmRes.data || []) as any[]).map(r => [r.patient_id, r.mark]));
 
       const foundIds = new Set<string>();
-      if (pinRows) {
-        for (const row of pinRows) {
-          foundIds.add(row.patient_id);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const p = row.patients as any;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const pm = row.patient_marks as any;
-          patients.push(transformRow({
-            patient_id: row.patient_id,
-            patient_name: p?.name || "",
-            line_id: p?.line_id,
-            line_display_name: p?.line_display_name,
-            line_picture_url: p?.line_picture_url,
-            mark: pm?.[0]?.mark || pm?.mark || "none",
-            last_msg_content: row.last_msg_content,
-            last_msg_at: row.last_msg_at,
-            last_incoming_at: row.last_incoming_at,
-            last_template_content: row.last_template_content,
-            last_event_content: row.last_event_content,
-            last_event_type: row.last_event_type,
-            last_outgoing_content: row.last_outgoing_content,
-            last_outgoing_at: row.last_outgoing_at,
-          }));
-        }
+      // friend_summariesにある患者（メッセージ履歴あり）
+      for (const fs of fsRows) {
+        const pt = ptMap.get(fs.patient_id);
+        if (!pt) continue;
+        foundIds.add(fs.patient_id);
+        patients.push(transformRow({
+          patient_id: fs.patient_id,
+          patient_name: pt.name || "",
+          line_id: pt.line_id,
+          line_display_name: pt.line_display_name,
+          line_picture_url: pt.line_picture_url,
+          mark: pmMap.get(fs.patient_id) || "none",
+          last_msg_content: fs.last_msg_content,
+          last_msg_at: fs.last_msg_at,
+          last_incoming_at: fs.last_incoming_at,
+          last_template_content: fs.last_template_content,
+          last_event_content: fs.last_event_content,
+          last_event_type: fs.last_event_type,
+          last_outgoing_content: fs.last_outgoing_content,
+          last_outgoing_at: fs.last_outgoing_at,
+        }));
       }
 
-      // friend_summaries にない患者は patients テーブルから直接取得
-      const stillMissing = missingPinIds.filter(id => !foundIds.has(id));
-      if (stillMissing.length > 0) {
-        const { data: patientRows } = await supabaseAdmin
-          .from("patients")
-          .select("patient_id, name, line_id, line_display_name, line_picture_url, patient_marks(mark)")
-          .in("patient_id", stillMissing)
-          .eq("tenant_id", tid);
-
-        if (patientRows) {
-          for (const row of patientRows) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const pm = (row as any).patient_marks;
-            patients.push(transformRow({
-              patient_id: row.patient_id,
-              patient_name: row.name || "",
-              line_id: row.line_id,
-              line_display_name: row.line_display_name,
-              line_picture_url: row.line_picture_url,
-              mark: pm?.[0]?.mark || pm?.mark || "none",
-              last_msg_content: null,
-              last_msg_at: null,
-              last_incoming_at: null,
-              last_template_content: null,
-              last_event_content: null,
-              last_event_type: null,
-              last_outgoing_content: null,
-              last_outgoing_at: null,
-            }));
-          }
-        }
+      // friend_summariesにない患者（メッセージ履歴なし）
+      for (const id of missingPinIds) {
+        if (foundIds.has(id)) continue;
+        const pt = ptMap.get(id);
+        if (!pt) continue;
+        patients.push(transformRow({
+          patient_id: id,
+          patient_name: pt.name || "",
+          line_id: pt.line_id,
+          line_display_name: pt.line_display_name,
+          line_picture_url: pt.line_picture_url,
+          mark: pmMap.get(id) || "none",
+          last_msg_content: null,
+          last_msg_at: null,
+          last_incoming_at: null,
+          last_template_content: null,
+          last_event_content: null,
+          last_event_type: null,
+          last_outgoing_content: null,
+          last_outgoing_at: null,
+        }));
       }
     }
   }
