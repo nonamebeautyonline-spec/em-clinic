@@ -38,8 +38,8 @@ const MOBILE_MENU_ITEMS: { href: string; icon: string; label: string; feature?: 
   { href: "/admin/reorders", icon: "🔄", label: "再処方リスト", feature: "reorder" },
   { href: "/admin/doctor", icon: "🩺", label: "簡易Drカルテ" },
   { href: "/admin/karte", icon: "📋", label: "カルテ" },
-  { href: "/admin/noname-master", icon: "📋", label: "決済マスター" },
-  { href: "/admin/shipping/pending", icon: "📦", label: "本日発送予定" },
+  { href: "/admin/noname-master", icon: "📋", label: "決済" },
+  { href: "/admin/shipping/pending", icon: "📦", label: "発送" },
   { href: "/admin/view-mypage", icon: "👁️", label: "顧客マイページ確認" },
   { href: "/admin/merge-patients", icon: "🔗", label: "患者情報変更" },
   { href: "/admin/intake-form", icon: "📝", label: "問診設定", feature: "form_builder" },
@@ -425,7 +425,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <MenuItem
             href="/admin/noname-master"
             icon="📋"
-            label="決済マスター"
+            label="決済"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/noname-master"}
           />
@@ -441,14 +441,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <MenuItem
             href="/admin/shipping/pending"
             icon="📦"
-            label="本日発送予定"
+            label="発送"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/shipping/pending"}
           />
           <MenuItem
             href="/admin/shipping/tracking"
             icon="🏷️"
-            label="追跡番号付与"
+            label="追跡番号"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/shipping/tracking"}
           />
