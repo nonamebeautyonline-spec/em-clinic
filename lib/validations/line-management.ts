@@ -286,3 +286,47 @@ export const assignUserRichMenuSchema = z
     rich_menu_id: z.union([z.number(), z.string()]),
   })
   .passthrough();
+
+// ─── 流入経路トラッキング ──────────────────────
+
+/** 流入経路作成 POST /api/admin/line/tracking-sources */
+export const createTrackingSourceSchema = z
+  .object({
+    name: z.string().min(1, "流入経路名は必須です").max(255),
+    destination_url: z.string().url("有効なURLを入力してください"),
+    folder_id: z.union([z.number(), z.string(), z.null()]).optional(),
+    qr_display_text: z.string().max(10).optional(),
+    valid_from: z.string().optional().nullable(),
+    valid_until: z.string().optional().nullable(),
+    action_settings: z.record(z.string(), z.unknown()).optional(),
+    ignore_friend_add_action: z.boolean().optional(),
+    action_execution: z.enum(["always", "first_only"]).optional(),
+    utm_defaults: z.record(z.string(), z.unknown()).optional(),
+    custom_params: z.array(z.record(z.string(), z.unknown())).optional(),
+    html_head_tags: z.string().optional().nullable(),
+    html_body_tags: z.string().optional().nullable(),
+    memo: z.string().optional().nullable(),
+  })
+  .passthrough();
+
+/** 流入経路更新 PUT /api/admin/line/tracking-sources */
+export const updateTrackingSourceSchema = z
+  .object({
+    id: z.union([z.number(), z.string()]),
+    name: z.string().min(1).max(255).optional(),
+    destination_url: z.string().url().optional(),
+    folder_id: z.union([z.number(), z.string(), z.null()]).optional(),
+    qr_display_text: z.string().max(10).optional().nullable(),
+    valid_from: z.string().optional().nullable(),
+    valid_until: z.string().optional().nullable(),
+    is_active: z.boolean().optional(),
+    action_settings: z.record(z.string(), z.unknown()).optional(),
+    ignore_friend_add_action: z.boolean().optional(),
+    action_execution: z.enum(["always", "first_only"]).optional(),
+    utm_defaults: z.record(z.string(), z.unknown()).optional(),
+    custom_params: z.array(z.record(z.string(), z.unknown())).optional(),
+    html_head_tags: z.string().optional().nullable(),
+    html_body_tags: z.string().optional().nullable(),
+    memo: z.string().optional().nullable(),
+  })
+  .passthrough();

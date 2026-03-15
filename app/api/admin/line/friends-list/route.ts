@@ -163,6 +163,34 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // 流入経路情報を付加
+  const patientIds = patients.map((p: { patient_id: string }) => p.patient_id);
+  let trackingMap: Record<string, string> = {};
+  if (patientIds.length > 0) {
+    const { data: trackingData } = await supabaseAdmin
+      .from("patients")
+      .select("patient_id, tracking_source_id")
+      .in("patient_id", patientIds)
+      .not("tracking_source_id", "is", null);
+    if (trackingData && trackingData.length > 0) {
+      const sourceIds = [...new Set(trackingData.map(t => t.tracking_source_id as number))];
+      const { data: sources } = await supabaseAdmin
+        .from("tracking_sources")
+        .select("id, name")
+        .in("id", sourceIds);
+      const sourceNameMap = new Map((sources || []).map(s => [s.id, s.name]));
+      for (const t of trackingData) {
+        trackingMap[t.patient_id] = sourceNameMap.get(t.tracking_source_id as number) || "";
+      }
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const patientsWithTracking = patients.map((p: any) => ({
+    ...p,
+    tracking_source_name: trackingMap[p.patient_id] || null,
+  }));
+
   const tEnd = Date.now();
 
   const _timing = {
@@ -170,10 +198,10 @@ export async function GET(req: NextRequest) {
     rpc_ms: tRpc - tAuth,
     transform_ms: tEnd - tRpc,
     total_ms: tEnd - t0,
-    rows: patients.length,
+    rows: patientsWithTracking.length,
     ...(cacheHit ? { cache: "hit" as const } : {}),
   };
   console.log("[friends-list]", _timing);
 
-  return NextResponse.json({ patients, hasMore, _timing });
+  return NextResponse.json({ patients: patientsWithTracking, hasMore, _timing });
 }

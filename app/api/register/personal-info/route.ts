@@ -208,7 +208,41 @@ export async function POST(req: NextRequest) {
       console.error("[register/personal-info] Intake upsert failed:", intakeError.message);
     }
 
-    // 7) ライフサイクルイベント: 個人情報入力完了時アクション
+    // 7) 流入経路トラッキング紐付け（callback で未紐付けの場合のバックアップ）
+    const trackingVisitId = req.cookies.get("tracking_visit_id")?.value;
+    if (trackingVisitId && patientId) {
+      try {
+        // tracking_visits に patient_id を設定（未設定の場合のみ）
+        const { data: visit } = await supabaseAdmin
+          .from("tracking_visits")
+          .update({ patient_id: patientId, converted_at: new Date().toISOString() })
+          .eq("id", Number(trackingVisitId))
+          .is("patient_id", null)
+          .select("source_id, utm_source, utm_medium, utm_campaign")
+          .maybeSingle();
+
+        if (visit) {
+          await withTenant(
+            supabaseAdmin
+              .from("patients")
+              .update({
+                tracking_source_id: visit.source_id,
+                tracking_visit_id: Number(trackingVisitId),
+                utm_source: visit.utm_source || null,
+                utm_medium: visit.utm_medium || null,
+                utm_campaign: visit.utm_campaign || null,
+              })
+              .eq("patient_id", patientId),
+            tenantId
+          );
+          console.log("[register/personal-info] 流入経路紐付け完了: source_id=", visit.source_id);
+        }
+      } catch (e) {
+        console.error("[register/personal-info] 流入経路紐付けエラー:", e);
+      }
+    }
+
+    // 8) ライフサイクルイベント: 個人情報入力完了時アクション
     if (lineUserId && patientId) {
       const { actionDetails } = await executeLifecycleActions({
         settingKey: "personal_info_completed",

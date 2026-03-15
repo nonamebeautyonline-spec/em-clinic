@@ -19,6 +19,7 @@ const MAIN_TABS = [
   { href: "/admin/line/reminder-rules", label: "リマインド" },
   { href: "/admin/line/tags", label: "タグ管理" },
   { href: "/admin/line/actions", label: "アクション管理" },
+  { href: "/admin/line/tracking-sources", label: "流入経路" },
 ];
 
 // 2行目: 設定・管理系

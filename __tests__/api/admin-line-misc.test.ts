@@ -234,7 +234,7 @@ describe("friends-list API", () => {
       }) as never,
     );
 
-    // friend_summariesからピン患者を取得
+    // friend_summariesからピン患者を取得（別クエリ方式）
     const fsChain = getOrCreateChain("friend_summaries");
     fsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
       data: [{
@@ -247,9 +247,21 @@ describe("friends-list API", () => {
         last_event_type: null,
         last_outgoing_content: null,
         last_outgoing_at: null,
-        patients: { name: "ピン患者", line_id: "U002", line_display_name: null, line_picture_url: null },
-        patient_marks: { mark: "red" },
       }],
+      error: null,
+    }));
+
+    // patientsテーブル（ピン補完 + 流入経路の両方で使用される）
+    const ptChain = getOrCreateChain("patients");
+    ptChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
+      data: [{ patient_id: "P002", name: "ピン患者", line_id: "U002", line_display_name: null, line_picture_url: null }],
+      error: null,
+    }));
+
+    // patient_marks
+    const pmChain = getOrCreateChain("patient_marks");
+    pmChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
+      data: [{ patient_id: "P002", mark: "red" }],
       error: null,
     }));
 
@@ -273,7 +285,7 @@ describe("friends-list API", () => {
     const fsChain = getOrCreateChain("friend_summaries");
     fsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
 
-    // patientsテーブルから取得
+    // patientsテーブルから取得（ピン補完 + 流入経路の両方で使用される）
     const pChain = getOrCreateChain("patients");
     pChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
       data: [{
@@ -282,8 +294,14 @@ describe("friends-list API", () => {
         line_id: "U003",
         line_display_name: "表示名",
         line_picture_url: null,
-        patient_marks: [{ mark: "blue" }],
       }],
+      error: null,
+    }));
+
+    // patient_marks
+    const pmChain = getOrCreateChain("patient_marks");
+    pmChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
+      data: [{ patient_id: "P003", mark: "blue" }],
       error: null,
     }));
 

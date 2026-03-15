@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
+import { executeActionSteps } from "@/lib/lifecycle-actions";
 
 const TOKEN_URL = "https://api.line.me/oauth2/v2.1/token";
 
@@ -78,6 +79,86 @@ export async function GET(req: NextRequest) {
   if (data?.patient_id) {
     patientId = data.patient_id;
     console.log(`[LINE callback] Known patient: ${patientId} (LINE UID match, tel=${data.tel ? "set" : "null"})`);
+  }
+
+  // ★ 流入経路トラッキング紐付け
+  // 中間ページ /s/[code] で設定されたCookieを読み取り、訪問記録とLINE UIDを紐付ける
+  const trackingVisitId = req.cookies.get("tracking_visit_id")?.value;
+  if (trackingVisitId) {
+    try {
+      // tracking_visits に line_uid を設定
+      const { data: visit } = await supabaseAdmin
+        .from("tracking_visits")
+        .update({ line_uid: lineUserId, converted_at: new Date().toISOString() })
+        .eq("id", Number(trackingVisitId))
+        .is("line_uid", null)
+        .select("source_id, utm_source, utm_medium, utm_campaign")
+        .maybeSingle();
+
+      // 患者が既知の場合は patients にも紐付け
+      if (visit && patientId) {
+        await withTenant(
+          supabaseAdmin
+            .from("patients")
+            .update({
+              tracking_source_id: visit.source_id,
+              tracking_visit_id: Number(trackingVisitId),
+              utm_source: visit.utm_source || null,
+              utm_medium: visit.utm_medium || null,
+              utm_campaign: visit.utm_campaign || null,
+            })
+            .eq("patient_id", patientId),
+          tenantId
+        );
+      }
+      // 未知の患者の場合は tracking_visits に line_uid だけ設定済み
+      // → register/personal-info で patient_id 紐付けを行う
+
+      // 流入経路のアクション実行（患者が既知でLINE UIDがある場合）
+      if (visit && patientId) {
+        const { data: source } = await supabaseAdmin
+          .from("tracking_sources")
+          .select("action_settings, action_execution")
+          .eq("id", visit.source_id)
+          .maybeSingle();
+
+        const actionSettings = source?.action_settings as { enabled?: boolean; steps?: unknown[] } | null;
+        if (actionSettings?.enabled && actionSettings.steps && actionSettings.steps.length > 0) {
+          // action_execution === "first_only" の場合、過去のvisitがあればスキップ
+          let shouldExecute = true;
+          if (source?.action_execution === "first_only") {
+            const { count } = await supabaseAdmin
+              .from("tracking_visits")
+              .select("id", { count: "exact", head: true })
+              .eq("source_id", visit.source_id)
+              .eq("line_uid", lineUserId)
+              .neq("id", Number(trackingVisitId));
+            if (count && count > 0) shouldExecute = false;
+          }
+
+          if (shouldExecute) {
+            // 患者名を取得
+            const { data: pat } = await withTenant(
+              supabaseAdmin.from("patients").select("name").eq("patient_id", patientId).maybeSingle(),
+              tenantId
+            );
+            const { actionDetails } = await executeActionSteps({
+              steps: actionSettings.steps as Parameters<typeof executeActionSteps>[0]["steps"],
+              patientId,
+              lineUserId,
+              patientName: pat?.name || "",
+              tenantId,
+              assignedBy: "tracking_source",
+            });
+            if (actionDetails.length > 0) {
+              console.log("[LINE callback] 流入経路アクション実行:", actionDetails.join(", "));
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[LINE callback] 流入経路紐付けエラー:", e);
+    }
   }
 
   // returnUrlが指定されている場合はそちらへリダイレクト
