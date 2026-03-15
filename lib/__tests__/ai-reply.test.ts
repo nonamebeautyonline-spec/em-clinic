@@ -1638,7 +1638,7 @@ describe("determineFlowStage", () => {
     expect(determineFlowStage({
       ...base,
       latestOrder: { paymentStatus: "paid", shippingStatus: "shipped", paymentMethod: "credit_card" },
-      activeReorder: { status: "pending" },
+      activeReorder: { status: "pending", paid_at: null },
     })).toBe("再処方申請中");
   });
 
@@ -1646,8 +1646,16 @@ describe("determineFlowStage", () => {
     expect(determineFlowStage({
       ...base,
       latestOrder: { paymentStatus: "paid", shippingStatus: "delivered", paymentMethod: "bank_transfer" },
-      activeReorder: { status: "confirmed" },
+      activeReorder: { status: "confirmed", paid_at: null },
     })).toBe("再処方承認済み・決済待ち");
+  });
+
+  it("発送済み・再処方paid → 再処方決済完了・発送待ち", () => {
+    expect(determineFlowStage({
+      ...base,
+      latestOrder: { paymentStatus: "paid", shippingStatus: "shipped", paymentMethod: "credit_card" },
+      activeReorder: { status: "paid", paid_at: "2026-03-15T10:00:00Z" },
+    })).toBe("再処方決済完了・発送待ち");
   });
 });
 
@@ -1721,7 +1729,7 @@ describe("buildUserMessage", () => {
       hasReservation: false,
       nextReservation: null,
       latestOrder: { paymentStatus: "paid", shippingStatus: "shipped", paymentMethod: "credit_card" },
-      activeReorder: { status: "pending" },
+      activeReorder: { status: "pending", paid_at: null },
       flowStage: "再処方申請中",
     };
     const result = buildUserMessage(["テスト"], [], status);
