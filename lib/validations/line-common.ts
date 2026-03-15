@@ -26,9 +26,10 @@ export const createTemplateSchema = z
   .object({
     name: z.string().min(1, "テンプレート名は必須です"),
     content: z.string().optional(),
-    message_type: z.enum(["text", "image", "flex"]).optional(),
+    message_type: z.enum(["text", "image", "flex", "imagemap"]).optional(),
     category: z.string().optional(),
     flex_content: z.unknown().optional(),
+    imagemap_actions: z.unknown().optional(),
   })
   .passthrough();
 
@@ -37,9 +38,10 @@ export const updateTemplateSchema = z
   .object({
     name: z.string().optional(),
     content: z.string().optional(),
-    message_type: z.enum(["text", "image", "flex"]).optional(),
+    message_type: z.enum(["text", "image", "flex", "imagemap"]).optional(),
     category: z.string().optional(),
     flex_content: z.unknown().optional(),
+    imagemap_actions: z.unknown().optional(),
   })
   .passthrough();
 

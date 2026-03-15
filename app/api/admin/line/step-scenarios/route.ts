@@ -87,6 +87,8 @@ export async function POST(req: NextRequest) {
       condition_rules: s.condition_rules || [],
       branch_true_step: s.branch_true_step ?? null,
       branch_false_step: s.branch_false_step ?? null,
+      branches: s.branches || [],
+      ab_variants: s.ab_variants || null,
       exit_condition_rules: s.exit_condition_rules || [],
       exit_action: s.exit_action || "exit",
       exit_jump_to: s.exit_jump_to ?? null,

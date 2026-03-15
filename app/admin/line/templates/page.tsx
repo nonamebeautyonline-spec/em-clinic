@@ -4,300 +4,54 @@ import { useState, useEffect, useRef } from "react";
 import useSWR, { mutate } from "swr";
 import { ErrorFallback } from "@/components/admin/ErrorFallback";
 
-import { FlexPreviewRenderer, type FlexPreset } from "@/app/admin/line/flex-builder/page";
-
-/** Flex送信前にバブルの type:"bubble" を補完（LINE API必須）v4 */
-function fixFlexForSend(data: unknown): unknown {
-  if (!data || typeof data !== "object") return data;
-  if (Array.isArray(data)) return data.map(fixFlexForSend);
-  const o = data as Record<string, unknown>;
-  // carousel → 内部を再帰
-  if (o.type === "carousel" && Array.isArray(o.contents)) {
-    return { ...o, contents: o.contents.map(fixFlexForSend) };
-  }
-  // bubble構造（header/hero/body/footer）でtypeがbubbleでない → 強制上書き
-  if ((o.header || o.hero || o.body || o.footer) && o.type !== "bubble") {
-    return { ...o, type: "bubble" };
-  }
-  return o;
-}
-
-interface Template {
-  id: number;
-  name: string;
-  content: string;
-  message_type: string;
-  category: string | null;
-  flex_content: Record<string, unknown> | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface Category {
-  id: number;
-  name: string;
-  sort_order: number;
-}
-
-type TemplateTab = "text" | "image" | "carousel" | "flex";
-
-/* ボタン・カルーセル用の型 */
-interface PanelButton {
-  label: string;
-  actionType: "url" | "postback" | "message";
-  actionValue: string;
-}
-
-interface CarouselPanel {
-  title: string;
-  body: string;
-  imageUrl: string;
-  buttons: PanelButton[];
-  // Q&Aカルーセル用フィールド
-  qaMode?: boolean;
-  subtitle?: string;
-  headerColor?: string;
-  items?: string[];
-  categoryId?: string;
-}
-
-const EMPTY_BUTTON: PanelButton = { label: "", actionType: "url", actionValue: "" };
-const EMPTY_PANEL: CarouselPanel = { title: "", body: "", imageUrl: "", buttons: [{ ...EMPTY_BUTTON }] };
-
-const QA_PAGE_URL = "/mypage/qa";
-const QA_COLOR_PRESETS = [
-  { label: "ピンク", value: "#ec4899" },
-  { label: "青", value: "#3b82f6" },
-  { label: "オレンジ", value: "#f59e0b" },
-  { label: "シアン", value: "#06b6d4" },
-  { label: "紫", value: "#8b5cf6" },
-  { label: "インディゴ", value: "#6366f1" },
-];
-
-/** Q&AスタイルのFlexか判定 */
-function isQaStyleFlex(flex: Record<string, unknown> | null): boolean {
-  if (!flex) return false;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const f = flex as any;
-  if (f.type !== "carousel" || !Array.isArray(f.contents) || f.contents.length < 2) return false;
-  const first = f.contents[0];
-  if (!first.header || !first.body) return false;
-  const hdr = first.header;
-  if (!hdr.backgroundColor) return false;
-  // body内にhorizontal boxがある → Q&Aスタイル
-  const bodyItems = first.body.contents;
-  if (!Array.isArray(bodyItems) || bodyItems.length === 0) return false;
-  return bodyItems[0]?.layout === "horizontal" && bodyItems[0]?.contents?.length === 2;
-}
-
-/** Q&A Flex JSON → CarouselPanel[] に変換（最終バブル「すべて見る」はスキップ） */
-function qaFlexToPanels(flex: Record<string, unknown>): CarouselPanel[] {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const f = flex as any;
-  const bubbles = f.contents as any[];
-  const panels: CarouselPanel[] = [];
-  for (const b of bubbles) {
-    // 「すべて見る」バブル = headerなし → スキップ
-    if (!b.header) continue;
-    const title = b.header.contents?.[0]?.text || "";
-    const subtitle = b.header.contents?.[1]?.text || "";
-    const headerColor = b.header.backgroundColor || "#ec4899";
-    // body → items
-    const items: string[] = [];
-    if (b.body?.contents) {
-      for (const row of b.body.contents) {
-        if (row.layout === "horizontal" && row.contents?.[1]?.text) {
-          items.push(row.contents[1].text);
-        }
-      }
-    }
-    // footer → categoryId
-    let categoryId = "";
-    if (b.footer?.contents) {
-      for (const fc of b.footer.contents) {
-        if (fc.action?.uri) {
-          const match = fc.action.uri.match(/[?&]c=([^&]+)/);
-          if (match) categoryId = match[1];
-        }
-      }
-    }
-    panels.push({
-      title, body: "", imageUrl: "", buttons: [],
-      qaMode: true, subtitle, headerColor, items, categoryId,
-    });
-  }
-  return panels;
-}
-
-/** Q&A CarouselPanel[] → Flex JSON に変換 */
-function qaPanelsToFlex(panels: CarouselPanel[]): Record<string, unknown> {
-  const bubbles = panels.map(p => ({
-    type: "bubble",
-    size: "mega",
-    header: {
-      type: "box", layout: "vertical",
-      contents: [
-        { type: "text", text: p.title || "タイトル", weight: "bold", size: "xl", color: "#ffffff" },
-        { type: "text", text: p.subtitle || "", size: "sm", color: "#ffffffcc", margin: "sm" },
-      ],
-      backgroundColor: p.headerColor || "#ec4899",
-      paddingAll: "20px",
-    },
-    body: {
-      type: "box", layout: "vertical",
-      contents: (p.items || []).map((item, i) => ({
-        type: "box", layout: "horizontal",
-        contents: [
-          { type: "box", layout: "vertical", contents: [{ type: "text", text: "●", size: "xxs", color: p.headerColor || "#ec4899" }], width: "16px", paddingTop: "4px" },
-          { type: "text", text: item, size: "sm", color: "#444444", wrap: true, flex: 1 },
-        ],
-        ...(i > 0 ? { margin: "12px" } : {}),
-      })),
-      paddingAll: "20px", spacing: "none",
-    },
-    footer: {
-      type: "box", layout: "vertical",
-      contents: [
-        { type: "separator", color: "#f0f0f0" },
-        {
-          type: "button",
-          action: { type: "uri", label: "詳しく見る →", uri: `${QA_PAGE_URL}?c=${p.categoryId || "getting-started"}` },
-          style: "link", color: p.headerColor || "#ec4899", height: "sm", margin: "sm",
-        },
-      ],
-      paddingAll: "12px",
-    },
-  }));
-
-  // 「すべてのQ&Aを見る」バブルを自動付与
-  const moreBubble = {
-    type: "bubble", size: "mega",
-    body: {
-      type: "box", layout: "vertical",
-      contents: [
-        { type: "box", layout: "vertical", contents: [{ type: "text", text: "💬", size: "4xl", align: "center" }], paddingTop: "20px" },
-        { type: "text", text: "すべてのQ&Aを見る", weight: "bold", size: "lg", align: "center", margin: "xl", color: "#333333" },
-        { type: "text", text: "7カテゴリ・全25問の\nよくある質問をまとめています", size: "sm", align: "center", color: "#888888", wrap: true, margin: "lg" },
-        { type: "separator", margin: "xl", color: "#f1f5f9" },
-        { type: "box", layout: "vertical", contents: [
-          { type: "text", text: "ご利用の流れ｜予約・診察", size: "xs", align: "center", color: "#94a3b8" },
-          { type: "text", text: "お支払い｜配送｜再処方", size: "xs", align: "center", color: "#94a3b8", margin: "xs" },
-          { type: "text", text: "SMS認証・アカウント｜問診", size: "xs", align: "center", color: "#94a3b8", margin: "xs" },
-        ], margin: "lg" },
-      ],
-      justifyContent: "center", paddingAll: "20px",
-    },
-    footer: {
-      type: "box", layout: "vertical",
-      contents: [
-        { type: "button", action: { type: "uri", label: "Q&Aページを開く", uri: QA_PAGE_URL }, style: "primary", color: "#ec4899", height: "sm" },
-        { type: "text", text: "Q&Aで解決しない場合や、薬に関する\n医学的な相談はトーク画面からお気軽にご相談ください", size: "xs", color: "#888888", align: "center", wrap: true, margin: "lg" },
-      ],
-      paddingAll: "16px",
-    },
-  };
-
-  return { type: "carousel", contents: [...bubbles, moreBubble] };
-}
-
-const EMPTY_QA_PANEL: CarouselPanel = {
-  title: "", body: "", imageUrl: "", buttons: [],
-  qaMode: true, subtitle: "", headerColor: "#ec4899", items: [""], categoryId: "",
-};
-
-/** カルーセルパネルからLINE Flex Message JSONを生成 */
-function panelsToFlex(panels: CarouselPanel[]): Record<string, unknown> {
-  const bubbles = panels.map(panel => {
-    const bodyContents: Record<string, unknown>[] = [];
-    if (panel.title) {
-      bodyContents.push({ type: "text", text: panel.title, weight: "bold", size: "lg", wrap: true });
-    }
-    if (panel.body) {
-      bodyContents.push({ type: "text", text: panel.body, size: "sm", color: "#666666", wrap: true, margin: "md" });
-    }
-    const footerContents: Record<string, unknown>[] = panel.buttons
-      .filter(b => b.label.trim())
-      .map(b => ({
-        type: "button",
-        style: "primary",
-        color: "#06C755",
-        action: b.actionType === "url"
-          ? { type: "uri", label: b.label, uri: b.actionValue || "https://example.com" }
-          : b.actionType === "postback"
-            ? { type: "postback", label: b.label, data: b.actionValue }
-            : { type: "message", label: b.label, text: b.actionValue || b.label },
-      }));
-
-    const bubble: Record<string, unknown> = { type: "bubble" };
-    if (panel.imageUrl) {
-      bubble.hero = { type: "image", url: panel.imageUrl, size: "full", aspectRatio: "20:13", aspectMode: "cover" };
-    }
-    if (bodyContents.length > 0) {
-      bubble.body = { type: "box", layout: "vertical", contents: bodyContents, spacing: "sm" };
-    }
-    if (footerContents.length > 0) {
-      bubble.footer = { type: "box", layout: "vertical", contents: footerContents, spacing: "sm" };
-    }
-    return bubble;
-  });
-
-  if (bubbles.length === 1) return bubbles[0];
-  return { type: "carousel", contents: bubbles };
-}
+import type { Template, Category, TestAccount, FlexPreset } from "./_components/template-types";
+import {
+  TEMPLATES_KEY, CATEGORIES_KEY, PRESETS_KEY, TEST_ACCOUNT_KEY,
+  HighlightVariables,
+} from "./_components/template-types";
+import { TemplateList } from "./_components/TemplateList";
+import { TemplateEditor } from "./_components/TemplateEditor";
+import { TestSendModal } from "./_components/TestSendModal";
+import { FlexPreviewRenderer } from "@/app/admin/line/flex-builder/page";
 
 export default function TemplateManagementPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  // loading は SWR の isLoading を使用
   const [selectedCategory, setSelectedCategory] = useState<string>("__all__");
-  const [showModal, setShowModal] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [showFolderModal, setShowFolderModal] = useState(false);
+  const [folderName, setFolderName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [flexPresets, setFlexPresets] = useState<FlexPreset[]>([]);
+
   // カテゴリ管理
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editCategoryName, setEditCategoryName] = useState("");
   const [deleteCategoryConfirm, setDeleteCategoryConfirm] = useState<Category | null>(null);
   const [categoryMenuId, setCategoryMenuId] = useState<number | null>(null);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
+
   // 共有テンプレートインポート
   const [showImportModal, setShowImportModal] = useState(false);
   const [sharedTemplates, setSharedTemplates] = useState<{ id: string; name: string; description: string; category: string; template_type: string; tags: string[] }[]>([]);
   const [importingId, setImportingId] = useState<string | null>(null);
   const [sharedLoading, setSharedLoading] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
-  const [name, setName] = useState("");
-  const [content, setContent] = useState("");
-  const [activeTab, setActiveTab] = useState<TemplateTab>("text");
-  const [imageUrl, setImageUrl] = useState("");
-  const [uploading, setUploading] = useState(false);
-  const [category, setCategory] = useState<string>("未分類");
-  const [folderName, setFolderName] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
-  const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  // ボタン・カルーセル
-  const [panels, setPanels] = useState<CarouselPanel[]>([{ ...EMPTY_PANEL, buttons: [{ ...EMPTY_BUTTON }] }]);
-  // Flex JSON直接編集
-  const [flexJson, setFlexJson] = useState("");
-  const [flexError, setFlexError] = useState("");
-  const [showJsonPaste, setShowJsonPaste] = useState(false);
-  const [jsonPasteValue, setJsonPasteValue] = useState("");
-  // Flexプリセット
-  const [flexPresets, setFlexPresets] = useState<FlexPreset[]>([]);
-  // テスト送信（複数アカウント対応）
-  type TestAccount = { patient_id: string; patient_name: string; has_line_uid: boolean };
+
+  // テスト送信
   const [testAccounts, setTestAccounts] = useState<TestAccount[]>([]);
   const [testSendingId, setTestSendingId] = useState<number | null>(null);
   const [testSendResult, setTestSendResult] = useState<{ id: number; ok: boolean; message: string } | null>(null);
   const [showTestSendModal, setShowTestSendModal] = useState<Template | null>(null);
   const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
 
-  // ⋮メニュー
-  const [actionMenuId, setActionMenuId] = useState<number | null>(null);
+  // 名前変更
   const [renameTarget, setRenameTarget] = useState<Template | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
-  // 変数プレビュー用state
+  // プレビュー
+  const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   const [previewResult, setPreviewResult] = useState<string | null>(null);
   const [previewVars, setPreviewVars] = useState<Record<string, string> | null>(null);
   const [previewSource, setPreviewSource] = useState<"sample" | "patient" | null>(null);
@@ -309,13 +63,8 @@ export default function TemplateManagementPage() {
   const patientSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ─── SWR データ取得 ───
-  const TEMPLATES_KEY = "/api/admin/line/templates";
-  const CATEGORIES_KEY = "/api/admin/line/template-categories";
-  const PRESETS_KEY = "/api/admin/line/flex-presets";
-  const TEST_ACCOUNT_KEY = "/api/admin/line/test-account";
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: tData, isLoading: tLoading, error: tError } = useSWR<any>(TEMPLATES_KEY);
+  const { data: tData, isLoading: loading, error: tError } = useSWR<any>(TEMPLATES_KEY);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: cData } = useSWR<any>(CATEGORIES_KEY);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -323,196 +72,31 @@ export default function TemplateManagementPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: taData } = useSWR<any>(TEST_ACCOUNT_KEY);
 
-  const loading = tLoading;
-
-  // SWRデータ → ローカルstate
-  useEffect(() => {
-    if (tData?.templates) setTemplates(tData.templates);
-  }, [tData]);
-
-  useEffect(() => {
-    if (cData?.categories) setCategories(cData.categories);
-  }, [cData]);
-
-  useEffect(() => {
-    if (fpData?.presets) setFlexPresets(fpData.presets);
-  }, [fpData]);
-
+  useEffect(() => { if (tData?.templates) setTemplates(tData.templates); }, [tData]);
+  useEffect(() => { if (cData?.categories) setCategories(cData.categories); }, [cData]);
+  useEffect(() => { if (fpData?.presets) setFlexPresets(fpData.presets); }, [fpData]);
   useEffect(() => {
     if (!taData) return;
-    if (taData.accounts && taData.accounts.length > 0) {
+    if (taData.accounts?.length > 0) {
       setTestAccounts(taData.accounts);
     } else if (taData.patient_id) {
-      // 後方互換
       setTestAccounts([{ patient_id: taData.patient_id, patient_name: taData.patient_name, has_line_uid: taData.has_line_uid }]);
     }
   }, [taData]);
 
-  const revalidateAll = () => {
-    mutate(TEMPLATES_KEY);
-    mutate(CATEGORIES_KEY);
-  };
+  const revalidateAll = () => { mutate(TEMPLATES_KEY); mutate(CATEGORIES_KEY); };
 
-  // 患者検索（デバウンス付き）
-  const searchPatients = async (query: string) => {
-    if (!query.trim()) {
-      setPatientCandidates([]);
+  // ─── ハンドラ ───
+  const handleEdit = (t: Template) => {
+    if (t.message_type === "flex" && t.flex_content) {
+      window.location.href = `/admin/line/flex-builder?template=${t.id}`;
       return;
     }
-    setPatientSearching(true);
-    try {
-      const res = await fetch(
-        `/api/admin/patient-lookup?q=${encodeURIComponent(query.trim())}&type=name`,
-        { credentials: "include" },
-      );
-      const data = await res.json();
-      if (data.candidates) {
-        setPatientCandidates(data.candidates);
-      } else if (data.found && data.patient) {
-        setPatientCandidates([{ id: data.patient.id, name: data.patient.name }]);
-      } else {
-        setPatientCandidates([]);
-      }
-    } catch {
-      setPatientCandidates([]);
-    } finally {
-      setPatientSearching(false);
-    }
+    setEditingTemplate(t);
+    setShowEditor(true);
   };
 
-  // 患者検索入力のデバウンス
-  const handlePatientSearchChange = (value: string) => {
-    setPatientSearch(value);
-    if (patientSearchTimerRef.current) clearTimeout(patientSearchTimerRef.current);
-    patientSearchTimerRef.current = setTimeout(() => searchPatients(value), 400);
-  };
-
-  // テンプレートプレビューを取得
-  const fetchPreview = async (templateContent: string, patientId?: string) => {
-    setPreviewLoading(true);
-    try {
-      const res = await fetch("/api/admin/line/templates/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          template_content: templateContent,
-          patient_id: patientId,
-        }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setPreviewResult(data.preview);
-        setPreviewVars(data.variables);
-        setPreviewSource(data.source);
-      } else {
-        setPreviewResult(null);
-        setPreviewVars(null);
-        setPreviewSource(null);
-      }
-    } catch {
-      setPreviewResult(null);
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
-
-  // プレビューモーダルを開く
-  const openPreviewModal = (t: Template) => {
-    setPreviewTemplate(t);
-    setPreviewResult(null);
-    setPreviewVars(null);
-    setPreviewSource(null);
-    setPatientSearch("");
-    setPatientCandidates([]);
-    setSelectedPatient(null);
-    // テキストテンプレートの場合、サンプルデータでプレビューを自動取得
-    if (t.message_type === "text" && t.content) {
-      fetchPreview(t.content);
-    }
-  };
-
-  // プレビューモーダルを閉じる
-  const closePreviewModal = () => {
-    setPreviewTemplate(null);
-    setPreviewResult(null);
-    setPreviewVars(null);
-    setPreviewSource(null);
-    setPatientSearch("");
-    setPatientCandidates([]);
-    setSelectedPatient(null);
-  };
-
-  // テスト送信確認画面を開く
-  const openTestSendModal = (t: Template) => {
-    if (testAccounts.length === 0 || testSendingId) return;
-    setShowTestSendModal(t);
-    // デフォルトで全アカウント選択
-    setSelectedTestIds(testAccounts.filter(a => a.has_line_uid).map(a => a.patient_id));
-  };
-
-  // テスト送信実行（選択されたアカウントに送信）
-  const executeTestSend = async () => {
-    const t = showTestSendModal;
-    if (!t || selectedTestIds.length === 0 || testSendingId) return;
-    setShowTestSendModal(null);
-    setTestSendingId(t.id);
-    setTestSendResult(null);
-
-    const results: string[] = [];
-    let allOk = true;
-    for (const pid of selectedTestIds) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const body: any = { patient_id: pid };
-        if (t.message_type === "flex" && t.flex_content) {
-          body.message_type = "flex";
-          const fixedContent = fixFlexForSend(t.flex_content);
-          body.flex = { type: "flex", altText: t.name, contents: fixedContent };
-          body.message = "";
-        } else if (t.message_type === "image") {
-          body.message_type = "image";
-          body.message = t.content;
-          body.template_name = t.name;
-        } else {
-          body.message = t.content;
-        }
-        const res = await fetch("/api/admin/line/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(body),
-        });
-        const data = await res.json();
-        const account = testAccounts.find(a => a.patient_id === pid);
-        const name = account?.patient_name || pid;
-        if (data.ok) {
-          results.push(`${name}: 送信完了`);
-        } else {
-          allOk = false;
-          // エラー時にAPIからのデバッグ情報を表示
-          const debugInfo = data._debug ? ` [${data._debug}]` : "";
-          const payload = data._payload ? ` payload:${data._payload.substring(0, 200)}` : "";
-          results.push(`${name}: ${(data.message || data.error) || "失敗"}${debugInfo}${payload}`);
-        }
-      } catch {
-        allOk = false;
-        const account = testAccounts.find(a => a.patient_id === pid);
-        results.push(`${account?.patient_name || pid}: 通信エラー`);
-      }
-    }
-    setTestSendResult({
-      id: t.id,
-      ok: allOk,
-      message: results.join(" / "),
-    });
-    setTestSendingId(null);
-    setTimeout(() => setTestSendResult(null), 6000);
-  };
-
-  // コピー作成
   const handleDuplicate = async (t: Template) => {
-    setActionMenuId(null);
     try {
       const res = await fetch("/api/admin/line/templates", {
         method: "POST",
@@ -537,7 +121,11 @@ export default function TemplateManagementPage() {
     }
   };
 
-  // 名前変更
+  const handleDelete = async (id: number) => {
+    const res = await fetch(`/api/admin/line/templates/${id}`, { method: "DELETE", credentials: "include" });
+    if (res.ok) { mutate(TEMPLATES_KEY); setDeleteConfirm(null); }
+  };
+
   const handleRename = async () => {
     if (!renameTarget || !renameValue.trim()) return;
     try {
@@ -553,277 +141,124 @@ export default function TemplateManagementPage() {
           flex_content: renameTarget.flex_content || null,
         }),
       });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        alert(d.error || "名前変更に失敗しました");
-        return;
-      }
+      if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || "名前変更に失敗しました"); return; }
       setRenameTarget(null);
       mutate(TEMPLATES_KEY);
-    } catch {
-      alert("名前変更中にエラーが発生しました");
-    }
+    } catch { alert("名前変更中にエラーが発生しました"); }
+  };
+
+  const openTestSendModal = (t: Template) => {
+    if (testAccounts.length === 0 || testSendingId) return;
+    setShowTestSendModal(t);
+    setSelectedTestIds(testAccounts.filter(a => a.has_line_uid).map(a => a.patient_id));
+  };
+
+  // カテゴリ操作
+  const handleCreateFolder = async () => {
+    if (!folderName.trim()) return;
+    setSaving(true);
+    const res = await fetch("/api/admin/line/template-categories", {
+      method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+      body: JSON.stringify({ name: folderName.trim() }),
+    });
+    if (res.ok) { mutate(CATEGORIES_KEY); setShowFolderModal(false); setFolderName(""); }
+    else { const data = await res.json(); alert((data.message || data.error) || "作成失敗"); }
+    setSaving(false);
+  };
+
+  const handleUpdateCategory = async () => {
+    if (!editingCategory || !editCategoryName.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/line/template-categories/${editingCategory.id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ name: editCategoryName.trim() }),
+      });
+      if (res.ok) {
+        if (selectedCategory === editingCategory.name) setSelectedCategory(editCategoryName.trim());
+        revalidateAll(); setEditingCategory(null); setEditCategoryName("");
+      } else { const data = await res.json(); alert((data.message || data.error) || "カテゴリ名変更に失敗しました"); }
+    } catch { alert("カテゴリ名変更中にエラーが発生しました"); }
+    setSaving(false);
+  };
+
+  const handleDeleteCategory = async (cat: Category) => {
+    try {
+      const res = await fetch(`/api/admin/line/template-categories/${cat.id}`, { method: "DELETE", credentials: "include" });
+      if (res.ok) {
+        if (selectedCategory === cat.name) setSelectedCategory("__all__");
+        revalidateAll(); setDeleteCategoryConfirm(null);
+      } else { const data = await res.json(); alert((data.message || data.error) || "カテゴリ削除に失敗しました"); }
+    } catch { alert("カテゴリ削除中にエラーが発生しました"); }
+  };
+
+  const handleMoveCategory = async (catIndex: number, direction: "up" | "down") => {
+    const swapIndex = direction === "up" ? catIndex - 1 : catIndex + 1;
+    if (swapIndex < 0 || swapIndex >= categories.length) return;
+    const newCategories = [...categories];
+    [newCategories[catIndex], newCategories[swapIndex]] = [newCategories[swapIndex], newCategories[catIndex]];
+    const orders = newCategories.map((c, i) => ({ id: c.id, sort_order: i }));
+    setCategories(newCategories.map((c, i) => ({ ...c, sort_order: i })));
+    try {
+      await fetch("/api/admin/line/template-categories/reorder", {
+        method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ orders }),
+      });
+      mutate(CATEGORIES_KEY);
+    } catch { mutate(CATEGORIES_KEY); }
+  };
+
+  // プレビュー
+  const searchPatients = async (query: string) => {
+    if (!query.trim()) { setPatientCandidates([]); return; }
+    setPatientSearching(true);
+    try {
+      const res = await fetch(`/api/admin/patient-lookup?q=${encodeURIComponent(query.trim())}&type=name`, { credentials: "include" });
+      const data = await res.json();
+      if (data.candidates) setPatientCandidates(data.candidates);
+      else if (data.found && data.patient) setPatientCandidates([{ id: data.patient.id, name: data.patient.name }]);
+      else setPatientCandidates([]);
+    } catch { setPatientCandidates([]); }
+    finally { setPatientSearching(false); }
+  };
+
+  const handlePatientSearchChange = (value: string) => {
+    setPatientSearch(value);
+    if (patientSearchTimerRef.current) clearTimeout(patientSearchTimerRef.current);
+    patientSearchTimerRef.current = setTimeout(() => searchPatients(value), 400);
+  };
+
+  const fetchPreview = async (templateContent: string, patientId?: string) => {
+    setPreviewLoading(true);
+    try {
+      const res = await fetch("/api/admin/line/templates/preview", {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ template_content: templateContent, patient_id: patientId }),
+      });
+      const data = await res.json();
+      if (data.ok) { setPreviewResult(data.preview); setPreviewVars(data.variables); setPreviewSource(data.source); }
+      else { setPreviewResult(null); setPreviewVars(null); setPreviewSource(null); }
+    } catch { setPreviewResult(null); }
+    finally { setPreviewLoading(false); }
+  };
+
+  const openPreviewModal = (t: Template) => {
+    setPreviewTemplate(t);
+    setPreviewResult(null); setPreviewVars(null); setPreviewSource(null);
+    setPatientSearch(""); setPatientCandidates([]); setSelectedPatient(null);
+    if (t.message_type === "text" && t.content) fetchPreview(t.content);
+  };
+
+  const closePreviewModal = () => {
+    setPreviewTemplate(null); setPreviewResult(null); setPreviewVars(null); setPreviewSource(null);
+    setPatientSearch(""); setPatientCandidates([]); setSelectedPatient(null);
   };
 
   const filteredTemplates = selectedCategory === "__all__"
     ? templates
     : templates.filter(t => (t.category || "未分類") === selectedCategory);
 
-  const getCategoryCount = (catName: string) =>
-    templates.filter(t => (t.category || "未分類") === catName).length;
-
-  const handleImageUpload = async (file: File) => {
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/admin/line/upload-template-image", {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        alert((data.message || data.error) || "画像アップロード失敗");
-        return;
-      }
-
-      const data = await res.json();
-      setImageUrl(data.url);
-    } catch {
-      alert("画像アップロード中にエラーが発生しました");
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!name.trim() || saving) return;
-
-    let saveContent = "";
-    let saveType = "text";
-    let flexContent: Record<string, unknown> | null = null;
-
-    if (activeTab === "image") {
-      if (!imageUrl) { alert("画像をアップロードしてください"); return; }
-      saveContent = imageUrl;
-      saveType = "image";
-    } else if (activeTab === "carousel") {
-      const isQa = panels.some(p => p.qaMode);
-      if (isQa) {
-        const validPanels = panels.filter(p => p.qaMode && p.title.trim());
-        if (validPanels.length === 0) { alert("カードを1つ以上作成してください"); return; }
-        flexContent = qaPanelsToFlex(validPanels);
-      } else {
-        const validPanels = panels.filter(p => p.title.trim() || p.body.trim() || p.imageUrl);
-        if (validPanels.length === 0) { alert("パネルを1つ以上作成してください"); return; }
-        flexContent = panelsToFlex(validPanels);
-      }
-      saveType = "flex";
-      saveContent = "";
-    } else if (activeTab === "flex") {
-      if (!flexJson.trim()) { alert("Flex JSONを入力してください"); return; }
-      try {
-        flexContent = JSON.parse(flexJson);
-      } catch {
-        alert("JSON形式が不正です"); return;
-      }
-      saveType = "flex";
-      saveContent = "";
-    } else {
-      if (!content.trim()) { alert("本文を入力してください"); return; }
-      saveContent = content.trim();
-      saveType = "text";
-    }
-
-    setSaving(true);
-
-    const url = editingTemplate ? `/api/admin/line/templates/${editingTemplate.id}` : "/api/admin/line/templates";
-    const method = editingTemplate ? "PUT" : "POST";
-
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ name: name.trim(), content: saveContent, message_type: saveType, category, flex_content: flexContent }),
-    });
-
-    if (res.ok) {
-      mutate(TEMPLATES_KEY);
-      resetForm();
-    } else {
-      const data = await res.json();
-      alert((data.message || data.error) || "保存失敗");
-    }
-    setSaving(false);
-  };
-
-  const handleCreateFolder = async () => {
-    if (!folderName.trim()) return;
-    setSaving(true);
-
-    const res = await fetch("/api/admin/line/template-categories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ name: folderName.trim() }),
-    });
-
-    if (res.ok) {
-      mutate(CATEGORIES_KEY);
-      setShowFolderModal(false);
-      setFolderName("");
-    } else {
-      const data = await res.json();
-      alert((data.message || data.error) || "作成失敗");
-    }
-    setSaving(false);
-  };
-
-  // カテゴリ名変更
-  const handleUpdateCategory = async () => {
-    if (!editingCategory || !editCategoryName.trim()) return;
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/admin/line/template-categories/${editingCategory.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ name: editCategoryName.trim() }),
-      });
-      if (res.ok) {
-        const oldName = editingCategory.name;
-        const newName = editCategoryName.trim();
-        // 選択中カテゴリが変更されたカテゴリなら追従
-        if (selectedCategory === oldName) {
-          setSelectedCategory(newName);
-        }
-        revalidateAll();
-        setEditingCategory(null);
-        setEditCategoryName("");
-      } else {
-        const data = await res.json();
-        alert((data.message || data.error) || "カテゴリ名変更に失敗しました");
-      }
-    } catch {
-      alert("カテゴリ名変更中にエラーが発生しました");
-    }
-    setSaving(false);
-  };
-
-  // カテゴリ削除
-  const handleDeleteCategory = async (cat: Category) => {
-    try {
-      const res = await fetch(`/api/admin/line/template-categories/${cat.id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (res.ok) {
-        if (selectedCategory === cat.name) {
-          setSelectedCategory("__all__");
-        }
-        revalidateAll();
-        setDeleteCategoryConfirm(null);
-      } else {
-        const data = await res.json();
-        alert((data.message || data.error) || "カテゴリ削除に失敗しました");
-      }
-    } catch {
-      alert("カテゴリ削除中にエラーが発生しました");
-    }
-  };
-
-  // カテゴリ並び替え（上下移動）
-  const handleMoveCategory = async (catIndex: number, direction: "up" | "down") => {
-    const swapIndex = direction === "up" ? catIndex - 1 : catIndex + 1;
-    if (swapIndex < 0 || swapIndex >= categories.length) return;
-    const newCategories = [...categories];
-    [newCategories[catIndex], newCategories[swapIndex]] = [newCategories[swapIndex], newCategories[catIndex]];
-    // sort_order を再割り当て
-    const orders = newCategories.map((c, i) => ({ id: c.id, sort_order: i }));
-    setCategories(newCategories.map((c, i) => ({ ...c, sort_order: i })));
-
-    try {
-      await fetch("/api/admin/line/template-categories/reorder", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ orders }),
-      });
-      mutate(CATEGORIES_KEY);
-    } catch {
-      // 失敗時はリフレッシュ
-      mutate(CATEGORIES_KEY);
-    }
-  };
-
-  const handleDelete = async (id: number) => {
-    const res = await fetch(`/api/admin/line/templates/${id}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
-    if (res.ok) {
-      mutate(TEMPLATES_KEY);
-      setDeleteConfirm(null);
-    }
-  };
-
-  const handleEdit = (t: Template) => {
-    setEditingTemplate(t);
-    setName(t.name);
-    setCategory(t.category || "未分類");
-    if (t.message_type === "image") {
-      setActiveTab("image");
-      setImageUrl(t.content);
-      setContent("");
-    } else if (t.message_type === "flex" && t.flex_content) {
-      if (isQaStyleFlex(t.flex_content)) {
-        // Q&Aカルーセル → カルーセルビルダーで開く
-        setActiveTab("carousel");
-        setPanels(qaFlexToPanels(t.flex_content));
-        setFlexJson(JSON.stringify(t.flex_content, null, 2));
-      } else {
-        // 通常Flex → JSON直接編集で開く
-        setActiveTab("flex");
-        setFlexJson(JSON.stringify(t.flex_content, null, 2));
-      }
-      setContent("");
-      setImageUrl("");
-    } else {
-      setActiveTab("text");
-      setContent(t.content);
-      setImageUrl("");
-    }
-    setShowModal(true);
-  };
-
-  const resetForm = () => {
-    setShowModal(false);
-    setEditingTemplate(null);
-    setName("");
-    setContent("");
-    setActiveTab("text");
-    setImageUrl("");
-    setCategory("未分類");
-    setPanels([{ ...EMPTY_PANEL, buttons: [{ ...EMPTY_BUTTON }] }]);
-    setFlexJson("");
-    setFlexError("");
-  };
-
-  const formatDate = (d: string) => {
-    const date = new Date(d);
-    return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
-  };
-
-  const canSave = name.trim() && (
-    activeTab === "text" ? content.trim() :
-    activeTab === "image" ? imageUrl :
-    activeTab === "carousel" ? panels.some(p => p.qaMode ? p.title.trim() : (p.title.trim() || p.body.trim())) :
-    activeTab === "flex" ? flexJson.trim() && !flexError :
-    false
-  );
+  const getCategoryCount = (catName: string) => templates.filter(t => (t.category || "未分類") === catName).length;
 
   if (tError) return <ErrorFallback error={tError} retry={() => { mutate(TEMPLATES_KEY); mutate(CATEGORIES_KEY); }} />;
 
@@ -864,7 +299,7 @@ export default function TemplateManagementPage() {
                 新しいフォルダ
               </button>
               <button
-                onClick={() => { resetForm(); setCategory(selectedCategory === "__all__" ? "未分類" : selectedCategory); setShowModal(true); }}
+                onClick={() => { setEditingTemplate(null); setShowEditor(true); }}
                 className="px-5 py-2.5 bg-gradient-to-r from-[#06C755] to-[#05a648] text-white rounded-xl text-sm font-medium hover:from-[#05b34d] hover:to-[#049a42] shadow-lg shadow-green-500/25 transition-all duration-200 flex items-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -883,7 +318,6 @@ export default function TemplateManagementPage() {
           {/* 左サイドバー - フォルダ */}
           <div className="w-56 flex-shrink-0">
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              {/* 全て表示 */}
               <button
                 onClick={() => setSelectedCategory("__all__")}
                 className={`w-full px-4 py-3 text-left text-sm flex items-center justify-between transition-colors ${
@@ -899,7 +333,6 @@ export default function TemplateManagementPage() {
                 <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{templates.length}</span>
               </button>
 
-              {/* 各カテゴリ */}
               {categories.map((cat, idx) => (
                 <div key={cat.id} className="relative">
                   <button
@@ -916,70 +349,41 @@ export default function TemplateManagementPage() {
                     </span>
                     <span className="flex items-center gap-1.5 flex-shrink-0">
                       <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{getCategoryCount(cat.name)}</span>
-                      {/* カテゴリメニューボタン */}
                       <span
                         onClick={(e) => { e.stopPropagation(); setCategoryMenuId(categoryMenuId === cat.id ? null : cat.id); }}
                         className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                       >
                         <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                          <circle cx="12" cy="5" r="1.5" />
-                          <circle cx="12" cy="12" r="1.5" />
-                          <circle cx="12" cy="19" r="1.5" />
+                          <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
                         </svg>
                       </span>
                     </span>
                   </button>
-
-                  {/* カテゴリメニュー */}
                   {categoryMenuId === cat.id && (
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setCategoryMenuId(null)} />
                       <div className="absolute right-2 top-full mt-0.5 bg-white border border-gray-200 rounded-xl shadow-lg z-20 w-[140px] py-1">
-                        {/* 名前変更 */}
-                        <button
-                          onClick={() => { setCategoryMenuId(null); setEditCategoryName(cat.name); setEditingCategory(cat); }}
-                          className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                        >
-                          <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
+                        <button onClick={() => { setCategoryMenuId(null); setEditCategoryName(cat.name); setEditingCategory(cat); }} className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                          <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                           名前変更
                         </button>
-                        {/* 上に移動 */}
                         {idx > 0 && (
-                          <button
-                            onClick={() => { setCategoryMenuId(null); handleMoveCategory(idx, "up"); }}
-                            className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                          >
-                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                            </svg>
+                          <button onClick={() => { setCategoryMenuId(null); handleMoveCategory(idx, "up"); }} className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                             上に移動
                           </button>
                         )}
-                        {/* 下に移動 */}
                         {idx < categories.length - 1 && (
-                          <button
-                            onClick={() => { setCategoryMenuId(null); handleMoveCategory(idx, "down"); }}
-                            className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                          >
-                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
+                          <button onClick={() => { setCategoryMenuId(null); handleMoveCategory(idx, "down"); }} className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                             下に移動
                           </button>
                         )}
-                        {/* 削除（「未分類」以外） */}
                         {cat.name !== "未分類" && (
                           <>
                             <div className="border-t border-gray-100 my-1" />
-                            <button
-                              onClick={() => { setCategoryMenuId(null); setDeleteCategoryConfirm(cat); }}
-                              className="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 flex items-center gap-2"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
+                            <button onClick={() => { setCategoryMenuId(null); setDeleteCategoryConfirm(cat); }} className="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 flex items-center gap-2">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                               削除
                             </button>
                           </>
@@ -990,8 +394,6 @@ export default function TemplateManagementPage() {
                 </div>
               ))}
             </div>
-
-            {/* フォルダ管理ボタン */}
             <button
               onClick={() => setShowCategoryManager(true)}
               className="mt-3 w-full px-4 py-2 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors flex items-center justify-center gap-1.5"
@@ -1013,896 +415,98 @@ export default function TemplateManagementPage() {
                   <span className="text-sm text-gray-400">読み込み中...</span>
                 </div>
               </div>
-            ) : filteredTemplates.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-100">
-                <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-4">
-                  <svg className="w-8 h-8 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <p className="text-gray-400 text-sm">テンプレートがありません</p>
-                <p className="text-gray-300 text-xs mt-1">「新しいテンプレート」ボタンから作成しましょう</p>
-              </div>
             ) : (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                {/* テーブルヘッダー */}
-                <div className="grid grid-cols-[1fr_100px_80px_60px_40px] gap-4 px-6 py-3 bg-gray-50/80 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  <div>テンプレート名</div>
-                  <div className="text-center">登録日</div>
-                  <div className="text-center">プレビュー</div>
-                  <div className="text-center">編集</div>
-                  <div></div>
-                </div>
-
-                {filteredTemplates.map((t) => (
-                  <div
-                    key={t.id}
-                    className="grid grid-cols-[1fr_100px_80px_60px_40px] gap-4 items-center px-6 py-3.5 border-b border-gray-50 hover:bg-gray-50/50 transition-colors group"
-                  >
-                    {/* テンプレート名 */}
-                    <div>
-                      <button
-                        onClick={() => handleEdit(t)}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline text-left"
-                      >
-                        {t.name}
-                      </button>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${
-                          t.message_type === "image" ? "bg-purple-100 text-purple-600" :
-                          t.message_type === "flex" ? "bg-blue-100 text-blue-600" :
-                          "bg-gray-100 text-gray-500"
-                        }`}>
-                          {t.message_type === "image" ? "画像" : t.message_type === "flex" ? (t.content?.includes("カルーセル") ? "カルーセル" : "Flex") : "テキスト"}
-                        </span>
-                        {t.message_type === "image" ? (
-                          <img src={t.content} alt="" className="h-6 w-6 rounded object-cover" />
-                        ) : (
-                          <span className="text-xs text-gray-400 truncate max-w-[300px]">
-                            {t.content.substring(0, 50)}{t.content.length > 50 ? "..." : ""}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 登録日 */}
-                    <div className="text-center text-sm text-gray-500">
-                      {formatDate(t.created_at)}
-                    </div>
-
-                    {/* プレビュー */}
-                    <div className="text-center">
-                      <button
-                        onClick={() => openPreviewModal(t)}
-                        className="px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        プレビュー
-                      </button>
-                    </div>
-
-                    {/* 編集 */}
-                    <div className="text-center">
-                      {t.message_type === "flex" && t.flex_content ? (
-                        <button
-                          onClick={() => { window.location.href = `/admin/line/flex-builder?template=${t.id}`; }}
-                          className="px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                          編集
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleEdit(t)}
-                          className="px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                          編集
-                        </button>
-                      )}
-                    </div>
-
-                    {/* ⋮ メニュー */}
-                    <div className="text-center relative">
-                      {testSendResult?.id === t.id ? (
-                        <span
-                          className={`text-[11px] font-medium ${testSendResult.ok ? "text-emerald-600" : "text-red-500"}`}
-                          title={testSendResult.message}
-                        >
-                          {testSendResult.ok ? "送信完了" : "失敗"}
-                        </span>
-                      ) : testSendingId === t.id ? (
-                        <span className="text-[11px] text-amber-600">送信中...</span>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => setActionMenuId(actionMenuId === t.id ? null : t.id)}
-                            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-                          >
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                              <circle cx="12" cy="5" r="1.5" />
-                              <circle cx="12" cy="12" r="1.5" />
-                              <circle cx="12" cy="19" r="1.5" />
-                            </svg>
-                          </button>
-                          {actionMenuId === t.id && (
-                            <>
-                              <div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} />
-                              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 w-[160px] py-1">
-                                <button
-                                  onClick={() => handleDuplicate(t)}
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                                >
-                                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                  </svg>
-                                  コピー
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setActionMenuId(null);
-                                    setRenameValue(t.name);
-                                    setRenameTarget(t);
-                                  }}
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                                >
-                                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                  </svg>
-                                  名前を変更
-                                </button>
-                                {testAccounts.length > 0 && (
-                                  <button
-                                    onClick={() => {
-                                      setActionMenuId(null);
-                                      openTestSendModal(t);
-                                    }}
-                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                                  >
-                                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                    </svg>
-                                    テスト送信
-                                  </button>
-                                )}
-                                <div className="border-t border-gray-100 my-1" />
-                                <button
-                                  onClick={() => {
-                                    setActionMenuId(null);
-                                    setDeleteConfirm(t.id);
-                                  }}
-                                  className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                  削除
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <TemplateList
+                templates={filteredTemplates}
+                testAccounts={testAccounts}
+                testSendingId={testSendingId}
+                testSendResult={testSendResult}
+                onEdit={handleEdit}
+                onDuplicate={handleDuplicate}
+                onDelete={(id) => setDeleteConfirm(id)}
+                onPreview={openPreviewModal}
+                onTestSend={openTestSendModal}
+                onRename={(t) => { setRenameValue(t.name); setRenameTarget(t); }}
+              />
             )}
           </div>
         </div>
       </div>
 
       {/* テンプレート作成/編集モーダル */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => resetForm()}>
-          <div className={`bg-white rounded-2xl w-full shadow-2xl max-h-[90vh] flex flex-col transition-all ${activeTab === "flex" ? "max-w-6xl" : "max-w-2xl"}`} onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-gray-100 flex-shrink-0">
-              <div className="flex items-center justify-between">
-                <h2 className="font-bold text-gray-900 text-lg">
-                  {editingTemplate ? "テンプレート編集" : "テンプレート登録"}
-                </h2>
-                <button onClick={resetForm} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
+      {showEditor && (
+        <TemplateEditor
+          editingTemplate={editingTemplate}
+          categories={categories}
+          flexPresets={flexPresets}
+          initialCategory={selectedCategory === "__all__" ? "未分類" : selectedCategory}
+          onClose={() => { setShowEditor(false); setEditingTemplate(null); }}
+        />
+      )}
 
-            <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1">
-              {/* テンプレート名 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  テンプレート名 <span className="text-red-500 text-xs px-1.5 py-0.5 bg-red-50 rounded">必須</span>
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="テンプレート名を入力"
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 bg-gray-50/50 transition-all"
-                  autoFocus
-                />
-              </div>
-
-              {/* フォルダ */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  テンプレートフォルダ <span className="text-gray-400 text-xs px-1.5 py-0.5 bg-gray-50 rounded">任意</span>
-                </label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 bg-gray-50/50 transition-all"
-                >
-                  {categories.map(c => (
-                    <option key={c.id} value={c.name}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* タブ切替 */}
-              <div>
-                <div className="flex border-b border-gray-200 overflow-x-auto">
-                  {([
-                    { key: "text" as TemplateTab, label: "テキスト" },
-                    { key: "image" as TemplateTab, label: "画像" },
-                    { key: "carousel" as TemplateTab, label: "ボタン・カルーセル" },
-                    { key: "flex" as TemplateTab, label: "Flex" },
-                  ]).map(tab => (
-                    <button
-                      key={tab.key}
-                      onClick={() => setActiveTab(tab.key)}
-                      className={`px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
-                        activeTab === tab.key
-                          ? "text-[#06C755] border-b-2 border-[#06C755]"
-                          : "text-gray-400 hover:text-gray-600"
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* テキスト入力 */}
-              {activeTab === "text" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    本文 <span className="text-red-500 text-xs px-1.5 py-0.5 bg-red-50 rounded">必須</span>
-                  </label>
-                  {/* ツールバー */}
-                  <div className="flex items-center gap-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-t-xl border-b-0">
-                    <button className="p-1 text-gray-400 hover:text-gray-600 rounded" title="元に戻す">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
-                    </button>
-                    <button className="p-1 text-gray-400 hover:text-gray-600 rounded" title="やり直し">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" /></svg>
-                    </button>
-                    <div className="w-px h-4 bg-gray-300 mx-1" />
-                    <button className="px-2 py-0.5 text-xs bg-gray-200 text-gray-600 rounded hover:bg-gray-300">名前</button>
-                    <button className="px-2 py-0.5 text-xs bg-gray-200 text-gray-600 rounded hover:bg-gray-300">友だち情報</button>
-                  </div>
-                  <textarea
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    placeholder="メッセージ本文を入力してください..."
-                    rows={8}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-b-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 resize-none transition-all"
-                  />
-                  <div className="flex justify-end mt-1">
-                    <span className="text-xs text-gray-400">{content.length}/22500</span>
-                  </div>
-                </div>
-              )}
-
-              {/* 画像アップロード */}
-              {activeTab === "image" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    画像 <span className="text-red-500 text-xs px-1.5 py-0.5 bg-red-50 rounded">必須</span>
-                  </label>
-
-                  <input
-                    ref={imageInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleImageUpload(file);
-                      e.target.value = "";
-                    }}
-                  />
-
-                  {imageUrl ? (
-                    <div className="space-y-3">
-                      <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-                        <img src={imageUrl} alt="プレビュー" className="w-full max-h-[300px] object-contain" />
-                        <button
-                          onClick={() => setImageUrl("")}
-                          className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                      <button
-                        onClick={() => imageInputRef.current?.click()}
-                        disabled={uploading}
-                        className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                      >
-                        画像を変更
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => imageInputRef.current?.click()}
-                      disabled={uploading}
-                      className="w-full py-12 border-2 border-dashed border-gray-300 rounded-xl hover:border-green-400 hover:bg-green-50/30 transition-all flex flex-col items-center gap-3"
-                    >
-                      {uploading ? (
-                        <>
-                          <div className="w-8 h-8 border-2 border-green-200 border-t-green-500 rounded-full animate-spin" />
-                          <span className="text-sm text-gray-500">アップロード中...</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          <div className="text-center">
-                            <span className="text-sm font-medium text-gray-600">クリックして画像を選択</span>
-                            <p className="text-xs text-gray-400 mt-1">JPEG, PNG, WebP (10MBまで)</p>
-                          </div>
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* ボタン・カルーセル ビルダー */}
-              {activeTab === "carousel" && (
-                <div className="space-y-4">
-                  {/* Q&Aモード or 通常モード */}
-                  {panels.some(p => p.qaMode) ? (
-                    <>
-                      {/* ── Q&Aカルーセルエディタ ── */}
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs text-gray-500">Q&Aカード {panels.length}枚（末尾に「すべて見る」が自動付与）</p>
-                        {panels.length < 10 && (
-                          <button
-                            onClick={() => setPanels([...panels, { ...EMPTY_QA_PANEL }])}
-                            className="text-xs text-[#06C755] hover:text-[#05a648] font-medium flex items-center gap-1"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                            カード追加
-                          </button>
-                        )}
-                      </div>
-
-                      {panels.map((panel, pi) => (
-                        <div key={pi} className="border border-gray-200 rounded-xl overflow-hidden">
-                          <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100" style={{ backgroundColor: panel.headerColor || "#ec4899" }}>
-                            <span className="text-xs font-bold text-white">カード {pi + 1} — {panel.title || "未設定"}</span>
-                            <div className="flex items-center gap-1">
-                              {pi > 0 && (
-                                <button onClick={() => { const n = [...panels]; [n[pi-1], n[pi]] = [n[pi], n[pi-1]]; setPanels(n); }} className="p-1 text-white/70 hover:text-white rounded" title="前に移動">
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
-                                </button>
-                              )}
-                              {pi < panels.length - 1 && (
-                                <button onClick={() => { const n = [...panels]; [n[pi], n[pi+1]] = [n[pi+1], n[pi]]; setPanels(n); }} className="p-1 text-white/70 hover:text-white rounded" title="後に移動">
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                                </button>
-                              )}
-                              {panels.length > 1 && (
-                                <button onClick={() => setPanels(panels.filter((_, i) => i !== pi))} className="p-1 text-white/70 hover:text-white rounded" title="削除">
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="p-4 space-y-3">
-                            {/* ヘッダー色 */}
-                            <div>
-                              <label className="block text-xs font-medium text-gray-600 mb-1">ヘッダー色</label>
-                              <div className="flex gap-2">
-                                {QA_COLOR_PRESETS.map(c => (
-                                  <button
-                                    key={c.value}
-                                    onClick={() => { const n = [...panels]; n[pi] = { ...n[pi], headerColor: c.value }; setPanels(n); }}
-                                    className={`w-7 h-7 rounded-full border-2 transition-all ${panel.headerColor === c.value ? "border-gray-800 scale-110" : "border-transparent hover:scale-105"}`}
-                                    style={{ backgroundColor: c.value }}
-                                    title={c.label}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-
-                            {/* タイトル */}
-                            <div>
-                              <label className="block text-xs font-medium text-gray-600 mb-1">タイトル</label>
-                              <input
-                                type="text"
-                                value={panel.title}
-                                onChange={(e) => { const n = [...panels]; n[pi] = { ...n[pi], title: e.target.value }; setPanels(n); }}
-                                placeholder="例: ご利用の流れ"
-                                maxLength={40}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                              />
-                            </div>
-
-                            {/* サブタイトル */}
-                            <div>
-                              <label className="block text-xs font-medium text-gray-600 mb-1">サブタイトル</label>
-                              <input
-                                type="text"
-                                value={panel.subtitle || ""}
-                                onChange={(e) => { const n = [...panels]; n[pi] = { ...n[pi], subtitle: e.target.value }; setPanels(n); }}
-                                placeholder="例: 初めての方はこちら"
-                                maxLength={40}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                              />
-                            </div>
-
-                            {/* 箇条書き項目 */}
-                            <div>
-                              <div className="flex items-center justify-between mb-1">
-                                <label className="text-xs font-medium text-gray-600">箇条書き項目</label>
-                                <button
-                                  onClick={() => { const n = [...panels]; n[pi] = { ...n[pi], items: [...(n[pi].items || []), ""] }; setPanels(n); }}
-                                  className="text-[10px] text-[#06C755] hover:text-[#05a648] font-medium"
-                                >
-                                  + 追加
-                                </button>
-                              </div>
-                              {(panel.items || []).map((item, ii) => (
-                                <div key={ii} className="flex items-start gap-2 mb-2">
-                                  <span className="text-xs mt-2.5 flex-shrink-0" style={{ color: panel.headerColor || "#ec4899" }}>●</span>
-                                  <input
-                                    type="text"
-                                    value={item}
-                                    onChange={(e) => {
-                                      const n = [...panels];
-                                      const items = [...(n[pi].items || [])];
-                                      items[ii] = e.target.value;
-                                      n[pi] = { ...n[pi], items };
-                                      setPanels(n);
-                                    }}
-                                    placeholder="項目を入力"
-                                    className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                                  />
-                                  {(panel.items || []).length > 1 && (
-                                    <button
-                                      onClick={() => {
-                                        const n = [...panels];
-                                        n[pi] = { ...n[pi], items: (n[pi].items || []).filter((_, i) => i !== ii) };
-                                        setPanels(n);
-                                      }}
-                                      className="p-1 text-gray-400 hover:text-red-500 mt-0.5"
-                                    >
-                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                    </button>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-
-                            {/* カテゴリID */}
-                            <div>
-                              <label className="block text-xs font-medium text-gray-600 mb-1">カテゴリID（QAページリンク用）</label>
-                              <input
-                                type="text"
-                                value={panel.categoryId || ""}
-                                onChange={(e) => { const n = [...panels]; n[pi] = { ...n[pi], categoryId: e.target.value }; setPanels(n); }}
-                                placeholder="例: getting-started, payment, shipping"
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* Q&Aプレビュー */}
-                      {panels.some(p => p.title) && (
-                        <div className="border border-gray-200 rounded-xl overflow-hidden">
-                          <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
-                            <span className="text-xs font-medium text-gray-600">プレビュー</span>
-                          </div>
-                          <div className="p-4 bg-[#7494c0]">
-                            <div className="flex gap-2 overflow-x-auto pb-2">
-                              {panels.filter(p => p.title).map((panel, i) => (
-                                <div key={i} className="flex-shrink-0 w-[220px] bg-white rounded-xl overflow-hidden shadow-lg">
-                                  <div className="px-3 py-2" style={{ backgroundColor: panel.headerColor || "#ec4899" }}>
-                                    <p className="text-sm font-bold text-white">{panel.title}</p>
-                                    {panel.subtitle && <p className="text-[10px] text-white/80 mt-0.5">{panel.subtitle}</p>}
-                                  </div>
-                                  <div className="px-3 py-2 space-y-1">
-                                    {(panel.items || []).filter(Boolean).map((item, ii) => (
-                                      <div key={ii} className="flex gap-1.5 items-start">
-                                        <span className="text-[8px] mt-0.5 flex-shrink-0" style={{ color: panel.headerColor || "#ec4899" }}>●</span>
-                                        <p className="text-[10px] text-gray-600 leading-tight">{item}</p>
-                                      </div>
-                                    ))}
-                                  </div>
-                                  <div className="px-3 pb-2">
-                                    <div className="py-1 text-center text-[10px] font-medium rounded" style={{ color: panel.headerColor || "#ec4899" }}>
-                                      詳しく見る →
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                              {/* すべて見るバブル */}
-                              <div className="flex-shrink-0 w-[220px] bg-white rounded-xl overflow-hidden shadow-lg flex flex-col items-center justify-center py-6 px-3">
-                                <span className="text-2xl">💬</span>
-                                <p className="text-xs font-bold text-gray-800 mt-2">すべてのQ&Aを見る</p>
-                                <p className="text-[9px] text-gray-400 mt-1 text-center">自動付与</p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      {/* ── 通常カルーセルエディタ ── */}
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs text-gray-500">
-                          パネル {panels.length}/10（1枚ならボタン型、複数枚でカルーセル）
-                        </p>
-                        {panels.length < 10 && (
-                          <button
-                            onClick={() => setPanels([...panels, { ...EMPTY_PANEL, buttons: [{ ...EMPTY_BUTTON }] }])}
-                            className="text-xs text-[#06C755] hover:text-[#05a648] font-medium flex items-center gap-1"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                            パネル追加
-                          </button>
-                        )}
-                      </div>
-
-                      {panels.map((panel, pi) => (
-                        <div key={pi} className="border border-gray-200 rounded-xl overflow-hidden">
-                          <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-100">
-                            <span className="text-xs font-bold text-gray-600">パネル {pi + 1}/{panels.length}</span>
-                            <div className="flex items-center gap-1">
-                              {pi > 0 && (
-                                <button onClick={() => { const n = [...panels]; [n[pi-1], n[pi]] = [n[pi], n[pi-1]]; setPanels(n); }} className="p-1 text-gray-400 hover:text-gray-600 rounded" title="前に移動">
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
-                                </button>
-                              )}
-                              {pi < panels.length - 1 && (
-                                <button onClick={() => { const n = [...panels]; [n[pi], n[pi+1]] = [n[pi+1], n[pi]]; setPanels(n); }} className="p-1 text-gray-400 hover:text-gray-600 rounded" title="後に移動">
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                                </button>
-                              )}
-                              {panels.length > 1 && (
-                                <button onClick={() => setPanels(panels.filter((_, i) => i !== pi))} className="p-1 text-gray-400 hover:text-red-500 rounded" title="削除">
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="p-4 space-y-3">
-                            <div>
-                              <label className="block text-xs font-medium text-gray-600 mb-1">画像URL</label>
-                              <input type="url" value={panel.imageUrl} onChange={(e) => { const n = [...panels]; n[pi] = { ...n[pi], imageUrl: e.target.value }; setPanels(n); }} placeholder="https://example.com/image.jpg" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30" />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-600 mb-1">タイトル</label>
-                              <input type="text" value={panel.title} onChange={(e) => { const n = [...panels]; n[pi] = { ...n[pi], title: e.target.value }; setPanels(n); }} placeholder="タイトルを入力" maxLength={40} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30" />
-                              <div className="text-right text-[10px] text-gray-400 mt-0.5">{panel.title.length}/40</div>
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-600 mb-1">本文</label>
-                              <textarea value={panel.body} onChange={(e) => { const n = [...panels]; n[pi] = { ...n[pi], body: e.target.value }; setPanels(n); }} placeholder="本文を入力" rows={2} maxLength={60} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 resize-none" />
-                              <div className="text-right text-[10px] text-gray-400 mt-0.5">{panel.body.length}/60</div>
-                            </div>
-                            <div>
-                              <div className="flex items-center justify-between mb-1">
-                                <label className="text-xs font-medium text-gray-600">ボタン</label>
-                                {panel.buttons.length < (panels.length === 1 ? 4 : 3) && (
-                                  <button onClick={() => { const n = [...panels]; n[pi] = { ...n[pi], buttons: [...n[pi].buttons, { ...EMPTY_BUTTON }] }; setPanels(n); }} className="text-[10px] text-[#06C755] hover:text-[#05a648] font-medium">+ 追加</button>
-                                )}
-                              </div>
-                              {panel.buttons.map((btn, bi) => (
-                                <div key={bi} className="flex items-center gap-2 mb-2">
-                                  <input type="text" value={btn.label} onChange={(e) => { const n = [...panels]; const btns = [...n[pi].buttons]; btns[bi] = { ...btns[bi], label: e.target.value }; n[pi] = { ...n[pi], buttons: btns }; setPanels(n); }} placeholder="ボタン名" maxLength={20} className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-500/30" />
-                                  <select value={btn.actionType} onChange={(e) => { const n = [...panels]; const btns = [...n[pi].buttons]; btns[bi] = { ...btns[bi], actionType: e.target.value as PanelButton["actionType"] }; n[pi] = { ...n[pi], buttons: btns }; setPanels(n); }} className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none">
-                                    <option value="url">URL</option>
-                                    <option value="postback">ポストバック</option>
-                                    <option value="message">メッセージ</option>
-                                  </select>
-                                  <input type="text" value={btn.actionValue} onChange={(e) => { const n = [...panels]; const btns = [...n[pi].buttons]; btns[bi] = { ...btns[bi], actionValue: e.target.value }; n[pi] = { ...n[pi], buttons: btns }; setPanels(n); }} placeholder={btn.actionType === "url" ? "https://..." : btn.actionType === "postback" ? "action=xxx" : "返信テキスト"} className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-500/30" />
-                                  {panel.buttons.length > 1 && (
-                                    <button onClick={() => { const n = [...panels]; n[pi] = { ...n[pi], buttons: n[pi].buttons.filter((_, i) => i !== bi) }; setPanels(n); }} className="p-1 text-gray-400 hover:text-red-500">
-                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                    </button>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* 通常カルーセルプレビュー */}
-                      {panels.some(p => p.title || p.body || p.imageUrl) && (
-                        <div className="border border-gray-200 rounded-xl overflow-hidden">
-                          <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
-                            <span className="text-xs font-medium text-gray-600">プレビュー</span>
-                          </div>
-                          <div className="p-4 bg-[#7494c0]">
-                            <div className="flex gap-2 overflow-x-auto pb-2">
-                              {panels.filter(p => p.title || p.body || p.imageUrl).map((panel, i) => (
-                                <div key={i} className="flex-shrink-0 w-[220px] bg-white rounded-xl overflow-hidden shadow-lg">
-                                  {panel.imageUrl && (
-                                    <div className="w-full h-28 bg-gray-200 bg-cover bg-center" style={{ backgroundImage: `url(${panel.imageUrl})` }} />
-                                  )}
-                                  <div className="px-3 py-2">
-                                    {panel.title && <p className="text-sm font-bold text-gray-900">{panel.title}</p>}
-                                    {panel.body && <p className="text-xs text-gray-500 mt-0.5">{panel.body}</p>}
-                                  </div>
-                                  {panel.buttons.filter(b => b.label).length > 0 && (
-                                    <div className="px-3 pb-2 space-y-1">
-                                      {panel.buttons.filter(b => b.label).map((btn, bi) => (
-                                        <div key={bi} className="py-1.5 text-center text-xs font-medium text-white rounded-lg" style={{ backgroundColor: "#06C755" }}>
-                                          {btn.label}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Flex編集（プリセット + プレビュー + JSON貼り付け） */}
-              {activeTab === "flex" && (
-                <div className="space-y-4">
-                  {/* エディタで編集ボタン */}
-                  {editingTemplate && (
-                    <button
-                      onClick={() => { window.location.href = `/admin/line/flex-builder?template=${editingTemplate.id}`; }}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl hover:from-blue-100 hover:to-indigo-100 transition-colors text-sm font-medium text-blue-700"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-                      </svg>
-                      エディタで編集
-                    </button>
-                  )}
-
-                  {/* プリセットボタン */}
-                  {flexPresets.length > 0 && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1.5">プリセットから選択</label>
-                      <div className="flex flex-wrap gap-2">
-                        {flexPresets.map((p) => (
-                          <button
-                            key={p.id}
-                            onClick={() => {
-                              setFlexJson(JSON.stringify(p.flex_json, null, 2));
-                              setFlexError("");
-                            }}
-                            className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:border-[#06C755] hover:bg-green-50 transition-colors text-gray-700"
-                          >
-                            {p.name}
-                            {p.description && (
-                              <span className="ml-1.5 text-[10px] text-gray-400">{p.description}</span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* プレビュー */}
-                  <div className="bg-[#7494c0] rounded-xl p-6 min-h-[300px] flex items-center justify-center">
-                    {(() => {
-                      if (!flexJson.trim()) {
-                        return (
-                          <div className="text-center text-white/60 text-sm py-10">
-                            プリセットを選択またはJSONを貼り付けてください
-                          </div>
-                        );
-                      }
-                      try {
-                        const parsed = JSON.parse(flexJson);
-                        return <FlexPreviewRenderer data={parsed} />;
-                      } catch {
-                        return (
-                          <div className="text-center text-white/60 text-sm py-10">
-                            JSONの形式が正しくありません
-                          </div>
-                        );
-                      }
-                    })()}
-                  </div>
-
-                  {/* JSONを貼り付けボタン */}
-                  <button
-                    onClick={() => {
-                      setJsonPasteValue(flexJson);
-                      setShowJsonPaste(true);
-                    }}
-                    className="w-full px-4 py-2.5 border border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:border-[#06C755] hover:text-[#06C755] hover:bg-green-50/50 transition-colors"
-                  >
-                    JSONを貼り付け
-                  </button>
-
-                  {/* JSON貼り付けダイアログ */}
-                  {showJsonPaste && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                      <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl mx-4 max-h-[80vh] flex flex-col">
-                        <div className="px-6 py-4 border-b border-gray-100">
-                          <h3 className="text-base font-bold text-gray-800">JSONを貼り付け</h3>
-                          <p className="text-xs text-gray-400 mt-1">
-                            LINE Flex Message Simulator で作成したJSONを貼り付けてください
-                          </p>
-                        </div>
-                        <div className="px-6 py-4 flex-1 overflow-auto">
-                          <textarea
-                            value={jsonPasteValue}
-                            onChange={(e) => setJsonPasteValue(e.target.value)}
-                            placeholder='{"type":"bubble","body":{"type":"box",...}}'
-                            rows={14}
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-xs font-mono text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500/30 resize-none"
-                            spellCheck={false}
-                            autoFocus
-                          />
-                          {flexError && (
-                            <p className="text-xs text-red-500 mt-2">{flexError}</p>
-                          )}
-                        </div>
-                        <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
-                          <button
-                            onClick={() => {
-                              setShowJsonPaste(false);
-                              setFlexError("");
-                            }}
-                            className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium transition-colors"
-                          >
-                            キャンセル
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (!jsonPasteValue.trim()) {
-                                setFlexError("JSONを入力してください");
-                                return;
-                              }
-                              try {
-                                JSON.parse(jsonPasteValue);
-                                setFlexJson(jsonPasteValue);
-                                setFlexError("");
-                                setShowJsonPaste(false);
-                              } catch {
-                                setFlexError("JSON形式が不正です");
-                              }
-                            }}
-                            className="flex-1 px-4 py-2.5 bg-[#06C755] text-white rounded-xl hover:bg-[#05b34c] text-sm font-medium transition-colors"
-                          >
-                            適用
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="px-6 py-4 border-t border-gray-100 flex gap-3 flex-shrink-0">
-              <button onClick={resetForm} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium transition-colors">
-                キャンセル
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving || !canSave}
-                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#06C755] to-[#05a648] text-white rounded-xl hover:from-[#05b34d] hover:to-[#049a42] disabled:opacity-40 text-sm font-medium shadow-lg shadow-green-500/25 transition-all"
-              >
-                {saving ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    保存中...
-                  </span>
-                ) : "保存"}
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* テスト送信モーダル */}
+      {showTestSendModal && (
+        <TestSendModal
+          template={showTestSendModal}
+          testAccounts={testAccounts}
+          selectedTestIds={selectedTestIds}
+          setSelectedTestIds={setSelectedTestIds}
+          onClose={() => setShowTestSendModal(null)}
+          onSendComplete={(result) => {
+            setTestSendingId(result.id);
+            setTestSendResult(result);
+            setTestSendingId(null);
+            setTimeout(() => setTestSendResult(null), 6000);
+          }}
+        />
       )}
 
       {/* フォルダ作成モーダル */}
       {showFolderModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowFolderModal(false)}>
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-gray-100">
-              <h2 className="font-bold text-gray-900">新しいフォルダ</h2>
-            </div>
+            <div className="px-6 py-4 border-b border-gray-100"><h2 className="font-bold text-gray-900">新しいフォルダ</h2></div>
             <div className="px-6 py-5">
-              <input
-                type="text"
-                value={folderName}
-                onChange={(e) => setFolderName(e.target.value)}
-                placeholder="フォルダ名"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 bg-gray-50/50"
-                autoFocus
-              />
+              <input type="text" value={folderName} onChange={(e) => setFolderName(e.target.value)} placeholder="フォルダ名"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 bg-gray-50/50" autoFocus />
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
-              <button onClick={() => setShowFolderModal(false)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium">
-                キャンセル
-              </button>
-              <button
-                onClick={handleCreateFolder}
-                disabled={!folderName.trim() || saving}
-                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#06C755] to-[#05a648] text-white rounded-xl disabled:opacity-40 text-sm font-medium shadow-lg shadow-green-500/25"
-              >
-                作成
-              </button>
+              <button onClick={() => setShowFolderModal(false)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium">キャンセル</button>
+              <button onClick={handleCreateFolder} disabled={!folderName.trim() || saving}
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#06C755] to-[#05a648] text-white rounded-xl disabled:opacity-40 text-sm font-medium shadow-lg shadow-green-500/25">作成</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* プレビューモーダル（変数置換対応） */}
+      {/* プレビューモーダル */}
       {previewTemplate && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={closePreviewModal}>
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <h2 className="font-bold text-gray-900 text-sm">テンプレートプレビュー: {previewTemplate.name}</h2>
               <button onClick={closePreviewModal} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
-
             <div className="overflow-y-auto flex-1">
-              {/* テキストテンプレートの場合のみ変数プレビュー機能を表示 */}
               {previewTemplate.message_type === "text" && (
                 <div className="px-6 py-4 border-b border-gray-100 space-y-3">
-                  {/* 患者検索 */}
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1.5">患者を選択（任意）</label>
                     <div className="flex gap-2">
                       <div className="flex-1 relative">
-                        <input
-                          type="text"
-                          value={patientSearch}
-                          onChange={(e) => handlePatientSearchChange(e.target.value)}
-                          placeholder="患者名で検索..."
-                          className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 bg-gray-50/50"
-                        />
+                        <input type="text" value={patientSearch} onChange={(e) => handlePatientSearchChange(e.target.value)} placeholder="患者名で検索..."
+                          className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 bg-gray-50/50" />
                         <svg className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        {/* 患者候補リスト */}
                         {patientCandidates.length > 0 && (
                           <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
                             {patientCandidates.map((c) => (
-                              <button
-                                key={c.id}
-                                onClick={() => {
-                                  setSelectedPatient(c);
-                                  setPatientSearch(c.name);
-                                  setPatientCandidates([]);
-                                  fetchPreview(previewTemplate.content, c.id);
-                                }}
-                                className="w-full px-3 py-2 text-left text-sm hover:bg-green-50 transition-colors flex items-center justify-between border-b border-gray-50 last:border-b-0"
-                              >
-                                <span className="text-gray-800">{c.name}</span>
-                                <span className="text-xs text-gray-400">{c.id}</span>
+                              <button key={c.id} onClick={() => { setSelectedPatient(c); setPatientSearch(c.name); setPatientCandidates([]); fetchPreview(previewTemplate.content, c.id); }}
+                                className="w-full px-3 py-2 text-left text-sm hover:bg-green-50 transition-colors flex items-center justify-between border-b border-gray-50 last:border-b-0">
+                                <span className="text-gray-800">{c.name}</span><span className="text-xs text-gray-400">{c.id}</span>
                               </button>
                             ))}
                           </div>
@@ -1913,111 +517,64 @@ export default function TemplateManagementPage() {
                           </div>
                         )}
                       </div>
-                      <button
-                        onClick={() => {
-                          setSelectedPatient(null);
-                          setPatientSearch("");
-                          setPatientCandidates([]);
-                          fetchPreview(previewTemplate.content);
-                        }}
-                        className="px-3 py-2 text-xs font-medium bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap"
-                      >
-                        サンプル
-                      </button>
+                      <button onClick={() => { setSelectedPatient(null); setPatientSearch(""); setPatientCandidates([]); fetchPreview(previewTemplate.content); }}
+                        className="px-3 py-2 text-xs font-medium bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap">サンプル</button>
                     </div>
                     {selectedPatient && (
                       <div className="mt-1.5 flex items-center gap-2">
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">
                           選択中: {selectedPatient.name}（{selectedPatient.id}）
                         </span>
-                        <button
-                          onClick={() => {
-                            setSelectedPatient(null);
-                            setPatientSearch("");
-                            fetchPreview(previewTemplate.content);
-                          }}
-                          className="text-gray-400 hover:text-gray-600"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
+                        <button onClick={() => { setSelectedPatient(null); setPatientSearch(""); fetchPreview(previewTemplate.content); }} className="text-gray-400 hover:text-gray-600">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                       </div>
                     )}
                   </div>
-
-                  {/* 変数置換テーブル */}
                   {previewVars && (
                     <div>
-                      <p className="text-xs font-medium text-gray-500 mb-1">
-                        変数の値
-                        <span className="ml-2 text-[10px] font-normal text-gray-400">
-                          {previewSource === "sample" ? "（サンプルデータ）" : "（実データ）"}
-                        </span>
-                      </p>
+                      <p className="text-xs font-medium text-gray-500 mb-1">変数の値<span className="ml-2 text-[10px] font-normal text-gray-400">{previewSource === "sample" ? "（サンプルデータ）" : "（実データ）"}</span></p>
                       <div className="bg-gray-50 rounded-lg overflow-hidden border border-gray-100">
-                        <table className="w-full text-xs">
-                          <tbody>
-                            {Object.entries(previewVars).map(([key, val]) => (
-                              <tr key={key} className="border-b border-gray-100 last:border-b-0">
-                                <td className="px-3 py-1.5 font-mono text-blue-600 bg-blue-50/50 w-[180px]">{`{${key}}`}</td>
-                                <td className="px-3 py-1.5 text-gray-700">{val || <span className="text-gray-300">（空）</span>}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                        <table className="w-full text-xs"><tbody>
+                          {Object.entries(previewVars).map(([key, val]) => (
+                            <tr key={key} className="border-b border-gray-100 last:border-b-0">
+                              <td className="px-3 py-1.5 font-mono text-blue-600 bg-blue-50/50 w-[180px]">{`{${key}}`}</td>
+                              <td className="px-3 py-1.5 text-gray-700">{val || <span className="text-gray-300">（空）</span>}</td>
+                            </tr>
+                          ))}
+                        </tbody></table>
                       </div>
                     </div>
                   )}
                 </div>
               )}
-
-              {/* 元テンプレート（テキストのみ・変数ハイライト表示） */}
               {previewTemplate.message_type === "text" && (
                 <div className="px-6 py-3 border-b border-gray-100">
                   <p className="text-xs font-medium text-gray-500 mb-2">元テンプレート</p>
                   <div className="bg-gray-50 rounded-lg px-3 py-2">
-                    <p className="text-sm whitespace-pre-wrap text-gray-700 leading-relaxed">
-                      <HighlightVariables text={previewTemplate.content} />
-                    </p>
+                    <p className="text-sm whitespace-pre-wrap text-gray-700 leading-relaxed"><HighlightVariables text={previewTemplate.content} /></p>
                   </div>
                 </div>
               )}
-
-              {/* LINE風プレビュー */}
-              <div className="px-6 py-3">
-                <p className="text-xs font-medium text-gray-500 mb-2">
-                  {previewTemplate.message_type === "text" ? "プレビュー結果" : "プレビュー"}
-                </p>
-              </div>
+              <div className="px-6 py-3"><p className="text-xs font-medium text-gray-500 mb-2">{previewTemplate.message_type === "text" ? "プレビュー結果" : "プレビュー"}</p></div>
               <div className="px-6 pb-6">
                 <div className="bg-[#7494C0] rounded-xl p-4 min-h-[120px]">
                   {previewLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    </div>
+                    <div className="flex items-center justify-center py-8"><div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" /></div>
                   ) : previewTemplate.message_type === "image" ? (
                     <img src={previewTemplate.content} alt="" className="max-w-[280px] rounded-2xl rounded-tl-sm shadow-sm" />
                   ) : previewTemplate.message_type === "flex" && previewTemplate.flex_content ? (
                     <FlexPreviewRenderer data={previewTemplate.flex_content} />
                   ) : (
                     <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 max-w-[280px] shadow-sm">
-                      <p className="text-sm whitespace-pre-wrap text-gray-800">
-                        {previewResult ?? previewTemplate.content}
-                      </p>
+                      <p className="text-sm whitespace-pre-wrap text-gray-800">{previewResult ?? previewTemplate.content}</p>
                     </div>
                   )}
                 </div>
               </div>
             </div>
-
             <div className="px-6 py-3 border-t border-gray-100 flex-shrink-0">
-              <button
-                onClick={closePreviewModal}
-                className="w-full px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium transition-colors"
-              >
-                閉じる
-              </button>
+              <button onClick={closePreviewModal} className="w-full px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium transition-colors">閉じる</button>
             </div>
           </div>
         </div>
@@ -2027,31 +584,14 @@ export default function TemplateManagementPage() {
       {renameTarget && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setRenameTarget(null)}>
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex flex-col">
-              <h3 className="font-bold text-gray-900 mb-3">テンプレート名を変更</h3>
-              <input
-                type="text"
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                placeholder="テンプレート名"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleRename();
-                }}
-              />
-              <div className="flex gap-3 w-full mt-4">
-                <button onClick={() => setRenameTarget(null)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium">
-                  キャンセル
-                </button>
-                <button
-                  onClick={handleRename}
-                  disabled={!renameValue.trim()}
-                  className="flex-1 px-4 py-2.5 bg-blue-500 text-white rounded-xl hover:bg-blue-600 text-sm font-medium shadow-lg shadow-blue-500/25 disabled:opacity-50"
-                >
-                  変更
-                </button>
-              </div>
+            <h3 className="font-bold text-gray-900 mb-3">テンプレート名を変更</h3>
+            <input type="text" value={renameValue} onChange={(e) => setRenameValue(e.target.value)}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              placeholder="テンプレート名" autoFocus onKeyDown={(e) => { if (e.key === "Enter") handleRename(); }} />
+            <div className="flex gap-3 w-full mt-4">
+              <button onClick={() => setRenameTarget(null)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium">キャンセル</button>
+              <button onClick={handleRename} disabled={!renameValue.trim()}
+                className="flex-1 px-4 py-2.5 bg-blue-500 text-white rounded-xl hover:bg-blue-600 text-sm font-medium shadow-lg shadow-blue-500/25 disabled:opacity-50">変更</button>
             </div>
           </div>
         </div>
@@ -2070,15 +610,8 @@ export default function TemplateManagementPage() {
               <h3 className="font-bold text-gray-900 mb-1">テンプレートを削除</h3>
               <p className="text-sm text-gray-500 mb-5">このテンプレートを削除しますか？この操作は取り消せません。</p>
               <div className="flex gap-3 w-full">
-                <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium">
-                  キャンセル
-                </button>
-                <button
-                  onClick={() => handleDelete(deleteConfirm)}
-                  className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm font-medium shadow-lg shadow-red-500/25"
-                >
-                  削除する
-                </button>
+                <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium">キャンセル</button>
+                <button onClick={() => handleDelete(deleteConfirm)} className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm font-medium shadow-lg shadow-red-500/25">削除する</button>
               </div>
             </div>
           </div>
@@ -2089,31 +622,14 @@ export default function TemplateManagementPage() {
       {editingCategory && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setEditingCategory(null)}>
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex flex-col">
-              <h3 className="font-bold text-gray-900 mb-3">フォルダ名を変更</h3>
-              <input
-                type="text"
-                value={editCategoryName}
-                onChange={(e) => setEditCategoryName(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
-                placeholder="フォルダ名"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleUpdateCategory();
-                }}
-              />
-              <div className="flex gap-3 w-full mt-4">
-                <button onClick={() => setEditingCategory(null)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium">
-                  キャンセル
-                </button>
-                <button
-                  onClick={handleUpdateCategory}
-                  disabled={!editCategoryName.trim() || saving}
-                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#06C755] to-[#05a648] text-white rounded-xl disabled:opacity-40 text-sm font-medium shadow-lg shadow-green-500/25"
-                >
-                  変更
-                </button>
-              </div>
+            <h3 className="font-bold text-gray-900 mb-3">フォルダ名を変更</h3>
+            <input type="text" value={editCategoryName} onChange={(e) => setEditCategoryName(e.target.value)}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+              placeholder="フォルダ名" autoFocus onKeyDown={(e) => { if (e.key === "Enter") handleUpdateCategory(); }} />
+            <div className="flex gap-3 w-full mt-4">
+              <button onClick={() => setEditingCategory(null)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium">キャンセル</button>
+              <button onClick={handleUpdateCategory} disabled={!editCategoryName.trim() || saving}
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#06C755] to-[#05a648] text-white rounded-xl disabled:opacity-40 text-sm font-medium shadow-lg shadow-green-500/25">変更</button>
             </div>
           </div>
         </div>
@@ -2130,22 +646,11 @@ export default function TemplateManagementPage() {
                 </svg>
               </div>
               <h3 className="font-bold text-gray-900 mb-1">フォルダを削除</h3>
-              <p className="text-sm text-gray-500 mb-2">
-                「{deleteCategoryConfirm.name}」フォルダを削除しますか？
-              </p>
-              <p className="text-xs text-gray-400 mb-5">
-                フォルダ内のテンプレート（{getCategoryCount(deleteCategoryConfirm.name)}件）は「未分類」に移動されます。
-              </p>
+              <p className="text-sm text-gray-500 mb-2">「{deleteCategoryConfirm.name}」フォルダを削除しますか？</p>
+              <p className="text-xs text-gray-400 mb-5">フォルダ内のテンプレート（{getCategoryCount(deleteCategoryConfirm.name)}件）は「未分類」に移動されます。</p>
               <div className="flex gap-3 w-full">
-                <button onClick={() => setDeleteCategoryConfirm(null)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium">
-                  キャンセル
-                </button>
-                <button
-                  onClick={() => handleDeleteCategory(deleteCategoryConfirm)}
-                  className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm font-medium shadow-lg shadow-red-500/25"
-                >
-                  削除する
-                </button>
+                <button onClick={() => setDeleteCategoryConfirm(null)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium">キャンセル</button>
+                <button onClick={() => handleDeleteCategory(deleteCategoryConfirm)} className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm font-medium shadow-lg shadow-red-500/25">削除する</button>
               </div>
             </div>
           </div>
@@ -2159,19 +664,14 @@ export default function TemplateManagementPage() {
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
               <h2 className="font-bold text-gray-900">フォルダ管理</h2>
               <button onClick={() => setShowCategoryManager(false)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
             <div className="overflow-y-auto flex-1 px-6 py-4">
               <p className="text-xs text-gray-400 mb-4">フォルダの並び順を変更できます。テンプレートはフォルダごとに整理されます。</p>
               <div className="space-y-2">
                 {categories.map((cat, idx) => (
-                  <div
-                    key={cat.id}
-                    className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl border border-gray-100"
-                  >
+                  <div key={cat.id} className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl border border-gray-100">
                     <span className="flex items-center gap-2 text-sm text-gray-700 min-w-0">
                       <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
@@ -2180,44 +680,18 @@ export default function TemplateManagementPage() {
                       <span className="text-xs text-gray-400 flex-shrink-0">({getCategoryCount(cat.name)})</span>
                     </span>
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      {/* 上移動 */}
-                      <button
-                        onClick={() => handleMoveCategory(idx, "up")}
-                        disabled={idx === 0}
-                        className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        title="上に移動"
-                      >
+                      <button onClick={() => handleMoveCategory(idx, "up")} disabled={idx === 0} className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title="上に移動">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                       </button>
-                      {/* 下移動 */}
-                      <button
-                        onClick={() => handleMoveCategory(idx, "down")}
-                        disabled={idx === categories.length - 1}
-                        className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        title="下に移動"
-                      >
+                      <button onClick={() => handleMoveCategory(idx, "down")} disabled={idx === categories.length - 1} className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title="下に移動">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                       </button>
-                      {/* 名前変更 */}
-                      <button
-                        onClick={() => { setEditCategoryName(cat.name); setEditingCategory(cat); }}
-                        className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
-                        title="名前変更"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
+                      <button onClick={() => { setEditCategoryName(cat.name); setEditingCategory(cat); }} className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors" title="名前変更">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                       </button>
-                      {/* 削除 */}
                       {cat.name !== "未分類" && (
-                        <button
-                          onClick={() => setDeleteCategoryConfirm(cat)}
-                          className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
-                          title="削除"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
+                        <button onClick={() => setDeleteCategoryConfirm(cat)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors" title="削除">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                       )}
                     </div>
@@ -2226,75 +700,10 @@ export default function TemplateManagementPage() {
               </div>
             </div>
             <div className="px-6 py-4 border-t border-gray-100">
-              <button
-                onClick={() => { setShowCategoryManager(false); setShowFolderModal(true); }}
-                className="w-full px-4 py-2.5 border border-dashed border-gray-300 text-gray-600 rounded-xl hover:border-[#06C755] hover:text-[#06C755] hover:bg-green-50/50 text-sm font-medium transition-colors flex items-center justify-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
+              <button onClick={() => { setShowCategoryManager(false); setShowFolderModal(true); }}
+                className="w-full px-4 py-2.5 border border-dashed border-gray-300 text-gray-600 rounded-xl hover:border-[#06C755] hover:text-[#06C755] hover:bg-green-50/50 text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                 新しいフォルダを追加
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* テスト送信確認モーダル */}
-      {showTestSendModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowTestSendModal(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-gray-100">
-              <h3 className="text-base font-bold text-gray-900">テスト送信</h3>
-              <p className="text-xs text-gray-500 mt-1">
-                「{showTestSendModal.name}」を送信する宛先を選択してください
-              </p>
-            </div>
-            <div className="px-6 py-4 space-y-2 max-h-[300px] overflow-y-auto">
-              {testAccounts.map((a) => (
-                <label
-                  key={a.patient_id}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors cursor-pointer ${
-                    selectedTestIds.includes(a.patient_id)
-                      ? "border-amber-300 bg-amber-50"
-                      : "border-gray-200 hover:bg-gray-50"
-                  } ${!a.has_line_uid ? "opacity-50" : ""}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedTestIds.includes(a.patient_id)}
-                    disabled={!a.has_line_uid}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedTestIds(prev => [...prev, a.patient_id]);
-                      } else {
-                        setSelectedTestIds(prev => prev.filter(id => id !== a.patient_id));
-                      }
-                    }}
-                    className="rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-                  />
-                  <div className="flex-1">
-                    <span className="text-sm font-medium text-gray-800">{a.patient_name || a.patient_id}</span>
-                    {!a.has_line_uid && (
-                      <span className="ml-2 text-[10px] text-red-500">LINE未連携</span>
-                    )}
-                  </div>
-                </label>
-              ))}
-            </div>
-            <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
-              <button
-                onClick={() => setShowTestSendModal(null)}
-                className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium transition-colors"
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={executeTestSend}
-                disabled={selectedTestIds.length === 0}
-                className="flex-1 px-4 py-2.5 bg-amber-500 text-white rounded-xl hover:bg-amber-600 disabled:opacity-40 text-sm font-medium transition-colors"
-              >
-                {selectedTestIds.length}人に送信
               </button>
             </div>
           </div>
@@ -2313,37 +722,18 @@ export default function TemplateManagementPage() {
             setSharedLoading(true);
             try {
               const res = await fetch("/api/admin/shared-templates?limit=100", { credentials: "include" });
-              if (res.ok) {
-                const data = await res.json();
-                setSharedTemplates(data.templates || []);
-              }
-            } catch (e) {
-              console.error("共有テンプレート取得エラー:", e);
-            } finally {
-              setSharedLoading(false);
-            }
+              if (res.ok) { const data = await res.json(); setSharedTemplates(data.templates || []); }
+            } catch (e) { console.error("共有テンプレート取得エラー:", e); }
+            finally { setSharedLoading(false); }
           }}
           onImport={async (id: string) => {
             setImportingId(id);
             try {
-              const res = await fetch(`/api/admin/shared-templates/${id}/import`, {
-                method: "POST",
-                credentials: "include",
-              });
-              if (res.ok) {
-                const data = await res.json();
-                alert(data.message || "インポートしました");
-                setShowImportModal(false);
-                mutate(TEMPLATES_KEY);
-              } else {
-                const err = await res.json();
-                alert(err.message || "インポートに失敗しました");
-              }
-            } catch {
-              alert("インポートに失敗しました");
-            } finally {
-              setImportingId(null);
-            }
+              const res = await fetch(`/api/admin/shared-templates/${id}/import`, { method: "POST", credentials: "include" });
+              if (res.ok) { const data = await res.json(); alert(data.message || "インポートしました"); setShowImportModal(false); mutate(TEMPLATES_KEY); }
+              else { const err = await res.json(); alert(err.message || "インポートに失敗しました"); }
+            } catch { alert("インポートに失敗しました"); }
+            finally { setImportingId(null); }
           }}
         />
       )}
@@ -2352,30 +742,14 @@ export default function TemplateManagementPage() {
 }
 
 /* ---------- 共有テンプレートインポートモーダル ---------- */
-function SharedTemplateImportModal({
-  open,
-  onClose,
-  sharedTemplates,
-  sharedLoading,
-  importingId,
-  onFetch,
-  onImport,
-}: {
-  open: boolean;
-  onClose: () => void;
+function SharedTemplateImportModal({ open, onClose, sharedTemplates, sharedLoading, importingId, onFetch, onImport }: {
+  open: boolean; onClose: () => void;
   sharedTemplates: { id: string; name: string; description: string; category: string; template_type: string; tags: string[] }[];
-  sharedLoading: boolean;
-  importingId: string | null;
-  onFetch: () => void;
-  onImport: (id: string) => void;
+  sharedLoading: boolean; importingId: string | null;
+  onFetch: () => void; onImport: (id: string) => void;
 }) {
-  useEffect(() => {
-    if (open) onFetch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
+  useEffect(() => { if (open) onFetch(); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!open) return null;
-
   const typeLabels: Record<string, string> = { message: "メッセージ", flex: "Flex", workflow: "ワークフロー" };
   const typeColors: Record<string, string> = { message: "bg-blue-100 text-blue-700", flex: "bg-purple-100 text-purple-700", workflow: "bg-amber-100 text-amber-700" };
 
@@ -2385,20 +759,14 @@ function SharedTemplateImportModal({
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <h2 className="font-bold text-gray-900">共有テンプレートからインポート</h2>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-4">
           {sharedLoading ? (
-            <div className="flex justify-center py-12">
-              <div className="w-6 h-6 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" />
-            </div>
+            <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" /></div>
           ) : sharedTemplates.length === 0 ? (
-            <div className="text-center py-12 text-gray-400 text-sm">
-              共有テンプレートがありません
-            </div>
+            <div className="text-center py-12 text-gray-400 text-sm">共有テンプレートがありません</div>
           ) : (
             <div className="space-y-2">
               {sharedTemplates.map((t) => (
@@ -2413,11 +781,8 @@ function SharedTemplateImportModal({
                       {t.category && <span className="text-[10px] text-gray-400">{t.category}</span>}
                     </div>
                   </div>
-                  <button
-                    onClick={() => onImport(t.id)}
-                    disabled={importingId === t.id}
-                    className="ml-3 px-3 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 shrink-0"
-                  >
+                  <button onClick={() => onImport(t.id)} disabled={importingId === t.id}
+                    className="ml-3 px-3 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 shrink-0">
                     {importingId === t.id ? "..." : "インポート"}
                   </button>
                 </div>
@@ -2429,24 +794,3 @@ function SharedTemplateImportModal({
     </div>
   );
 }
-
-/* ---------- テンプレート変数ハイライト ---------- */
-function HighlightVariables({ text }: { text: string }) {
-  // {変数名} を色付きで表示するためにパーツに分割
-  const parts = text.split(/(\{[^}]+\})/g);
-  return (
-    <>
-      {parts.map((part, i) =>
-        /^\{[^}]+\}$/.test(part) ? (
-          <span key={i} className="bg-blue-100 text-blue-700 rounded px-0.5 font-mono text-xs">
-            {part}
-          </span>
-        ) : (
-          <span key={i}>{part}</span>
-        )
-      )}
-    </>
-  );
-}
-
-/* Flex簡易プレビュー（FlexPreviewRenderer に統合済み・削除） */

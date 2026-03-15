@@ -31,10 +31,10 @@ export async function POST(req: NextRequest) {
 
   const parsed = await parseBody(req, createTemplateSchema);
   if ("error" in parsed) return parsed.error;
-  const { name, content, message_type, category, flex_content } = parsed.data;
+  const { name, content, message_type, category, flex_content, imagemap_actions } = parsed.data;
 
-  // flex テンプレートはcontent不要、それ以外はcontent必須
-  if (message_type !== "flex" && !content?.trim()) {
+  // flex/imagemap テンプレートはcontent不要の場合がある
+  if (message_type !== "flex" && message_type !== "imagemap" && !content?.trim()) {
     return badRequest("内容は必須です");
   }
 
@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
       message_type: message_type || "text",
       category,
       flex_content: flex_content || null,
+      imagemap_actions: imagemap_actions || null,
     })
     .select()
     .single();

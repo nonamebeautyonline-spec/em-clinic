@@ -9,6 +9,8 @@ import { lineSendSchema } from "@/lib/validations/line-broadcast";
 import { handleImplicitAiFeedback } from "@/lib/ai-reply";
 import { sanitizeFlexContents } from "@/lib/flex-sanitize";
 import { invalidateFriendsListCache } from "@/lib/redis";
+import { buildImagemapMessage, getImagemapBaseUrl } from "@/lib/line-imagemap";
+import type { ImagemapData } from "@/lib/line-imagemap";
 
 // 個別メッセージ送信
 export async function POST(req: NextRequest) {
@@ -19,9 +21,9 @@ export async function POST(req: NextRequest) {
 
   const parsed = await parseBody(req, lineSendSchema);
   if ("error" in parsed) return parsed.error;
-  const { patient_id, message, message_type, flex, template_name, scheduled_at } = parsed.data;
-  if (!message?.trim() && !flex) {
-    return badRequest("message または flex は必須です");
+  const { patient_id, message, message_type, flex, template_name, scheduled_at, imagemap } = parsed.data;
+  if (!message?.trim() && !flex && !imagemap) {
+    return badRequest("message, flex, または imagemap は必須です");
   }
 
   // 患者の LINE UID・名前を patients テーブルから取得
@@ -87,6 +89,50 @@ export async function POST(req: NextRequest) {
       scheduled_at: scheduled.scheduled_at,
       patient_name: patient.name,
     });
+  }
+
+  // Imagemap Message送信
+  if (message_type === "imagemap" && imagemap) {
+    const imData = imagemap as { imageUrl: string; altText?: string; data: ImagemapData };
+    const origin = req.nextUrl.origin;
+    const baseUrl = getImagemapBaseUrl(origin, imData.imageUrl);
+    const imagemapMsg = buildImagemapMessage(baseUrl, imData.altText || template_name || "リッチメッセージ", imData.data);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const imRes = await pushMessage(patient.line_id, [imagemapMsg as any], tenantId ?? undefined);
+    if (!imRes) {
+      await supabaseAdmin.from("message_log").insert({
+        ...tenantPayload(tenantId),
+        patient_id,
+        line_uid: patient.line_id,
+        event_type: "message",
+        message_type: "imagemap",
+        content: `【${template_name || "リッチメッセージ"}】${imData.imageUrl}`,
+        status: "failed",
+        direction: "outgoing",
+      });
+      return NextResponse.json({ ok: false, error: "LINEチャネルアクセストークンが未設定です", status: "failed" }, { status: 500 });
+    }
+    const imStatus = imRes.ok ? "sent" : "failed";
+    let imLineError = "";
+    if (!imRes.ok) imLineError = await imRes.text().catch(() => "");
+
+    await supabaseAdmin.from("message_log").insert({
+      ...tenantPayload(tenantId),
+      patient_id,
+      line_uid: patient.line_id,
+      event_type: "message",
+      message_type: "imagemap",
+      content: `【${template_name || "リッチメッセージ"}】${imData.imageUrl}`,
+      status: imStatus,
+      direction: "outgoing",
+    });
+
+    if (!imRes.ok) {
+      return NextResponse.json({ ok: false, error: `LINE API エラー: ${imLineError}`, status: "failed" });
+    }
+    invalidateFriendsListCache(tenantId || "00000000-0000-0000-0000-000000000001").catch(() => {});
+    return NextResponse.json({ ok: true, status: "sent", patient_name: patient.name });
   }
 
   // Flex Message送信

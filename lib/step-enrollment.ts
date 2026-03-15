@@ -80,6 +80,25 @@ export async function checkTagTriggerScenarios(patientId: string, tagId: number,
 }
 
 /**
+ * 汎用トリガーのシナリオを検索してエンロール（reservation_made, checkout_completed, reorder_approved）
+ */
+export async function checkEventTriggerScenarios(triggerType: string, patientId: string, lineUid?: string, tenantId?: string) {
+  const tid = tenantId ?? null;
+  const { data: scenarios } = await withTenant(
+    supabaseAdmin
+      .from("step_scenarios")
+      .select("id")
+      .eq("trigger_type", triggerType)
+      .eq("is_enabled", true),
+    tid,
+  );
+
+  for (const s of scenarios || []) {
+    await enrollPatient(s.id, patientId, lineUid, tenantId);
+  }
+}
+
+/**
  * 患者をシナリオにエンロール
  */
 export async function enrollPatient(scenarioId: number, patientId: string, lineUid?: string, tenantId?: string) {

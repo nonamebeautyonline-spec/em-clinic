@@ -7,6 +7,9 @@ import { BlockEditorProvider, useBlockEditor, useBlockEditorDispatch } from "./_
 import { PanelSettingsBar } from "./_components/PanelSettingsBar";
 import { PanelNavigator } from "./_components/PanelNavigator";
 import { BlockSettingsPanel } from "./_components/BlockSettingsPanel";
+import { PresetGallery } from "./_components/PresetGallery";
+import { WizardStartScreen } from "./_components/WizardStartScreen";
+import { LinePhoneFrame } from "@/components/admin/LinePhoneFrame";
 import { editorPanelsToFlex, panelToBubble } from "@/lib/flex-editor/block-mapping";
 import type { EditorBlock } from "@/lib/flex-editor/block-types";
 import { sanitizeFlexContents } from "@/lib/flex-sanitize";
@@ -78,7 +81,12 @@ function FlexBuilderInner() {
   const loading = presetsLoading || templatesLoading;
   const [saving, setSaving] = useState(false);
   const [showPresets, setShowPresets] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
   const [templateAutoLoaded, setTemplateAutoLoaded] = useState(false);
+  const [wizardDismissed, setWizardDismissed] = useState(false);
+
+  // ウィザード表示条件: ブロックが空 & テンプレート未読み込み & ユーザーがまだ閉じていない
+  const showWizard = !wizardDismissed && !editingTemplateId && panels.every((p) => p.blocks.length === 0);
 
   // URL ?template={id} の自動読み込み
   useEffect(() => {
@@ -201,72 +209,101 @@ function FlexBuilderInner() {
     );
   }
 
+  // ウィザード画面
+  if (showWizard && !loading) {
+    return (
+      <div className="h-full flex flex-col overflow-hidden">
+        <WizardStartScreen
+          presets={presets}
+          onStartFromTemplate={() => {
+            setShowPresets(true);
+            setWizardDismissed(true);
+          }}
+          onStartFromScratch={() => setWizardDismissed(true)}
+          onSelectPreset={(preset) => {
+            selectPreset(preset);
+            setWizardDismissed(true);
+          }}
+        />
+        {showPresets && (
+          <PresetGallery
+            presets={presets}
+            onSelect={(preset) => {
+              selectPreset(preset);
+              setShowPresets(false);
+            }}
+            onClose={() => setShowPresets(false)}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* ヘッダーバー */}
       <div className="flex items-center gap-3 px-4 py-2 bg-white border-b border-gray-200 flex-shrink-0">
-        {/* プリセット/テンプレート選択 */}
-        <div className="relative">
+        {/* テンプレートギャラリー / 保存済み選択 */}
+        <div className="flex items-center gap-1">
           <button
-            onClick={() => setShowPresets(!showPresets)}
-            className="p-1.5 text-gray-400 hover:text-gray-600 rounded"
-            title="テンプレートから選択"
+            onClick={() => setShowPresets(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
+            title="テンプレートギャラリー"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
             </svg>
+            ギャラリー
           </button>
 
-          {showPresets && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setShowPresets(false)} />
-              <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 w-[260px] max-h-[400px] overflow-y-auto">
-                {/* プリセット */}
-                {presets.length > 0 && (
-                  <div className="p-3">
-                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">プリセット</h4>
-                    <div className="space-y-1">
-                      {presets.map((p) => (
-                        <button
-                          key={p.id}
-                          onClick={() => selectPreset(p)}
-                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-green-50 hover:text-green-700 transition-colors"
-                        >
-                          <span className="text-xs font-medium text-gray-700 block">{p.name}</span>
-                          {p.description && (
-                            <span className="text-[10px] text-gray-400 block mt-0.5">{p.description}</span>
-                          )}
-                        </button>
-                      ))}
+          {/* 保存済みテンプレート選択ドロップダウン */}
+          {savedTemplates.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setShowSaved(!showSaved)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8" />
+                </svg>
+                保存済み
+              </button>
+              {showSaved && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowSaved(false)} />
+                  <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 w-[260px] max-h-[300px] overflow-y-auto">
+                    <div className="p-3">
+                      <div className="space-y-1">
+                        {savedTemplates.map((t) => (
+                          <button
+                            key={t.id}
+                            onClick={() => { selectTemplate(t); setShowSaved(false); }}
+                            className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors ${
+                              editingTemplateId === t.id
+                                ? "bg-green-50 text-green-700 font-medium"
+                                : "text-gray-600 hover:bg-gray-50"
+                            }`}
+                          >
+                            {t.name}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                )}
-
-                {/* 保存済み */}
-                {savedTemplates.length > 0 && (
-                  <div className="p-3 border-t border-gray-100">
-                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">保存済み</h4>
-                    <div className="space-y-1">
-                      {savedTemplates.map((t) => (
-                        <button
-                          key={t.id}
-                          onClick={() => selectTemplate(t)}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors ${
-                            editingTemplateId === t.id
-                              ? "bg-green-50 text-green-700 font-medium"
-                              : "text-gray-600 hover:bg-gray-50"
-                          }`}
-                        >
-                          {t.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </>
+                </>
+              )}
+            </div>
           )}
         </div>
+
+        {/* ギャラリーモーダル */}
+        {showPresets && (
+          <PresetGallery
+            presets={presets}
+            onSelect={selectPreset}
+            onClose={() => setShowPresets(false)}
+          />
+        )}
 
         <h1 className="text-sm font-bold text-gray-800 whitespace-nowrap">メッセージ作成</h1>
 
@@ -321,7 +358,7 @@ function FlexBuilderInner() {
       {/* メインエリア: プレビュー + ブロック設定 */}
       <div className="flex flex-1 overflow-hidden">
         {/* 左: リアルタイムFlexプレビュー */}
-        <div className="flex-1 overflow-auto bg-[#7494c0]">
+        <div className="flex-1 overflow-auto bg-gray-100">
           <LiveFlexPreview />
         </div>
 
@@ -376,7 +413,7 @@ function LiveFlexPreview() {
 
   return (
     <div className="p-6 min-h-full flex items-start justify-center">
-      <div className="max-w-[300px] w-full">
+      <LinePhoneFrame headerTitle="クリニック公式">
         {isCarousel ? (
           <div className="flex gap-2 overflow-x-auto pb-2">
             {panelBubbles.map((bubble, i) => (
@@ -404,14 +441,14 @@ function LiveFlexPreview() {
             onSelectBlock={(blockId) => dispatch({ type: "SELECT_BLOCK", blockId })}
           />
         ) : null}
-        <div className="mt-4 text-center">
-          <a
-            href="/admin/line/templates"
-            className="text-sm text-blue-400 hover:text-blue-300 hover:underline"
-          >
-            戻る
-          </a>
-        </div>
+      </LinePhoneFrame>
+      <div className="mt-4 text-center">
+        <a
+          href="/admin/line/templates"
+          className="text-sm text-blue-400 hover:text-blue-300 hover:underline"
+        >
+          戻る
+        </a>
       </div>
     </div>
   );

@@ -2,7 +2,9 @@
 // ブロックエディタの型定義 + デフォルト値
 
 /** ブロックタイプ */
-export type BlockType = "title" | "text" | "image" | "button" | "separator";
+export type BlockType =
+  | "title" | "text" | "image" | "button" | "separator"
+  | "icon_text" | "badge" | "countdown" | "rating" | "map_link" | "coupon" | "video";
 
 /** アクション設定 */
 export interface BlockAction {
@@ -40,12 +42,72 @@ export interface ButtonBlockProps {
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface SeparatorBlockProps {}
 
+/** アイコン + テキスト横並び（営業時間、住所等に最適） */
+export interface IconTextBlockProps {
+  iconUrl: string;
+  text: string;
+  color?: string;
+  size?: string;
+}
+
+/** バッジ付きラベル（ステータス表示） */
+export interface BadgeBlockProps {
+  text: string;
+  badgeColor: string;
+  textColor?: string;
+}
+
+/** カウントダウンタイマー（キャンペーン用） */
+export interface CountdownBlockProps {
+  label: string;
+  endDate: string;
+  color?: string;
+}
+
+/** 星評価表示 */
+export interface RatingBlockProps {
+  score: number;
+  maxScore: number;
+  label?: string;
+  color?: string;
+}
+
+/** 地図リンクボタン（住所入力→LINE地図） */
+export interface MapLinkBlockProps {
+  address: string;
+  label: string;
+  color?: string;
+}
+
+/** クーポンボタン */
+export interface CouponBlockProps {
+  code: string;
+  label: string;
+  description?: string;
+  color?: string;
+}
+
+/** 動画要素 */
+export interface VideoBlockProps {
+  url: string;
+  previewUrl: string;
+  altContent: string;
+  aspectRatio?: string;
+}
+
 export type BlockProps =
   | ({ blockType: "title" } & TitleBlockProps)
   | ({ blockType: "text" } & TextBlockProps)
   | ({ blockType: "image" } & ImageBlockProps)
   | ({ blockType: "button" } & ButtonBlockProps)
-  | ({ blockType: "separator" } & SeparatorBlockProps);
+  | ({ blockType: "separator" } & SeparatorBlockProps)
+  | ({ blockType: "icon_text" } & IconTextBlockProps)
+  | ({ blockType: "badge" } & BadgeBlockProps)
+  | ({ blockType: "countdown" } & CountdownBlockProps)
+  | ({ blockType: "rating" } & RatingBlockProps)
+  | ({ blockType: "map_link" } & MapLinkBlockProps)
+  | ({ blockType: "coupon" } & CouponBlockProps)
+  | ({ blockType: "video" } & VideoBlockProps);
 
 /** エディタ上のブロック */
 export interface EditorBlock {
@@ -81,6 +143,13 @@ export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   image: "画像",
   button: "ボタン",
   separator: "区切り線",
+  icon_text: "アイコンテキスト",
+  badge: "バッジ",
+  countdown: "カウントダウン",
+  rating: "星評価",
+  map_link: "地図リンク",
+  coupon: "クーポン",
+  video: "動画",
 };
 
 /** ブロック追加メニュー用アイコン */
@@ -90,6 +159,13 @@ export const BLOCK_TYPE_ICONS: Record<BlockType, string> = {
   image: "🖼",
   button: "▢",
   separator: "—",
+  icon_text: "🔷",
+  badge: "🏷",
+  countdown: "⏱",
+  rating: "⭐",
+  map_link: "📍",
+  coupon: "🎟",
+  video: "▶️",
 };
 
 /** 新規ブロック作成時のデフォルトProps */
@@ -111,6 +187,20 @@ export function createDefaultBlockProps(blockType: BlockType, themeColor: string
       };
     case "separator":
       return { blockType: "separator" };
+    case "icon_text":
+      return { blockType: "icon_text", iconUrl: "", text: "", size: "md" };
+    case "badge":
+      return { blockType: "badge", text: "NEW", badgeColor: themeColor, textColor: "#ffffff" };
+    case "countdown":
+      return { blockType: "countdown", label: "キャンペーン終了まで", endDate: "", color: themeColor };
+    case "rating":
+      return { blockType: "rating", score: 4.5, maxScore: 5, label: "評価", color: "#FFB800" };
+    case "map_link":
+      return { blockType: "map_link", address: "", label: "地図で見る", color: themeColor };
+    case "coupon":
+      return { blockType: "coupon", code: "", label: "クーポンコード", description: "", color: themeColor };
+    case "video":
+      return { blockType: "video", url: "", previewUrl: "", altContent: "動画を再生", aspectRatio: "20:13" };
   }
 }
 

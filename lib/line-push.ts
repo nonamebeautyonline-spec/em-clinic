@@ -21,6 +21,12 @@ type LineMessage = {
   type: "flex";
   altText: string;
   contents: Record<string, unknown>;
+} | {
+  type: "imagemap";
+  baseUrl: string;
+  altText: string;
+  baseSize: { width: number; height: number };
+  actions: Record<string, unknown>[];
 };
 
 /**

@@ -10,6 +10,7 @@ import {
   type TagDef,
   type MarkDef,
 } from "../_components/ConditionBuilder";
+import { TemplatePicker } from "../templates/_components/TemplatePicker";
 
 // ── 型定義 ──────────────────────────────────────────────
 
@@ -446,19 +447,13 @@ export default function LifecycleEventsPage() {
                     )}
 
                     {step.type === "send_template" && (
-                      <select
-                        value={step.template_id || ""}
-                        onChange={e => {
-                          const tmpl = templates.find(t => t.id === Number(e.target.value));
-                          updateStep(i, { template_id: Number(e.target.value), template_name: tmpl?.name });
-                        }}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 bg-white"
-                      >
-                        <option value="">テンプレートを選択</option>
-                        {templates.map(t => (
-                          <option key={t.id} value={t.id}>{t.name}</option>
-                        ))}
-                      </select>
+                      <TemplatePicker
+                        value={step.template_id}
+                        templates={templates}
+                        onSelect={(id, name) => updateStep(i, { template_id: id, template_name: name })}
+                        onClear={() => updateStep(i, { template_id: undefined, template_name: undefined })}
+                        compact
+                      />
                     )}
 
                     {step.type === "menu_change" && (

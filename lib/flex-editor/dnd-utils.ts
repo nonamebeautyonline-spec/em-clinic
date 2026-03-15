@@ -15,7 +15,7 @@ export function isToolboxDragId(id: string): boolean {
 export function parseToolboxBlockType(id: string): BlockType | null {
   if (!isToolboxDragId(id)) return null;
   const type = id.slice(TOOLBOX_PREFIX.length);
-  const validTypes: BlockType[] = ["title", "text", "image", "button", "separator"];
+  const validTypes: BlockType[] = ["title", "text", "image", "button", "separator", "icon_text", "badge", "countdown", "rating", "map_link", "coupon", "video"];
   return validTypes.includes(type as BlockType) ? (type as BlockType) : null;
 }
 

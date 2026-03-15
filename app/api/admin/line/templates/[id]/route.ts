@@ -15,10 +15,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const parsed = await parseBody(req, updateTemplateSchema);
   if ("error" in parsed) return parsed.error;
-  const { name, content, message_type, category, flex_content } = parsed.data;
+  const { name, content, message_type, category, flex_content, imagemap_actions } = parsed.data;
 
   const { data, error } = await withTenant(
-    supabaseAdmin.from("message_templates").update({ name, content, message_type, category, flex_content: flex_content || null, updated_at: new Date().toISOString() }).eq("id", Number(id)).select(),
+    supabaseAdmin.from("message_templates").update({ name, content, message_type, category, flex_content: flex_content || null, imagemap_actions: imagemap_actions || null, updated_at: new Date().toISOString() }).eq("id", Number(id)).select(),
     tenantId
   ).single();
 

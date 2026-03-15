@@ -9,8 +9,21 @@ import {
   type TagDef,
   type MarkDef as CBMarkDef,
 } from "../../_components/ConditionBuilder";
+import { TemplatePicker } from "../../templates/_components/TemplatePicker";
 
 /* ---------- 型定義 ---------- */
+interface BranchDef {
+  label: string;
+  condition_rules: ConditionRule[];
+  next_step: number | null;
+}
+
+interface ABVariant {
+  label: string;
+  weight: number; // パーセンテージ（全バリアントの合計 = 100）
+  next_step: number | null;
+}
+
 interface StepItem {
   id?: number;
   sort_order: number;
@@ -27,6 +40,10 @@ interface StepItem {
   condition_rules: ConditionRule[];
   branch_true_step: number | null;
   branch_false_step: number | null;
+  // N分岐（新方式）
+  branches: BranchDef[];
+  // A/Bテスト
+  ab_variants: ABVariant[];
   // 離脱条件
   exit_condition_rules: ConditionRule[];
   exit_action: string;
@@ -54,6 +71,16 @@ interface Enrollment {
   enrolled_at: string;
 }
 
+interface ExecutionLog {
+  id: number;
+  enrollment_id: number;
+  step_order: number;
+  step_type: string;
+  status: string;
+  detail: Record<string, unknown>;
+  executed_at: string;
+}
+
 interface Tag { id: number; name: string; color: string; }
 interface Template { id: number; name: string; }
 interface MarkDef { mark: string; label: string; color: string; }
@@ -62,6 +89,9 @@ const TRIGGER_TYPES = [
   { value: "follow", label: "友だち追加時" },
   { value: "tag_add", label: "タグ追加時" },
   { value: "keyword", label: "キーワード受信時" },
+  { value: "reservation_made", label: "予約時" },
+  { value: "checkout_completed", label: "決済完了時" },
+  { value: "reorder_approved", label: "再処方承認時" },
   { value: "manual", label: "手動登録のみ" },
 ];
 
@@ -73,6 +103,7 @@ const STEP_TYPES = [
   { value: "mark_change", label: "対応マーク変更" },
   { value: "menu_change", label: "リッチメニュー変更" },
   { value: "condition", label: "条件分岐" },
+  { value: "ab_test", label: "A/Bテスト" },
 ];
 
 const DELAY_TYPES = [
@@ -107,6 +138,8 @@ const EMPTY_STEP: StepItem = {
   condition_rules: [],
   branch_true_step: null,
   branch_false_step: null,
+  branches: [],
+  ab_variants: [],
   exit_condition_rules: [],
   exit_action: "exit",
   exit_jump_to: null,
@@ -154,17 +187,26 @@ export default function StepScenarioEditPage() {
   const loading = detailLoading || tagLoading || tplLoading || markLoading;
 
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<"steps" | "enrollments">("steps");
+  const [activeTab, setActiveTab] = useState<"steps" | "enrollments" | "logs">("steps");
 
   // 登録者一覧（タブ選択時のみ取得）
   const enrollmentsKey = activeTab === "enrollments" ? `/api/admin/line/step-scenarios/${scenarioId}/enrollments` : null;
   const { data: enrollmentsData } = useSWR<{ enrollments: Enrollment[] }>(enrollmentsKey);
   const enrollments = enrollmentsData?.enrollments || [];
 
+  // 実行ログ（タブ選択時のみ取得）
+  const logsKey = activeTab === "logs" ? `/api/admin/line/step-scenarios/${scenarioId}/logs` : null;
+  const { data: logsData } = useSWR<{ logs: ExecutionLog[] }>(logsKey);
+  const executionLogs = logsData?.logs || [];
+
   // 条件ビルダーモーダル
   const [condModalTarget, setCondModalTarget] = useState<{
     stepIndex: number;
     field: "condition_rules" | "exit_condition_rules";
+  } | null>(null);
+  const [branchCondTarget, setBranchCondTarget] = useState<{
+    stepIndex: number;
+    branchIndex: number;
   } | null>(null);
 
   // 手動登録モーダル
@@ -403,6 +445,7 @@ export default function StepScenarioEditPage() {
         {[
           { key: "steps" as const, label: "ステップ設定", count: steps.length },
           { key: "enrollments" as const, label: "登録者", count: stats.active },
+          { key: "logs" as const, label: "実行ログ", count: null },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -414,9 +457,11 @@ export default function StepScenarioEditPage() {
             }`}
           >
             {tab.label}
-            <span className="ml-1.5 px-1.5 py-0.5 text-[10px] bg-gray-100 text-gray-500 rounded-full">
-              {tab.count}
-            </span>
+            {tab.count != null && (
+              <span className="ml-1.5 px-1.5 py-0.5 text-[10px] bg-gray-100 text-gray-500 rounded-full">
+                {tab.count}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -444,6 +489,7 @@ export default function StepScenarioEditPage() {
                     onRemove={() => removeStep(index)}
                     onMove={(dir) => moveStep(index, dir)}
                     onEditCondition={(field) => setCondModalTarget({ stepIndex: index, field })}
+                    onEditBranchCondition={(branchIndex) => setBranchCondTarget({ stepIndex: index, branchIndex })}
                   />
                   {/* ステップ間の接続線 */}
                   {index < steps.length - 1 && (
@@ -547,7 +593,67 @@ export default function StepScenarioEditPage() {
         </div>
       )}
 
-      {/* 条件ビルダーモーダル */}
+      {/* 実行ログ */}
+      {activeTab === "logs" && (
+        <div>
+          {executionLogs.length === 0 ? (
+            <div className="text-center py-12 text-gray-400 text-sm">
+              実行ログはまだありません
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 text-gray-500 text-xs">
+                    <th className="px-4 py-2 text-left">実行日時</th>
+                    <th className="px-4 py-2 text-center">ステップ</th>
+                    <th className="px-4 py-2 text-center">タイプ</th>
+                    <th className="px-4 py-2 text-center">ステータス</th>
+                    <th className="px-4 py-2 text-left">詳細</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {executionLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 text-xs text-gray-600">
+                        {formatDate(log.executed_at)}
+                      </td>
+                      <td className="px-4 py-2 text-center text-xs text-gray-600">
+                        {log.step_order + 1}
+                      </td>
+                      <td className="px-4 py-2 text-center">
+                        <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+                          {STEP_TYPES.find((t) => t.value === log.step_type)?.label || log.step_type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-center">
+                        <span className={`inline-flex px-2 py-0.5 text-[10px] rounded-full ${
+                          log.status === "success" ? "bg-green-50 text-green-700" :
+                          log.status === "failed" ? "bg-red-50 text-red-700" :
+                          log.status === "skipped" ? "bg-yellow-50 text-yellow-700" :
+                          "bg-gray-100 text-gray-500"
+                        }`}>
+                          {log.status === "success" ? "成功" :
+                           log.status === "failed" ? "失敗" :
+                           log.status === "skipped" ? "スキップ" :
+                           log.status === "condition_false" ? "条件不一致" : log.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-xs text-gray-500 max-w-[200px] truncate">
+                        {log.detail && Object.keys(log.detail).length > 0
+                          ? JSON.stringify(log.detail)
+                          : "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 条件ビルダーモーダル（旧2分岐 & 離脱条件用） */}
       {condModalTarget && (
         <ConditionBuilderModal
           condition={{
@@ -561,6 +667,31 @@ export default function StepScenarioEditPage() {
             setCondModalTarget(null);
           }}
           onClose={() => setCondModalTarget(null)}
+        />
+      )}
+
+      {/* 条件ビルダーモーダル（N分岐用） */}
+      {branchCondTarget && (
+        <ConditionBuilderModal
+          condition={{
+            enabled: true,
+            rules: steps[branchCondTarget.stepIndex]?.branches?.[branchCondTarget.branchIndex]?.condition_rules || [],
+          }}
+          tags={cbTags}
+          marks={cbMarks}
+          onSave={(cond) => {
+            const step = steps[branchCondTarget.stepIndex];
+            if (step?.branches) {
+              const updated = [...step.branches];
+              updated[branchCondTarget.branchIndex] = {
+                ...updated[branchCondTarget.branchIndex],
+                condition_rules: cond.rules,
+              };
+              updateStep(branchCondTarget.stepIndex, { branches: updated });
+            }
+            setBranchCondTarget(null);
+          }}
+          onClose={() => setBranchCondTarget(null)}
         />
       )}
 
@@ -604,7 +735,7 @@ export default function StepScenarioEditPage() {
 /* ---------- ステップカード ---------- */
 function StepCard({
   step, index, total, allSteps, tags, templates, marks,
-  onUpdate, onRemove, onMove, onEditCondition,
+  onUpdate, onRemove, onMove, onEditCondition, onEditBranchCondition,
 }: {
   step: StepItem;
   index: number;
@@ -617,30 +748,32 @@ function StepCard({
   onRemove: () => void;
   onMove: (dir: -1 | 1) => void;
   onEditCondition: (field: "condition_rules" | "exit_condition_rules") => void;
+  onEditBranchCondition: (branchIndex: number) => void;
 }) {
   const [showExitCondition, setShowExitCondition] = useState(
     (step.exit_condition_rules?.length || 0) > 0
   );
 
   const isConditionStep = step.step_type === "condition";
+  const isABTestStep = step.step_type === "ab_test";
 
   // ステップ番号ラベルの色
-  const badgeColor = isConditionStep ? "bg-purple-500" : "bg-[#06C755]";
+  const badgeColor = isConditionStep ? "bg-purple-500" : isABTestStep ? "bg-amber-500" : "bg-[#06C755]";
 
   return (
     <div className={`bg-white rounded-lg border overflow-hidden ${
-      isConditionStep ? "border-purple-200" : "border-gray-200"
+      isConditionStep ? "border-purple-200" : isABTestStep ? "border-amber-200" : "border-gray-200"
     }`}>
       {/* ステップヘッダー */}
       <div className={`flex items-center justify-between px-4 py-2 border-b ${
-        isConditionStep ? "bg-purple-50 border-purple-100" : "bg-gray-50 border-gray-100"
+        isConditionStep ? "bg-purple-50 border-purple-100" : isABTestStep ? "bg-amber-50 border-amber-100" : "bg-gray-50 border-gray-100"
       }`}>
         <div className="flex items-center gap-2">
           <span className={`w-6 h-6 flex items-center justify-center ${badgeColor} text-white text-xs font-bold rounded-full`}>
             {index + 1}
           </span>
           <span className="text-xs text-gray-500">
-            {isConditionStep ? "条件分岐" : `ステップ ${index + 1}`}
+            {isConditionStep ? "条件分岐" : isABTestStep ? "A/Bテスト" : `ステップ ${index + 1}`}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -702,61 +835,338 @@ function StepCard({
         {/* ===== 条件分岐ステップ ===== */}
         {isConditionStep && (
           <div className="space-y-3">
-            {/* 条件ルール */}
-            <div className="bg-purple-50 rounded-lg p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-purple-700">分岐条件（AND結合）</span>
-                <button
-                  onClick={() => onEditCondition("condition_rules")}
-                  className="px-3 py-1 text-xs bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors"
-                >
-                  {(step.condition_rules?.length || 0) > 0 ? "条件を編集" : "条件を設定"}
-                </button>
-              </div>
-              {(step.condition_rules?.length || 0) > 0 ? (
-                <div className="space-y-1">
-                  {step.condition_rules.map((r, i) => (
-                    <div key={i} className="text-xs text-purple-600 bg-white px-2 py-1 rounded">
-                      {formatConditionSummary(r)}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-purple-400">条件が未設定です</p>
-              )}
+            {/* 分岐モード切替 */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-gray-600">分岐方式:</span>
+              <button
+                onClick={() => {
+                  if ((step.branches?.length || 0) === 0) {
+                    // 旧2分岐 → N分岐に移行
+                    const newBranches: BranchDef[] = [
+                      { label: "条件1", condition_rules: step.condition_rules || [], next_step: step.branch_true_step },
+                      { label: "デフォルト", condition_rules: [], next_step: step.branch_false_step },
+                    ];
+                    onUpdate({ branches: newBranches });
+                  } else {
+                    // N分岐 → 旧2分岐に戻す
+                    onUpdate({ branches: [] });
+                  }
+                }}
+                className={`px-2.5 py-1 text-xs rounded-lg transition-colors ${
+                  (step.branches?.length || 0) > 0
+                    ? "bg-purple-100 text-purple-700 font-medium"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {(step.branches?.length || 0) > 0 ? `N分岐（${step.branches.length}）` : "2分岐（True/False）"}
+              </button>
             </div>
 
-            {/* 分岐先 */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-green-50 rounded-lg p-3">
-                <label className="block text-xs font-medium text-green-700 mb-1">
-                  True（条件一致）→
-                </label>
-                <select
-                  value={step.branch_true_step ?? ""}
-                  onChange={(e) => onUpdate({ branch_true_step: e.target.value ? parseInt(e.target.value) : null })}
-                  className="w-full px-2 py-1.5 text-xs border border-green-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-400"
+            {(step.branches?.length || 0) > 0 ? (
+              /* ===== N分岐モード ===== */
+              <div className="space-y-2">
+                {step.branches.map((branch, bi) => {
+                  const isDefault = !branch.condition_rules || branch.condition_rules.length === 0;
+                  const branchColors = [
+                    { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", btn: "bg-blue-100 text-blue-700 hover:bg-blue-200" },
+                    { bg: "bg-green-50", border: "border-green-200", text: "text-green-700", btn: "bg-green-100 text-green-700 hover:bg-green-200" },
+                    { bg: "bg-orange-50", border: "border-orange-200", text: "text-orange-700", btn: "bg-orange-100 text-orange-700 hover:bg-orange-200" },
+                    { bg: "bg-pink-50", border: "border-pink-200", text: "text-pink-700", btn: "bg-pink-100 text-pink-700 hover:bg-pink-200" },
+                    { bg: "bg-cyan-50", border: "border-cyan-200", text: "text-cyan-700", btn: "bg-cyan-100 text-cyan-700 hover:bg-cyan-200" },
+                  ];
+                  const color = isDefault
+                    ? { bg: "bg-gray-50", border: "border-gray-200", text: "text-gray-700", btn: "bg-gray-100 text-gray-700 hover:bg-gray-200" }
+                    : branchColors[bi % branchColors.length];
+
+                  return (
+                    <div key={bi} className={`${color.bg} border ${color.border} rounded-lg p-3`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={branch.label}
+                            onChange={(e) => {
+                              const updated = [...step.branches];
+                              updated[bi] = { ...updated[bi], label: e.target.value };
+                              onUpdate({ branches: updated });
+                            }}
+                            className={`px-2 py-0.5 text-xs font-medium rounded border-none bg-transparent ${color.text} focus:outline-none focus:ring-1 focus:ring-purple-300 w-24`}
+                          />
+                          {isDefault && (
+                            <span className="text-[10px] text-gray-400 bg-gray-200 px-1.5 py-0.5 rounded">
+                              デフォルト
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {!isDefault && (
+                            <button
+                              onClick={() => onEditBranchCondition(bi)}
+                              className={`px-2 py-0.5 text-[10px] rounded ${color.btn} transition-colors`}
+                            >
+                              {branch.condition_rules.length > 0 ? "条件編集" : "条件設定"}
+                            </button>
+                          )}
+                          {step.branches.length > 2 && (
+                            <button
+                              onClick={() => {
+                                const updated = step.branches.filter((_, i) => i !== bi);
+                                onUpdate({ branches: updated });
+                              }}
+                              className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 条件表示 */}
+                      {!isDefault && branch.condition_rules.length > 0 && (
+                        <div className="space-y-0.5 mb-2">
+                          {branch.condition_rules.map((r, ri) => (
+                            <div key={ri} className="text-[10px] text-gray-600 bg-white px-2 py-0.5 rounded">
+                              {formatConditionSummary(r)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* ジャンプ先 */}
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] ${color.text}`}>→</span>
+                        <select
+                          value={branch.next_step ?? ""}
+                          onChange={(e) => {
+                            const updated = [...step.branches];
+                            updated[bi] = { ...updated[bi], next_step: e.target.value ? parseInt(e.target.value) : null };
+                            onUpdate({ branches: updated });
+                          }}
+                          className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-purple-300"
+                        >
+                          <option value="">次のステップへ</option>
+                          {allSteps.map((_, si) => (
+                            <option key={si} value={si}>ステップ {si + 1}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* 分岐追加ボタン */}
+                <button
+                  onClick={() => {
+                    // デフォルト分岐の前に挿入
+                    const updated = [...step.branches];
+                    const defaultIdx = updated.findIndex((b) => !b.condition_rules || b.condition_rules.length === 0);
+                    const newBranch: BranchDef = {
+                      label: `条件${updated.length}`,
+                      condition_rules: [],
+                      next_step: null,
+                    };
+                    if (defaultIdx >= 0) {
+                      updated.splice(defaultIdx, 0, newBranch);
+                    } else {
+                      updated.push(newBranch);
+                    }
+                    onUpdate({ branches: updated });
+                  }}
+                  className="w-full py-1.5 text-xs text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors border border-dashed border-purple-200"
                 >
-                  <option value="">次のステップへ</option>
-                  {allSteps.map((_, si) => (
-                    <option key={si} value={si}>ステップ {si + 1}</option>
-                  ))}
-                </select>
+                  + 分岐を追加
+                </button>
               </div>
-              <div className="bg-red-50 rounded-lg p-3">
-                <label className="block text-xs font-medium text-red-700 mb-1">
-                  False（条件不一致）→
-                </label>
-                <select
-                  value={step.branch_false_step ?? ""}
-                  onChange={(e) => onUpdate({ branch_false_step: e.target.value ? parseInt(e.target.value) : null })}
-                  className="w-full px-2 py-1.5 text-xs border border-red-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-red-400"
-                >
-                  <option value="">次のステップへ</option>
-                  {allSteps.map((_, si) => (
-                    <option key={si} value={si}>ステップ {si + 1}</option>
-                  ))}
-                </select>
+            ) : (
+              /* ===== 旧2分岐モード ===== */
+              <>
+                {/* 条件ルール */}
+                <div className="bg-purple-50 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-purple-700">分岐条件（AND結合）</span>
+                    <button
+                      onClick={() => onEditCondition("condition_rules")}
+                      className="px-3 py-1 text-xs bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors"
+                    >
+                      {(step.condition_rules?.length || 0) > 0 ? "条件を編集" : "条件を設定"}
+                    </button>
+                  </div>
+                  {(step.condition_rules?.length || 0) > 0 ? (
+                    <div className="space-y-1">
+                      {step.condition_rules.map((r, i) => (
+                        <div key={i} className="text-xs text-purple-600 bg-white px-2 py-1 rounded">
+                          {formatConditionSummary(r)}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-purple-400">条件が未設定です</p>
+                  )}
+                </div>
+
+                {/* 分岐先 */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-green-50 rounded-lg p-3">
+                    <label className="block text-xs font-medium text-green-700 mb-1">
+                      True（条件一致）→
+                    </label>
+                    <select
+                      value={step.branch_true_step ?? ""}
+                      onChange={(e) => onUpdate({ branch_true_step: e.target.value ? parseInt(e.target.value) : null })}
+                      className="w-full px-2 py-1.5 text-xs border border-green-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-400"
+                    >
+                      <option value="">次のステップへ</option>
+                      {allSteps.map((_, si) => (
+                        <option key={si} value={si}>ステップ {si + 1}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="bg-red-50 rounded-lg p-3">
+                    <label className="block text-xs font-medium text-red-700 mb-1">
+                      False（条件不一致）→
+                    </label>
+                    <select
+                      value={step.branch_false_step ?? ""}
+                      onChange={(e) => onUpdate({ branch_false_step: e.target.value ? parseInt(e.target.value) : null })}
+                      className="w-full px-2 py-1.5 text-xs border border-red-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-red-400"
+                    >
+                      <option value="">次のステップへ</option>
+                      {allSteps.map((_, si) => (
+                        <option key={si} value={si}>ステップ {si + 1}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ===== A/Bテストステップ ===== */}
+        {step.step_type === "ab_test" && (
+          <div className="space-y-3">
+            <div className="bg-amber-50 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-amber-700">🧪 A/Bテスト バリアント</span>
+                <span className="text-[10px] text-amber-500">
+                  合計: {(step.ab_variants || []).reduce((s, v) => s + (v.weight || 0), 0)}%
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {(step.ab_variants || []).map((variant, vi) => {
+                  const variantLabels = ["A", "B", "C", "D", "E"];
+                  const variantColors = ["bg-blue-100 text-blue-700", "bg-green-100 text-green-700", "bg-orange-100 text-orange-700", "bg-pink-100 text-pink-700", "bg-cyan-100 text-cyan-700"];
+                  return (
+                    <div key={vi} className="flex items-center gap-2 bg-white rounded-lg p-2 border border-amber-100">
+                      <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold ${variantColors[vi % variantColors.length]}`}>
+                        {variantLabels[vi] || vi + 1}
+                      </span>
+                      <input
+                        type="text"
+                        value={variant.label}
+                        onChange={(e) => {
+                          const updated = [...(step.ab_variants || [])];
+                          updated[vi] = { ...updated[vi], label: e.target.value };
+                          onUpdate({ ab_variants: updated });
+                        }}
+                        className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-amber-300"
+                        placeholder="バリアント名"
+                      />
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          value={variant.weight}
+                          onChange={(e) => {
+                            const updated = [...(step.ab_variants || [])];
+                            updated[vi] = { ...updated[vi], weight: Math.max(0, Math.min(100, parseInt(e.target.value) || 0)) };
+                            onUpdate({ ab_variants: updated });
+                          }}
+                          className="w-14 px-1.5 py-1 text-xs text-center border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-amber-300"
+                          min={0}
+                          max={100}
+                        />
+                        <span className="text-xs text-gray-400">%</span>
+                      </div>
+                      <span className="text-[10px] text-gray-400">→</span>
+                      <select
+                        value={variant.next_step ?? ""}
+                        onChange={(e) => {
+                          const updated = [...(step.ab_variants || [])];
+                          updated[vi] = { ...updated[vi], next_step: e.target.value ? parseInt(e.target.value) : null };
+                          onUpdate({ ab_variants: updated });
+                        }}
+                        className="w-28 px-1.5 py-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-amber-300"
+                      >
+                        <option value="">次のステップ</option>
+                        {allSteps.map((_, si) => (
+                          <option key={si} value={si}>ステップ {si + 1}</option>
+                        ))}
+                      </select>
+                      {(step.ab_variants || []).length > 2 && (
+                        <button
+                          onClick={() => {
+                            const updated = (step.ab_variants || []).filter((_, i) => i !== vi);
+                            onUpdate({ ab_variants: updated });
+                          }}
+                          className="p-0.5 text-gray-400 hover:text-red-500"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex gap-2 mt-2">
+                {(step.ab_variants || []).length === 0 && (
+                  <button
+                    onClick={() => onUpdate({
+                      ab_variants: [
+                        { label: "バリアントA", weight: 50, next_step: null },
+                        { label: "バリアントB", weight: 50, next_step: null },
+                      ],
+                    })}
+                    className="flex-1 py-1.5 text-xs text-amber-600 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors"
+                  >
+                    A/Bテストを設定
+                  </button>
+                )}
+                {(step.ab_variants || []).length >= 2 && (step.ab_variants || []).length < 5 && (
+                  <button
+                    onClick={() => {
+                      const updated = [...(step.ab_variants || [])];
+                      updated.push({ label: `バリアント${["A","B","C","D","E"][updated.length] || updated.length + 1}`, weight: 0, next_step: null });
+                      onUpdate({ ab_variants: updated });
+                    }}
+                    className="flex-1 py-1.5 text-xs text-amber-600 bg-white hover:bg-amber-50 rounded-lg transition-colors border border-dashed border-amber-200"
+                  >
+                    + バリアント追加
+                  </button>
+                )}
+                {(step.ab_variants || []).length >= 2 && (
+                  <button
+                    onClick={() => {
+                      const total = (step.ab_variants || []).reduce((s, v) => s + v.weight, 0);
+                      if (total === 0) return;
+                      const even = Math.floor(100 / (step.ab_variants || []).length);
+                      const remainder = 100 - even * (step.ab_variants || []).length;
+                      const updated = (step.ab_variants || []).map((v, i) => ({
+                        ...v,
+                        weight: even + (i === 0 ? remainder : 0),
+                      }));
+                      onUpdate({ ab_variants: updated });
+                    }}
+                    className="px-3 py-1.5 text-xs text-gray-500 bg-white hover:bg-gray-50 rounded-lg transition-colors border border-gray-200"
+                  >
+                    均等配分
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -778,15 +1188,14 @@ function StepCard({
 
         {step.step_type === "send_template" && (
           <div>
-            <label className="block text-xs text-gray-500 mb-1">テンプレート</label>
-            <select value={step.template_id || ""}
-              onChange={(e) => onUpdate({ template_id: e.target.value ? parseInt(e.target.value) : null })}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#06C755]">
-              <option value="">選択してください</option>
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
+            <TemplatePicker
+              value={step.template_id}
+              templates={templates}
+              onSelect={(id) => onUpdate({ template_id: id })}
+              onClear={() => onUpdate({ template_id: null })}
+              label="テンプレート"
+              compact
+            />
           </div>
         )}
 

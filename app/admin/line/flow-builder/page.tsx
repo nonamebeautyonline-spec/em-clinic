@@ -4,6 +4,8 @@ import { useState, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import FlowEditor, { NodeSettingsPanel } from "./flow-editor";
+import ValidationPanel from "./_components/ValidationPanel";
+import TestRunPanel from "./_components/TestRunPanel";
 import {
   type FlowGraph,
   type FlowNode,
@@ -40,6 +42,10 @@ export default function FlowBuilderPage() {
 
   // JSON表示モーダル
   const [showJson, setShowJson] = useState(false);
+  // 検証パネル
+  const [showValidation, setShowValidation] = useState(false);
+  // テスト実行パネル
+  const [showTestRun, setShowTestRun] = useState(false);
 
   /* ---------- シナリオ一覧の取得 ---------- */
 
@@ -181,6 +187,32 @@ export default function FlowBuilderPage() {
             ))}
           </select>
 
+          {/* テスト実行 */}
+          <button
+            onClick={() => { setShowTestRun(v => !v); setShowValidation(false); setSelectedNode(null); }}
+            disabled={!selectedScenarioId}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-40 ${
+              showTestRun
+                ? "text-white bg-emerald-500 hover:bg-emerald-600"
+                : "text-emerald-600 bg-emerald-50 hover:bg-emerald-100"
+            }`}
+          >
+            テスト実行
+          </button>
+
+          {/* 検証 */}
+          <button
+            onClick={() => { setShowValidation(v => !v); setShowTestRun(false); setSelectedNode(null); }}
+            disabled={!selectedScenarioId}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-40 ${
+              showValidation
+                ? "text-white bg-indigo-500 hover:bg-indigo-600"
+                : "text-indigo-600 bg-indigo-50 hover:bg-indigo-100"
+            }`}
+          >
+            検証
+          </button>
+
           {/* JSON表示 */}
           <button
             onClick={() => setShowJson(true)}
@@ -246,15 +278,33 @@ export default function FlowBuilderPage() {
               />
             </div>
 
-            {/* 右サイドパネル（ノード選択時） */}
-            {selectedNode && (
+            {/* 右サイドパネル */}
+            {showTestRun && selectedScenarioId ? (
+              <TestRunPanel
+                scenarioId={selectedScenarioId}
+                onHighlightNode={(nodeId) => {
+                  const node = graph.nodes.find(n => n.id === nodeId);
+                  if (node) { setSelectedNode(node); setShowTestRun(false); }
+                }}
+                onClose={() => setShowTestRun(false)}
+              />
+            ) : showValidation ? (
+              <ValidationPanel
+                graph={graph}
+                onSelectNode={(nodeId) => {
+                  const node = graph.nodes.find(n => n.id === nodeId);
+                  if (node) { setSelectedNode(node); setShowValidation(false); }
+                }}
+                onClose={() => setShowValidation(false)}
+              />
+            ) : selectedNode ? (
               <NodeSettingsPanel
                 node={selectedNode}
                 allNodes={graph.nodes}
                 onUpdate={handleUpdateNodeData}
                 onClose={() => setSelectedNode(null)}
               />
-            )}
+            ) : null}
           </>
         )}
       </div>

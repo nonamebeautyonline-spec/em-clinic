@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import useSWR, { mutate } from "swr";
+import { TemplatePicker } from "../templates/_components/TemplatePicker";
 
 /* ---------- 型定義 ---------- */
 interface KeywordRule {
@@ -518,17 +519,13 @@ export default function KeywordRepliesPage() {
 
               {editRule.reply_type === "template" && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">テンプレート選択</label>
-                  <select
-                    value={editRule.reply_template_id || ""}
-                    onChange={(e) => setEditRule({ ...editRule, reply_template_id: e.target.value ? parseInt(e.target.value) : null })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#06C755]"
-                  >
-                    <option value="">選択してください</option>
-                    {templates.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                  </select>
+                  <TemplatePicker
+                    value={editRule.reply_template_id}
+                    templates={templates}
+                    onSelect={(id) => setEditRule({ ...editRule, reply_template_id: id })}
+                    onClear={() => setEditRule({ ...editRule, reply_template_id: null })}
+                    label="テンプレート選択"
+                  />
                 </div>
               )}
 

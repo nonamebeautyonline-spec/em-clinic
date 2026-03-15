@@ -102,6 +102,12 @@ function flexElementToBlock(el: FlexObj): EditorBlock {
         id: generateBlockId(),
         props: { blockType: "separator" },
       };
+    default:
+      // 新規ブロックタイプはFlex JSON読み込み時はテキストとしてフォールバック
+      return {
+        id: generateBlockId(),
+        props: { blockType: "text", text: (el.text as string) || "", wrap: true },
+      };
   }
 }
 
@@ -312,6 +318,122 @@ function blockToFlexElement(block: EditorBlock): FlexObj {
       return {
         type: "separator",
         margin: "md",
+      };
+    case "icon_text":
+      return {
+        type: "box",
+        layout: "horizontal",
+        spacing: "md",
+        contents: [
+          ...(props.iconUrl ? [{
+            type: "image",
+            url: props.iconUrl,
+            size: "20px",
+            aspectRatio: "1:1",
+            aspectMode: "cover",
+            flex: 0,
+          }] : [{
+            type: "box",
+            layout: "vertical",
+            contents: [{ type: "text", text: "●", size: "xxs", color: props.color || "#06C755" }],
+            width: "20px",
+            alignItems: "center",
+            justifyContent: "center",
+            flex: 0,
+          }]),
+          { type: "text", text: props.text || "テキスト", size: props.size || "md", color: props.color || "#666666", wrap: true, flex: 1 },
+        ],
+      };
+    case "badge":
+      return {
+        type: "box",
+        layout: "horizontal",
+        contents: [
+          {
+            type: "box",
+            layout: "vertical",
+            contents: [{ type: "text", text: props.text || "NEW", size: "xs", color: props.textColor || "#ffffff", align: "center", weight: "bold" }],
+            backgroundColor: props.badgeColor || "#06C755",
+            cornerRadius: "md",
+            paddingAll: "4px",
+            paddingStart: "10px",
+            paddingEnd: "10px",
+          },
+          { type: "filler" },
+        ],
+      };
+    case "countdown": {
+      // カウントダウンは静的テキストとして表示（LINE Flex にはネイティブのカウントダウン機能はない）
+      const endDateStr = props.endDate ? new Date(props.endDate).toLocaleDateString("ja-JP") : "未設定";
+      return {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          { type: "text", text: props.label || "カウントダウン", size: "xs", color: "#999999" },
+          { type: "text", text: `〜 ${endDateStr}`, size: "lg", weight: "bold", color: props.color || "#06C755" },
+        ],
+        spacing: "xs",
+      };
+    }
+    case "rating": {
+      const filled = Math.floor(props.score);
+      const half = props.score % 1 >= 0.5;
+      const empty = props.maxScore - filled - (half ? 1 : 0);
+      const stars = "★".repeat(filled) + (half ? "☆" : "") + "☆".repeat(Math.max(0, empty));
+      return {
+        type: "box",
+        layout: "horizontal",
+        spacing: "sm",
+        contents: [
+          { type: "text", text: stars, size: "md", color: props.color || "#FFB800", flex: 0 },
+          { type: "text", text: `${props.score}`, size: "md", weight: "bold", color: "#333333", flex: 0 },
+          ...(props.label ? [{ type: "text" as const, text: props.label, size: "sm" as const, color: "#999999", flex: 1 }] : []),
+        ],
+      };
+    }
+    case "map_link":
+      return {
+        type: "button",
+        style: "link",
+        color: props.color || "#06C755",
+        action: {
+          type: "uri",
+          label: props.label || "地図で見る",
+          uri: `https://maps.google.com/?q=${encodeURIComponent(props.address || "")}`,
+        },
+      };
+    case "coupon":
+      return {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          ...(props.description ? [{ type: "text" as const, text: props.description, size: "xs" as const, color: "#999999", wrap: true }] : []),
+          {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              { type: "text", text: props.label || "クーポンコード", size: "xs", color: "#999999", align: "center" },
+              { type: "text", text: props.code || "CODE", size: "xl", weight: "bold", color: props.color || "#06C755", align: "center" },
+            ],
+            backgroundColor: "#f5f5f5",
+            cornerRadius: "md",
+            paddingAll: "12px",
+            margin: "sm",
+          },
+        ],
+        spacing: "sm",
+      };
+    case "video":
+      return {
+        type: "video",
+        url: props.url || "https://example.com/video.mp4",
+        previewUrl: props.previewUrl || "https://via.placeholder.com/600x400",
+        altContent: {
+          type: "button",
+          label: props.altContent || "動画を再生",
+          action: { type: "uri", label: props.altContent || "動画を再生", uri: props.url || "https://example.com" },
+        },
+        aspectRatio: props.aspectRatio || "20:13",
       };
   }
 }

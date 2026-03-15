@@ -10,6 +10,12 @@ export type FlowNodeType =
   | "wait"        // 待機ノード
   | "tag"         // タグ操作ノード
   | "menu"        // リッチメニュー切替ノード
+  | "ab_test"     // A/Bテスト分岐ノード
+  | "webhook"     // 外部API呼び出しノード
+  | "delay_until" // 特定日時まで待機ノード
+  | "random"      // ランダム分岐ノード
+  | "goal"        // ゴールノード（コンバージョン計測）
+  | "note"        // メモノード（実行されない説明用）
 
 /** フローノード */
 export interface FlowNode {
@@ -106,6 +112,12 @@ const STEP_TYPE_TO_NODE_TYPE: Record<string, FlowNodeType> = {
   tag_remove: "tag",
   mark_change: "tag",  // タグ操作と同系統で表示
   menu_change: "menu",
+  ab_test: "ab_test",
+  webhook: "webhook",
+  delay_until: "delay_until",
+  random: "random",
+  goal: "goal",
+  note: "note",
 };
 
 /** ノードタイプの日本語ラベル */
@@ -117,6 +129,12 @@ const NODE_TYPE_LABELS: Record<string, string> = {
   tag_remove: "タグ除去",
   mark_change: "マーク変更",
   menu_change: "メニュー変更",
+  ab_test: "A/Bテスト",
+  webhook: "Webhook",
+  delay_until: "日時待機",
+  random: "ランダム分岐",
+  goal: "ゴール",
+  note: "メモ",
 };
 
 /* ---------- step_items → FlowGraph 変換 ---------- */
@@ -422,6 +440,12 @@ export function createNewNode(type: FlowNodeType, x: number, y: number): FlowNod
     wait: "wait",
     tag: "tag_add",
     menu: "menu_change",
+    ab_test: "ab_test",
+    webhook: "webhook",
+    delay_until: "delay_until",
+    random: "random",
+    goal: "goal",
+    note: "note",
   };
 
   const labelMap: Record<FlowNodeType, string> = {
@@ -430,6 +454,12 @@ export function createNewNode(type: FlowNodeType, x: number, y: number): FlowNod
     wait: "待機",
     tag: "タグ追加",
     menu: "メニュー変更",
+    ab_test: "A/Bテスト",
+    webhook: "Webhook",
+    delay_until: "日時待機",
+    random: "ランダム分岐",
+    goal: "ゴール",
+    note: "メモ",
   };
 
   return {
@@ -474,6 +504,18 @@ export function getNodeColor(type: FlowNodeType): { bg: string; border: string; 
       return { bg: "#f0fdf4", border: "#86efac", text: "#15803d", headerBg: "#22c55e" };
     case "menu":
       return { bg: "#faf5ff", border: "#c4b5fd", text: "#7c3aed", headerBg: "#8b5cf6" };
+    case "ab_test":
+      return { bg: "#fffbeb", border: "#fbbf24", text: "#b45309", headerBg: "#f59e0b" };
+    case "webhook":
+      return { bg: "#fef2f2", border: "#fca5a5", text: "#b91c1c", headerBg: "#ef4444" };
+    case "delay_until":
+      return { bg: "#f0fdfa", border: "#5eead4", text: "#0f766e", headerBg: "#14b8a6" };
+    case "random":
+      return { bg: "#fdf4ff", border: "#e879f9", text: "#a21caf", headerBg: "#d946ef" };
+    case "goal":
+      return { bg: "#ecfdf5", border: "#6ee7b7", text: "#047857", headerBg: "#10b981" };
+    case "note":
+      return { bg: "#fffbeb", border: "#fde68a", text: "#92400e", headerBg: "#fbbf24" };
     default:
       return { bg: "#f9fafb", border: "#d1d5db", text: "#4b5563", headerBg: "#6b7280" };
   }

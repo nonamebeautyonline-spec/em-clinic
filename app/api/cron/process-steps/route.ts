@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { pushMessage } from "@/lib/line-push";
-import { calculateNextSendAt, evaluateStepConditions, jumpToStep } from "@/lib/step-enrollment";
+import { calculateNextSendAt, evaluateStepConditions, jumpToStep, type ConditionRule } from "@/lib/step-enrollment";
 import { evaluateDisplayConditions, type DisplayConditions } from "@/lib/step-conditions";
 import { withTenant, tenantPayload } from "@/lib/tenant";
 import { acquireLock } from "@/lib/distributed-lock";
@@ -158,13 +158,76 @@ export async function GET(req: NextRequest) {
 
         // 条件分岐ステップの処理
         if (step.step_type === "condition") {
-          const condRules = step.condition_rules;
-          if (condRules && Array.isArray(condRules) && condRules.length > 0) {
-            const match = await evaluateStepConditions(condRules, enrollment.patient_id, tenantId);
-            if (match && step.branch_true_step != null) {
-              await jumpToStep(enrollment.id, step.branch_true_step, enrollment.scenario_id, tenantId);
-            } else if (!match && step.branch_false_step != null) {
-              await jumpToStep(enrollment.id, step.branch_false_step, enrollment.scenario_id, tenantId);
+          // N分岐: branches が設定されていれば優先使用
+          const branches = step.branches as { label?: string; condition_rules?: unknown[]; next_step?: number | null }[] | null;
+          if (branches && Array.isArray(branches) && branches.length > 0) {
+            let jumped = false;
+            for (const branch of branches) {
+              const rules = branch.condition_rules;
+              if (!rules || !Array.isArray(rules) || rules.length === 0) {
+                // 条件なし = デフォルト分岐
+                if (branch.next_step != null) {
+                  await jumpToStep(enrollment.id, branch.next_step, enrollment.scenario_id, tenantId);
+                  jumped = true;
+                }
+                break;
+              }
+              const match = await evaluateStepConditions(rules as ConditionRule[], enrollment.patient_id, tenantId);
+              if (match) {
+                if (branch.next_step != null) {
+                  await jumpToStep(enrollment.id, branch.next_step, enrollment.scenario_id, tenantId);
+                  jumped = true;
+                }
+                break;
+              }
+            }
+            if (!jumped) {
+              await advanceToNextStep(enrollment, tenantId);
+            }
+          } else {
+            // 後方互換: 旧2分岐ロジック
+            const condRules = step.condition_rules;
+            if (condRules && Array.isArray(condRules) && condRules.length > 0) {
+              const match = await evaluateStepConditions(condRules as ConditionRule[], enrollment.patient_id, tenantId);
+              if (match && step.branch_true_step != null) {
+                await jumpToStep(enrollment.id, step.branch_true_step, enrollment.scenario_id, tenantId);
+              } else if (!match && step.branch_false_step != null) {
+                await jumpToStep(enrollment.id, step.branch_false_step, enrollment.scenario_id, tenantId);
+              } else {
+                await advanceToNextStep(enrollment, tenantId);
+              }
+            } else {
+              await advanceToNextStep(enrollment, tenantId);
+            }
+          }
+          processed++;
+          continue;
+        }
+
+        // A/Bテストステップの処理
+        if (step.step_type === "ab_test") {
+          const variants = step.ab_variants as { label?: string; weight: number; next_step?: number | null }[] | null;
+          if (variants && Array.isArray(variants) && variants.length >= 2) {
+            const totalWeight = variants.reduce((s, v) => s + (v.weight || 0), 0);
+            const rand = Math.random() * totalWeight;
+            let cumulative = 0;
+            let selectedIdx = 0;
+            for (let vi = 0; vi < variants.length; vi++) {
+              cumulative += variants[vi].weight || 0;
+              if (rand < cumulative) {
+                selectedIdx = vi;
+                break;
+              }
+            }
+            // 選択されたバリアントインデックスを記録
+            await supabaseAdmin
+              .from("step_enrollments")
+              .update({ ab_variant_index: selectedIdx })
+              .eq("id", enrollment.id);
+
+            const selected = variants[selectedIdx];
+            if (selected.next_step != null) {
+              await jumpToStep(enrollment.id, selected.next_step, enrollment.scenario_id, tenantId);
             } else {
               await advanceToNextStep(enrollment, tenantId);
             }
@@ -187,12 +250,17 @@ export async function GET(req: NextRequest) {
 
         // ステップ実行
         await executeStep(step, enrollment, lineUid, tenantId);
+
+        // 実行ログ記録
+        await logStepExecution(enrollment.id, enrollment.scenario_id, step.sort_order, step.step_type, "success", {}, tenantId);
         processed++;
 
         // 次のステップへ進む
         await advanceToNextStep(enrollment, tenantId);
       } catch (e) {
         console.error(`[process-steps] error for enrollment=${enrollment.id}:`, (e as Error).message);
+        // エラーログ記録
+        await logStepExecution(enrollment.id, enrollment.scenario_id, enrollment.current_step_order, "unknown", "failed", { error: (e as Error).message }, tenantId).catch(() => {});
         errors++;
       }
     }
@@ -452,4 +520,29 @@ async function buildDisplayConditionContext(
   const customFields = (patient?.custom_fields as Record<string, unknown>) || {};
 
   return { tags, customFields, daysSinceStart, completedSteps };
+}
+
+/** ステップ実行ログを記録 */
+async function logStepExecution(
+  enrollmentId: number,
+  scenarioId: number,
+  stepOrder: number,
+  stepType: string,
+  status: string,
+  detail: Record<string, unknown>,
+  tenantId: string | null,
+) {
+  try {
+    await supabaseAdmin.from("step_execution_logs").insert({
+      ...tenantPayload(tenantId),
+      enrollment_id: enrollmentId,
+      scenario_id: scenarioId,
+      step_order: stepOrder,
+      step_type: stepType,
+      status,
+      detail,
+    });
+  } catch {
+    // fire-and-forget: ログ記録失敗はステップ実行を妨げない
+  }
 }

@@ -10,6 +10,13 @@ import { TextBlockEditor } from "./blocks/TextBlockEditor";
 import { ImageBlockEditor } from "./blocks/ImageBlockEditor";
 import { ButtonBlockEditor } from "./blocks/ButtonBlockEditor";
 import { SeparatorBlockEditor } from "./blocks/SeparatorBlockEditor";
+import { IconTextBlockEditor } from "./blocks/IconTextBlockEditor";
+import { BadgeBlockEditor } from "./blocks/BadgeBlockEditor";
+import { CountdownBlockEditor } from "./blocks/CountdownBlockEditor";
+import { RatingBlockEditor } from "./blocks/RatingBlockEditor";
+import { MapLinkBlockEditor } from "./blocks/MapLinkBlockEditor";
+import { CouponBlockEditor } from "./blocks/CouponBlockEditor";
+import { VideoBlockEditor } from "./blocks/VideoBlockEditor";
 
 export function BlockSettingsPanel() {
   const { panels, activePanelIndex, selectedBlockId } = useBlockEditor();
@@ -145,6 +152,20 @@ function BlockEditor({ block }: { block: { id: string; props: import("@/lib/flex
       return <ButtonBlockEditor props={props} onUpdate={onUpdate} />;
     case "separator":
       return <SeparatorBlockEditor />;
+    case "icon_text":
+      return <IconTextBlockEditor props={props} onUpdate={onUpdate} />;
+    case "badge":
+      return <BadgeBlockEditor props={props} onUpdate={onUpdate} />;
+    case "countdown":
+      return <CountdownBlockEditor props={props} onUpdate={onUpdate} />;
+    case "rating":
+      return <RatingBlockEditor props={props} onUpdate={onUpdate} />;
+    case "map_link":
+      return <MapLinkBlockEditor props={props} onUpdate={onUpdate} />;
+    case "coupon":
+      return <CouponBlockEditor props={props} onUpdate={onUpdate} />;
+    case "video":
+      return <VideoBlockEditor props={props} onUpdate={onUpdate} />;
     default:
       return null;
   }
