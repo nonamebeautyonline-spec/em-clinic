@@ -36,7 +36,7 @@ export default function NonameMasterPage() {
 
   const offset = (page - 1) * limit;
   const ordersKey = `/api/admin/noname-master?limit=${limit}&offset=${offset}&payment_method=${paymentMethod}&status=${statusFilter}`;
-  const { data: ordersData, error: ordersError, isLoading: loading, mutate: mutateOrders } = useSWR<{ orders: Order[]; total: number; refund_summary?: { count: number; totalAmount: number } | null }>(ordersKey);
+  const { data: ordersData, error: ordersError, isLoading: loading, mutate: mutateOrders } = useSWR<{ orders: Order[]; total: number; refund_summary?: { count: number; totalAmount: number } | null }>(ordersKey, { keepPreviousData: true });
   const orders = ordersData?.orders || [];
   const totalCount = ordersData?.total || 0;
   const error = ordersError ? (ordersError instanceof Error ? ordersError.message : "エラーが発生しました") : "";
@@ -365,54 +365,60 @@ export default function NonameMasterPage() {
 
       <div className="mb-4 flex flex-col gap-3">
         <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-2">
           {/* 決済方法フィルター */}
-          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
-            <button
-              onClick={() => { setPaymentMethod("all"); setPage(1); }}
-              className={`px-3 py-1 text-sm rounded ${paymentMethod === "all" ? "bg-white shadow text-slate-900" : "text-slate-600 hover:text-slate-900"}`}
-            >
-              全て
-            </button>
-            <button
-              onClick={() => { setPaymentMethod("credit_card"); setPage(1); }}
-              className={`px-3 py-1 text-sm rounded ${paymentMethod === "credit_card" ? "bg-yellow-400 text-black shadow" : "text-slate-600 hover:text-slate-900"}`}
-            >
-              カード
-            </button>
-            <button
-              onClick={() => { setPaymentMethod("bank_transfer"); setPage(1); }}
-              className={`px-3 py-1 text-sm rounded ${paymentMethod === "bank_transfer" ? "bg-cyan-400 text-black shadow" : "text-slate-600 hover:text-slate-900"}`}
-            >
-              銀行振込
-            </button>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 w-16 shrink-0">決済方法</span>
+            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+              <button
+                onClick={() => { setPaymentMethod("all"); setPage(1); }}
+                className={`px-3 py-1 text-sm rounded ${paymentMethod === "all" ? "bg-white shadow text-slate-900" : "text-slate-600 hover:text-slate-900"}`}
+              >
+                全て
+              </button>
+              <button
+                onClick={() => { setPaymentMethod("credit_card"); setPage(1); }}
+                className={`px-3 py-1 text-sm rounded ${paymentMethod === "credit_card" ? "bg-yellow-400 text-black shadow" : "text-slate-600 hover:text-slate-900"}`}
+              >
+                カード
+              </button>
+              <button
+                onClick={() => { setPaymentMethod("bank_transfer"); setPage(1); }}
+                className={`px-3 py-1 text-sm rounded ${paymentMethod === "bank_transfer" ? "bg-cyan-400 text-black shadow" : "text-slate-600 hover:text-slate-900"}`}
+              >
+                銀行振込
+              </button>
+            </div>
           </div>
           {/* ステータスフィルター */}
-          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
-            <button
-              onClick={() => { setStatusFilter("all"); setPage(1); }}
-              className={`px-3 py-1 text-sm rounded ${statusFilter === "all" ? "bg-white shadow text-slate-900" : "text-slate-600 hover:text-slate-900"}`}
-            >
-              全て
-            </button>
-            <button
-              onClick={() => { setStatusFilter("unshipped"); setPage(1); }}
-              className={`px-3 py-1 text-sm rounded ${statusFilter === "unshipped" ? "bg-orange-500 text-white shadow" : "text-slate-600 hover:text-slate-900"}`}
-            >
-              未発送
-            </button>
-            <button
-              onClick={() => { setStatusFilter("shipped"); setPage(1); }}
-              className={`px-3 py-1 text-sm rounded ${statusFilter === "shipped" ? "bg-green-500 text-white shadow" : "text-slate-600 hover:text-slate-900"}`}
-            >
-              発送済
-            </button>
-            <button
-              onClick={() => { setStatusFilter("refund_cancel"); setPage(1); }}
-              className={`px-3 py-1 text-sm rounded ${statusFilter === "refund_cancel" ? "bg-purple-600 text-white shadow" : "text-slate-600 hover:text-slate-900"}`}
-            >
-              返金・キャンセル
-            </button>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 w-16 shrink-0">ステータス</span>
+            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+              <button
+                onClick={() => { setStatusFilter("all"); setPage(1); }}
+                className={`px-3 py-1 text-sm rounded ${statusFilter === "all" ? "bg-white shadow text-slate-900" : "text-slate-600 hover:text-slate-900"}`}
+              >
+                全て
+              </button>
+              <button
+                onClick={() => { setStatusFilter("unshipped"); setPage(1); }}
+                className={`px-3 py-1 text-sm rounded ${statusFilter === "unshipped" ? "bg-orange-500 text-white shadow" : "text-slate-600 hover:text-slate-900"}`}
+              >
+                未発送
+              </button>
+              <button
+                onClick={() => { setStatusFilter("shipped"); setPage(1); }}
+                className={`px-3 py-1 text-sm rounded ${statusFilter === "shipped" ? "bg-green-500 text-white shadow" : "text-slate-600 hover:text-slate-900"}`}
+              >
+                発送済
+              </button>
+              <button
+                onClick={() => { setStatusFilter("refund_cancel"); setPage(1); }}
+                className={`px-3 py-1 text-sm rounded ${statusFilter === "refund_cancel" ? "bg-purple-600 text-white shadow" : "text-slate-600 hover:text-slate-900"}`}
+              >
+                返金・キャンセル
+              </button>
+            </div>
           </div>
           <span className="text-sm text-slate-600">
             {totalCount} 件
@@ -490,7 +496,7 @@ export default function NonameMasterPage() {
                   金額
                 </th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
-                  〒
+                  郵便番号
                 </th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
                   住所
@@ -533,7 +539,6 @@ export default function NonameMasterPage() {
                           </span>
                         )}
                         <span>{formatDateTime(order.payment_date)}</span>
-                        {order.payment_date_label && <span className="text-slate-500">{order.payment_date_label}</span>}
                       </div>
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm">
