@@ -7,6 +7,7 @@ import { AIReplyStatsContent } from "../ai-reply-stats/page";
 interface AiReplySettings {
   is_enabled: boolean;
   mode: string;
+  medical_reply_mode: string;
   knowledge_base: string;
   custom_instructions: string;
   min_message_length: number;
@@ -39,6 +40,7 @@ const DAY_LABELS: Record<DayOfWeek, string> = {
 const DEFAULT_SETTINGS: AiReplySettings = {
   is_enabled: false,
   mode: "approval",
+  medical_reply_mode: "confirm",
   knowledge_base: "",
   custom_instructions: "",
   min_message_length: 5,
@@ -244,6 +246,46 @@ export default function AiReplySettingsPage() {
             <div>
               <div className="text-sm font-medium">自動送信</div>
               <div className="text-xs text-gray-400">AIが即座に返信（要品質確認後）</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      {/* 医学的質問への対応モード */}
+      <div className="bg-white rounded-lg border p-4">
+        <h2 className="font-semibold text-gray-700 mb-1">医学的質問への対応</h2>
+        <p className="text-xs text-gray-400 mb-3">薬の効果・副作用・症状など医学的な質問に対するAIの返答方式</p>
+        <div className="flex gap-3">
+          <label className={`flex items-center gap-2 px-3 py-2 rounded border cursor-pointer ${
+            (settings.medical_reply_mode || "confirm") === "confirm" ? "border-purple-500 bg-purple-50" : "border-gray-200"
+          }`}>
+            <input
+              type="radio"
+              name="medical_reply_mode"
+              value="confirm"
+              checked={(settings.medical_reply_mode || "confirm") === "confirm"}
+              onChange={() => setSettings(s => ({ ...s, medical_reply_mode: "confirm" }))}
+              className="accent-purple-600"
+            />
+            <div>
+              <div className="text-sm font-medium">確認モード</div>
+              <div className="text-xs text-gray-400">「確認いたします」等で断定を避ける</div>
+            </div>
+          </label>
+          <label className={`flex items-center gap-2 px-3 py-2 rounded border cursor-pointer ${
+            settings.medical_reply_mode === "direct" ? "border-purple-500 bg-purple-50" : "border-gray-200"
+          }`}>
+            <input
+              type="radio"
+              name="medical_reply_mode"
+              value="direct"
+              checked={settings.medical_reply_mode === "direct"}
+              onChange={() => setSettings(s => ({ ...s, medical_reply_mode: "direct" }))}
+              className="accent-purple-600"
+            />
+            <div>
+              <div className="text-sm font-medium">直接回答モード</div>
+              <div className="text-xs text-gray-400">ナレッジベースを元に具体的に回答</div>
             </div>
           </label>
         </div>

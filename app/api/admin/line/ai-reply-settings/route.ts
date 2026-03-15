@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
   const settings = data || {
     is_enabled: false,
     mode: "approval",
+    medical_reply_mode: "confirm",
     knowledge_base: "",
     custom_instructions: "",
     min_message_length: 5,
@@ -79,6 +80,7 @@ export async function PUT(req: NextRequest) {
   const {
     is_enabled,
     mode,
+    medical_reply_mode,
     knowledge_base,
     custom_instructions,
     min_message_length,
@@ -96,6 +98,7 @@ export async function PUT(req: NextRequest) {
   const payload = {
     is_enabled: is_enabled ?? false,
     mode: mode || "approval",
+    medical_reply_mode: medical_reply_mode || "confirm",
     knowledge_base: knowledge_base || "",
     custom_instructions: custom_instructions || "",
     min_message_length: min_message_length ?? 5,

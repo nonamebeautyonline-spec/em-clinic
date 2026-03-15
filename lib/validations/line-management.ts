@@ -79,6 +79,7 @@ export const updateAiReplySettingsSchema = z
   .object({
     is_enabled: z.boolean().optional(),
     mode: z.string().optional(),
+    medical_reply_mode: z.enum(["confirm", "direct"]).optional(),
     knowledge_base: z.string().optional(),
     custom_instructions: z.string().optional(),
     min_message_length: z.number().int().optional(),

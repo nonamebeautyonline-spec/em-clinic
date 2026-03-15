@@ -53,7 +53,7 @@ export async function POST(
 
   // ナレッジベース取得
   const { data: settings } = await withTenant(
-    supabaseAdmin.from("ai_reply_settings").select("knowledge_base, custom_instructions").maybeSingle(),
+    supabaseAdmin.from("ai_reply_settings").select("knowledge_base, custom_instructions, medical_reply_mode").maybeSingle(),
     draft.tenant_id
   );
 
@@ -61,7 +61,10 @@ export async function POST(
   const client = new Anthropic({ apiKey });
   const systemPrompt = buildSystemPrompt(
     settings?.knowledge_base || "",
-    settings?.custom_instructions || ""
+    settings?.custom_instructions || "",
+    undefined,
+    undefined,
+    settings?.medical_reply_mode || "confirm"
   );
 
   const userMessage = `以下のAI返信案をスタッフの修正指示に従って改善してください。
