@@ -7,6 +7,7 @@ import {
   executeReservationActions,
 } from "@/lib/reservation-flex";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { pushMessage } from "@/lib/line-push";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
 import { validateBody } from "@/lib/validations/helpers";
 import {
@@ -1066,6 +1067,13 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // キャンセル待ち通知（非同期 — レスポンスをブロックしない）
+      if (cancelDate) {
+        notifyWaitlist(cancelDate, cancelTime, tenantId).catch((err) => {
+          console.error("[reservations] キャンセル待ち通知エラー:", err);
+        });
+      }
+
       return NextResponse.json({
         ok: true,
         reserveId,
@@ -1207,6 +1215,76 @@ export async function POST(req: NextRequest) {
   } catch {
     console.error("POST /api/reservations error");
     return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+  }
+}
+
+/**
+ * キャンセル待ち通知
+ * 予約がキャンセルされた日時に一致するキャンセル待ちエントリに通知を送信
+ */
+async function notifyWaitlist(
+  canceledDate: string,
+  canceledTime: string | null | undefined,
+  tenantId: string | null,
+) {
+  // キャンセル待ちエントリを取得（waiting状態、作成日順、最大3件）
+  let query = supabaseAdmin
+    .from("reservation_waitlist")
+    .select("*")
+    .eq("target_date", canceledDate)
+    .eq("status", "waiting")
+    .order("created_at", { ascending: true })
+    .limit(3);
+
+  if (tenantId) {
+    query = query.eq("tenant_id", tenantId);
+  }
+
+  const { data: waitlistEntries, error } = await query;
+
+  if (error) {
+    console.error("[notifyWaitlist] クエリエラー:", error);
+    return;
+  }
+
+  if (!waitlistEntries || waitlistEntries.length === 0) return;
+
+  const dateStr = canceledDate;
+  const timeStr = canceledTime ? ` ${canceledTime}` : "";
+
+  for (const entry of waitlistEntries) {
+    if (!entry.line_uid) continue;
+
+    const message = `ご希望の日時（${dateStr}${timeStr}）に空きが出ました。お早めにご予約ください。`;
+
+    try {
+      const res = await pushMessage(
+        entry.line_uid,
+        [{ type: "text", text: message }],
+        tenantId ?? undefined,
+      );
+
+      const status = res?.ok ? "sent" : "failed";
+
+      // ステータスを notified に更新
+      await supabaseAdmin
+        .from("reservation_waitlist")
+        .update({ status: "notified", notified_at: new Date().toISOString() })
+        .eq("id", entry.id);
+
+      // message_log に記録
+      await supabaseAdmin.from("message_log").insert({
+        patient_id: entry.patient_id,
+        line_uid: entry.line_uid,
+        message_type: "individual",
+        content: message,
+        status,
+        direction: "outgoing",
+        tenant_id: entry.tenant_id,
+      });
+    } catch (err) {
+      console.error(`[notifyWaitlist] LINE送信エラー: waitlist_id=${entry.id}`, err);
+    }
   }
 }
 

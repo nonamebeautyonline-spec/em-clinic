@@ -74,6 +74,14 @@ const businessHoursSchema = z.object({
   outside_message: z.string(),
 });
 
+/** AI返信で使用可能なモデルID */
+export const AI_REPLY_MODEL_IDS = [
+  "claude-sonnet-4-6",
+  "claude-haiku-4-5-20251001",
+  "claude-opus-4-6",
+] as const;
+export type AiReplyModelId = (typeof AI_REPLY_MODEL_IDS)[number];
+
 /** AI返信設定更新 PUT /api/admin/line/ai-reply-settings */
 export const updateAiReplySettingsSchema = z
   .object({
@@ -86,6 +94,7 @@ export const updateAiReplySettingsSchema = z
     daily_limit: z.number().int().optional(),
     approval_timeout_hours: z.number().int().optional(),
     business_hours: businessHoursSchema.optional(),
+    model_id: z.enum(AI_REPLY_MODEL_IDS).optional(),
   })
   .passthrough();
 

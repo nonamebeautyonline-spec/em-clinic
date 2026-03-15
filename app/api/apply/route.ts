@@ -146,5 +146,47 @@ export async function POST(req: NextRequest) {
     console.error("[apply] 確認メール送信失敗:", e);
   }
 
-  return NextResponse.json({ ok: true });
+  // Stripe決済セッション作成（月額見積もり > 0 の場合）
+  let checkoutUrl: string | null = null;
+  if (monthlyEstimate > 0) {
+    try {
+      const { getStripeClient } = await import("@/lib/stripe");
+      const stripe = await getStripeClient();
+      if (stripe) {
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://lope.jp";
+        const session = await stripe.checkout.sessions.create({
+          mode: "subscription",
+          payment_method_types: ["card"],
+          line_items: [
+            {
+              price_data: {
+                currency: "jpy",
+                product_data: {
+                  name: `Lオペ for CLINIC（${data.feature_plan} + ${data.msg_plan}）`,
+                  description: `${data.company_name} 様向けプラン`,
+                },
+                unit_amount: monthlyEstimate,
+                recurring: { interval: "month" },
+              },
+              quantity: 1,
+            },
+          ],
+          success_url: `${baseUrl}/lp/apply-complete?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${baseUrl}/lp/apply?canceled=true`,
+          customer_email: data.email,
+          metadata: {
+            company_name: data.company_name,
+            feature_plan: data.feature_plan,
+            msg_plan: data.msg_plan,
+          },
+        });
+        checkoutUrl = session.url;
+      }
+    } catch (stripeErr) {
+      console.error("[apply] Stripe Checkout Session作成失敗:", stripeErr);
+      // Stripe失敗時も申し込み自体は成功として返す
+    }
+  }
+
+  return NextResponse.json({ ok: true, checkoutUrl });
 }

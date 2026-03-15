@@ -13,6 +13,7 @@ interface AiReplySettings {
   min_message_length: number;
   daily_limit: number;
   approval_timeout_hours: number;
+  model_id: string;
 }
 
 type DayOfWeek = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
@@ -37,6 +38,12 @@ const DAY_LABELS: Record<DayOfWeek, string> = {
   fri: "金", sat: "土", sun: "日",
 };
 
+const MODEL_OPTIONS = [
+  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", description: "バランス型（推奨）" },
+  { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", description: "高速・低コスト" },
+  { value: "claude-opus-4-6", label: "Claude Opus 4.6", description: "高精度" },
+] as const;
+
 const DEFAULT_SETTINGS: AiReplySettings = {
   is_enabled: false,
   mode: "approval",
@@ -46,6 +53,7 @@ const DEFAULT_SETTINGS: AiReplySettings = {
   min_message_length: 5,
   daily_limit: 100,
   approval_timeout_hours: 24,
+  model_id: "claude-sonnet-4-6",
 };
 
 const DEFAULT_BUSINESS_HOURS: BusinessHoursConfig = {
@@ -288,6 +296,37 @@ export default function AiReplySettingsPage() {
               <div className="text-xs text-gray-400">ナレッジベースを元に具体的に回答</div>
             </div>
           </label>
+        </div>
+      </div>
+
+      {/* AIモデル選択 */}
+      <div className="bg-white rounded-lg border p-4">
+        <h2 className="font-semibold text-gray-700 mb-1">AIモデル</h2>
+        <p className="text-xs text-gray-400 mb-3">AI返信に使用するClaudeモデルを選択してください</p>
+        <div className="flex gap-3 flex-wrap">
+          {MODEL_OPTIONS.map(opt => (
+            <label
+              key={opt.value}
+              className={`flex items-center gap-2 px-3 py-2 rounded border cursor-pointer ${
+                (settings.model_id || "claude-sonnet-4-6") === opt.value
+                  ? "border-purple-500 bg-purple-50"
+                  : "border-gray-200"
+              }`}
+            >
+              <input
+                type="radio"
+                name="model_id"
+                value={opt.value}
+                checked={(settings.model_id || "claude-sonnet-4-6") === opt.value}
+                onChange={() => setSettings(s => ({ ...s, model_id: opt.value }))}
+                className="accent-purple-600"
+              />
+              <div>
+                <div className="text-sm font-medium">{opt.label}</div>
+                <div className="text-xs text-gray-400">{opt.description}</div>
+              </div>
+            </label>
+          ))}
         </div>
       </div>
 

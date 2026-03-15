@@ -7,7 +7,7 @@ import { verifyDraftSignature } from "@/lib/ai-reply-sign";
 import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
-import { buildSystemPrompt } from "@/lib/ai-reply";
+import { buildSystemPrompt, getAiReplyModel } from "@/lib/ai-reply";
 import { parseBody } from "@/lib/validations/helpers";
 import { aiReplyRegenerateSchema } from "@/lib/validations/ai-reply";
 
@@ -51,11 +51,12 @@ export async function POST(
     return serverError("APIキー未設定");
   }
 
-  // ナレッジベース取得
+  // ナレッジベース・モデル設定取得
   const { data: settings } = await withTenant(
-    supabaseAdmin.from("ai_reply_settings").select("knowledge_base, custom_instructions, medical_reply_mode").maybeSingle(),
+    supabaseAdmin.from("ai_reply_settings").select("knowledge_base, custom_instructions, medical_reply_mode, model_id").maybeSingle(),
     draft.tenant_id
   );
+  const modelId = settings?.model_id || "claude-sonnet-4-6";
 
   // Claude API再呼び出し（修正指示付き）
   const client = new Anthropic({ apiKey });
@@ -82,7 +83,7 @@ ${instruction}
 
   try {
     const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
+      model: modelId,
       max_tokens: 1024,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],

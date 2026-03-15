@@ -339,6 +339,17 @@ export async function processSquareEvent(params: SquareHandlerParams): Promise<v
       }
     }
 
+    // ポイント自動付与
+    if (patientId) {
+      try {
+        const { processAutoGrant } = await import("@/lib/point-auto-grant");
+        const amountNum = amountText ? parseFloat(amountText) : 0;
+        await processAutoGrant(tenantId || "", patientId, paymentId, amountNum);
+      } catch (e) {
+        console.error("[square/handler] point auto-grant failed:", e);
+      }
+    }
+
     if (patientId) {
       await invalidateDashboardCache(patientId);
     }

@@ -357,7 +357,7 @@ const [addressSaving, setAddressSaving] = useState(false);
 
 // マイページ設定デフォルト値
 const DEFAULT_MP_COLORS = { primary: "#ec4899", primaryHover: "#db2777", primaryLight: "#fdf2f8", pageBg: "#FFF8FB", primaryText: "#be185d" };
-const DEFAULT_MP_SECTIONS = { showIntake: true, showReserveButton: true, showReservation: true, showOrders: true, showReorder: true, showHistory: true, showSupport: true };
+const DEFAULT_MP_SECTIONS = { showIntake: true, showReserveButton: true, showReservation: true, showOrders: true, showReorder: true, showHistory: true, showSupport: true, showPointCard: true };
 const DEFAULT_MP_CONTENT = { clinicName: "", logoUrl: "", supportMessage: "予約やお薬、体調についてご不安な点があれば、LINEからいつでもご相談いただけます。", supportUrl: "", supportButtonLabel: "LINEで問い合わせる", supportNote: "※ 診察中・夜間など、返信までお時間をいただく場合があります。" };
 const DEFAULT_MP_LABELS = {
   intakeButtonLabel: "問診に進む", intakeCompleteText: "問診はすでに完了しています", intakeGuideText: "問診の入力は不要です。このまま予約にお進みください。", intakeNoteText: "※ 問診の入力が終わると、診察予約画面に進みます。",
@@ -1703,6 +1703,15 @@ onClick={() => handleOpenTracking(order)}
   </Link>
 </section>
 
+{/* データエクスポート */}
+<section className="bg-white rounded-3xl shadow-sm p-4 md:p-5 mb-4">
+  <h2 className="text-sm font-semibold text-slate-800 mb-2">データエクスポート</h2>
+  <p className="text-sm text-slate-600 mb-3">
+    ご自身のデータ（予約・注文履歴など）をJSON形式でダウンロードできます。
+  </p>
+  <ExportButton />
+</section>
+
 {/* サポート */}
 {mpSections.showSupport && (
 <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5 mb-4">
@@ -1730,6 +1739,56 @@ onClick={() => handleOpenTracking(order)}
 )}
 
       </main>
+    </div>
+  );
+}
+
+// データエクスポートボタンコンポーネント
+function ExportButton() {
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const handleExport = useCallback(async () => {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const res = await fetch("/api/mypage/export", { credentials: "include" });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        setExportError(json.message || "エクスポートに失敗しました");
+        return;
+      }
+      // JSONファイルとしてダウンロード
+      const blob = new Blob([JSON.stringify(json.data, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `patient-data-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      setExportError("エクスポート中にエラーが発生しました");
+    } finally {
+      setExporting(false);
+    }
+  }, []);
+
+  return (
+    <div>
+      <button
+        onClick={handleExport}
+        disabled={exporting}
+        className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium transition border border-[var(--mp-primary)] text-[var(--mp-primary)] bg-white hover:bg-[var(--mp-light)] disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {exporting ? "エクスポート中..." : "データエクスポート"}
+      </button>
+      {exportError && (
+        <p className="mt-2 text-[11px] text-rose-600">{exportError}</p>
+      )}
     </div>
   );
 }

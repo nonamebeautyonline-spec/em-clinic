@@ -181,6 +181,14 @@ export async function processGmoEvent(params: GmoHandlerParams): Promise<void> {
 
       await invalidateDashboardCache(patientId);
       evaluateMenuRules(patientId, tenantId ?? undefined).catch(() => {});
+
+      // ポイント自動付与
+      try {
+        const { processAutoGrant } = await import("@/lib/point-auto-grant");
+        await processAutoGrant(tenantId || "", patientId, paymentId, amountNum);
+      } catch (e) {
+        console.error("[gmo/handler] point auto-grant failed:", e);
+      }
     }
     return;
   }

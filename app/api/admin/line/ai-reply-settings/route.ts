@@ -37,7 +37,12 @@ export async function GET(req: NextRequest) {
     min_message_length: 5,
     daily_limit: 100,
     approval_timeout_hours: 24,
+    model_id: "claude-sonnet-4-6",
   };
+  // model_id が未設定（既存レコード）の場合はデフォルト値を補完
+  if (!settings.model_id) {
+    settings.model_id = "claude-sonnet-4-6";
+  }
 
   // 本日のAI返信使用数を取得
   const todayStart = new Date();
@@ -87,6 +92,7 @@ export async function PUT(req: NextRequest) {
     daily_limit,
     approval_timeout_hours,
     business_hours,
+    model_id,
   } = parsed.data;
 
   // 既存設定を確認
@@ -104,6 +110,7 @@ export async function PUT(req: NextRequest) {
     min_message_length: min_message_length ?? 5,
     daily_limit: daily_limit ?? 100,
     approval_timeout_hours: approval_timeout_hours ?? 24,
+    model_id: model_id || "claude-sonnet-4-6",
     updated_at: new Date().toISOString(),
   };
 

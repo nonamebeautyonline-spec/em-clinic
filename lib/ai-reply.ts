@@ -12,6 +12,20 @@ import { rejectCategoryLabels, type RejectCategory } from "@/lib/validations/ai-
 import { saveAiReplyExample, searchSimilarExamples } from "@/lib/embedding";
 
 const DEBOUNCE_SEC = 10; // メッセージ待機時間（秒）
+const DEFAULT_MODEL = "claude-sonnet-4-6";
+
+/** テナントのAI返信設定からモデルIDを取得（デフォルト: claude-sonnet-4-6） */
+export async function getAiReplyModel(tenantId: string | null): Promise<string> {
+  try {
+    const { data } = await withTenant(
+      supabaseAdmin.from("ai_reply_settings").select("model_id").maybeSingle(),
+      tenantId
+    );
+    return data?.model_id || DEFAULT_MODEL;
+  } catch {
+    return DEFAULT_MODEL;
+  }
+}
 
 interface AiReplyResult {
   category: "operational" | "medical" | "greeting" | "other";
@@ -571,6 +585,7 @@ export async function processAiReply(
 
   // 6. Claude API呼び出し
   const client = new Anthropic({ apiKey });
+  const modelId = settings.model_id || DEFAULT_MODEL;
   const systemPrompt = buildSystemPrompt(
     settings.knowledge_base || "",
     settings.custom_instructions || "",
@@ -584,10 +599,10 @@ export async function processAiReply(
   let inputTokens = 0;
   let outputTokens = 0;
 
-  log.push("step6: Claude API呼び出し");
+  log.push(`step6: Claude API呼び出し (model=${modelId})`);
   try {
     const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
+      model: modelId,
       max_tokens: 1024,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
@@ -633,7 +648,7 @@ export async function processAiReply(
     draft_reply: aiResult.reply,
     confidence: aiResult.confidence,
     status: settings.mode === "auto" ? "approved" : "pending",
-    model_used: "claude-sonnet-4-6",
+    model_used: modelId,
     input_tokens: inputTokens,
     output_tokens: outputTokens,
     expires_at: expiresAt.toISOString(),

@@ -21,6 +21,7 @@ interface MypageSectionConfig {
   showReorder: boolean;
   showHistory: boolean;
   showSupport: boolean;
+  showPointCard: boolean;
 }
 
 interface MypageContentConfig {
@@ -73,6 +74,7 @@ const DEFAULT_CONFIG: MypageConfig = {
     showReorder: true,
     showHistory: true,
     showSupport: true,
+    showPointCard: true,
   },
   content: {
     clinicName: "",
@@ -109,6 +111,7 @@ const SECTION_LABELS: { key: keyof MypageSectionConfig; label: string }[] = [
   { key: "showReorder", label: "再処方申請" },
   { key: "showHistory", label: "処方履歴" },
   { key: "showSupport", label: "サポート（LINE問い合わせ）" },
+  { key: "showPointCard", label: "ポイントカード" },
 ];
 
 const COLOR_LABELS: { key: keyof MypageColorConfig; label: string }[] = [
