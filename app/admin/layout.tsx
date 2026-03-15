@@ -515,6 +515,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isActive={pathname.startsWith("/admin/inventory")}
             badge={inventoryAlertCount}
           />
+          <MenuItem
+            href="/admin/line/tracking-sources"
+            icon="📊"
+            label="流入経路"
+            isOpen={isSidebarOpen}
+            isActive={pathname === "/admin/line/tracking-sources"}
+          />
           <MenuSection label="システム" isOpen={isSidebarOpen} />
           <MenuItem
             href="/admin/settings"
