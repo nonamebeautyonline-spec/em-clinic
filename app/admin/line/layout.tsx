@@ -80,7 +80,7 @@ function ScrollableTabRow({
     el.scrollBy({ left: dir === "left" ? -200 : 200, behavior: "smooth" });
   };
 
-  const textSize = size === "main" ? "text-sm" : "text-[12px]";
+  const textSize = size === "main" ? "text-[12px]" : "text-[11px]";
 
   return (
     <div className={`relative ${className || ""}`}>
@@ -107,7 +107,7 @@ function ScrollableTabRow({
               key={tab.href}
               href={tab.href}
               scroll={false}
-              className={`relative px-3 py-1.5 ${textSize} font-medium whitespace-nowrap transition-colors ${
+              className={`relative px-2.5 py-1.5 ${textSize} font-medium whitespace-nowrap transition-colors ${
                 active
                   ? "text-[#06C755]"
                   : "text-gray-500 hover:text-gray-700"
