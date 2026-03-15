@@ -430,12 +430,12 @@ export function TemplateEditor({ editingTemplate, categories, flexPresets, initi
           {/* Flex */}
           {activeTab === "flex" && (
             <div className="space-y-4">
+              {/* ゼロから作る */}
               <button
                 onClick={async () => {
                   if (editingTemplate) {
                     window.location.href = `/admin/line/flex-builder?template=${editingTemplate.id}`;
                   } else {
-                    // 新規の場合: まず空テンプレートを保存してから遷移
                     const tmpName = name.trim() || "FLEXテンプレート";
                     const res = await fetch("/api/admin/line/templates", {
                       method: "POST",
@@ -446,10 +446,7 @@ export function TemplateEditor({ editingTemplate, categories, flexPresets, initi
                     if (res.ok) {
                       const data = await res.json();
                       const newId = data.id || data.template?.id;
-                      if (newId) {
-                        window.location.href = `/admin/line/flex-builder?template=${newId}`;
-                        return;
-                      }
+                      if (newId) { window.location.href = `/admin/line/flex-builder?template=${newId}`; return; }
                     }
                     alert("テンプレートの作成に失敗しました");
                   }
@@ -463,14 +460,41 @@ export function TemplateEditor({ editingTemplate, categories, flexPresets, initi
                 ビジュアルエディタで編集
               </button>
 
+              {/* プリセットから選んでビジュアルエディタで編集 */}
               {flexPresets.length > 0 && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1.5">プリセットから選択</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">テンプレート例から選んで編集</label>
                   <div className="flex flex-wrap gap-2">
                     {flexPresets.map((p) => (
                       <button
                         key={p.id}
-                        onClick={() => { setFlexJson(JSON.stringify(p.flex_json, null, 2)); setFlexError(""); }}
+                        onClick={async () => {
+                          if (editingTemplate) {
+                            // 既存テンプレートにプリセットを上書き保存して遷移
+                            await fetch(`/api/admin/line/templates/${editingTemplate.id}`, {
+                              method: "PUT",
+                              headers: { "Content-Type": "application/json" },
+                              credentials: "include",
+                              body: JSON.stringify({ name: editingTemplate.name, content: "", message_type: "flex", category, flex_content: p.flex_json }),
+                            });
+                            window.location.href = `/admin/line/flex-builder?template=${editingTemplate.id}`;
+                          } else {
+                            // 新規テンプレートをプリセットのJSONで作成して遷移
+                            const tmpName = name.trim() || p.name;
+                            const res = await fetch("/api/admin/line/templates", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              credentials: "include",
+                              body: JSON.stringify({ name: tmpName, content: "", message_type: "flex", category, flex_content: p.flex_json }),
+                            });
+                            if (res.ok) {
+                              const data = await res.json();
+                              const newId = data.id || data.template?.id;
+                              if (newId) { window.location.href = `/admin/line/flex-builder?template=${newId}`; return; }
+                            }
+                            alert("テンプレートの作成に失敗しました");
+                          }
+                        }}
                         className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:border-[#06C755] hover:bg-green-50 transition-colors text-gray-700"
                       >
                         {p.name}
