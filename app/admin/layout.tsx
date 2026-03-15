@@ -34,6 +34,7 @@ function LogoMark({ compact }: { compact?: boolean }) {
 const MOBILE_MENU_ITEMS: { href: string; icon: string; label: string; feature?: Feature }[] = [
   { href: "/admin/accounting", icon: "💹", label: "売上管理" },
   { href: "/admin/line/talk", icon: "💬", label: "LINE機能" },
+  { href: "/admin/line/tracking-sources", icon: "📈", label: "流入経路" },
   { href: "/admin/reservations", icon: "📅", label: "予約リスト" },
   { href: "/admin/reorders", icon: "🔄", label: "再処方リスト", feature: "reorder" },
   { href: "/admin/doctor", icon: "🩺", label: "簡易カルテ" },
@@ -385,8 +386,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             icon="💬"
             label="LINE機能"
             isOpen={isSidebarOpen}
-            isActive={pathname?.startsWith("/admin/line")}
+            isActive={pathname?.startsWith("/admin/line") && pathname !== "/admin/line/tracking-sources"}
             badge={unreadCount}
+          />
+          <MenuItem
+            href="/admin/line/tracking-sources"
+            icon="📈"
+            label="流入経路"
+            isOpen={isSidebarOpen}
+            isActive={pathname === "/admin/line/tracking-sources"}
           />
 
           <MenuSection label="予約・診察" isOpen={isSidebarOpen} />
@@ -514,13 +522,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isOpen={isSidebarOpen}
             isActive={pathname.startsWith("/admin/inventory")}
             badge={inventoryAlertCount}
-          />
-          <MenuItem
-            href="/admin/line/tracking-sources"
-            icon="📊"
-            label="流入経路"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/line/tracking-sources"}
           />
           <MenuSection label="システム" isOpen={isSidebarOpen} />
           <MenuItem
