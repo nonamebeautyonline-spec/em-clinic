@@ -65,13 +65,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const sidebarNavRef = useRef<HTMLDivElement>(null);
   const prevPathnameRef = useRef(pathname);
 
-  // 未読カウント・再処方件数・在庫アラート件数のポーリング（30秒間隔）
+  // 未読カウント・再処方件数・在庫アラート件数のポーリング
   // SWRのrefreshInterval: タブ非表示時は自動停止、復帰時にrevalidateOnFocusで即時再取得
   // layout自体はSWRProvider外なのでadminFetcherを直接渡す
   const { data: unreadData } = useSWR<{ count: number }>(
     isAuthenticated ? "/api/admin/unread-count" : null,
     adminFetcher,
-    { refreshInterval: 30000, revalidateOnFocus: true },
+    { refreshInterval: 15000, revalidateOnFocus: true },
   );
   const { data: reorderData } = useSWR<{ count: number }>(
     isAuthenticated ? "/api/admin/reorders/pending-count" : null,
