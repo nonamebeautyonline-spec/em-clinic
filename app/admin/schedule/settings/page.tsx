@@ -144,7 +144,7 @@ export default function ReservationSettingsPage() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                翌月予約開放日
+                翌月予約の開放期限
               </label>
               <div className="flex items-center gap-3">
                 <span className="text-sm text-slate-500">毎月</span>
@@ -156,8 +156,9 @@ export default function ReservationSettingsPage() {
                   onChange={(e) => setSettings({ ...settings, booking_open_day: Number(e.target.value) || 5 })}
                   className="w-20 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
-                <span className="text-sm text-slate-500">日に翌月の予約を開放</span>
+                <span className="text-sm text-slate-500">日までに翌月の予約を開放</span>
               </div>
+              <p className="text-xs text-slate-400 mt-1">期限を過ぎても未開放の場合、左メニューに警告バッジが表示されます</p>
             </div>
           </div>
         </div>

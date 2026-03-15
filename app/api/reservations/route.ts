@@ -188,11 +188,7 @@ async function isDateBookable(targetDate: string, tenantId: string | null = null
     (targetYear === currentYear + 1 && currentMonth === 11 && targetMonth === 0);
 
   if (isNextMonth) {
-    // N日以上なら自動開放
-    if (currentDay >= bookingOpenDay) {
-      return true;
-    }
-    // N日未満でも、管理者が早期開放していればOK
+    // 管理者が手動開放していればOK（自動開放は無効）
     return await isMonthEarlyOpen(targetMonthStr2, tenantId);
   }
 

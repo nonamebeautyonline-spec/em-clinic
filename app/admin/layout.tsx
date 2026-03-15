@@ -82,9 +82,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     adminFetcher,
     { refreshInterval: 30000, revalidateOnFocus: true },
   );
+  const { data: bookingAlertData } = useSWR<{ alert: boolean }>(
+    isAuthenticated ? "/api/admin/booking-open/alert" : null,
+    adminFetcher,
+    { refreshInterval: 60000, revalidateOnFocus: true },
+  );
   const unreadCount = unreadData?.count ?? 0;
   const pendingReorderCount = reorderData?.count ?? 0;
   const inventoryAlertCount = alertData?.count ?? 0;
+  const bookingAlert = bookingAlertData?.alert ?? false;
 
   useEffect(() => {
     // 認証不要のパスはスキップ
@@ -303,6 +309,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   isActive={pathname === item.href || pathname?.startsWith(item.href + "/")}
                   onClick={() => setIsMobileMenuOpen(false)}
                   badge={item.href === "/admin/line/talk" ? unreadCount : item.href === "/admin/reorders" ? pendingReorderCount : item.href === "/admin/inventory" ? inventoryAlertCount : undefined}
+                  alert={item.href === "/admin/schedule" ? bookingAlert : undefined}
                   feature={item.feature}
                 />
               ))}
@@ -484,6 +491,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="予約設定"
             isOpen={isSidebarOpen}
             isActive={pathname?.startsWith("/admin/schedule")}
+            alert={bookingAlert}
           />
           <MenuItem
             href="/admin/notification-settings"
@@ -565,10 +573,11 @@ interface MenuItemProps {
   isOpen: boolean;
   isActive: boolean;
   badge?: number;
+  alert?: boolean;
   feature?: Feature;
 }
 
-function MenuItem({ href, icon, label, isOpen, isActive, badge, feature }: MenuItemProps) {
+function MenuItem({ href, icon, label, isOpen, isActive, badge, alert: showAlert, feature }: MenuItemProps) {
   const { hasFeature } = useFeatures();
   if (feature && !hasFeature(feature)) return null;
 
@@ -587,6 +596,11 @@ function MenuItem({ href, icon, label, isOpen, isActive, badge, feature }: MenuI
             {badge > 99 ? "99+" : badge}
           </span>
         )}
+        {!isOpen && showAlert && (
+          <span className="absolute -top-1.5 -right-2.5 bg-red-500 text-white text-[10px] font-bold rounded-full w-[18px] h-[18px] flex items-center justify-center">
+            !
+          </span>
+        )}
       </span>
       {isOpen && (
         <>
@@ -594,6 +608,11 @@ function MenuItem({ href, icon, label, isOpen, isActive, badge, feature }: MenuI
           {badge != null && badge > 0 && (
             <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
               {badge > 99 ? "99+" : badge}
+            </span>
+          )}
+          {showAlert && (
+            <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full w-[18px] h-[18px] flex items-center justify-center">
+              !
             </span>
           )}
         </>
@@ -609,10 +628,11 @@ interface MobileMenuItemProps {
   isActive: boolean;
   onClick: () => void;
   badge?: number;
+  alert?: boolean;
   feature?: Feature;
 }
 
-function MobileMenuItem({ href, icon, label, isActive, onClick, badge, feature }: MobileMenuItemProps) {
+function MobileMenuItem({ href, icon, label, isActive, onClick, badge, alert: showAlert, feature }: MobileMenuItemProps) {
   const { hasFeature } = useFeatures();
   if (feature && !hasFeature(feature)) return null;
 
@@ -630,6 +650,11 @@ function MobileMenuItem({ href, icon, label, isActive, onClick, badge, feature }
       {badge != null && badge > 0 && (
         <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
           {badge > 99 ? "99+" : badge}
+        </span>
+      )}
+      {showAlert && (
+        <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full w-[18px] h-[18px] flex items-center justify-center">
+          !
         </span>
       )}
     </Link>

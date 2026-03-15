@@ -20,13 +20,6 @@ type Override = {
   memo?: string;
 };
 
-type FutureReservation = {
-  reserved_date: string;
-  reserved_time: string;
-  patient_name: string | null;
-  status: string;
-};
-
 // 翌月の YYYY-MM 形式を取得
 function getNextMonth() {
   const now = new Date();
@@ -47,23 +40,6 @@ function getNextMonthDisplay() {
   return `${now.getFullYear()}年${nextMonth}月`;
 }
 
-// 翌月以降の予約を取得するための日付範囲
-function getNextMonthStart() {
-  const now = new Date();
-  // 翌月の1日
-  return `${now.getFullYear()}-${String(now.getMonth() + 2).padStart(2, "0")}-01`;
-}
-
-// 今日が何日かを取得（JST）
-function getCurrentDay() {
-  const now = new Date();
-  const jstOffset = 9 * 60 * 60 * 1000;
-  const jstNow = new Date(now.getTime() + jstOffset);
-  return jstNow.getUTCDate();
-}
-
-// 翌月予約開放日（定数）
-const BOOKING_OPEN_DAY = 5;
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -73,25 +49,18 @@ function formatDate(dateStr: string) {
 }
 
 export default function ScheduleDashboard() {
-  const [alertDismissed, setAlertDismissed] = useState(false);
   const [openingNextMonth, setOpeningNextMonth] = useState(false);
 
-  const currentDay = getCurrentDay();
   const nextMonthStr = getNextMonth();
   const nextMonthDisplay = getNextMonthDisplay();
-  const isAutoOpen = currentDay >= BOOKING_OPEN_DAY; // 5日以降は自動開放
 
   // 今月の日付範囲を計算
-  const { scheduleKey, futureKey } = useMemo(() => {
+  const scheduleKey = useMemo(() => {
     const now = new Date();
     const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
     const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     const end = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`;
-    const nextMonth = getNextMonthStart();
-    return {
-      scheduleKey: `/api/admin/schedule?start=${start}&end=${end}`,
-      futureKey: `/api/admin/reservations?from=${nextMonth}`,
-    };
+    return `/api/admin/schedule?start=${start}&end=${end}`;
   }, []);
 
   const bookingOpenKey = `/api/admin/booking-open?month=${nextMonthStr}`;
@@ -101,13 +70,13 @@ export default function ScheduleDashboard() {
   const doctors = scheduleData?.ok ? (scheduleData.doctors || []) : [];
   const overrides = scheduleData?.ok ? (scheduleData.overrides || []) : [];
 
-  // 翌月以降の予約を取得（アラート用）
-  const { data: futureData } = useSWR<{ ok: boolean; reservations: FutureReservation[] }>(futureKey);
-  const futureReservations = (futureData?.ok && futureData.reservations) ? futureData.reservations : [];
-
-  // 翌月の早期開放状態
+  // 翌月の開放状態
   const { data: openData } = useSWR<{ ok: boolean; is_open: boolean }>(bookingOpenKey);
   const nextMonthOpen = openData?.ok ? openData.is_open : null;
+
+  // 開放期限超過アラート
+  const { data: alertData } = useSWR<{ alert: boolean }>("/api/admin/booking-open/alert");
+  const isOverdue = alertData?.alert ?? false;
 
   const loading = scheduleLoading;
 
@@ -159,16 +128,20 @@ export default function ScheduleDashboard() {
         </div>
 
         {/* 翌月予約開放ステータス */}
-        <div className="mb-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+        <div className={`mb-6 rounded-2xl border shadow-sm p-6 ${
+          isOverdue ? "bg-red-50 border-red-300" : "bg-white border-slate-200"
+        }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white ${
-                isAutoOpen || nextMonthOpen
+                nextMonthOpen
                   ? "bg-gradient-to-br from-emerald-500 to-emerald-600"
-                  : "bg-gradient-to-br from-slate-400 to-slate-500"
+                  : isOverdue
+                    ? "bg-gradient-to-br from-red-500 to-red-600"
+                    : "bg-gradient-to-br from-slate-400 to-slate-500"
               }`}>
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  {isAutoOpen || nextMonthOpen ? (
+                  {nextMonthOpen ? (
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
                   ) : (
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -176,15 +149,14 @@ export default function ScheduleDashboard() {
                 </svg>
               </div>
               <div>
-                <h3 className="font-bold text-slate-800">{nextMonthDisplay}の予約</h3>
-                <p className="text-sm text-slate-500">
-                  {isAutoOpen ? (
-                    <>自動開放済み（{BOOKING_OPEN_DAY}日以降）</>
-                  ) : nextMonthOpen ? (
-                    <>早期開放済み</>
-                  ) : (
-                    <>通常は毎月{BOOKING_OPEN_DAY}日に開放されます</>
-                  )}
+                <h3 className={`font-bold ${isOverdue ? "text-red-800" : "text-slate-800"}`}>{nextMonthDisplay}の予約</h3>
+                <p className={`text-sm ${isOverdue ? "text-red-600 font-medium" : "text-slate-500"}`}>
+                  {nextMonthOpen
+                    ? "開放済み"
+                    : isOverdue
+                      ? "開放期限を過ぎています。「今すぐ開放」で開放してください"
+                      : "未開放（「今すぐ開放」で手動開放してください）"
+                  }
                 </p>
               </div>
             </div>
@@ -192,11 +164,13 @@ export default function ScheduleDashboard() {
             <div className="flex items-center gap-3">
               {/* ステータスバッジ */}
               <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${
-                isAutoOpen || nextMonthOpen
+                nextMonthOpen
                   ? "bg-emerald-100 text-emerald-700"
-                  : "bg-slate-100 text-slate-600"
+                  : isOverdue
+                    ? "bg-red-100 text-red-700"
+                    : "bg-slate-100 text-slate-600"
               }`}>
-                {isAutoOpen || nextMonthOpen ? "開放中" : "未開放"}
+                {nextMonthOpen ? "開放中" : isOverdue ? "期限超過" : "未開放"}
               </span>
 
               {/* スケジュール設定ボタン */}
@@ -208,65 +182,7 @@ export default function ScheduleDashboard() {
               </Link>
             </div>
           </div>
-
-          {/* 補足説明 */}
-          {!isAutoOpen && !nextMonthOpen && (
-            <div className="mt-4 pt-4 border-t border-slate-100">
-              <p className="text-sm text-slate-500">
-                今日は{currentDay}日です。あと{BOOKING_OPEN_DAY - currentDay}日で自動開放されます。
-                <br />
-                早めに開放したい場合は「今すぐ開放」ボタンを押してください。
-              </p>
-            </div>
-          )}
         </div>
-
-        {/* 翌月以降の予約アラート */}
-        {!alertDismissed && futureReservations.length > 0 && (
-          <div className="mb-6 bg-amber-50 border border-amber-200 rounded-2xl p-4">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-amber-800">翌月以降に既存の予約があります（{futureReservations.length}件）</h3>
-                <p className="text-sm text-amber-700 mt-1">
-                  翌月予約開放の設定を行う前に、以下の予約をご確認ください。
-                </p>
-                <div className="mt-3 bg-white rounded-lg border border-amber-200 divide-y divide-amber-100 max-h-48 overflow-y-auto">
-                  {futureReservations.map((r, i) => (
-                    <div key={i} className="px-4 py-2 flex items-center gap-4 text-sm">
-                      <span className="font-medium text-slate-800">{formatDate(r.reserved_date)}</span>
-                      <span className="text-slate-600">{r.reserved_time?.slice(0, 5)}</span>
-                      <span className="text-slate-800">{r.patient_name || "（名前なし）"}</span>
-                      <span className={`ml-auto px-2 py-0.5 rounded-full text-xs font-medium ${
-                        r.status === "pending" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"
-                      }`}>
-                        {r.status === "pending" ? "予約中" : r.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-3 flex items-center gap-3">
-                  <Link
-                    href="/admin/reservations"
-                    className="px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition"
-                  >
-                    予約リストを確認
-                  </Link>
-                  <button
-                    onClick={() => setAlertDismissed(true)}
-                    className="px-4 py-2 text-amber-700 text-sm font-medium hover:bg-amber-100 rounded-lg transition"
-                  >
-                    閉じる
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* ナビゲーションカード */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
