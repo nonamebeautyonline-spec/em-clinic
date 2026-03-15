@@ -45,7 +45,7 @@ AS $$
   LEFT JOIN patient_marks pm ON pm.patient_id = fs.patient_id
   WHERE (p_tenant_id IS NULL OR fs.tenant_id = p_tenant_id)
     AND (p_search_id IS NULL OR fs.patient_id ILIKE '%' || p_search_id || '%')
-    AND (p_search_name IS NULL OR p.name ILIKE '%' || p_search_name || '%')
+    AND (p_search_name IS NULL OR REPLACE(REPLACE(p.name, ' ', ''), '　', '') ILIKE '%' || REPLACE(REPLACE(p_search_name, ' ', ''), '　', '') || '%')
   ORDER BY COALESCE(fs.last_msg_at, fs.last_incoming_at, fs.last_outgoing_at, '1970-01-01'::timestamptz) DESC
   LIMIT p_limit
   OFFSET p_offset

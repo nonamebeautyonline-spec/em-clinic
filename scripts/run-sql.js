@@ -26,7 +26,7 @@ const projectRef = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(
 
 const client = new Client({
   host: "aws-1-ap-northeast-1.pooler.supabase.com",
-  port: 5432,
+  port: 6543,
   database: "postgres",
   user: `postgres.${projectRef}`,
   password: process.env.SUPABASE_DB_PASSWORD,
