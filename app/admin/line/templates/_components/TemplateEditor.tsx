@@ -430,18 +430,38 @@ export function TemplateEditor({ editingTemplate, categories, flexPresets, initi
           {/* Flex */}
           {activeTab === "flex" && (
             <div className="space-y-4">
-              {editingTemplate && (
-                <button
-                  onClick={() => { window.location.href = `/admin/line/flex-builder?template=${editingTemplate.id}`; }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl hover:from-blue-100 hover:to-indigo-100 transition-colors text-sm font-medium text-blue-700"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-                  </svg>
-                  ビジュアルエディタで編集
-                </button>
-              )}
+              <button
+                onClick={async () => {
+                  if (editingTemplate) {
+                    window.location.href = `/admin/line/flex-builder?template=${editingTemplate.id}`;
+                  } else {
+                    // 新規の場合: まず空テンプレートを保存してから遷移
+                    const tmpName = name.trim() || "FLEXテンプレート";
+                    const res = await fetch("/api/admin/line/templates", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      credentials: "include",
+                      body: JSON.stringify({ name: tmpName, content: "", message_type: "flex", category, flex_content: null }),
+                    });
+                    if (res.ok) {
+                      const data = await res.json();
+                      const newId = data.id || data.template?.id;
+                      if (newId) {
+                        window.location.href = `/admin/line/flex-builder?template=${newId}`;
+                        return;
+                      }
+                    }
+                    alert("テンプレートの作成に失敗しました");
+                  }
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl hover:from-blue-100 hover:to-indigo-100 transition-colors text-sm font-medium text-blue-700"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+                ビジュアルエディタで編集
+              </button>
 
               {flexPresets.length > 0 && (
                 <div>
