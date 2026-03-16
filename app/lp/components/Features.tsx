@@ -57,7 +57,7 @@ const categories = [
     label: "決済・配送",
     icon: "💳",
     features: [
-      { name: "クレジットカード決済", desc: "Square/Stripe対応。申し込みから決済までLINE経由でシームレスに完結" },
+      { name: "クレジットカード決済", desc: "Square/GMO対応。申し込みから決済までLINE経由でシームレスに完結" },
       { name: "銀行振込消込", desc: "振込データの照合・消込処理を管理画面で一元管理" },
       { name: "配送管理", desc: "配送CSVワンクリック出力→追跡番号一括登録→患者へLINE自動通知" },
       { name: "在庫管理", desc: "入出庫の自動記録・在庫台帳で推移を可視化。発注判断をサポート" },
