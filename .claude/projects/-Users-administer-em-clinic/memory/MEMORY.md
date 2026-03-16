@@ -1,5 +1,8 @@
 # EM Clinic - Project Memory
 
+## DB SQL実行（最重要 — 探索するな即実行）
+- [feedback_db_migration.md](feedback_db_migration.md) — Management API手順。.env.localにDB_PASSWORDはない
+
 ## Architecture
 - Next.js App Router + Supabase + LINE Messaging API（GAS連携は全撤去済み）
 - Admin: `/app/admin/` - 管理画面（LINE管理、予約管理等）
