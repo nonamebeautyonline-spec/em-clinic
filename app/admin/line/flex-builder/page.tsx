@@ -371,6 +371,24 @@ export function FlexBuilderInner({ templateIdProp, onClose }: { templateIdProp?:
   );
 }
 
+/* ---------- カルーセルスクロール制御 ---------- */
+function CarouselScroller({ children, activePanelIndex }: { children: React.ReactNode; activePanelIndex: number }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const target = container.children[activePanelIndex] as HTMLElement | undefined;
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+    }
+  }, [activePanelIndex]);
+  return (
+    <div ref={scrollRef} className="flex gap-2 overflow-x-auto pb-2">
+      {children}
+    </div>
+  );
+}
+
 /* ---------- リアルタイムFlexプレビュー（ブロック番号バッジ付き） ---------- */
 function LiveFlexPreview({ onBackClick }: { onBackClick?: () => void }) {
   const { panels, activePanelIndex, selectedBlockId } = useBlockEditor();
@@ -506,7 +524,7 @@ function LiveFlexPreview({ onBackClick }: { onBackClick?: () => void }) {
         {/* スマホフレーム */}
         <LinePhoneFrame headerTitle="クリニック公式">
           {isCarousel ? (
-            <div className="flex gap-2 overflow-x-auto pb-2">
+            <CarouselScroller activePanelIndex={activePanelIndex}>
               {panelBubbles.map((bubble, i) => (
                 <div key={i} className="flex-shrink-0 w-[260px]">
                   {i === activePanelIndex ? (
@@ -523,7 +541,7 @@ function LiveFlexPreview({ onBackClick }: { onBackClick?: () => void }) {
                   )}
                 </div>
               ))}
-            </div>
+            </CarouselScroller>
           ) : panelBubbles.length > 0 ? (
             <AnnotatedBubbleRenderer
               bubble={panelBubbles[0]}
