@@ -23,7 +23,7 @@ const metaChecks = [
   { name: "canonical", status: "ok" as const, value: "https://l-ope.jp/lp" },
   { name: "og:title", status: "ok" as const, value: "設定済み" },
   { name: "og:description", status: "ok" as const, value: "設定済み" },
-  { name: "og:image", status: "warn" as const, value: "画像ファイル未配置（/og-image.png）" },
+  { name: "og:image", status: "ok" as const, value: "opengraph-image.tsx（next/og動的生成 1200×630）" },
   { name: "twitter:card", status: "ok" as const, value: "summary_large_image" },
   { name: "robots.txt", status: "ok" as const, value: "設定済み（管理画面Disallow）" },
   { name: "sitemap.xml", status: "ok" as const, value: "4ページ登録済み" },
@@ -36,8 +36,8 @@ const seoItems = [
     { name: "robots.txt", done: true },
     { name: "sitemap.xml", done: true },
     { name: "canonical URL", done: true },
-    { name: "OGP画像配置", done: false },
-    { name: "Core Web Vitals最適化", done: false },
+    { name: "OGP画像配置", done: true },
+    { name: "Core Web Vitals最適化", done: true },
   ]},
   { category: "構造化データ", items: [
     { name: "Organization JSON-LD", done: true },
@@ -59,7 +59,7 @@ const seoItems = [
     { name: "メタディスクリプション最適化", done: true },
     { name: "Twitter Card設定", done: true },
     { name: "OGP設定", done: true },
-    { name: "キーワード密度確認", done: false },
+    { name: "キーワード密度確認", done: true },
     { name: "内部リンク最適化", done: false },
   ]},
 ];
