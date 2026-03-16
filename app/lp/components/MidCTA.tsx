@@ -14,7 +14,7 @@ export function MidCTA({ title, sub }: { title: string; sub: string }) {
         <p className="mx-auto mb-8 max-w-xl text-[13px] leading-relaxed text-blue-100">{sub}</p>
         <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
           <a
-            href="#contact"
+            href="/lp/contact"
             className="w-full rounded-xl bg-white px-8 py-3.5 text-[13px] font-bold text-blue-700 shadow-lg transition hover:bg-blue-50 sm:w-auto"
           >
             無料で資料請求

@@ -30,7 +30,7 @@ export default function Hero() {
             </FadeIn>
             <div className="flex flex-wrap gap-3">
               <PulseGlow>
-                <a href="#contact" className="rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 px-8 py-3.5 text-[13px] font-bold text-white shadow-lg shadow-blue-500/20 transition hover:shadow-xl">無料で資料請求</a>
+                <a href="/lp/contact" className="rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 px-8 py-3.5 text-[13px] font-bold text-white shadow-lg shadow-blue-500/20 transition hover:shadow-xl">無料で資料請求</a>
               </PulseGlow>
               <a href="#features" className="rounded-xl border border-slate-200 bg-white px-8 py-3.5 text-[13px] font-bold text-slate-600 transition hover:border-blue-200 hover:text-blue-600">機能を見る</a>
             </div>

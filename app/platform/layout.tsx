@@ -10,6 +10,7 @@ const PLATFORM_MENU_ITEMS = [
   { href: "/platform", icon: "📊", label: "ダッシュボード" },
   { href: "/platform/tenants", icon: "🏥", label: "テナント管理" },
   { href: "/platform/applications", icon: "📩", label: "申し込み管理" },
+  { href: "/platform/inquiries", icon: "💬", label: "お問い合わせ" },
   { href: "/platform/members", icon: "👥", label: "メンバー管理" },
   { href: "/platform/billing", icon: "💳", label: "契約・請求" },
   { href: "/platform/analytics", icon: "📈", label: "分析" },
