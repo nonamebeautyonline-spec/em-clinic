@@ -552,15 +552,18 @@ function DailyBarChart({ data }: DailyBarChartProps) {
     <div className="overflow-x-auto overflow-y-visible">
       <div className="min-w-[800px] pt-24">
         <div className="flex items-end gap-1 h-48 border-b border-slate-200 pb-2 relative">
-          {data.map((day) => {
+          {data.map((day, idx) => {
             const squareHeight = (day.square / maxValue) * 100;
             const bankHeight = (day.bank / maxValue) * 100;
             const dayNum = parseInt(day.date.split("-")[2]);
             const totalCount = day.squareCount + day.bankCount;
+            const isNearLeft = idx <= 2;
+            const isNearRight = idx >= data.length - 3;
+            const tooltipAlign = isNearLeft ? "left-0" : isNearRight ? "right-0" : "left-1/2 -translate-x-1/2";
 
             return (
               <div key={day.date} className="flex-1 flex flex-col items-center group relative">
-                <div className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-20 shadow-lg">
+                <div className={`absolute bottom-full mb-2 hidden group-hover:block bg-slate-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-20 shadow-lg ${tooltipAlign}`}>
                   <div className="font-bold">{dayNum}日</div>
                   <div>カード: ¥{day.square.toLocaleString()} ({day.squareCount}件)</div>
                   <div>振込: ¥{day.bank.toLocaleString()} ({day.bankCount}件)</div>
