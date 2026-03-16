@@ -169,10 +169,10 @@ export function TemplateList({
           {filtered.map((t) => (
             <div
               key={t.id}
-              className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 transition-all group overflow-hidden"
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 transition-all group"
             >
               {/* サムネイルプレビュー */}
-              <div className="h-32 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden relative">
+              <div className="h-32 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden relative rounded-t-2xl">
                 {t.message_type === "imagemap" ? (
                   <div className="relative w-full h-full">
                     <img src={t.content} alt="" className="w-full h-full object-cover" />
