@@ -372,18 +372,50 @@ export function FlexBuilderInner({ templateIdProp, onClose }: { templateIdProp?:
 }
 
 /* ---------- カルーセルスクロール制御 ---------- */
-function CarouselScroller({ children, activePanelIndex }: { children: React.ReactNode; activePanelIndex: number }) {
+function CarouselScroller({ children, activePanelIndex, onScrollToPanel }: { children: React.ReactNode; activePanelIndex: number; onScrollToPanel?: (index: number) => void }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isProgScroll = useRef(false); // プログラムによるスクロール中フラグ
+
+  // activePanelIndex変更時にスクロール
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
     const target = container.children[activePanelIndex] as HTMLElement | undefined;
     if (target) {
+      isProgScroll.current = true;
       target.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+      // smooth scroll完了後にフラグ解除
+      setTimeout(() => { isProgScroll.current = false; }, 400);
     }
   }, [activePanelIndex]);
+
+  // ユーザースクロール時にアクティブパネルを検出
+  const handleScroll = useCallback(() => {
+    if (isProgScroll.current || !onScrollToPanel) return;
+    const container = scrollRef.current;
+    if (!container) return;
+    const containerLeft = container.scrollLeft;
+    const children = Array.from(container.children) as HTMLElement[];
+    let closest = 0;
+    let minDist = Infinity;
+    children.forEach((child, i) => {
+      const dist = Math.abs(child.offsetLeft - containerLeft);
+      if (dist < minDist) { minDist = dist; closest = i; }
+    });
+    if (closest !== activePanelIndex) {
+      onScrollToPanel(closest);
+    }
+  }, [activePanelIndex, onScrollToPanel]);
+
+  // debounce scroll
+  const scrollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const onScroll = useCallback(() => {
+    clearTimeout(scrollTimer.current);
+    scrollTimer.current = setTimeout(handleScroll, 100);
+  }, [handleScroll]);
+
   return (
-    <div ref={scrollRef} className="flex gap-2 overflow-x-auto pb-2">
+    <div ref={scrollRef} className="flex gap-2 overflow-x-auto pb-2" onScroll={onScroll}>
       {children}
     </div>
   );
@@ -524,7 +556,7 @@ function LiveFlexPreview({ onBackClick }: { onBackClick?: () => void }) {
         {/* スマホフレーム */}
         <LinePhoneFrame headerTitle="クリニック公式">
           {isCarousel ? (
-            <CarouselScroller activePanelIndex={activePanelIndex}>
+            <CarouselScroller activePanelIndex={activePanelIndex} onScrollToPanel={(i) => dispatch({ type: "SELECT_PANEL", index: i })}>
               {panelBubbles.map((bubble, i) => (
                 <div key={i} className="flex-shrink-0 w-[260px]">
                   {i === activePanelIndex ? (
