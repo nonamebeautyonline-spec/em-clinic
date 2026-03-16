@@ -2,7 +2,7 @@
 
 import Nav from "./components/Nav";
 import Hero from "./components/Hero";
-import SocialProof from "./components/SocialProof";
+
 import Problems from "./components/Problems";
 import About from "./components/About";
 import Features from "./components/Features";
@@ -23,9 +23,9 @@ export default function LPPage() {
       <Hero />
       <Problems />
       <About />
-      <SocialProof />
+      {/* SocialProof削除済み — 導入事例・体験談は実績蓄積後に復活 */}
       <Features />
-      <MidCTA title="これだけの機能をまとめて月額¥4,000〜" sub="予約・問診・LINE配信・決済・配送管理まで、すべて込み。複数ツールの月額を大幅に削減できます。" />
+      <MidCTA title="これだけの機能をまとめて月額¥71,500〜" sub="予約・問診・LINE配信・決済・配送管理まで、すべて込み。複数ツールの月額を大幅に削減できます。" />
       <Strengths />
       <MidCTA title="まずは無料で資料請求" sub="貴院の課題に合わせたデモのご案内も可能です。お気軽にお問い合わせください。" />
       <UseCases />

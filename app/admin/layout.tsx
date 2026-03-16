@@ -19,12 +19,12 @@ function LogoMark({ compact }: { compact?: boolean }) {
   const gradientClass = "bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent";
   if (compact) {
     return (
-      <Image src="/images/l-ope-logo.png" alt="Lオペ" width={36} height={36} className="object-contain" />
+      <Image src="/icon.png" alt="Lオペ" width={36} height={36} className="rounded-lg object-contain" />
     );
   }
   return (
     <div className="flex items-center gap-2 min-w-0 overflow-hidden ml-1">
-      <Image src="/images/l-ope-logo.png" alt="Lオペ" width={32} height={32} className="shrink-0 object-contain" />
+      <Image src="/icon.png" alt="Lオペ" width={32} height={32} className="shrink-0 rounded-lg object-contain" />
       <span className={`text-xl font-bold whitespace-nowrap ${gradientClass}`}>Lオペ <span className="text-sm font-semibold tracking-widest uppercase">for CLINIC</span></span>
     </div>
   );
