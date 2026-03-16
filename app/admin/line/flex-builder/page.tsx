@@ -86,8 +86,7 @@ export function FlexBuilderInner({ templateIdProp, onClose }: { templateIdProp?:
   const [wizardDismissed, setWizardDismissed] = useState(false);
 
   // ウィザード表示条件: ブロックが空 & テンプレート未読み込み & ユーザーがまだ閉じていない
-  // テンプレートページからインライン呼出し時（onClose存在時）はウィザードをスキップ
-  const showWizard = !onClose && !wizardDismissed && !editingTemplateId && panels.every((p) => p.blocks.length === 0);
+  const showWizard = !wizardDismissed && !editingTemplateId && panels.every((p) => p.blocks.length === 0);
 
   // URL ?template={id} または props.templateIdProp の自動読み込み
   useEffect(() => {
