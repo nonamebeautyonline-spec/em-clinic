@@ -60,7 +60,7 @@ export default function FlexBuilderPage() {
   );
 }
 
-function FlexBuilderInner() {
+export function FlexBuilderInner({ templateIdProp, onClose }: { templateIdProp?: number | null; onClose?: () => void } = {}) {
   const searchParams = useSearchParams();
   const { panels, templateName, editingTemplateId, historyIndex, history } = useBlockEditor();
   const dispatch = useBlockEditorDispatch();
@@ -86,12 +86,13 @@ function FlexBuilderInner() {
   const [wizardDismissed, setWizardDismissed] = useState(false);
 
   // ウィザード表示条件: ブロックが空 & テンプレート未読み込み & ユーザーがまだ閉じていない
-  const showWizard = !wizardDismissed && !editingTemplateId && panels.every((p) => p.blocks.length === 0);
+  // テンプレートページからインライン呼出し時（onClose存在時）はウィザードをスキップ
+  const showWizard = !onClose && !wizardDismissed && !editingTemplateId && panels.every((p) => p.blocks.length === 0);
 
-  // URL ?template={id} の自動読み込み
+  // URL ?template={id} または props.templateIdProp の自動読み込み
   useEffect(() => {
     if (templateAutoLoaded || !savedTemplates.length) return;
-    const templateId = searchParams.get("template");
+    const templateId = templateIdProp != null ? String(templateIdProp) : searchParams.get("template");
     if (templateId) {
       const tpl = savedTemplates.find((t) => t.id === Number(templateId));
       if (tpl && tpl.flex_content) {
@@ -359,7 +360,7 @@ function FlexBuilderInner() {
       <div className="flex flex-1 overflow-hidden">
         {/* 左: リアルタイムFlexプレビュー */}
         <div className="flex-1 overflow-auto bg-gray-100">
-          <LiveFlexPreview />
+          <LiveFlexPreview onBackClick={onClose} />
         </div>
 
         {/* 右: ブロック設定 */}
@@ -372,7 +373,7 @@ function FlexBuilderInner() {
 }
 
 /* ---------- リアルタイムFlexプレビュー（ブロック番号バッジ付き） ---------- */
-function LiveFlexPreview() {
+function LiveFlexPreview({ onBackClick }: { onBackClick?: () => void }) {
   const { panels, activePanelIndex, selectedBlockId } = useBlockEditor();
   const dispatch = useBlockEditorDispatch();
   const activePanel = panels[activePanelIndex];
@@ -443,12 +444,21 @@ function LiveFlexPreview() {
         ) : null}
       </LinePhoneFrame>
       <div className="mt-4 text-center">
-        <a
-          href="/admin/line/templates"
-          className="text-sm text-blue-400 hover:text-blue-300 hover:underline"
-        >
-          戻る
-        </a>
+        {onBackClick ? (
+          <button
+            onClick={onBackClick}
+            className="text-sm text-blue-400 hover:text-blue-300 hover:underline"
+          >
+            戻る
+          </button>
+        ) : (
+          <a
+            href="/admin/line/templates"
+            className="text-sm text-blue-400 hover:text-blue-300 hover:underline"
+          >
+            戻る
+          </a>
+        )}
       </div>
     </div>
   );
@@ -718,8 +728,8 @@ function AnnotatedBubbleRenderer({
               <FlexElementRenderer element={item} />
               {blockIdx !== undefined && (
                 <span
-                  className={`absolute left-0 top-0 z-10 flex items-center justify-center w-4 h-4 rounded-full text-[8px] font-bold text-white shadow ${
-                    isSelected ? "bg-blue-500" : "bg-green-600/90"
+                  className={`absolute -left-2.5 -top-2.5 z-10 flex items-center justify-center w-5 h-5 rounded-full text-[9px] font-bold text-white shadow-md border-2 border-white ${
+                    isSelected ? "bg-blue-500" : "bg-green-600"
                   }`}
                 >
                   {blockIdx + 1}

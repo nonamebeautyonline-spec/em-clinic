@@ -12,7 +12,9 @@ import {
 import { TemplateList } from "./_components/TemplateList";
 import { TemplateEditor } from "./_components/TemplateEditor";
 import { TestSendModal } from "./_components/TestSendModal";
-import { FlexPreviewRenderer } from "@/app/admin/line/flex-builder/page";
+import { FlexPreviewRenderer, FlexBuilderInner } from "@/app/admin/line/flex-builder/page";
+import { BlockEditorProvider } from "@/app/admin/line/flex-builder/_components/BlockEditorContext";
+import { Suspense } from "react";
 
 export default function TemplateManagementPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -49,6 +51,9 @@ export default function TemplateManagementPage() {
   // 名前変更
   const [renameTarget, setRenameTarget] = useState<Template | null>(null);
   const [renameValue, setRenameValue] = useState("");
+
+  // FLEXビルダーインライン表示（false=非表示, null=新規, number=既存テンプレートID）
+  const [flexBuilderId, setFlexBuilderId] = useState<number | null | false>(false);
 
   // プレビュー
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
@@ -88,8 +93,8 @@ export default function TemplateManagementPage() {
 
   // ─── ハンドラ ───
   const handleEdit = (t: Template) => {
-    if (t.message_type === "flex" && t.flex_content) {
-      window.location.href = `/admin/line/flex-builder?template=${t.id}`;
+    if (t.message_type === "flex") {
+      setFlexBuilderId(t.id); // 既存FLEXテンプレート → インラインビルダー
       return;
     }
     setEditingTemplate(t);
@@ -261,6 +266,26 @@ export default function TemplateManagementPage() {
   const getCategoryCount = (catName: string) => templates.filter(t => (t.category || "未分類") === catName).length;
 
   if (tError) return <ErrorFallback error={tError} retry={() => { mutate(TEMPLATES_KEY); mutate(CATEGORIES_KEY); }} />;
+
+  // FLEXビルダーインライン表示
+  if (flexBuilderId !== false) {
+    return (
+      <div className="h-[calc(100vh-120px)]">
+        <BlockEditorProvider>
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-8 w-8 border-4 border-[#06C755] border-t-transparent" />
+            </div>
+          }>
+            <FlexBuilderInner
+              templateIdProp={flexBuilderId}
+              onClose={() => { setFlexBuilderId(false); mutate(TEMPLATES_KEY); }}
+            />
+          </Suspense>
+        </BlockEditorProvider>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-full bg-gray-50/50">
@@ -441,6 +466,7 @@ export default function TemplateManagementPage() {
           flexPresets={flexPresets}
           initialCategory={selectedCategory === "__all__" ? "未分類" : selectedCategory}
           onClose={() => { setShowEditor(false); setEditingTemplate(null); }}
+          onOpenFlexBuilder={(id) => { setShowEditor(false); setEditingTemplate(null); setFlexBuilderId(id ?? null); }}
         />
       )}
 

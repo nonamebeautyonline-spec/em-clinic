@@ -20,6 +20,7 @@ interface TemplateEditorProps {
   flexPresets: FlexPreset[];
   initialCategory: string;
   onClose: () => void;
+  onOpenFlexBuilder?: (templateId: number | null) => void;
 }
 
 /* ---------- タブ定義（アイコン＋説明付きカード化） ---------- */
@@ -57,7 +58,7 @@ const TAB_ITEMS: { key: TemplateTab; label: string; description: string; icon: s
   },
 ];
 
-export function TemplateEditor({ editingTemplate, categories, flexPresets, initialCategory, onClose }: TemplateEditorProps) {
+export function TemplateEditor({ editingTemplate, categories, flexPresets, initialCategory, onClose, onOpenFlexBuilder }: TemplateEditorProps) {
   // フォーム状態
   const [name, setName] = useState(editingTemplate?.name || "");
   const [content, setContent] = useState(
@@ -286,7 +287,14 @@ export function TemplateEditor({ editingTemplate, categories, flexPresets, initi
               {TAB_ITEMS.map(tab => (
                 <button
                   key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
+                  onClick={async () => {
+                    if (tab.key === "flex" && onOpenFlexBuilder) {
+                      onClose();
+                      onOpenFlexBuilder(editingTemplate?.id ?? null);
+                      return;
+                    }
+                    setActiveTab(tab.key);
+                  }}
                   className={`relative flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 transition-all text-center ${
                     activeTab === tab.key
                       ? "border-[#06C755] bg-green-50/50 shadow-sm"
@@ -427,145 +435,7 @@ export function TemplateEditor({ editingTemplate, categories, flexPresets, initi
             />
           )}
 
-          {/* Flex */}
-          {activeTab === "flex" && (
-            <div className="space-y-4">
-              {/* ゼロから作る */}
-              <button
-                onClick={async () => {
-                  if (editingTemplate) {
-                    window.location.href = `/admin/line/flex-builder?template=${editingTemplate.id}`;
-                  } else {
-                    const tmpName = name.trim() || "FLEXテンプレート";
-                    const res = await fetch("/api/admin/line/templates", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      credentials: "include",
-                      body: JSON.stringify({ name: tmpName, content: "", message_type: "flex", category, flex_content: null }),
-                    });
-                    if (res.ok) {
-                      const data = await res.json();
-                      const newId = data.id || data.template?.id;
-                      if (newId) { window.location.href = `/admin/line/flex-builder?template=${newId}`; return; }
-                    }
-                    alert("テンプレートの作成に失敗しました");
-                  }
-                }}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl hover:from-blue-100 hover:to-indigo-100 transition-colors text-sm font-medium text-blue-700"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-                </svg>
-                ビジュアルエディタで編集
-              </button>
-
-              {/* プリセットから選んでビジュアルエディタで編集 */}
-              {flexPresets.length > 0 && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1.5">テンプレート例から選んで編集</label>
-                  <div className="flex flex-wrap gap-2">
-                    {flexPresets.map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={async () => {
-                          if (editingTemplate) {
-                            // 既存テンプレートにプリセットを上書き保存して遷移
-                            await fetch(`/api/admin/line/templates/${editingTemplate.id}`, {
-                              method: "PUT",
-                              headers: { "Content-Type": "application/json" },
-                              credentials: "include",
-                              body: JSON.stringify({ name: editingTemplate.name, content: "", message_type: "flex", category, flex_content: p.flex_json }),
-                            });
-                            window.location.href = `/admin/line/flex-builder?template=${editingTemplate.id}`;
-                          } else {
-                            // 新規テンプレートをプリセットのJSONで作成して遷移
-                            const tmpName = name.trim() || p.name;
-                            const res = await fetch("/api/admin/line/templates", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              credentials: "include",
-                              body: JSON.stringify({ name: tmpName, content: "", message_type: "flex", category, flex_content: p.flex_json }),
-                            });
-                            if (res.ok) {
-                              const data = await res.json();
-                              const newId = data.id || data.template?.id;
-                              if (newId) { window.location.href = `/admin/line/flex-builder?template=${newId}`; return; }
-                            }
-                            alert("テンプレートの作成に失敗しました");
-                          }
-                        }}
-                        className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:border-[#06C755] hover:bg-green-50 transition-colors text-gray-700"
-                      >
-                        {p.name}
-                        {p.description && <span className="ml-1.5 text-[10px] text-gray-400">{p.description}</span>}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* プレビュー */}
-              <div className="bg-[#7494c0] rounded-xl p-6 min-h-[300px] flex items-center justify-center">
-                {(() => {
-                  if (!flexJson.trim()) {
-                    return <div className="text-center text-white/60 text-sm py-10">プリセットを選択またはJSONを貼り付けてください</div>;
-                  }
-                  try {
-                    const parsed = JSON.parse(flexJson);
-                    return <FlexPreviewRenderer data={parsed} />;
-                  } catch {
-                    return <div className="text-center text-white/60 text-sm py-10">JSONの形式が正しくありません</div>;
-                  }
-                })()}
-              </div>
-
-              <button
-                onClick={() => { setJsonPasteValue(flexJson); setShowJsonPaste(true); }}
-                className="w-full px-4 py-2.5 border border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:border-[#06C755] hover:text-[#06C755] hover:bg-green-50/50 transition-colors"
-              >
-                JSONを貼り付け
-              </button>
-
-              {/* JSON貼り付けダイアログ */}
-              {showJsonPaste && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                  <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl mx-4 max-h-[80vh] flex flex-col">
-                    <div className="px-6 py-4 border-b border-gray-100">
-                      <h3 className="text-base font-bold text-gray-800">JSONを貼り付け</h3>
-                      <p className="text-xs text-gray-400 mt-1">LINE Flex Message Simulator で作成したJSONを貼り付けてください</p>
-                    </div>
-                    <div className="px-6 py-4 flex-1 overflow-auto">
-                      <textarea
-                        value={jsonPasteValue}
-                        onChange={(e) => setJsonPasteValue(e.target.value)}
-                        placeholder='{"type":"bubble","body":{"type":"box",...}}'
-                        rows={14}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-xs font-mono text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500/30 resize-none"
-                        spellCheck={false}
-                        autoFocus
-                      />
-                      {flexError && <p className="text-xs text-red-500 mt-2">{flexError}</p>}
-                    </div>
-                    <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
-                      <button onClick={() => { setShowJsonPaste(false); setFlexError(""); }} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium transition-colors">
-                        キャンセル
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (!jsonPasteValue.trim()) { setFlexError("JSONを入力してください"); return; }
-                          try { JSON.parse(jsonPasteValue); setFlexJson(jsonPasteValue); setFlexError(""); setShowJsonPaste(false); } catch { setFlexError("JSON形式が不正です"); }
-                        }}
-                        className="flex-1 px-4 py-2.5 bg-[#06C755] text-white rounded-xl hover:bg-[#05b34c] text-sm font-medium transition-colors"
-                      >
-                        適用
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          {/* Flex: タブクリック時にFLEXビルダーへ直行するため、ここには到達しない */}
         </div>
 
         {/* フッター */}
