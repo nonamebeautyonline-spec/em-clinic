@@ -19,6 +19,7 @@ const PLATFORM_MENU_ITEMS = [
   { href: "/platform/audit", icon: "🔍", label: "監査ログ" },
   { href: "/platform/shared-templates", icon: "📋", label: "共有テンプレート" },
   { href: "/platform/richmenu-generator", icon: "🎨", label: "リッチメニュー生成" },
+  { href: "/platform/seo", icon: "🔍", label: "SEO分析" },
   { href: "/platform/system", icon: "⚙️", label: "システム設定" },
   { href: "/platform/settings", icon: "🔐", label: "アカウント設定" },
 ];

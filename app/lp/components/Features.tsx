@@ -95,10 +95,14 @@ export default function Features() {
 
       {/* ── タブナビゲーション ── */}
       <FadeIn>
-        <div className="mx-auto mt-2 flex flex-wrap justify-center gap-2">
+        <div className="mx-auto mt-2 flex flex-wrap justify-center gap-2" role="tablist" aria-label="機能カテゴリ">
           {categories.map((cat) => (
             <button
               key={cat.id}
+              role="tab"
+              aria-selected={activeTab === cat.id}
+              aria-controls={`tabpanel-${cat.id}`}
+              id={`tab-${cat.id}`}
               onClick={() => setActiveTab(cat.id)}
               className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-semibold transition-all ${
                 activeTab === cat.id
@@ -106,7 +110,7 @@ export default function Features() {
                   : "bg-white text-slate-500 border border-slate-200 hover:border-blue-200 hover:text-blue-600"
               }`}
             >
-              <span className="text-base">{cat.icon}</span>
+              <span className="text-base" aria-hidden="true">{cat.icon}</span>
               {cat.label}
             </button>
           ))}
@@ -114,7 +118,12 @@ export default function Features() {
       </FadeIn>
 
       {/* ── タブコンテンツ ── */}
-      <div className="mt-12 min-h-[320px]">
+      <div
+        className="mt-12 min-h-[320px]"
+        role="tabpanel"
+        id={`tabpanel-${activeTab}`}
+        aria-labelledby={`tab-${activeTab}`}
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -125,16 +134,16 @@ export default function Features() {
           >
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {active.features.map((f, i) => (
-                <motion.div
+                <motion.article
                   key={f.name}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: i * 0.06 }}
                   className="group rounded-2xl border border-slate-200 bg-white p-6 transition hover:border-blue-300 hover:shadow-lg hover:shadow-blue-50"
                 >
-                  <h4 className="mb-2 text-[15px] font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{f.name}</h4>
+                  <h3 className="mb-2 text-[15px] font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{f.name}</h3>
                   <p className="text-[13px] leading-relaxed text-slate-400">{f.desc}</p>
-                </motion.div>
+                </motion.article>
               ))}
             </div>
           </motion.div>

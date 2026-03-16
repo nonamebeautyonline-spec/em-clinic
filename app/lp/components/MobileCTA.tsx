@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { motion, useScroll, useTransform } from "framer-motion";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -19,12 +18,12 @@ export function MobileCTA() {
       /* pointer-events を opacity に連動（非表示時はクリック不可） */
       initial={{ opacity: 0, y: 20 }}
     >
-      <Link
-        href="/lp/entry-BYagL-x_JX2JSAeN"
+      <a
+        href="#contact"
         className="block w-full rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 py-3.5 text-center text-[13px] font-bold text-white shadow-lg shadow-blue-500/20 transition hover:shadow-xl"
       >
         お問い合わせ
-      </Link>
+      </a>
     </motion.div>
   );
 }

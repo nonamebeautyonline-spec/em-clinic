@@ -17,19 +17,21 @@ export function Flow() {
   return (
     <Section id="flow">
       <div className="text-center"><Label>FLOW</Label><Title>導入の流れ</Title><Sub>お問い合わせから最短2週間で運用開始。初期設定はサポートチームが代行するため、現場の負担はほぼゼロです。</Sub></div>
-      <StaggerChildren className="mx-auto max-w-3xl">
-        {steps.map((s, i) => (
-          <StaggerItem key={s.num}>
-            <div className="flex gap-5">
-              <div className="flex flex-col items-center">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-sky-500 text-[12px] font-bold text-white shadow-lg shadow-blue-500/20">{s.num}</div>
-                {i < steps.length - 1 && <div className="my-1 h-full w-px bg-blue-200/60" />}
-              </div>
-              <div className={i < steps.length - 1 ? "pb-10" : ""}><h4 className="mb-1 text-[15px] font-bold">{s.title}</h4><p className="text-[13px] leading-relaxed text-slate-400">{s.desc}</p></div>
-            </div>
-          </StaggerItem>
-        ))}
-      </StaggerChildren>
+      <ol className="mx-auto max-w-3xl list-none p-0 m-0">
+        <StaggerChildren className="">
+          {steps.map((s, i) => (
+            <StaggerItem key={s.num}>
+              <li className="flex gap-5">
+                <div className="flex flex-col items-center">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-sky-500 text-[12px] font-bold text-white shadow-lg shadow-blue-500/20" aria-hidden="true">{s.num}</div>
+                  {i < steps.length - 1 && <div className="my-1 h-full w-px bg-blue-200/60" />}
+                </div>
+                <div className={i < steps.length - 1 ? "pb-10" : ""}><h3 className="mb-1 text-[15px] font-bold">{s.title}</h3><p className="text-[13px] leading-relaxed text-slate-400">{s.desc}</p></div>
+              </li>
+            </StaggerItem>
+          ))}
+        </StaggerChildren>
+      </ol>
       <div className="mt-12 text-center"><span className="inline-block rounded-full border border-amber-200 bg-amber-50 px-6 py-2.5 text-[12px] font-semibold text-amber-700">最短2週間で導入完了 / 初期設定代行あり</span></div>
     </Section>
   );
