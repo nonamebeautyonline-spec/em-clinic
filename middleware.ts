@@ -86,8 +86,12 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const host = req.headers.get("host") || "";
 
-  // === /lp 配下は lope.jp と localhost のみ許可 ===
-  if (pathname.startsWith("/lp") && !host.startsWith("localhost") && !host.includes("l-ope.jp")) {
+  // === /lp 配下はルートドメイン(l-ope.jp) と localhost のみ許可 ===
+  // テナントサブドメイン（noname-beauty.l-ope.jp 等）では非表示
+  const hostWithoutPort = host.replace(/:\d+$/, "");
+  const isRootDomain = hostWithoutPort === "l-ope.jp" || hostWithoutPort === "www.l-ope.jp";
+  const isLocalhost = hostWithoutPort === "localhost" || hostWithoutPort.startsWith("localhost");
+  if (pathname.startsWith("/lp") && !isLocalhost && !isRootDomain) {
     return new NextResponse("Not Found", { status: 404 });
   }
 
