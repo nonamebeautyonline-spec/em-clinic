@@ -30,7 +30,7 @@ const categories = [
     label: "AI機能",
     icon: "🤖",
     features: [
-      { name: "AI自動返信", desc: "患者の問い合わせをAIが理解し返信文を自動生成。スタッフ確認後に送信で品質を担保" },
+      { name: "AI自動返信", desc: "患者の問い合わせをAIが理解し返信文を自動生成。スタッフ確認後に送信で品質を担保（自動返信に切り替えも可）" },
       { name: "AI自動学習", desc: "スタッフの修正・手動返信をAIが自動学習。使うほど返信精度が向上するRAG方式" },
       { name: "音声カルテ自動生成", desc: "診察中の会話を録音→AIがSOAP形式のカルテを自動生成。医療用語も自動抽出" },
       { name: "AIモデル切替", desc: "用途に応じてAIモデルを管理画面から選択。コスト・精度のバランスを自由に調整" },
@@ -253,7 +253,7 @@ export default function Features() {
               <h4 className="mb-3 text-xl font-extrabold tracking-tight text-slate-900 md:text-2xl">AIが対応し、学び、進化する</h4>
               <p className="mb-5 text-[14px] leading-[1.9] text-slate-500">AIがFAQ・処方情報・予約状況を踏まえた返信文を自動生成。スタッフの修正や手動返信をAIが自動学習し、使うほど返信精度が向上します。</p>
               <ul className="space-y-2.5">
-                {["スタッフ確認後に送信で品質を担保", "修正・手動返信をAIが自動学習（RAG方式）", "営業時間外の自動送信モード対応", "音声からSOAPカルテも自動生成"].map((d) => (
+                {["スタッフ確認後に送信で品質を担保（自動返信に切り替えも可）", "修正・手動返信をAIが自動学習（RAG方式）", "営業時間外の自動送信モード対応", "音声からSOAPカルテも自動生成"].map((d) => (
                   <li key={d} className="flex items-start gap-2.5 text-[13px] text-slate-600">
                     <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[9px] text-blue-600">&#10003;</span>
                     {d}
