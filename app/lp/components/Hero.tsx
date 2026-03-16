@@ -1,7 +1,7 @@
 "use client";
 
 import { MockWindow } from "./shared";
-import { AnimatedBlob, TextReveal, FadeIn, StaggerChildren, StaggerItem, CountUp, PulseGlow } from "./animations";
+import { AnimatedBlob, TextReveal, FadeIn, StaggerChildren, StaggerItem, PulseGlow } from "./animations";
 
 export default function Hero() {
   return (
@@ -91,30 +91,7 @@ export default function Hero() {
           </FadeIn>
         </div>
 
-        {/* 成果数字 */}
-        {/* TODO: 実データに差し替え */}
-        <FadeIn delay={0.5}>
-          <div className="mt-16 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-slate-100 bg-white/80 p-6 text-center backdrop-blur">
-              <div className="text-[12px] font-semibold text-slate-400">導入実績</div>
-              <div className="mt-1 text-3xl font-extrabold text-blue-600">
-                <CountUp to={50} suffix="院+" />
-              </div>
-            </div>
-            <div className="rounded-2xl border border-slate-100 bg-white/80 p-6 text-center backdrop-blur">
-              <div className="text-[12px] font-semibold text-slate-400">業務時間</div>
-              <div className="mt-1 text-3xl font-extrabold text-blue-600">
-                平均<CountUp to={60} suffix="%" />削減
-              </div>
-            </div>
-            <div className="rounded-2xl border border-slate-100 bg-white/80 p-6 text-center backdrop-blur">
-              <div className="text-[12px] font-semibold text-slate-400">リピート率</div>
-              <div className="mt-1 text-3xl font-extrabold text-blue-600">
-                +<CountUp to={15} suffix="%" />向上
-              </div>
-            </div>
-          </div>
-        </FadeIn>
+        {/* 成果数字 — 実績蓄積後に復活 */}
       </div>
     </section>
   );
