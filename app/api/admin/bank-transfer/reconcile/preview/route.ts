@@ -284,7 +284,28 @@ export async function POST(req: NextRequest) {
           }
         }
       }
-      console.log(`[Preview] Saved ${newRows.length} new transactions (${allTransactions.length - newRows.length} duplicates skipped)`);
+
+      // ★ 既存行でマッチしたものを reconciled=true に更新
+      const matchedDates = matched.map((m) => ({
+        date: m.transfer.date.replace(/\//g, "-"),
+        description: m.transfer.description,
+        amount: m.transfer.amount,
+        orderId: m.order.id,
+      }));
+      for (const md of matchedDates) {
+        await withTenant(
+          supabase
+            .from("bank_statements")
+            .update({ reconciled: true, matched_order_id: md.orderId })
+            .eq("transaction_date", md.date)
+            .eq("description", md.description)
+            .eq("deposit", md.amount)
+            .eq("reconciled", false),
+          tenantId
+        );
+      }
+
+      console.log(`[Preview] Saved ${newRows.length} new transactions (${allTransactions.length - newRows.length} duplicates skipped), updated ${matchedDates.length} existing matched rows`);
     }
 
     return NextResponse.json({

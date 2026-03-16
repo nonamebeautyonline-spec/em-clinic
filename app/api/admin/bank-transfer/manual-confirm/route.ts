@@ -102,6 +102,18 @@ export async function POST(req: NextRequest) {
 
     console.log(`[ManualConfirm] Updated ${order_id} → ${nextBtId} (confirmed)`);
 
+    // ★ bank_statementsを照合済みに更新（旧order_idで紐づいている行）
+    const { error: stmtError } = await withTenant(
+      supabase
+        .from("bank_statements")
+        .update({ reconciled: true, matched_order_id: nextBtId })
+        .eq("matched_order_id", order_id),
+      tenantId
+    );
+    if (stmtError) {
+      console.error(`[ManualConfirm] bank_statements update error:`, stmtError);
+    }
+
     // キャッシュ無効化
     try {
       const invalidateUrl = `${req.nextUrl.origin}/api/admin/invalidate-cache`;

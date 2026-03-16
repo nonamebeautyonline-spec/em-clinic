@@ -152,6 +152,31 @@ export async function POST(req: NextRequest) {
           success: true,
         });
 
+        // ★ bank_statementsを照合済みに更新（matched_order_idまたは振込情報で特定）
+        // 1) matched_order_idが旧IDの行を更新
+        const { data: updatedByOrderId } = await withTenant(
+          supabase
+            .from("bank_statements")
+            .update({ reconciled: true, matched_order_id: nextBtId })
+            .eq("matched_order_id", orderId)
+            .select("id"),
+          tenantId
+        );
+
+        // 2) まだ更新できていない場合、振込日・摘要・金額で特定して更新
+        if (!updatedByOrderId || updatedByOrderId.length === 0) {
+          const transferDate = match.transfer.date.replace(/\//g, "-");
+          await withTenant(
+            supabase
+              .from("bank_statements")
+              .update({ reconciled: true, matched_order_id: nextBtId })
+              .eq("transaction_date", transferDate)
+              .eq("deposit", match.transfer.amount)
+              .eq("reconciled", false),
+            tenantId
+          );
+        }
+
         // ★ キャッシュ無効化（決済確認後）
         try {
           const invalidateUrl = `${req.nextUrl.origin}/api/admin/invalidate-cache`;
