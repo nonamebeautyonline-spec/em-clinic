@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, Suspense } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
 import useSWR, { mutate } from "swr";
 import { useSearchParams } from "next/navigation";
 import { BlockEditorProvider, useBlockEditor, useBlockEditorDispatch } from "./_components/BlockEditorContext";
@@ -411,37 +411,131 @@ function LiveFlexPreview({ onBackClick }: { onBackClick?: () => void }) {
 
   const isCarousel = panels.length > 1;
 
+  // 外部アノテーション用: コンテナとブロック要素のref
+  const containerRef = useRef<HTMLDivElement>(null);
+  const blockRefsMap = useRef<Map<number, HTMLDivElement>>(new Map());
+  const [linePositions, setLinePositions] = useState<{ blockIdx: number; targetY: number; targetX: number }[]>([]);
+
+  const registerBlockRef = useCallback((blockIdx: number, el: HTMLDivElement | null) => {
+    if (el) blockRefsMap.current.set(blockIdx, el);
+    else blockRefsMap.current.delete(blockIdx);
+  }, []);
+
+  // ブロック位置を計算してライン描画データを更新
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const timer = setTimeout(() => {
+      const containerRect = container.getBoundingClientRect();
+      const positions: { blockIdx: number; targetY: number; targetX: number }[] = [];
+      blockRefsMap.current.forEach((el, blockIdx) => {
+        const elRect = el.getBoundingClientRect();
+        positions.push({
+          blockIdx,
+          targetY: elRect.top - containerRect.top + elRect.height / 2,
+          targetX: elRect.left - containerRect.left,
+        });
+      });
+      positions.sort((a, b) => a.blockIdx - b.blockIdx);
+      setLinePositions(positions);
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [panels, activePanelIndex, selectedBlockId]);
+
+  // 全ブロックのインデックス一覧
+  const allBlockIndices = useMemo(() => {
+    const indices: number[] = [];
+    [...blockMapping.header, ...blockMapping.body, ...blockMapping.footer].forEach(idx => {
+      if (!indices.includes(idx)) indices.push(idx);
+    });
+    indices.sort((a, b) => a - b);
+    return indices;
+  }, [blockMapping]);
+
   return (
     <div className="p-6 min-h-full flex items-start justify-center">
-      <LinePhoneFrame headerTitle="クリニック公式">
-        {isCarousel ? (
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {panelBubbles.map((bubble, i) => (
-              <div key={i} className="flex-shrink-0 w-[260px]">
-                {i === activePanelIndex ? (
-                  <AnnotatedBubbleRenderer
-                    bubble={bubble}
-                    blockMapping={blockMapping}
-                    blocks={activePanel?.blocks || []}
-                    selectedBlockId={selectedBlockId}
-                    onSelectBlock={(blockId) => dispatch({ type: "SELECT_BLOCK", blockId })}
-                  />
-                ) : (
-                  <BubbleRenderer bubble={bubble} />
-                )}
+      <div ref={containerRef} className="relative flex items-start gap-0">
+        {/* 左側: 番号バッジ + 点線（SVG） */}
+        <div className="relative w-12 flex-shrink-0" style={{ minHeight: "667px" }}>
+          {allBlockIndices.map((blockIdx) => {
+            const pos = linePositions.find(p => p.blockIdx === blockIdx);
+            if (!pos) return null;
+            const block = (activePanel?.blocks || [])[blockIdx];
+            const isSelected = block ? block.id === selectedBlockId : false;
+            return (
+              <div
+                key={blockIdx}
+                className="absolute flex items-center"
+                style={{ top: pos.targetY - 12, left: 0 }}
+              >
+                <button
+                  onClick={() => block && dispatch({ type: "SELECT_BLOCK", blockId: block.id })}
+                  className={`flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold text-white shadow-md border-2 border-white transition-colors ${
+                    isSelected ? "bg-blue-500 scale-110" : "bg-green-600 hover:bg-green-700"
+                  }`}
+                >
+                  {blockIdx + 1}
+                </button>
               </div>
-            ))}
-          </div>
-        ) : panelBubbles.length > 0 ? (
-          <AnnotatedBubbleRenderer
-            bubble={panelBubbles[0]}
-            blockMapping={blockMapping}
-            blocks={activePanel?.blocks || []}
-            selectedBlockId={selectedBlockId}
-            onSelectBlock={(blockId) => dispatch({ type: "SELECT_BLOCK", blockId })}
-          />
-        ) : null}
-      </LinePhoneFrame>
+            );
+          })}
+          {/* SVG点線 */}
+          <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ overflow: "visible" }}>
+            {allBlockIndices.map((blockIdx) => {
+              const pos = linePositions.find(p => p.blockIdx === blockIdx);
+              if (!pos) return null;
+              const block = (activePanel?.blocks || [])[blockIdx];
+              const isSelected = block ? block.id === selectedBlockId : false;
+              return (
+                <line
+                  key={blockIdx}
+                  x1={30}
+                  y1={pos.targetY}
+                  x2={48}
+                  y2={pos.targetY}
+                  stroke={isSelected ? "#3b82f6" : "#16a34a"}
+                  strokeWidth={1.5}
+                  strokeDasharray="3 3"
+                  opacity={isSelected ? 1 : 0.5}
+                />
+              );
+            })}
+          </svg>
+        </div>
+
+        {/* スマホフレーム */}
+        <LinePhoneFrame headerTitle="クリニック公式">
+          {isCarousel ? (
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {panelBubbles.map((bubble, i) => (
+                <div key={i} className="flex-shrink-0 w-[260px]">
+                  {i === activePanelIndex ? (
+                    <AnnotatedBubbleRenderer
+                      bubble={bubble}
+                      blockMapping={blockMapping}
+                      blocks={activePanel?.blocks || []}
+                      selectedBlockId={selectedBlockId}
+                      onSelectBlock={(blockId) => dispatch({ type: "SELECT_BLOCK", blockId })}
+                      registerBlockRef={registerBlockRef}
+                    />
+                  ) : (
+                    <BubbleRenderer bubble={bubble} />
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : panelBubbles.length > 0 ? (
+            <AnnotatedBubbleRenderer
+              bubble={panelBubbles[0]}
+              blockMapping={blockMapping}
+              blocks={activePanel?.blocks || []}
+              selectedBlockId={selectedBlockId}
+              onSelectBlock={(blockId) => dispatch({ type: "SELECT_BLOCK", blockId })}
+              registerBlockRef={registerBlockRef}
+            />
+          ) : null}
+        </LinePhoneFrame>
+      </div>
       <div className="mt-4 text-center">
         {onBackClick ? (
           <button
@@ -677,19 +771,21 @@ function AnnotatedBubbleRenderer({
   blocks,
   selectedBlockId,
   onSelectBlock,
+  registerBlockRef,
 }: {
   bubble: Record<string, unknown>;
   blockMapping: { header: number[]; body: number[]; footer: number[] };
   blocks: EditorBlock[];
   selectedBlockId: string | null;
   onSelectBlock: (blockId: string) => void;
+  registerBlockRef?: (blockIdx: number, el: HTMLDivElement | null) => void;
 }) {
   const header = bubble.header as Record<string, unknown> | undefined;
   const hero = bubble.hero as Record<string, unknown> | undefined;
   const body = bubble.body as Record<string, unknown> | undefined;
   const footer = bubble.footer as Record<string, unknown> | undefined;
 
-  /** セクション内の各要素にブロック番号バッジを付与してレンダリング */
+  /** セクション内の各要素をレンダリング（番号バッジは外部に移動済み） */
   const renderAnnotatedContents = (
     box: Record<string, unknown>,
     indices: number[],
@@ -713,6 +809,7 @@ function AnnotatedBubbleRenderer({
           return (
             <div
               key={i}
+              ref={blockIdx !== undefined && registerBlockRef ? (el) => registerBlockRef(blockIdx, el) : undefined}
               className={`relative ${isSelected ? "ring-2 ring-blue-400 ring-offset-1 rounded" : ""}`}
               onClick={
                 block
@@ -725,15 +822,6 @@ function AnnotatedBubbleRenderer({
               style={{ cursor: block ? "pointer" : undefined }}
             >
               <FlexElementRenderer element={item} />
-              {blockIdx !== undefined && (
-                <span
-                  className={`absolute -left-2.5 -top-2.5 z-10 flex items-center justify-center w-5 h-5 rounded-full text-[9px] font-bold text-white shadow-md border-2 border-white ${
-                    isSelected ? "bg-blue-500" : "bg-green-600"
-                  }`}
-                >
-                  {blockIdx + 1}
-                </span>
-              )}
             </div>
           );
         })}
