@@ -15,18 +15,8 @@ export function PanelNavigator() {
 
   return (
     <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-b border-gray-200 flex-shrink-0">
-      {/* パネル番号 */}
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-bold text-gray-700">
-          パネル {current} / {total}
-        </span>
-      </div>
-
-      <div className="flex-1" />
-
-      {/* ナビゲーションボタン */}
+      {/* パネル番号 + ナビゲーション */}
       <div className="flex items-center gap-1">
-        {/* 前のパネルへ */}
         <NavButton
           onClick={() => dispatch({ type: "SELECT_PANEL", index: activePanelIndex - 1 })}
           disabled={!canPrev}
@@ -37,7 +27,10 @@ export function PanelNavigator() {
           </svg>
         </NavButton>
 
-        {/* 次のパネルへ */}
+        <span className="text-sm font-bold text-gray-700 mx-1">
+          パネル {current} / {total}
+        </span>
+
         <NavButton
           onClick={() => dispatch({ type: "SELECT_PANEL", index: activePanelIndex + 1 })}
           disabled={!canNext}
@@ -49,7 +42,7 @@ export function PanelNavigator() {
         </NavButton>
       </div>
 
-      <div className="w-px h-5 bg-gray-200 mx-1" />
+      <div className="flex-1" />
 
       {/* 前に移動 */}
       <TextButton
