@@ -288,11 +288,6 @@ export function TemplateEditor({ editingTemplate, categories, flexPresets, initi
                 <button
                   key={tab.key}
                   onClick={async () => {
-                    if (tab.key === "flex" && onOpenFlexBuilder) {
-                      onClose();
-                      onOpenFlexBuilder(editingTemplate?.id ?? null);
-                      return;
-                    }
                     setActiveTab(tab.key);
                   }}
                   className={`relative flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 transition-all text-center ${
@@ -435,7 +430,136 @@ export function TemplateEditor({ editingTemplate, categories, flexPresets, initi
             />
           )}
 
-          {/* Flex: タブクリック時にFLEXビルダーへ直行するため、ここには到達しない */}
+          {/* Flex */}
+          {activeTab === "flex" && (
+            <div className="space-y-5">
+              {/* 2モード選択 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* テンプレートから作る */}
+                <button
+                  onClick={() => {
+                    if (onOpenFlexBuilder) {
+                      onClose();
+                      onOpenFlexBuilder(editingTemplate?.id ?? null);
+                    }
+                  }}
+                  className="group text-left p-5 bg-white rounded-xl border-2 border-green-200 hover:border-green-400 hover:shadow-lg transition-all"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-9 h-9 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-800">テンプレートから作る</h3>
+                      <span className="inline-block px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-medium rounded-full">おすすめ</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    テンプレートを選んで、テキストや画像を差し替えるだけで完成
+                  </p>
+                </button>
+
+                {/* ゼロから作る */}
+                <button
+                  onClick={async () => {
+                    if (onOpenFlexBuilder) {
+                      // 新規の場合: 空テンプレートを保存してから遷移
+                      if (!editingTemplate) {
+                        const tmpName = name.trim() || "FLEXテンプレート";
+                        const res = await fetch("/api/admin/line/templates", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          credentials: "include",
+                          body: JSON.stringify({ name: tmpName, content: "", message_type: "flex", category, flex_content: null }),
+                        });
+                        if (res.ok) {
+                          const data = await res.json();
+                          const newId = data.id || data.template?.id;
+                          if (newId) {
+                            onClose();
+                            onOpenFlexBuilder(newId);
+                            return;
+                          }
+                        }
+                        alert("テンプレートの作成に失敗しました");
+                        return;
+                      }
+                      onClose();
+                      onOpenFlexBuilder(editingTemplate.id);
+                    }
+                  }}
+                  className="group text-left p-5 bg-white rounded-xl border-2 border-gray-200 hover:border-blue-400 hover:shadow-lg transition-all"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-800">ゼロから作る</h3>
+                      <span className="inline-block px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-medium rounded-full">上級者向け</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    空のキャンバスからブロックを追加して自由にデザイン
+                  </p>
+                </button>
+              </div>
+
+              {/* よく使われるプリセット */}
+              {flexPresets.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-bold text-gray-500 mb-2">よく使われるテンプレート</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {flexPresets.slice(0, 6).map((preset) => (
+                      <button
+                        key={preset.id}
+                        onClick={async () => {
+                          // プリセット選択 → テンプレート保存 → FLEXビルダーで開く
+                          const tmpName = name.trim() || preset.name;
+                          const res = await fetch("/api/admin/line/templates", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            credentials: "include",
+                            body: JSON.stringify({
+                              name: tmpName,
+                              content: "",
+                              message_type: "flex",
+                              category,
+                              flex_content: preset.flex_json,
+                            }),
+                          });
+                          if (res.ok) {
+                            const data = await res.json();
+                            const newId = data.id || data.template?.id;
+                            if (newId && onOpenFlexBuilder) {
+                              onClose();
+                              onOpenFlexBuilder(newId);
+                              return;
+                            }
+                          }
+                          alert("テンプレートの作成に失敗しました");
+                        }}
+                        className="group text-left p-3 bg-white rounded-lg border border-gray-200 hover:border-green-400 hover:shadow-md transition-all"
+                      >
+                        <span className="text-xs font-medium text-gray-800 block truncate group-hover:text-green-700">
+                          {preset.name}
+                        </span>
+                        {preset.description && (
+                          <span className="text-[10px] text-gray-400 block mt-0.5 truncate">
+                            {preset.description}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* フッター */}
