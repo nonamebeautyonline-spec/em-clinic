@@ -185,19 +185,34 @@ export default function Features() {
                     </div>
                   </div>
                   {/* 患者情報 */}
-                  <div className="w-40 shrink-0 pl-3 text-[9px] space-y-2">
+                  <div className="w-44 shrink-0 pl-3 text-[9px] space-y-2 overflow-y-auto">
                     <div className="font-bold text-slate-400 uppercase tracking-wider text-[8px]">患者情報</div>
                     {[
-                      { l: "氏名", v: "星野 さくら" }, { l: "性別", v: "女性" }, { l: "TEL", v: "090-****-5678" },
+                      { l: "氏名", v: "星野 さくら" }, { l: "性別", v: "女性" }, { l: "年齢", v: "32歳" }, { l: "TEL", v: "090-****-5678" },
                     ].map((r) => <div key={r.l} className="flex justify-between"><span className="text-slate-400">{r.l}</span><span className="text-slate-600">{r.v}</span></div>)}
                     <div className="font-bold text-slate-400 uppercase tracking-wider text-[8px] pt-1">タグ</div>
                     <div className="flex flex-wrap gap-1">
-                      <span className="rounded-full bg-pink-100 px-1.5 py-0.5 text-[8px] font-semibold text-pink-700">美容</span>
+                      <span className="rounded-full bg-pink-100 px-1.5 py-0.5 text-[8px] font-semibold text-pink-700">美容皮膚科</span>
                       <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[8px] font-semibold text-amber-700">VIP</span>
+                      <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[8px] font-semibold text-blue-700">リピーター</span>
+                    </div>
+                    <div className="font-bold text-slate-400 uppercase tracking-wider text-[8px] pt-1">処方履歴</div>
+                    <div className="space-y-1">
+                      <div className="rounded bg-slate-50 px-1.5 py-1">
+                        <div className="flex justify-between"><span className="text-slate-400">6/10</span><span className="text-slate-600">内服薬セットB</span></div>
+                        <div className="text-right font-semibold text-slate-700">¥15,400</div>
+                      </div>
+                      <div className="rounded bg-slate-50 px-1.5 py-1">
+                        <div className="flex justify-between"><span className="text-slate-400">5/12</span><span className="text-slate-600">内服薬セットA</span></div>
+                        <div className="text-right font-semibold text-slate-700">¥13,200</div>
+                      </div>
                     </div>
                     <div className="font-bold text-slate-400 uppercase tracking-wider text-[8px] pt-1">最新決済</div>
-                    <div className="flex justify-between"><span className="text-slate-400">商品</span><span className="text-slate-600">処方薬A</span></div>
-                    <div className="flex justify-between"><span className="text-slate-400">金額</span><span className="font-semibold text-slate-700">¥13,000</span></div>
+                    <div className="flex justify-between"><span className="text-slate-400">方法</span><span className="text-slate-600">クレジット</span></div>
+                    <div className="flex justify-between"><span className="text-slate-400">状態</span><span className="font-semibold text-emerald-600">決済済</span></div>
+                    <div className="font-bold text-slate-400 uppercase tracking-wider text-[8px] pt-1">配送</div>
+                    <div className="flex justify-between"><span className="text-slate-400">状態</span><span className="font-semibold text-blue-600">発送済</span></div>
+                    <div className="flex justify-between"><span className="text-slate-400">追跡</span><span className="text-slate-600 truncate">1234-5678</span></div>
                   </div>
                 </div>
               </MockWindow>
@@ -264,7 +279,124 @@ export default function Features() {
           </div>
         </FadeIn>
 
-        {/* 3. ダッシュボード + 売上管理 */}
+        {/* 3. すべてがLINEに届く — 自動通知タイムライン */}
+        <FadeIn>
+          <div className="flex flex-col gap-8 lg:flex-row-reverse lg:items-start lg:gap-14">
+            <div className="w-full lg:w-[58%]">
+              <MockWindow title="LINE通知 — ステータス自動配信">
+                <div className="space-y-2.5">
+                  {/* タイムライン形式の通知一覧 */}
+                  {[
+                    { time: "10:00", icon: "📅", label: "予約確定", msg: "6/15（日）14:00〜 ご予約を承りました。", color: "bg-blue-500" },
+                    { time: "前日 18:00", icon: "🔔", label: "リマインド", msg: "明日 14:00〜 のご予約がございます。お忘れなく。", color: "bg-sky-500" },
+                    { time: "14:30", icon: "💳", label: "決済完了", msg: "¥13,200 のお支払いが完了しました。", color: "bg-emerald-500" },
+                    { time: "翌日 09:00", icon: "📦", label: "発送通知", msg: "処方薬を発送しました。追跡番号: 1234-5678-9012", color: "bg-amber-500" },
+                    { time: "翌々日 15:00", icon: "✅", label: "配達完了", msg: "お届けが完了しました。ご不明点はお気軽にどうぞ。", color: "bg-violet-500" },
+                  ].map((n, i) => (
+                    <div key={i} className="flex gap-3 items-start">
+                      {/* タイムライン縦線 */}
+                      <div className="flex flex-col items-center">
+                        <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${n.color} text-[12px] text-white shadow-sm`}>{n.icon}</div>
+                        {i < 4 && <div className="w-px flex-1 bg-slate-200 mt-1" style={{ minHeight: 12 }} />}
+                      </div>
+                      {/* 通知内容 */}
+                      <div className="flex-1 rounded-lg bg-slate-50 px-3 py-2">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-[10px] font-bold text-slate-700">{n.label}</span>
+                          <span className="text-[9px] text-slate-400">{n.time}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-500 leading-relaxed">{n.msg}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {/* 自動通知バッジ */}
+                  <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 mt-1">
+                    <span className="text-[10px]">⚡</span>
+                    <span className="text-[10px] text-green-700">すべてのステータス変化がLINEへ自動通知 — スタッフの手動連絡は不要</span>
+                  </div>
+                </div>
+              </MockWindow>
+            </div>
+            <div className="w-full lg:w-[42%] lg:pt-4">
+              <h4 className="mb-3 text-xl font-extrabold tracking-tight text-slate-900 md:text-2xl">すべてがLINEに届く</h4>
+              <p className="mb-5 text-[14px] leading-[1.9] text-slate-500">予約確定・リマインド・決済完了・発送通知・追跡番号…すべてのステータス変化がLINEに自動通知。患者はLINEを見るだけで状況を把握でき、スタッフの手動連絡も不要です。</p>
+              <ul className="space-y-2.5">
+                {["予約→決済→発送の全フローで通知が自動化", "患者はLINEだけで自分の状況を把握", "電話・メールの確認漏れをゼロに"].map((d) => (
+                  <li key={d} className="flex items-start gap-2.5 text-[13px] text-slate-600">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[9px] text-blue-600">&#10003;</span>
+                    {d}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </FadeIn>
+
+        {/* 4. 決済・配送管理 */}
+        <FadeIn>
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-14">
+            <div className="w-full lg:w-[58%]">
+              <MockWindow title="決済・配送管理">
+                <div className="space-y-3">
+                  {/* ステータスサマリー */}
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { label: "本日の決済", val: "12", unit: "件", bg: "bg-emerald-50", text: "text-emerald-600" },
+                      { label: "入金待ち", val: "3", unit: "件", bg: "bg-amber-50", text: "text-amber-600" },
+                      { label: "発送待ち", val: "5", unit: "件", bg: "bg-blue-50", text: "text-blue-600" },
+                      { label: "配達完了", val: "28", unit: "件", bg: "bg-slate-50", text: "text-slate-600" },
+                    ].map((k) => (
+                      <div key={k.label} className={`rounded-lg ${k.bg} p-2.5`}>
+                        <div className="text-[10px] text-slate-400">{k.label}</div>
+                        <div className={`mt-0.5 text-lg font-bold leading-none ${k.text}`}>{k.val}<span className="text-[10px] font-normal text-slate-400">{k.unit}</span></div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* 注文一覧テーブル */}
+                  <div className="rounded-lg border border-slate-200 overflow-hidden">
+                    <div className="grid grid-cols-[1fr_1fr_80px_70px_60px] gap-0 bg-slate-50 px-3 py-1.5 text-[9px] font-semibold text-slate-400 border-b border-slate-200">
+                      <span>患者名</span><span>商品</span><span>金額</span><span>決済</span><span>配送</span>
+                    </div>
+                    {[
+                      { name: "星野 さくら", item: "内服薬セットB", price: "¥15,400", pay: "済", payColor: "text-emerald-600", ship: "発送済", shipColor: "text-blue-600" },
+                      { name: "青山 はるか", item: "外用薬セット", price: "¥8,800", pay: "済", payColor: "text-emerald-600", ship: "準備中", shipColor: "text-amber-600" },
+                      { name: "緑川 大輝", item: "内服薬セットA", price: "¥13,200", pay: "未", payColor: "text-red-500", ship: "—", shipColor: "text-slate-300" },
+                      { name: "白石 美咲", item: "内服薬セットC", price: "¥18,700", pay: "済", payColor: "text-emerald-600", ship: "配達完了", shipColor: "text-slate-500" },
+                    ].map((r) => (
+                      <div key={r.name} className="grid grid-cols-[1fr_1fr_80px_70px_60px] gap-0 px-3 py-2 text-[10px] border-b border-slate-100 last:border-0 hover:bg-slate-50/50">
+                        <span className="font-semibold text-slate-700">{r.name}</span>
+                        <span className="text-slate-500">{r.item}</span>
+                        <span className="font-semibold text-slate-700">{r.price}</span>
+                        <span className={`font-semibold ${r.payColor}`}>{r.pay}</span>
+                        <span className={`font-semibold ${r.shipColor}`}>{r.ship}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* アクションバー */}
+                  <div className="flex gap-2">
+                    <button className="flex-1 rounded-lg border border-slate-200 py-2 text-[10px] font-semibold text-slate-500">配送CSV出力</button>
+                    <button className="flex-1 rounded-lg border border-slate-200 py-2 text-[10px] font-semibold text-slate-500">追跡番号一括登録</button>
+                    <button className="flex-1 rounded-lg bg-emerald-500 py-2 text-[10px] font-bold text-white">未払い督促を送信</button>
+                  </div>
+                </div>
+              </MockWindow>
+            </div>
+            <div className="w-full lg:w-[42%] lg:pt-4">
+              <h4 className="mb-3 text-xl font-extrabold tracking-tight text-slate-900 md:text-2xl">決済から配送まで一気通貫</h4>
+              <p className="mb-5 text-[14px] leading-[1.9] text-slate-500">GMO決済・銀行振込の消込から配送CSV出力・追跡番号の一括登録まで、管理画面で完結。未払いの自動督促もLINEで3段階配信され、回収率を向上させます。</p>
+              <ul className="space-y-2.5">
+                {["LINE上で申込→決済までシームレスに完結", "配送CSVワンクリック出力＋追跡番号一括登録", "未払い3段階自動督促（3日・7日・14日）", "在庫管理・入出庫台帳で発注判断もサポート"].map((d) => (
+                  <li key={d} className="flex items-start gap-2.5 text-[13px] text-slate-600">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[9px] text-blue-600">&#10003;</span>
+                    {d}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </FadeIn>
+
+        {/* 5. ダッシュボード + 売上管理 */}
         <FadeIn>
           <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-14">
             <div className="w-full lg:w-[58%]">
