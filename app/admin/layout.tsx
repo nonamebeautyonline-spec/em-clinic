@@ -42,7 +42,7 @@ const MOBILE_MENU_ITEMS: { href: string; icon: string; label: string; feature?: 
   { href: "/admin/noname-master", icon: "📋", label: "決済" },
   { href: "/admin/shipping/pending", icon: "📦", label: "発送" },
   { href: "/admin/view-mypage", icon: "👁️", label: "顧客マイページ確認" },
-  { href: "/admin/merge-patients", icon: "🔗", label: "患者情報変更" },
+  { href: "/admin/merge-patients", icon: "🔗", label: "顧客情報変更" },
   { href: "/admin/intake-form", icon: "📝", label: "問診設定", feature: "form_builder" },
   { href: "/admin/schedule", icon: "🗓️", label: "予約設定" },
   { href: "/admin/notification-settings", icon: "📩", label: "イベント通知" },
@@ -471,7 +471,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <MenuItem
             href="/admin/merge-patients"
             icon="🔗"
-            label="患者情報変更"
+            label="顧客情報変更"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/merge-patients" || pathname === "/admin/patient-data" || pathname === "/admin/dedup-patients"}
           />

@@ -214,6 +214,7 @@ export const patientNameChangeSchema = z
     patient_id: z.string().min(1, "patient_idは必須です"),
     new_name: z.string().min(1, "new_nameは必須です"),
     new_name_kana: z.string().optional().default(""),
+    new_birthday: z.string().optional().default(""),
   })
   .passthrough();
 

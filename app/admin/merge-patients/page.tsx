@@ -13,6 +13,7 @@ type PatientInfo = {
   name: string;
   kana: string;
   phone: string;
+  birth: string;
   lineId?: string;
 } | null;
 
@@ -42,10 +43,10 @@ export default function PatientInfoChangePage() {
       <header className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-lg font-semibold text-slate-900">
-            患者情報変更
+            顧客情報変更
           </h1>
           <p className="text-xs text-slate-500">
-            患者の氏名変更・アカウント統合・予約問診削除・名寄せを行います。
+            顧客の個人情報変更・アカウント統合・予約問診削除・名寄せを行います。
           </p>
         </div>
 
@@ -62,7 +63,7 @@ export default function PatientInfoChangePage() {
         <TabButton
           active={activeTab === "name-change"}
           onClick={() => setActiveTab("name-change")}
-          label="氏名変更"
+          label="個人情報の変更"
         />
         <TabButton
           active={activeTab === "merge"}
@@ -123,6 +124,7 @@ function NameChangeSection() {
 
   const [newName, setNewName] = useState("");
   const [newNameKana, setNewNameKana] = useState("");
+  const [newBirthday, setNewBirthday] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [executing, setExecuting] = useState(false);
@@ -139,6 +141,7 @@ function NameChangeSection() {
     setSelectedPatient(null);
     setNewName("");
     setNewNameKana("");
+    setNewBirthday("");
 
     try {
       const res = await fetch(
@@ -183,10 +186,12 @@ function NameChangeSection() {
         name: data.patient.name || "",
         kana: data.patient.kana || "",
         phone: data.patient.phone || "",
+        birth: data.patient.birth || "",
         lineId: data.patient.lineId || undefined,
       });
       setNewName(data.patient.name || "");
       setNewNameKana(data.patient.kana || "");
+      setNewBirthday(data.patient.birth || "");
     } catch (e) {
       setError((e as Error).message || String(e));
       setSelectedPatient(null);
@@ -198,19 +203,21 @@ function NameChangeSection() {
   async function handleExecute() {
     if (!selectedPatient) return;
     if (!newName.trim()) {
-      setError("新しい氏名を入力してください");
+      setError("氏名を入力してください");
       return;
     }
 
     const confirmed = confirm(
-      `以下の氏名変更を実行します：\n\n` +
+      `以下の個人情報変更を実行します：\n\n` +
         `患者ID: ${selectedPatient.id}\n` +
         `現在の氏名: ${selectedPatient.name || "（未登録）"}\n` +
-        `現在のカナ: ${selectedPatient.kana || "（未登録）"}\n\n` +
+        `現在のカナ: ${selectedPatient.kana || "（未登録）"}\n` +
+        `現在の生年月日: ${selectedPatient.birth || "（未登録）"}\n\n` +
         `↓ 変更後 ↓\n\n` +
         `新しい氏名: ${newName.trim()}\n` +
-        `新しいカナ: ${newNameKana.trim()}\n\n` +
-        `answerers, intake(全レコード), reservationsの氏名を一括更新します。\nよろしいですか？`
+        `新しいカナ: ${newNameKana.trim()}\n` +
+        `新しい生年月日: ${newBirthday.trim() || "（変更なし）"}\n\n` +
+        `patients, intake(全レコード), reservationsを一括更新します。\nよろしいですか？`
     );
     if (!confirmed) return;
 
@@ -227,6 +234,7 @@ function NameChangeSection() {
           patient_id: selectedPatient.id,
           new_name: newName.trim(),
           new_name_kana: newNameKana.trim(),
+          new_birthday: newBirthday.trim(),
         }),
       });
 
@@ -237,14 +245,14 @@ function NameChangeSection() {
       }
 
       setSuccess(
-        `氏名変更が完了しました。\n` +
+        `個人情報の変更が完了しました。\n` +
           `「${data.previous?.name || ""}」→「${newName.trim()}」`
       );
 
       // 変更後の情報で表示を更新
       setSelectedPatient((prev) =>
         prev
-          ? { ...prev, name: newName.trim(), kana: newNameKana.trim() }
+          ? { ...prev, name: newName.trim(), kana: newNameKana.trim(), birth: newBirthday.trim() || prev.birth }
           : null
       );
     } catch (e) {
@@ -357,7 +365,7 @@ function NameChangeSection() {
       {/* 選択済み患者 & 変更フォーム */}
       {selectedPatient && (
         <section className="bg-white rounded-2xl shadow-sm p-4 md:p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-slate-800">氏名変更</h2>
+          <h2 className="text-sm font-semibold text-slate-800">個人情報の変更</h2>
 
           <div className="grid md:grid-cols-2 gap-4">
             {/* 現在の情報 */}
@@ -378,6 +386,10 @@ function NameChangeSection() {
               <div className="text-sm">
                 <span className="text-slate-500">カナ：</span>
                 <span>{selectedPatient.kana || "（未登録）"}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-slate-500">生年月日：</span>
+                <span>{selectedPatient.birth || "（未登録）"}</span>
               </div>
               <div className="text-sm">
                 <span className="text-slate-500">TEL：</span>
@@ -418,12 +430,25 @@ function NameChangeSection() {
                   disabled={executing}
                 />
               </div>
+              <div className="space-y-1">
+                <label className="text-xs text-slate-600 block">
+                  新しい生年月日
+                </label>
+                <input
+                  type="date"
+                  value={newBirthday}
+                  onChange={(e) => setNewBirthday(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 p-2 text-sm"
+                  disabled={executing}
+                />
+              </div>
             </div>
           </div>
 
           {/* 変更プレビュー */}
           {(newName.trim() !== selectedPatient.name ||
-            newNameKana.trim() !== selectedPatient.kana) && (
+            newNameKana.trim() !== selectedPatient.kana ||
+            newBirthday.trim() !== selectedPatient.birth) && (
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
               <div className="flex items-center gap-2 text-amber-800">
                 <span>変更内容：</span>
@@ -450,6 +475,18 @@ function NameChangeSection() {
                   </span>
                 </div>
               )}
+              {newBirthday.trim() !== selectedPatient.birth && (
+                <div className="mt-1 text-amber-700">
+                  生年月日：
+                  <span className="line-through text-slate-400">
+                    {selectedPatient.birth || "（空）"}
+                  </span>
+                  {" → "}
+                  <span className="font-medium">
+                    {newBirthday.trim() || "（空）"}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -460,11 +497,12 @@ function NameChangeSection() {
               !newName.trim() ||
               executing ||
               (newName.trim() === selectedPatient.name &&
-                newNameKana.trim() === selectedPatient.kana)
+                newNameKana.trim() === selectedPatient.kana &&
+                newBirthday.trim() === selectedPatient.birth)
             }
             className="w-full rounded-lg bg-blue-600 text-white px-4 py-3 text-sm font-medium disabled:opacity-60 hover:bg-blue-700 transition"
           >
-            {executing ? "変更中..." : "氏名変更を実行"}
+            {executing ? "変更中..." : "個人情報の変更を実行"}
           </button>
         </section>
       )}

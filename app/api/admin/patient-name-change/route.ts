@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
     const patientId = parsed.data.patient_id.trim();
     const newName = parsed.data.new_name.trim();
     const newNameKana = (parsed.data.new_name_kana || "").trim();
+    const newBirthday = (parsed.data.new_birthday || "").trim();
 
     const results: Record<string, string> = {};
 
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
     const { data: currentAnswerer } = await withTenant(
       supabaseAdmin
         .from("patients")
-        .select("name, name_kana")
+        .select("name, name_kana, birthday")
         .eq("patient_id", patientId)
         .maybeSingle(),
       tenantId
@@ -37,14 +38,19 @@ export async function POST(req: NextRequest) {
     const previous = {
       name: currentAnswerer?.name || "",
       name_kana: currentAnswerer?.name_kana || "",
+      birthday: currentAnswerer?.birthday || "",
     };
 
-    // 2. answerers.name, answerers.name_kana を更新
+    // 2. patients.name, name_kana, birthday を更新
     if (currentAnswerer) {
+      const updateData: Record<string, string> = { name: newName, name_kana: newNameKana };
+      if (newBirthday) {
+        updateData.birthday = newBirthday;
+      }
       const { error: answererErr } = await withTenant(
         supabaseAdmin
           .from("patients")
-          .update({ name: newName, name_kana: newNameKana })
+          .update(updateData)
           .eq("patient_id", patientId),
         tenantId
       );
@@ -67,13 +73,17 @@ export async function POST(req: NextRequest) {
     let answersErrors = 0;
     for (const row of intakeRows || []) {
       const answers = (row.answers as Record<string, unknown>) || {};
-      const updatedAnswers = {
+      const updatedAnswers: Record<string, unknown> = {
         ...answers,
         "氏名": newName,
         name: newName,
         "カナ": newNameKana,
         name_kana: newNameKana,
       };
+      if (newBirthday) {
+        updatedAnswers["生年月日"] = newBirthday;
+        updatedAnswers["birth"] = newBirthday;
+      }
 
       const { error } = await withTenant(
         supabaseAdmin
@@ -103,7 +113,7 @@ export async function POST(req: NextRequest) {
       : `ok (${reservCount ?? "?"} rows)`;
 
     console.log(
-      `[patient-name-change] ${patientId}: "${previous.name}" -> "${newName}", kana: "${previous.name_kana}" -> "${newNameKana}"`,
+      `[patient-name-change] ${patientId}: "${previous.name}" -> "${newName}", kana: "${previous.name_kana}" -> "${newNameKana}", birthday: "${previous.birthday}" -> "${newBirthday}"`,
       results
     );
 
