@@ -88,7 +88,7 @@ export default function SquareCardForm({
             return;
           }
           const payments = await window.Square.payments(applicationId, locationId);
-          const card = await payments.card();
+          const card = await payments.card({ postalCode: "0000000" });
           await card.attach(node);
           cardRef.current = card;
           setLoading(false);
