@@ -6,12 +6,12 @@ import Image from "next/image";
 export default function Nav() {
   const [open, setOpen] = useState(false);
   const links = [
+    { label: "Lオペとは", href: "/lp/about" },
     { label: "機能", href: "#features" },
     { label: "強み", href: "#strengths" },
     { label: "活用シーン", href: "#usecases" },
-    { label: "導入の流れ", href: "#flow" },
     { label: "料金", href: "#pricing" },
-    { label: "FAQ", href: "#faq" },
+    { label: "コラム", href: "/lp/column" },
   ];
   return (
     <nav className="fixed top-0 z-50 w-full border-b border-slate-100/60 bg-white/80 backdrop-blur-xl">

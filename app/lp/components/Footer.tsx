@@ -15,13 +15,13 @@ export function Footer() {
           <div className="flex items-center gap-2 text-[14px] font-bold text-white"><Image src="/icon.png" alt="Lオペ" width={32} height={32} className="rounded-lg object-contain" />Lオペ for CLINIC</div>
           <nav aria-label="フッターナビゲーション" className="flex flex-wrap justify-center gap-6 text-[12px]">
             {[
+              { label: "Lオペとは", id: "/lp/about", isLink: true },
               { label: "機能", id: "features" },
               { label: "強み", id: "strengths" },
               { label: "活用シーン", id: "usecases" },
-              { label: "導入の流れ", id: "flow" },
               { label: "料金", id: "pricing" },
               { label: "FAQ", id: "faq" },
-            ].map((l) => <a key={l.id} href={`#${l.id}`} className="hover:text-white">{l.label}</a>)}
+            ].map((l) => "isLink" in l ? <Link key={l.id} href={l.id} className="hover:text-white">{l.label}</Link> : <a key={l.id} href={`#${l.id}`} className="hover:text-white">{l.label}</a>)}
             <Link href="/lp/features" className="hover:text-white">機能一覧</Link>
             <Link href="/lp/column" className="hover:text-white">コラム</Link>
             <a href="/lp/contact" className="hover:text-white">お問い合わせ</a>
