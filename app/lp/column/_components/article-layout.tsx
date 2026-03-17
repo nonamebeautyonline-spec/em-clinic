@@ -23,7 +23,7 @@ interface ArticleLayoutProps {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   読了プログレスバー
+   読了プログレスバー（細い・控えめ）
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function ReadingProgress() {
@@ -41,14 +41,17 @@ function ReadingProgress() {
   }, []);
 
   return (
-    <div className="fixed top-0 left-0 z-50 h-[3px] w-full bg-slate-100">
-      <div className="h-full bg-gradient-to-r from-blue-600 to-sky-400 transition-[width] duration-150" style={{ width: `${progress}%` }} />
+    <div className="fixed top-0 left-0 z-50 h-[2px] w-full bg-transparent">
+      <div
+        className="h-full bg-sky-500 transition-[width] duration-150"
+        style={{ width: `${progress}%` }}
+      />
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   目次（デスクトップ: サイドバー固定 / モバイル: 記事冒頭）
+   目次
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function TableOfContents({ items }: { items: TocItem[] }) {
@@ -75,19 +78,24 @@ function TableOfContents({ items }: { items: TocItem[] }) {
   if (items.length === 0) return null;
 
   return (
-    <nav aria-label="目次" className="space-y-1 text-[13px]">
-      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">目次</p>
-      {items.map((item) => (
-        <a
-          key={item.id}
-          href={`#${item.id}`}
-          className={`block rounded-md px-3 py-1.5 transition ${
-            activeId === item.id ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-          }`}
-        >
-          {item.label}
-        </a>
-      ))}
+    <nav aria-label="目次">
+      <p className="mb-3 text-[12px] font-bold text-gray-400 tracking-wider">目次</p>
+      <ul className="space-y-0.5 border-l border-gray-200 text-[13px]">
+        {items.map((item) => (
+          <li key={item.id}>
+            <a
+              href={`#${item.id}`}
+              className={`block border-l-2 py-1.5 pl-4 -ml-px transition ${
+                activeId === item.id
+                  ? "border-sky-500 font-semibold text-gray-900"
+                  : "border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-300"
+              }`}
+            >
+              {item.label}
+            </a>
+          </li>
+        ))}
+      </ul>
     </nav>
   );
 }
@@ -107,13 +115,12 @@ function ShareButtons({ title, slug }: { title: string; slug: string }) {
   }, [url]);
 
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-[11px] font-bold text-slate-400">SHARE</span>
+    <div className="flex items-center gap-3">
       <a
         href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-800 hover:text-white"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-400 transition hover:border-gray-900 hover:bg-gray-900 hover:text-white"
         aria-label="Xでシェア"
       >
         <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
@@ -122,14 +129,14 @@ function ShareButtons({ title, slug }: { title: string; slug: string }) {
         href={`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-[#06C755] hover:text-white"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-400 transition hover:border-[#06C755] hover:bg-[#06C755] hover:text-white"
         aria-label="LINEでシェア"
       >
         <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current"><path d="M12 2C6.48 2 2 5.82 2 10.5c0 3.31 2.61 6.18 6.5 7.33-.09.35-.59 2.25-.61 2.39 0 0-.01.09.04.12.05.04.11.02.11.02.14-.02 1.68-1.1 2.38-1.62.51.08 1.04.12 1.58.12 5.52 0 10-3.82 10-8.5S17.52 2 12 2z" /></svg>
       </a>
       <button
         onClick={copy}
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-blue-600 hover:text-white"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-400 transition hover:border-sky-500 hover:bg-sky-500 hover:text-white"
         aria-label="URLをコピー"
       >
         {copied ? (
@@ -148,11 +155,13 @@ function ShareButtons({ title, slug }: { title: string; slug: string }) {
 
 function AuthorCard() {
   return (
-    <div className="flex items-start gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-6">
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-sky-400 text-lg font-bold text-white">L</div>
+    <div className="flex items-start gap-4 rounded-lg border border-gray-200 p-5">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[14px] font-bold text-gray-500">
+        L
+      </div>
       <div>
-        <p className="text-[13px] font-bold text-slate-800">Lオペ for CLINIC 編集部</p>
-        <p className="mt-1 text-[12px] leading-relaxed text-slate-500">
+        <p className="text-[13px] font-bold text-gray-900">Lオペ for CLINIC 編集部</p>
+        <p className="mt-1 text-[12px] leading-relaxed text-gray-400">
           クリニック経営とLINE公式アカウント活用に関する最新情報をお届けします。予約管理・患者対応・DX推進など、クリニックの業務効率化に役立つノウハウを発信中。
         </p>
       </div>
@@ -166,15 +175,17 @@ function AuthorCard() {
 
 function KeyPoints({ points }: { points: string[] }) {
   return (
-    <div className="rounded-2xl border-2 border-blue-100 bg-blue-50/50 p-6">
-      <p className="flex items-center gap-2 text-[13px] font-bold text-blue-800">
-        <svg viewBox="0 0 24 24" className="h-5 w-5 fill-blue-600"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" /></svg>
+    <div className="rounded-lg border border-sky-200 bg-sky-50/50 p-5">
+      <p className="flex items-center gap-2 text-[13px] font-bold text-gray-800">
+        <svg viewBox="0 0 20 20" className="h-4 w-4 text-sky-500" fill="currentColor">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        </svg>
         この記事でわかること
       </p>
       <ul className="mt-3 space-y-2">
         {points.map((p) => (
-          <li key={p} className="flex items-start gap-2 text-[13px] text-slate-700">
-            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-blue-400" />
+          <li key={p} className="flex items-start gap-2.5 text-[13px] leading-relaxed text-gray-600">
+            <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-sky-400" />
             {p}
           </li>
         ))}
@@ -189,15 +200,31 @@ function KeyPoints({ points }: { points: string[] }) {
 
 export function InlineCTA() {
   return (
-    <div className="my-10 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-sky-50 p-6 text-center">
-      <p className="text-[14px] font-bold text-slate-800">クリニックのLINE活用、まずは無料で相談しませんか？</p>
-      <p className="mt-1 text-[12px] text-slate-500">Lオペ for CLINICの機能・料金・導入事例をまとめた資料をお送りします。</p>
-      <a href="/lp/contact" className="mt-3 inline-block rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 px-6 py-2.5 text-[12px] font-bold text-white shadow-lg shadow-blue-500/20 transition hover:shadow-xl">
+    <div className="my-10 rounded-lg border border-gray-200 bg-gray-50 p-6 text-center">
+      <p className="text-[14px] font-bold text-gray-900">クリニックのLINE活用、まずは無料で相談しませんか？</p>
+      <p className="mt-1 text-[12px] text-gray-400">Lオペ for CLINICの機能・料金・導入事例をまとめた資料をお送りします。</p>
+      <a
+        href="/lp#contact"
+        className="mt-4 inline-block rounded-lg bg-gray-900 px-6 py-2.5 text-[12px] font-bold text-white transition hover:bg-gray-700"
+      >
         無料で資料請求
       </a>
     </div>
   );
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   カテゴリラベル
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const categoryColors: Record<string, { bg: string; text: string }> = {
+  活用事例: { bg: "bg-emerald-50", text: "text-emerald-700" },
+  ツール比較: { bg: "bg-violet-50", text: "text-violet-700" },
+  ガイド: { bg: "bg-sky-50", text: "text-sky-700" },
+  業務改善: { bg: "bg-amber-50", text: "text-amber-700" },
+  マーケティング: { bg: "bg-rose-50", text: "text-rose-700" },
+  比較: { bg: "bg-violet-50", text: "text-violet-700" },
+};
 
 /* ═══════════════════════════════════════════════════════════════════════════
    メインレイアウト
@@ -207,53 +234,76 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
   const self = articles.find((a) => a.slug === slug)!;
   const related = articles.filter((a) => a.slug !== slug).slice(0, 4);
   const articleRef = useRef<HTMLDivElement>(null);
-
-  /* カテゴリごとのグラデーション色 */
-  const categoryGradients: Record<string, string> = {
-    "活用事例": "from-emerald-500 to-teal-400",
-    "ツール比較": "from-violet-500 to-purple-400",
-    "ガイド": "from-blue-500 to-cyan-400",
-    "業務改善": "from-orange-500 to-amber-400",
-    "マーケティング": "from-pink-500 to-rose-400",
-    "比較": "from-violet-500 to-purple-400",
-  };
-  const gradient = categoryGradients[self.category] || "from-blue-500 to-cyan-400";
+  const cc = categoryColors[self.category] || { bg: "bg-gray-50", text: "text-gray-600" };
 
   return (
-    <div className="min-h-screen bg-white text-slate-800">
+    <div className="min-h-screen bg-white text-gray-900">
       <ReadingProgress />
 
-      {/* ヒーロー */}
-      <div className={`bg-gradient-to-br ${gradient} px-5 pb-12 pt-20`}>
-        <div className="mx-auto max-w-3xl">
-          <nav aria-label="パンくずリスト">
-            <ol className="flex items-center gap-1.5 text-[11px] text-white/70 list-none m-0 p-0">
-              <li><a href="https://l-ope.jp" className="hover:text-white transition">ホーム</a></li>
-              <li aria-hidden="true">/</li>
-              <li><Link href="/lp" className="hover:text-white transition">Lオペ for CLINIC</Link></li>
-              <li aria-hidden="true">/</li>
-              <li><Link href="/lp/column" className="hover:text-white transition">コラム</Link></li>
-              <li aria-hidden="true">/</li>
-              <li aria-current="page" className="text-white font-medium">{breadcrumbLabel}</li>
-            </ol>
-          </nav>
-
-          <div className="mt-6 flex items-center gap-3 text-[11px]">
-            <span className="rounded-full bg-white/20 px-2.5 py-0.5 font-semibold text-white">{self.category}</span>
-            <time className="text-white/70">{self.date}</time>
-            <span className="text-white/70">{self.readTime}</span>
+      {/* ヘッダー */}
+      <header className="border-b border-gray-100 bg-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+          <Link href="/lp" className="text-[13px] font-bold text-gray-900 hover:opacity-70 transition">
+            Lオペ for CLINIC
+          </Link>
+          <div className="flex items-center gap-4">
+            <Link href="/lp/column" className="text-[12px] text-gray-400 hover:text-gray-700 transition">
+              コラム一覧
+            </Link>
+            <a
+              href="/lp#contact"
+              className="rounded-lg bg-gray-900 px-4 py-2 text-[12px] font-semibold text-white transition hover:bg-gray-700"
+            >
+              資料請求
+            </a>
           </div>
+        </div>
+      </header>
 
-          <h1 className="mt-4 text-2xl font-extrabold leading-snug tracking-tight text-white md:text-3xl">{self.title}</h1>
-          <p className="mt-4 text-[15px] leading-relaxed text-white/80">{self.description}</p>
+      {/* パンくず */}
+      <div className="border-b border-gray-50 bg-gray-50/50">
+        <nav aria-label="パンくずリスト" className="mx-auto max-w-6xl px-6 py-3">
+          <ol className="flex items-center gap-2 text-[12px] text-gray-400 list-none m-0 p-0">
+            <li><Link href="/lp" className="hover:text-gray-700 transition">トップ</Link></li>
+            <li aria-hidden="true" className="text-gray-300">&gt;</li>
+            <li><Link href="/lp/column" className="hover:text-gray-700 transition">コラム</Link></li>
+            <li aria-hidden="true" className="text-gray-300">&gt;</li>
+            <li className="text-gray-700 font-medium">{breadcrumbLabel}</li>
+          </ol>
+        </nav>
+      </div>
+
+      {/* 記事ヘッダー */}
+      <div className="border-b border-gray-100">
+        <div className="mx-auto max-w-3xl px-6 py-10 md:py-14">
+          <div className="flex items-center gap-3">
+            <span className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold ${cc.bg} ${cc.text}`}>
+              {self.category}
+            </span>
+            <time className="text-[12px] text-gray-400">{formatDate(self.date)}</time>
+            <span className="text-[12px] text-gray-300">{self.readTime}</span>
+          </div>
+          <h1 className="mt-4 text-[24px] font-bold leading-snug tracking-tight text-gray-900 md:text-[28px]">
+            {self.title}
+          </h1>
+          <p className="mt-3 text-[14px] leading-relaxed text-gray-500">{self.description}</p>
+
+          {/* シェアボタン（ヘッダー内） */}
+          <div className="mt-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-[11px] font-bold text-gray-500">L</div>
+              <span className="text-[12px] text-gray-400">Lオペ for CLINIC 編集部</span>
+            </div>
+            <ShareButtons title={self.title} slug={slug} />
+          </div>
         </div>
       </div>
 
       {/* メインコンテンツ */}
-      <div className="mx-auto max-w-5xl px-5 py-12">
+      <div className="mx-auto max-w-6xl px-6 py-10">
         <div className="flex gap-12">
           {/* 記事本文 */}
-          <main className="min-w-0 flex-1">
+          <main className="min-w-0 max-w-3xl flex-1">
             {/* この記事でわかること */}
             {keyPoints.length > 0 && (
               <div className="mb-10">
@@ -262,47 +312,60 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
             )}
 
             {/* モバイル目次 */}
-            <details className="mb-10 rounded-2xl border border-slate-100 bg-slate-50 p-4 lg:hidden">
-              <summary className="cursor-pointer text-[13px] font-bold text-slate-700">目次を表示</summary>
+            <details className="mb-10 rounded-lg border border-gray-200 p-4 lg:hidden">
+              <summary className="cursor-pointer text-[13px] font-bold text-gray-700">目次</summary>
               <div className="mt-3">
                 <TableOfContents items={toc} />
               </div>
             </details>
 
             {/* 本文 */}
-            <div ref={articleRef} className="prose-article space-y-10 text-[15px] leading-[1.9] text-slate-600">
+            <div ref={articleRef} className="prose-article space-y-8 text-[15px] leading-[1.9] text-gray-600">
               {children}
             </div>
 
             {/* シェア + 著者 */}
-            <div className="mt-16 space-y-8">
-              <div className="flex items-center justify-between border-t border-slate-100 pt-8">
-                <p className="text-[13px] font-bold text-slate-700">この記事をシェア</p>
+            <div className="mt-16 space-y-6">
+              <div className="flex items-center justify-between border-t border-gray-100 pt-6">
+                <p className="text-[12px] font-bold text-gray-400">この記事をシェア</p>
                 <ShareButtons title={self.title} slug={slug} />
               </div>
               <AuthorCard />
             </div>
 
             {/* CTA */}
-            <div className="mt-12 rounded-2xl bg-gradient-to-r from-blue-600 to-sky-500 p-8 text-center text-white">
-              <h2 className="text-xl font-extrabold">クリニックのLINE活用を始めませんか？</h2>
-              <p className="mt-2 text-[13px] text-blue-100">Lオペ for CLINICなら、予約・問診・配信・決済をオールインワンで。</p>
-              <a href="/lp/contact" className="mt-4 inline-block rounded-xl bg-white px-8 py-3 text-[13px] font-bold text-blue-600 shadow-lg transition hover:shadow-xl">無料で資料請求</a>
+            <div className="mt-10 rounded-lg border border-gray-200 bg-gray-50 p-8 text-center">
+              <p className="text-[11px] font-bold tracking-widest text-gray-400 uppercase">Lオペ for CLINIC</p>
+              <h2 className="mt-2 text-[18px] font-bold text-gray-900">クリニックのLINE活用を始めませんか？</h2>
+              <p className="mt-1 text-[13px] text-gray-400">予約・問診・配信・決済をオールインワンで。</p>
+              <a
+                href="/lp#contact"
+                className="mt-4 inline-block rounded-lg bg-gray-900 px-8 py-3 text-[13px] font-bold text-white transition hover:bg-gray-700"
+              >
+                無料で資料請求
+              </a>
             </div>
 
             {/* 関連記事 */}
             <div className="mt-12">
-              <h2 className="text-lg font-bold text-slate-800">関連記事</h2>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <h2 className="text-[16px] font-bold text-gray-900">関連記事</h2>
+              <div className="mt-4 divide-y divide-gray-100">
                 {related.map((a) => {
-                  const g = categoryGradients[a.category] || "from-blue-500 to-cyan-400";
+                  const rc = categoryColors[a.category] || { bg: "bg-gray-50", text: "text-gray-600" };
                   return (
-                    <Link key={a.slug} href={`/lp/column/${a.slug}`} className="group overflow-hidden rounded-xl border border-slate-100 transition hover:border-blue-200 hover:shadow-md">
-                      <div className={`h-2 bg-gradient-to-r ${g}`} />
-                      <div className="p-4">
-                        <span className="text-[10px] font-semibold text-blue-600">{a.category}</span>
-                        <p className="mt-1 text-[13px] font-semibold text-slate-700 group-hover:text-blue-600 transition">{a.title}</p>
+                    <Link
+                      key={a.slug}
+                      href={`/lp/column/${a.slug}`}
+                      className="group flex items-start gap-4 py-4 transition"
+                    >
+                      <div className="shrink-0 pt-1">
+                        <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${rc.bg} ${rc.text}`}>
+                          {a.category}
+                        </span>
                       </div>
+                      <p className="text-[13px] font-semibold text-gray-700 group-hover:text-sky-600 transition leading-relaxed">
+                        {a.title}
+                      </p>
                     </Link>
                   );
                 })}
@@ -311,27 +374,40 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
           </main>
 
           {/* サイドバー（デスクトップ） */}
-          <aside className="hidden w-56 shrink-0 lg:block">
-            <div className="sticky top-16 space-y-8">
+          <aside className="hidden w-52 shrink-0 lg:block">
+            <div className="sticky top-8 space-y-8">
               <TableOfContents items={toc} />
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-center">
-                <p className="text-[12px] font-bold text-slate-700">無料で資料請求</p>
-                <a href="/lp/contact" className="mt-2 inline-block w-full rounded-lg bg-gradient-to-r from-blue-600 to-sky-500 py-2 text-[11px] font-bold text-white transition hover:shadow-md">
+              <div className="rounded-lg border border-gray-200 p-4 text-center">
+                <p className="text-[12px] font-bold text-gray-700">無料で資料請求</p>
+                <p className="mt-1 text-[11px] text-gray-400">まずはお気軽にご相談ください</p>
+                <a
+                  href="/lp#contact"
+                  className="mt-3 inline-block w-full rounded-lg bg-gray-900 py-2.5 text-[11px] font-bold text-white transition hover:bg-gray-700"
+                >
                   お問い合わせ
                 </a>
               </div>
-              <ShareButtons title={self.title} slug={slug} />
             </div>
           </aside>
         </div>
       </div>
 
       {/* フッター */}
-      <footer className="border-t border-slate-100 py-8 text-center text-[12px] text-slate-400">
-        <Link href="/lp/column" className="hover:text-blue-600">← コラム一覧に戻る</Link>
-        <span className="mx-3">|</span>
-        <Link href="/lp" className="hover:text-blue-600">Lオペ for CLINIC トップ</Link>
+      <footer className="border-t border-gray-100 bg-gray-50 py-8 text-center">
+        <Link href="/lp/column" className="text-[12px] text-gray-400 hover:text-gray-600 transition">
+          ← コラム一覧に戻る
+        </Link>
+        <span className="mx-3 text-gray-200">|</span>
+        <Link href="/lp" className="text-[12px] text-gray-400 hover:text-gray-600 transition">
+          Lオペ for CLINIC トップ
+        </Link>
       </footer>
     </div>
   );
+}
+
+/* ─── 日付フォーマット ─── */
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr);
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 }
