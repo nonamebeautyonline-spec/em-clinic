@@ -11,7 +11,7 @@ declare global {
         applicationId: string,
         locationId: string,
       ) => Promise<{
-        card: () => Promise<{
+        card: (options?: Record<string, unknown>) => Promise<{
           attach: (container: HTMLElement) => Promise<void>;
           tokenize: (verificationDetails?: Record<string, unknown>) => Promise<{ status: string; token: string }>;
           destroy: () => void;
