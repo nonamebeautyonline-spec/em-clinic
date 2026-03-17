@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { articles } from "./lp/column/articles";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = "https://l-ope.jp";
@@ -40,35 +41,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 0.7,
     },
-    {
-      url: `${baseUrl}/lp/column/clinic-line-case-studies`,
+    ...articles.map((a) => ({
+      url: `${baseUrl}/lp/column/${a.slug}`,
       lastModified: new Date("2026-03-17"),
-      changeFrequency: "monthly",
+      changeFrequency: "monthly" as const,
       priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/lp/column/lstep-vs-clinic-tool`,
-      lastModified: new Date("2026-03-17"),
-      changeFrequency: "monthly",
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/lp/column/clinic-dx-guide`,
-      lastModified: new Date("2026-03-17"),
-      changeFrequency: "monthly",
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/lp/column/line-reservation-no-show`,
-      lastModified: new Date("2026-03-17"),
-      changeFrequency: "monthly",
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/lp/column/segment-delivery-repeat`,
-      lastModified: new Date("2026-03-17"),
-      changeFrequency: "monthly",
-      priority: 0.7,
-    },
+    })),
   ];
 }
