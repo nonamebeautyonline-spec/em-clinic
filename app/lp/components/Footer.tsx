@@ -14,7 +14,15 @@ export function Footer() {
         <div className="flex flex-col items-center justify-between gap-5 md:flex-row">
           <div className="flex items-center gap-2 text-[14px] font-bold text-white"><Image src="/icon.png" alt="Lオペ" width={32} height={32} className="rounded-lg object-contain" />Lオペ for CLINIC</div>
           <nav aria-label="フッターナビゲーション" className="flex flex-wrap justify-center gap-6 text-[12px]">
-            {["機能", "強み", "活用シーン", "料金", "FAQ"].map((l) => <a key={l} href={`#${l === "機能" ? "features" : l === "強み" ? "strengths" : l === "活用シーン" ? "usecases" : l === "料金" ? "pricing" : "faq"}`} className="hover:text-white">{l}</a>)}
+            {[
+              { label: "機能", id: "features" },
+              { label: "強み", id: "strengths" },
+              { label: "活用シーン", id: "usecases" },
+              { label: "導入の流れ", id: "flow" },
+              { label: "料金", id: "pricing" },
+              { label: "FAQ", id: "faq" },
+            ].map((l) => <a key={l.id} href={`#${l.id}`} className="hover:text-white">{l.label}</a>)}
+            <Link href="/lp/features" className="hover:text-white">機能一覧</Link>
             <a href="/lp/contact" className="hover:text-white">お問い合わせ</a>
           </nav>
         </div>

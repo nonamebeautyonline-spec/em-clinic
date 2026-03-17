@@ -12,7 +12,7 @@ export default function UseCases() {
 
         {/* ── シーン1: 朝の業務開始 ── */}
         <FadeIn>
-          <div>
+          <article>
             <div className="mb-8 flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-sky-500 text-[15px] font-bold text-white shadow">01</span>
               <div><h3 className="text-xl font-extrabold text-slate-900">朝の業務開始</h3><span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold text-blue-600">ダッシュボード</span></div>
@@ -56,12 +56,12 @@ export default function UseCases() {
                 </MockWindow>
               </div>
             </div>
-          </div>
+          </article>
         </FadeIn>
 
         {/* ── シーン2: 新患の友だち追加 ── */}
         <FadeIn>
-          <div>
+          <article>
             <div className="mb-8 flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-sky-500 text-[15px] font-bold text-white shadow">02</span>
               <div><h3 className="text-xl font-extrabold text-slate-900">新患の友だち追加</h3><span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold text-blue-600">アクション自動化</span></div>
@@ -104,12 +104,12 @@ export default function UseCases() {
                 </MockWindow>
               </div>
             </div>
-          </div>
+          </article>
         </FadeIn>
 
         {/* ── シーン3: 再診促進の配信 ── */}
         <FadeIn>
-          <div>
+          <article>
             <div className="mb-8 flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-sky-500 text-[15px] font-bold text-white shadow">03</span>
               <div><h3 className="text-xl font-extrabold text-slate-900">再診促進の配信</h3><span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold text-blue-600">セグメント配信</span></div>
@@ -148,12 +148,12 @@ export default function UseCases() {
                 </MockWindow>
               </div>
             </div>
-          </div>
+          </article>
         </FadeIn>
 
         {/* ── シーン4: 予約前日のリマインド ── */}
         <FadeIn>
-          <div>
+          <article>
             <div className="mb-8 flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-sky-500 text-[15px] font-bold text-white shadow">04</span>
               <div><h3 className="text-xl font-extrabold text-slate-900">予約前日のリマインド</h3><span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold text-blue-600">リマインド配信</span></div>
@@ -195,12 +195,12 @@ export default function UseCases() {
                 </MockWindow>
               </div>
             </div>
-          </div>
+          </article>
         </FadeIn>
 
         {/* ── シーン5: 処方後の配送 ── */}
         <FadeIn>
-          <div>
+          <article>
             <div className="mb-8 flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-sky-500 text-[15px] font-bold text-white shadow">05</span>
               <div><h3 className="text-xl font-extrabold text-slate-900">処方後の配送</h3><span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold text-blue-600">配送管理</span></div>
@@ -247,12 +247,12 @@ export default function UseCases() {
                 </MockWindow>
               </div>
             </div>
-          </div>
+          </article>
         </FadeIn>
 
         {/* ── シーン6: 月末の経営分析 ── */}
         <FadeIn>
-          <div>
+          <article>
             <div className="mb-8 flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-sky-500 text-[15px] font-bold text-white shadow">06</span>
               <div><h3 className="text-xl font-extrabold text-slate-900">月末の経営分析</h3><span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold text-blue-600">売上管理</span></div>
@@ -297,7 +297,7 @@ export default function UseCases() {
                 </MockWindow>
               </div>
             </div>
-          </div>
+          </article>
         </FadeIn>
 
       </div>

@@ -5,7 +5,7 @@ import { AnimatedBlob, TextReveal, FadeIn, StaggerChildren, StaggerItem, PulseGl
 
 export default function Hero() {
   return (
-    <section className="relative overflow-hidden pt-[60px]">
+    <section className="relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-blue-50/80 via-white to-sky-50/50" />
       {/* 背景blobを浮遊アニメーション化 */}
       <AnimatedBlob className="-top-40 right-0" color="bg-blue-100/40" size={500} />
@@ -43,7 +43,7 @@ export default function Hero() {
             </StaggerChildren>
           </div>
           <FadeIn direction="right" delay={0.3}>
-            <div className="relative">
+            <div className="relative" role="img" aria-label="Lオペ for CLINICのダッシュボード画面：予約管理、LINE友だち数推移、月間売上、リピート率、対応状況、配信結果を一覧表示">
               <MockWindow title="Lオペ for CLINIC — ダッシュボード">
                 <div className="grid grid-cols-4 gap-2">
                   {[

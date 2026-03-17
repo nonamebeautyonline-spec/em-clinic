@@ -6,27 +6,33 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
       url: `${baseUrl}/lp`,
-      lastModified: new Date(),
+      lastModified: new Date("2026-03-17"),
       changeFrequency: "weekly",
       priority: 1.0,
     },
     {
       url: `${baseUrl}/lp/terms`,
-      lastModified: new Date(),
+      lastModified: new Date("2026-03-17"),
       changeFrequency: "monthly",
       priority: 0.3,
     },
     {
       url: `${baseUrl}/lp/privacy`,
-      lastModified: new Date(),
+      lastModified: new Date("2026-03-17"),
       changeFrequency: "monthly",
       priority: 0.3,
     },
     {
       url: `${baseUrl}/lp/cancel`,
-      lastModified: new Date(),
+      lastModified: new Date("2026-03-17"),
       changeFrequency: "monthly",
       priority: 0.3,
+    },
+    {
+      url: `${baseUrl}/lp/features`,
+      lastModified: new Date("2026-03-17"),
+      changeFrequency: "weekly",
+      priority: 0.8,
     },
   ];
 }

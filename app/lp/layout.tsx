@@ -35,16 +35,19 @@ const jsonLd = [
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "Lオペ for CLINIC",
-    alternateName: ["Lオペ", "L-OPE for CLINIC"],
+    alternateName: ["Lオペ", "L-OPE for CLINIC", "L-OPE"],
     url: SITE_URL,
-    logo: `${SITE_URL}/images/l-ope-logo.png`,
+    logo: `${SITE_URL}/icon.png`,
     description:
       "Lオペ for CLINICは、LINE公式アカウントを活用したクリニック専用の業務DXプラットフォームです。",
+    email: "info@l-ope.jp",
     contactPoint: {
       "@type": "ContactPoint",
       contactType: "sales",
+      email: "info@l-ope.jp",
       availableLanguage: "Japanese",
     },
+    sameAs: [],
   },
   {
     "@context": "https://schema.org",
@@ -64,6 +67,26 @@ const jsonLd = [
     },
     featureList:
       "患者CRM, セグメント配信, リッチメニュービルダー, オンライン問診, 予約管理, AI自動返信, 決済管理, 配送管理, ダッシュボード分析",
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    name: "Lオペ for CLINIC",
+    alternateName: "Lオペ",
+    serviceType: "LINE公式アカウント クリニック業務DXプラットフォーム",
+    provider: {
+      "@type": "Organization",
+      name: "Lオペ for CLINIC",
+      url: SITE_URL,
+    },
+    description: DESCRIPTION,
+    url: LP_URL,
+    areaServed: { "@type": "Country", name: "JP" },
+    availableChannel: {
+      "@type": "ServiceChannel",
+      serviceUrl: LP_URL,
+      availableLanguage: "Japanese",
+    },
   },
   {
     "@context": "https://schema.org",

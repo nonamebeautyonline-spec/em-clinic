@@ -9,6 +9,7 @@ export default function Nav() {
     { label: "機能", href: "#features" },
     { label: "強み", href: "#strengths" },
     { label: "活用シーン", href: "#usecases" },
+    { label: "導入の流れ", href: "#flow" },
     { label: "料金", href: "#pricing" },
     { label: "FAQ", href: "#faq" },
   ];

@@ -13,7 +13,9 @@ const structuredDataChecks = [
   { name: "WebSite", path: "layout.tsx", status: "active" as const, desc: "サイト基本情報" },
   { name: "BreadcrumbList", path: "layout.tsx", status: "active" as const, desc: "パンくずリスト" },
   { name: "FAQPage", path: "FAQ.tsx", status: "active" as const, desc: "FAQ 8項目のリッチリザルト" },
-  { name: "Product", path: "Pricing.tsx", status: "active" as const, desc: "料金プラン構造化" },
+  { name: "Service (Pricing)", path: "Pricing.tsx", status: "active" as const, desc: "サービス情報（価格非公開）" },
+  { name: "Service (Global)", path: "layout.tsx", status: "active" as const, desc: "B2Bサービス情報・対象エリア" },
+  { name: "ItemList", path: "features/page.tsx", status: "active" as const, desc: "機能一覧ページの構造化リスト" },
 ];
 
 /* ── メタデータチェック項目 ── */
@@ -60,7 +62,14 @@ const seoItems = [
     { name: "Twitter Card設定", done: true },
     { name: "OGP設定", done: true },
     { name: "キーワード密度確認", done: true },
-    { name: "内部リンク最適化", done: false },
+    { name: "内部リンク最適化", done: true },
+    { name: "機能一覧サブページ", done: true },
+  ]},
+  { category: "アクセシビリティ", items: [
+    { name: "skip-to-contentリンク", done: true },
+    { name: "ダッシュボードモック aria-label", done: true },
+    { name: "問題リスト セマンティック化", done: true },
+    { name: "UseCases articleタグ", done: true },
   ]},
 ];
 
@@ -80,7 +89,9 @@ const targetKeywords = [
   { keyword: "医療 AI自動返信", cluster: "業務効率化", priority: "中" },
   { keyword: "クリニック LINE 費用", cluster: "導入検討", priority: "高" },
   { keyword: "クリニック LINE 導入", cluster: "導入検討", priority: "中" },
-  { keyword: "Lステップ クリニック", cluster: "競合比較", priority: "低" },
+  { keyword: "Lステップ クリニック", cluster: "競合比較", priority: "中" },
+  { keyword: "Liny クリニック", cluster: "競合比較", priority: "中" },
+  { keyword: "クリニック LINE配信ツール 比較", cluster: "競合比較", priority: "中" },
 ];
 
 export default function PlatformSEOPage() {

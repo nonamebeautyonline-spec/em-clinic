@@ -10,16 +10,14 @@ import { ScaleIn } from "./animations";
 /* JSON-LD 構造化データ（価格非公開） */
 const pricingJsonLd = {
   "@context": "https://schema.org",
-  "@type": "Product",
+  "@type": "Service",
   name: "Lオペ for CLINIC",
-  description: "クリニック特化LINE運用プラットフォーム。患者CRM・予約管理・セグメント配信・AI自動返信・決済・配送管理をオールインワンで提供。",
+  description: "LINE公式アカウントを活用したクリニック特化の業務DXプラットフォーム。患者CRM・予約管理・セグメント配信・AI自動返信・決済・配送管理をオールインワンで提供。",
   brand: { "@type": "Brand", name: "Lオペ" },
-  offers: {
-    "@type": "Offer",
-    availability: "https://schema.org/InStock",
-    url: "https://l-ope.jp/lp#pricing",
-    description: "貴院の規模・運用体制に合わせた最適プランをご提案。まずはお問い合わせください。",
-  },
+  provider: { "@type": "Organization", name: "Lオペ for CLINIC", url: "https://l-ope.jp" },
+  serviceType: "クリニック向けLINE公式アカウント運用・業務DXサービス",
+  areaServed: { "@type": "Country", name: "JP" },
+  url: "https://l-ope.jp/lp#pricing",
 };
 
 export function Pricing() {

@@ -18,18 +18,20 @@ export default function Problems() {
         <Label>PROBLEM</Label>
         <Title>クリニック経営で<br className="md:hidden" />こんなお悩みはありませんか？</Title>
       </div>
-      <StaggerChildren className="mx-auto mt-8 grid max-w-4xl gap-3 md:grid-cols-2">
-        {items.map((p, i) => (
-          <StaggerItem key={i}>
-            <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-5 transition hover:border-rose-200 hover:shadow-sm">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50">
-                <svg className="h-5 w-5 text-rose-400" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d={p.icon} /></svg>
-              </div>
-              <p className="text-[15px] leading-relaxed text-slate-600">{p.text}</p>
-            </div>
-          </StaggerItem>
-        ))}
-      </StaggerChildren>
+      <ul className="mx-auto mt-8 grid max-w-4xl gap-3 md:grid-cols-2 list-none p-0 m-0">
+        <StaggerChildren className="contents">
+          {items.map((p, i) => (
+            <StaggerItem key={i}>
+              <li className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-5 transition hover:border-rose-200 hover:shadow-sm">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50">
+                  <svg className="h-5 w-5 text-rose-400" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d={p.icon} /></svg>
+                </div>
+                <p className="text-[15px] leading-relaxed text-slate-600">{p.text}</p>
+              </li>
+            </StaggerItem>
+          ))}
+        </StaggerChildren>
+      </ul>
       <div className="mt-12 flex justify-center">
         <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-6 py-2.5 text-[15px] font-semibold text-blue-700">
           <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" /></svg>
