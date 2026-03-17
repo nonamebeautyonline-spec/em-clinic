@@ -1,6 +1,14 @@
 import type { Metadata } from "next";
 import { articles } from "../articles";
-import ArticleLayout, { InlineCTA } from "../_components/article-layout";
+import ArticleLayout, {
+  InlineCTA,
+  Callout,
+  ComparisonTable,
+  BarChart,
+  StatGrid,
+  FlowSteps,
+  ResultCard,
+} from "../_components/article-layout";
 
 const SITE_URL = "https://l-ope.jp";
 const self = articles[4];
@@ -43,92 +51,83 @@ export default function Page() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <section>
-        <h2 id="why-not-mass" className="text-xl font-bold text-slate-800">なぜ一斉配信ではリピート率が上がらないのか</h2>
-        <p>多くのクリニックがLINE公式アカウントで一斉配信を行っていますが、全患者に同じメッセージを送っても効果は限定的です。20代の美容目的の患者と、60代の慢性疾患の患者では、必要な情報もフォローのタイミングも全く異なります。</p>
-        <p>セグメント配信とは、患者を属性や行動データで分類し、<strong>それぞれのグループに最適なメッセージを届ける</strong>手法です。これにより開封率・クリック率・再来院率が大幅に向上します。</p>
+        <h2 id="why-not-mass" className="text-xl font-bold text-gray-800">なぜ一斉配信ではリピート率が上がらないのか</h2>
+        <p>多くのクリニックがLINE公式アカウントで一斉配信を行っていますが、全患者に同じメッセージを送っても効果は限定的です。</p>
+
+        <Callout type="warning" title="一斉配信の根本的な問題">
+          20代の美容目的の患者と60代の慢性疾患の患者では、必要な情報もフォローのタイミングも全く異なります。全員に同じメッセージを送ることは、患者にとって「不要な通知」となりブロックの原因に。
+        </Callout>
+
+        <BarChart
+          data={[
+            { label: "一斉配信 開封率", value: 65, color: "bg-gray-400" },
+            { label: "セグメント配信 開封率", value: 85, color: "bg-sky-500" },
+            { label: "一斉配信 クリック率", value: 4, color: "bg-gray-400" },
+            { label: "セグメント配信 クリック率", value: 12, color: "bg-sky-500" },
+          ]}
+          unit="%"
+        />
       </section>
 
       <section>
-        <h2 id="five-segments" className="text-xl font-bold text-slate-800">クリニックで使える5つのセグメント</h2>
+        <h2 id="five-segments" className="text-xl font-bold text-gray-800">クリニックで使える5つのセグメント</h2>
 
-        <h3 className="text-lg font-semibold text-slate-700 mt-6">1. 最終来院日ベース</h3>
-        <p>最も基本的で効果の高いセグメントです。</p>
-        <ul className="list-disc pl-6 space-y-1">
-          <li><strong>3ヶ月以上未来院</strong> → 再診促進メッセージ「その後の体調はいかがですか？」</li>
-          <li><strong>6ヶ月以上未来院</strong> → 定期検診リマインド「健康チェックの時期です」</li>
-          <li><strong>1年以上未来院</strong> → 復帰促進「お変わりございませんか？新メニューのご案内」</li>
-        </ul>
-
-        <h3 className="text-lg font-semibold text-slate-700 mt-6">2. 診療科・施術内容ベース</h3>
-        <p>過去に受けた診療内容でセグメント。美容皮膚科なら「前回のレーザー治療から1ヶ月経ちました。経過はいかがですか？」のようにパーソナルなフォローが可能。</p>
-
-        <h3 className="text-lg font-semibold text-slate-700 mt-6">3. タグ・属性ベース</h3>
-        <p>年齢層・性別・関心領域でタグ分け。「40代女性 × エイジングケア関心」のようなセグメントを作り、ターゲットに合ったキャンペーンを案内。</p>
-
-        <h3 className="text-lg font-semibold text-slate-700 mt-6">4. 来院回数ベース</h3>
-        <ul className="list-disc pl-6 space-y-1">
-          <li><strong>初回来院後</strong> → 「ご来院ありがとうございました」+ 次回予約促進</li>
-          <li><strong>3回以上来院</strong> → ロイヤル患者として特別オファー</li>
-          <li><strong>VIP（10回以上）</strong> → 先行案内・優先予約などの特典</li>
-        </ul>
-
-        <h3 className="text-lg font-semibold text-slate-700 mt-6">5. 行動トリガーベース</h3>
-        <p>「予約したがキャンセルした」「問診を開始したが未完了」「配信リンクをクリックした」などの行動をトリガーに、適切なフォローメッセージを自動送信。</p>
+        <FlowSteps steps={[
+          { title: "最終来院日ベース", desc: "3ヶ月未来院→再診促進、6ヶ月→定期検診リマインド、1年以上→復帰促進。最も基本的で効果の高いセグメント。" },
+          { title: "診療科・施術内容ベース", desc: "過去の診療内容で分類。「前回のレーザー治療から1ヶ月経ちました」のようなパーソナルなフォローが可能。" },
+          { title: "タグ・属性ベース", desc: "年齢層・性別・関心領域で分類。「40代女性 x エイジングケア関心」のようなターゲットキャンペーンを実施。" },
+          { title: "来院回数ベース", desc: "初回来院→サンキュー+次回促進、3回以上→ロイヤル患者特別オファー、10回以上→VIP先行案内・優先予約。" },
+          { title: "行動トリガーベース", desc: "「予約したがキャンセル」「問診未完了」「リンクをクリック」などの行動をトリガーに適切なフォローを自動送信。" },
+        ]} />
       </section>
 
       <InlineCTA />
 
       <section>
-        <h2 id="tips" className="text-xl font-bold text-slate-800">セグメント配信の効果を最大化する3つのコツ</h2>
-        <ol className="list-decimal pl-6 space-y-3">
-          <li>
-            <strong>配信タイミングを最適化する</strong>
-            <p>クリニックの患者は平日日中は仕事をしていることが多いため、<strong>平日18時〜20時</strong>または<strong>土日の午前中</strong>が開封率が高い傾向。セグメントごとに最適な時間帯をテストしましょう。</p>
-          </li>
-          <li>
-            <strong>メッセージをパーソナルにする</strong>
-            <p>「〇〇様」の名前挿入だけでなく、「前回ご来院の△△から3ヶ月が経ちました」のように、<strong>患者固有の情報を含める</strong>ことで反応率が大幅に向上します。</p>
-          </li>
-          <li>
-            <strong>配信結果を分析・改善する</strong>
-            <p>開封率・クリック率・予約転換率を計測し、効果の高いメッセージテンプレートを蓄積。PDCAを回すことで、配信の精度が継続的に向上します。</p>
-          </li>
-        </ol>
+        <h2 id="tips" className="text-xl font-bold text-gray-800">セグメント配信の効果を最大化する3つのコツ</h2>
+
+        <Callout type="point" title="コツ1: 配信タイミングを最適化する">
+          クリニックの患者は平日日中は仕事中が多いため、<strong>平日18時〜20時</strong>または<strong>土日の午前中</strong>が開封率が高い傾向。セグメントごとに最適な時間帯をテストしましょう。
+        </Callout>
+
+        <Callout type="point" title="コツ2: メッセージをパーソナルにする">
+          名前の挿入だけでなく「前回ご来院の△△から3ヶ月が経ちました」のように、<strong>患者固有の情報を含める</strong>ことで反応率が大幅に向上します。
+        </Callout>
+
+        <Callout type="point" title="コツ3: 配信結果を分析・改善する">
+          開封率・クリック率・予約転換率を計測し、効果の高いメッセージテンプレートを蓄積。PDCAを回すことで配信の精度が継続的に向上します。
+        </Callout>
       </section>
 
       <section>
-        <h2 id="comparison" className="text-xl font-bold text-slate-800">実際の成果: セグメント配信 vs 一斉配信</h2>
-        <div className="overflow-x-auto mt-4">
-          <table className="w-full border-collapse text-[13px]">
-            <thead>
-              <tr className="border-b-2 border-slate-200 text-left">
-                <th className="py-3 pr-4 font-bold text-slate-700">指標</th>
-                <th className="py-3 pr-4 font-bold text-slate-500">一斉配信</th>
-                <th className="py-3 font-bold text-blue-700">セグメント配信</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {[
-                ["開封率", "60〜70%", "80〜90%"],
-                ["クリック率", "3〜5%", "10〜15%"],
-                ["予約転換率", "1〜2%", "5〜8%"],
-                ["ブロック率", "3〜5%/月", "0.5〜1%/月"],
-                ["患者満足度", "「また営業か...」", "「自分に合った情報で助かる」"],
-              ].map(([metric, mass, segment]) => (
-                <tr key={metric}>
-                  <td className="py-2.5 pr-4 font-medium text-slate-700">{metric}</td>
-                  <td className="py-2.5 pr-4 text-slate-500">{mass}</td>
-                  <td className="py-2.5 font-medium text-blue-700">{segment}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-4">特に注目すべきは<strong>ブロック率の差</strong>です。一斉配信は「自分に関係ない情報」が多くなるためブロックされやすく、友だち数が減少していきます。セグメント配信なら、患者に必要な情報だけを届けるためブロック率を低く抑えられます。</p>
+        <h2 id="comparison" className="text-xl font-bold text-gray-800">実際の成果: セグメント配信 vs 一斉配信</h2>
+
+        <ComparisonTable
+          headers={["指標", "一斉配信", "セグメント配信"]}
+          rows={[
+            ["開封率", "60〜70%", "80〜90%"],
+            ["クリック率", "3〜5%", "10〜15%"],
+            ["予約転換率", "1〜2%", "5〜8%"],
+            ["ブロック率", "3〜5%/月", "0.5〜1%/月"],
+            ["患者満足度", "「また営業か...」", "「自分に合った情報で助かる」"],
+          ]}
+        />
+
+        <ResultCard before="3〜5%" after="0.5〜1%" metric="月間ブロック率" description="パーソナルな情報配信でブロック率が大幅に低下" />
+
+        <Callout type="success" title="ブロック率の差が最重要指標">
+          一斉配信は「自分に関係ない情報」が多くブロックされやすく、友だち数が減少していきます。セグメント配信なら患者に必要な情報だけを届けるためブロック率を低く抑えられます。
+        </Callout>
+
+        <StatGrid stats={[
+          { value: "20〜30", unit: "%UP", label: "再来院率の向上" },
+          { value: "3倍", unit: "", label: "クリック率の改善" },
+          { value: "4倍", unit: "", label: "予約転換率の改善" },
+        ]} />
       </section>
 
       <section>
-        <h2 id="summary" className="text-xl font-bold text-slate-800">まとめ: セグメント配信でリピート率向上を実現</h2>
+        <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: セグメント配信でリピート率向上を実現</h2>
         <p>セグメント配信は、クリニックのLINE活用において<strong>最もROIが高い施策</strong>の一つです。一斉配信からセグメント配信に切り替えるだけで、再来院率が20〜30%向上するケースも珍しくありません。</p>
         <p>Lオペ for CLINICなら、来院履歴・予約・決済データと連動したセグメント配信が標準機能として搭載。クリニックに最適化されたセグメント設計を簡単に実現できます。</p>
       </section>

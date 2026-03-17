@@ -4,13 +4,13 @@ import Link from "next/link";
 import { useState } from "react";
 import { articles } from "../articles";
 
-/* ─── カテゴリカラー（アクセントのみ・控えめ） ─── */
+/* ─── カテゴリカラー（ブランドカラーベース） ─── */
 const categoryColors: Record<string, { bg: string; text: string; dot: string }> = {
-  活用事例: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
+  活用事例: { bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500" },
   ツール比較: { bg: "bg-violet-50", text: "text-violet-700", dot: "bg-violet-500" },
-  ガイド: { bg: "bg-sky-50", text: "text-sky-700", dot: "bg-sky-500" },
-  業務改善: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
-  マーケティング: { bg: "bg-rose-50", text: "text-rose-700", dot: "bg-rose-500" },
+  ガイド: { bg: "bg-indigo-50", text: "text-indigo-700", dot: "bg-indigo-500" },
+  業務改善: { bg: "bg-sky-50", text: "text-sky-700", dot: "bg-sky-500" },
+  マーケティング: { bg: "bg-purple-50", text: "text-purple-700", dot: "bg-purple-500" },
   比較: { bg: "bg-violet-50", text: "text-violet-700", dot: "bg-violet-500" },
 };
 
@@ -19,74 +19,80 @@ const allCategories = ["すべて", ...Array.from(new Set(articles.map((a) => a.
 export default function ColumnIndex() {
   const [active, setActive] = useState("すべて");
   const filtered = active === "すべて" ? articles : articles.filter((a) => a.category === active);
-  const featured = articles[0];
+  const featured = articles.slice(0, 3);
 
   return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white text-slate-800">
       {/* ヘッダー */}
-      <header className="border-b border-gray-100 bg-white">
+      <header className="border-b border-slate-200/60 bg-white/80 backdrop-blur-lg">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/lp" className="text-[13px] font-bold text-gray-900 hover:opacity-70 transition">
-            Lオペ for CLINIC
+          <Link href="/lp" className="flex items-center gap-2 text-[14px] font-bold tracking-tight text-slate-900 hover:opacity-70 transition">
+            Lオペ <span className="text-blue-600">for CLINIC</span>
           </Link>
-          <a
-            href="/lp#contact"
-            className="rounded-lg bg-gray-900 px-4 py-2 text-[12px] font-semibold text-white transition hover:bg-gray-700"
-          >
-            資料請求
-          </a>
+          <div className="flex items-center gap-4">
+            <Link href="/lp/about" className="hidden text-[12px] text-slate-400 hover:text-slate-700 transition sm:block">Lオペとは</Link>
+            <a
+              href="/lp#contact"
+              className="rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-[12px] font-semibold text-white transition hover:shadow-lg hover:shadow-blue-500/20"
+            >
+              資料請求
+            </a>
+          </div>
         </div>
       </header>
 
       {/* パンくず */}
-      <div className="border-b border-gray-50 bg-gray-50/50">
+      <div className="border-b border-slate-100 bg-slate-50/50">
         <nav aria-label="パンくずリスト" className="mx-auto max-w-6xl px-6 py-3">
-          <ol className="flex items-center gap-2 text-[12px] text-gray-400 list-none m-0 p-0">
-            <li><Link href="/lp" className="hover:text-gray-700 transition">トップ</Link></li>
-            <li aria-hidden="true" className="text-gray-300">&gt;</li>
-            <li className="text-gray-700 font-medium">コラム</li>
+          <ol className="flex items-center gap-2 text-[12px] text-slate-400 list-none m-0 p-0">
+            <li><Link href="/lp" className="hover:text-blue-600 transition">トップ</Link></li>
+            <li aria-hidden="true" className="text-slate-300">&gt;</li>
+            <li className="text-slate-700 font-medium">コラム</li>
           </ol>
         </nav>
       </div>
 
-      <main className="mx-auto max-w-6xl px-6">
-        {/* ページタイトル */}
-        <div className="pb-8 pt-10">
-          <h1 className="text-[28px] font-bold tracking-tight text-gray-900">コラム</h1>
-          <p className="mt-2 text-[14px] text-gray-500">
+      {/* ページタイトル（グラデーション背景） */}
+      <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-900 px-6 py-12 md:py-16">
+        <div className="mx-auto max-w-6xl">
+          <h1 className="text-[28px] font-bold tracking-tight text-white md:text-[32px]">コラム</h1>
+          <p className="mt-2 text-[14px] text-blue-200/70">
             クリニックのLINE公式アカウント活用・DX推進に役立つ情報を発信しています
           </p>
         </div>
+      </div>
 
-        {/* ピックアップ（横長カード） */}
-        <div className="mb-10 overflow-hidden rounded-lg border border-gray-200 bg-white transition hover:shadow-md">
-          <Link href={`/lp/column/${featured.slug}`} className="flex flex-col md:flex-row">
-            <div className="flex aspect-[16/9] w-full items-center justify-center bg-gray-50 md:aspect-auto md:w-[400px]">
-              <div className="flex flex-col items-center gap-3 px-8 py-10">
-                <span className="text-[11px] font-bold tracking-widest text-gray-400 uppercase">Featured</span>
-                <svg viewBox="0 0 80 80" className="h-16 w-16 text-gray-300">
-                  <rect x="8" y="16" width="64" height="48" rx="4" fill="none" stroke="currentColor" strokeWidth="2" />
-                  <circle cx="28" cy="36" r="6" fill="none" stroke="currentColor" strokeWidth="2" />
-                  <path d="M8 52l16-12 12 8 16-16 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+      <main className="mx-auto max-w-6xl px-6">
+        {/* ピックアップ（3カード・グラデーション背景付き） */}
+        <div className="-mt-8 mb-10 grid gap-4 md:grid-cols-3">
+          {featured.map((a, i) => (
+            <Link
+              key={a.slug}
+              href={`/lp/column/${a.slug}`}
+              className="group overflow-hidden rounded-xl bg-white shadow-lg shadow-slate-200/50 ring-1 ring-slate-200/60 transition hover:shadow-xl hover:ring-blue-300/50"
+            >
+              {/* 上部アクセントバー */}
+              <div className={`h-1.5 ${i === 0 ? "bg-gradient-to-r from-blue-500 to-violet-500" : i === 1 ? "bg-gradient-to-r from-violet-500 to-purple-500" : "bg-gradient-to-r from-indigo-500 to-blue-500"}`} />
+              <div className="p-5">
+                <div className="flex items-center gap-2">
+                  <CategoryLabel category={a.category} />
+                  <time className="text-[11px] text-slate-400">{formatDate(a.date)}</time>
+                </div>
+                <h2 className="mt-2.5 text-[15px] font-bold leading-relaxed text-slate-800 group-hover:text-blue-600 transition line-clamp-2">
+                  {a.title}
+                </h2>
+                <p className="mt-2 text-[12px] leading-relaxed text-slate-400 line-clamp-2">{a.description}</p>
+                <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-blue-600 opacity-0 transition group-hover:opacity-100">
+                  続きを読む
+                  <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </span>
               </div>
-            </div>
-            <div className="flex flex-1 flex-col justify-center p-6 md:p-8">
-              <div className="flex items-center gap-3">
-                <CategoryLabel category={featured.category} />
-                <time className="text-[12px] text-gray-400">{formatDate(featured.date)}</time>
-              </div>
-              <h2 className="mt-3 text-[18px] font-bold leading-relaxed text-gray-900 md:text-[20px]">{featured.title}</h2>
-              <p className="mt-2 text-[13px] leading-relaxed text-gray-500 line-clamp-2">{featured.description}</p>
-              <span className="mt-4 text-[13px] font-semibold text-sky-600">
-                続きを読む →
-              </span>
-            </div>
-          </Link>
+            </Link>
+          ))}
         </div>
 
         {/* カテゴリフィルター */}
-        <div className="flex items-center gap-6 border-b border-gray-200 pb-0">
+        <div className="flex items-center gap-6 overflow-x-auto border-b border-slate-200 pb-0">
           {allCategories.map((cat) => {
             const isActive = active === cat;
             const count = cat === "すべて" ? articles.length : articles.filter((a) => a.category === cat).length;
@@ -94,57 +100,57 @@ export default function ColumnIndex() {
               <button
                 key={cat}
                 onClick={() => setActive(cat)}
-                className={`relative whitespace-nowrap pb-3 text-[13px] font-medium transition ${
+                className={`relative shrink-0 whitespace-nowrap pb-3 text-[13px] font-medium transition ${
                   isActive
-                    ? "text-gray-900 after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:bg-gray-900"
-                    : "text-gray-400 hover:text-gray-600"
+                    ? "text-blue-600 after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:bg-gradient-to-r after:from-blue-600 after:to-violet-600"
+                    : "text-slate-400 hover:text-slate-600"
                 }`}
               >
                 {cat}
-                <span className="ml-1 text-[11px] text-gray-300">{count}</span>
+                <span className={`ml-1 text-[11px] ${isActive ? "text-blue-400" : "text-slate-300"}`}>{count}</span>
               </button>
             );
           })}
         </div>
 
         {/* 記事一覧 */}
-        <div className="divide-y divide-gray-100 pb-16">
+        <div className="divide-y divide-slate-100 pb-16">
           {filtered.map((a) => (
             <Link
               key={a.slug}
               href={`/lp/column/${a.slug}`}
               className="group flex gap-5 py-6 transition md:gap-8"
             >
-              {/* サムネイル（シンプルなアイコンプレースホルダー） */}
-              <div className="hidden shrink-0 items-center justify-center rounded-md bg-gray-50 sm:flex sm:h-[100px] sm:w-[160px]">
+              {/* サムネイル */}
+              <div className="hidden shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-slate-50 to-blue-50 ring-1 ring-slate-200/60 sm:flex sm:h-[100px] sm:w-[160px]">
                 <ArticleIcon category={a.category} />
               </div>
               {/* テキスト */}
               <div className="flex flex-1 flex-col justify-center">
                 <div className="flex items-center gap-3">
                   <CategoryLabel category={a.category} />
-                  <time className="text-[11px] text-gray-400">{formatDate(a.date)}</time>
-                  <span className="text-[11px] text-gray-300">{a.readTime}</span>
+                  <time className="text-[11px] text-slate-400">{formatDate(a.date)}</time>
+                  <span className="text-[11px] text-slate-300">{a.readTime}</span>
                 </div>
-                <h2 className="mt-2 text-[15px] font-bold leading-relaxed text-gray-900 group-hover:text-sky-600 transition line-clamp-2 md:text-[16px]">
+                <h2 className="mt-2 text-[15px] font-bold leading-relaxed text-slate-800 group-hover:text-blue-600 transition line-clamp-2 md:text-[16px]">
                   {a.title}
                 </h2>
-                <p className="mt-1 text-[13px] leading-relaxed text-gray-400 line-clamp-1 hidden md:block">{a.description}</p>
+                <p className="mt-1 hidden text-[13px] leading-relaxed text-slate-400 line-clamp-1 md:block">{a.description}</p>
               </div>
             </Link>
           ))}
         </div>
 
         {/* CTA */}
-        <div className="mb-16 rounded-lg border border-gray-200 bg-gray-50 p-8 text-center md:p-12">
-          <p className="text-[11px] font-bold tracking-widest text-gray-400 uppercase">Lオペ for CLINIC</p>
-          <h2 className="mt-3 text-[20px] font-bold text-gray-900">LINE公式アカウントでクリニック業務をDX化</h2>
-          <p className="mx-auto mt-2 max-w-md text-[13px] text-gray-500">
+        <div className="mb-16 overflow-hidden rounded-xl bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-900 p-8 text-center md:p-12">
+          <p className="text-[11px] font-bold tracking-widest text-blue-300/60 uppercase">Lオペ for CLINIC</p>
+          <h2 className="mt-3 text-[20px] font-bold text-white md:text-[24px]">LINE公式アカウントでクリニック業務をDX化</h2>
+          <p className="mx-auto mt-2 max-w-md text-[13px] text-blue-200/60">
             予約・問診・配信・決済・配送管理をオールインワンで。まずは無料で資料をご覧ください。
           </p>
           <a
             href="/lp#contact"
-            className="mt-6 inline-block rounded-lg bg-gray-900 px-8 py-3 text-[13px] font-bold text-white transition hover:bg-gray-700"
+            className="mt-6 inline-block rounded-lg bg-gradient-to-r from-blue-500 to-violet-500 px-8 py-3 text-[13px] font-bold text-white transition hover:shadow-lg hover:shadow-blue-500/30"
           >
             無料で資料請求
           </a>
@@ -152,10 +158,18 @@ export default function ColumnIndex() {
       </main>
 
       {/* フッター */}
-      <footer className="border-t border-gray-100 bg-gray-50 py-8 text-center">
-        <Link href="/lp" className="text-[12px] text-gray-400 hover:text-gray-600 transition">
-          ← Lオペ for CLINIC トップに戻る
-        </Link>
+      <footer className="border-t border-slate-200 bg-slate-50 py-8 text-center">
+        <div className="flex items-center justify-center gap-6">
+          <Link href="/lp" className="text-[12px] text-slate-400 hover:text-blue-600 transition">
+            ← Lオペ for CLINIC トップ
+          </Link>
+          <Link href="/lp/about" className="text-[12px] text-slate-400 hover:text-blue-600 transition">
+            Lオペとは
+          </Link>
+          <Link href="/lp/features" className="text-[12px] text-slate-400 hover:text-blue-600 transition">
+            機能一覧
+          </Link>
+        </div>
       </footer>
     </div>
   );
@@ -163,7 +177,7 @@ export default function ColumnIndex() {
 
 /* ─── カテゴリラベル ─── */
 function CategoryLabel({ category }: { category: string }) {
-  const c = categoryColors[category] || { bg: "bg-gray-50", text: "text-gray-600", dot: "bg-gray-400" };
+  const c = categoryColors[category] || { bg: "bg-slate-50", text: "text-slate-600", dot: "bg-slate-400" };
   return (
     <span className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[11px] font-semibold ${c.bg} ${c.text}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
@@ -174,7 +188,7 @@ function CategoryLabel({ category }: { category: string }) {
 
 /* ─── 記事アイコン（カテゴリ別SVG） ─── */
 function ArticleIcon({ category }: { category: string }) {
-  const color = "text-gray-300";
+  const color = "text-blue-300/60";
   const icons: Record<string, React.ReactNode> = {
     活用事例: (
       <svg viewBox="0 0 48 48" className={`h-10 w-10 ${color}`}>
