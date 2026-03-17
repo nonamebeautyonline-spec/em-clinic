@@ -18,7 +18,7 @@ const structuredDataChecks = [
 
 /* ── メタデータチェック項目 ── */
 const metaChecks = [
-  { name: "title", status: "ok" as const, value: "Lオペ for CLINIC | クリニック特化LINE運用プラットフォーム" },
+  { name: "title", status: "ok" as const, value: "Lオペ for CLINIC | LINE公式アカウントでクリニック業務をDX化" },
   { name: "description", status: "ok" as const, value: "LINE公式アカウントを活用したクリニック業務のDX化…" },
   { name: "canonical", status: "ok" as const, value: "https://l-ope.jp/lp" },
   { name: "og:title", status: "ok" as const, value: "設定済み" },
@@ -70,6 +70,8 @@ const seoScore = Math.round((doneItems / totalItems) * 100);
 
 /* ── ターゲットキーワード ── */
 const targetKeywords = [
+  { keyword: "Lオペ", cluster: "ブランド", priority: "高" },
+  { keyword: "LINE公式アカウント クリニック", cluster: "ピラー", priority: "高" },
   { keyword: "クリニック LINE", cluster: "ピラー", priority: "高" },
   { keyword: "クリニック DX", cluster: "ピラー", priority: "高" },
   { keyword: "医療 LINE公式", cluster: "LINE運用", priority: "中" },
@@ -77,7 +79,7 @@ const targetKeywords = [
   { keyword: "クリニック 患者CRM", cluster: "業務効率化", priority: "中" },
   { keyword: "医療 AI自動返信", cluster: "業務効率化", priority: "中" },
   { keyword: "クリニック LINE 費用", cluster: "導入検討", priority: "高" },
-  { keyword: "クリニック DX 補助金", cluster: "導入検討", priority: "中" },
+  { keyword: "クリニック LINE 導入", cluster: "導入検討", priority: "中" },
   { keyword: "Lステップ クリニック", cluster: "競合比較", priority: "低" },
 ];
 

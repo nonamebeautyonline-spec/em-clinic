@@ -90,7 +90,7 @@ export default function Features() {
       <div className="text-center">
         <Label>FEATURES</Label>
         <Title>クリニック運営に必要な<br className="md:hidden" />すべてを、ひとつに</Title>
-        <Sub>LINE配信・予約・問診・カルテ・決済・配送・AI — 30以上の機能をオールインワンで搭載。</Sub>
+        <Sub>LINE公式アカウントの配信・予約・問診・カルテ・決済・配送・AI — 30以上の機能をオールインワンで搭載。</Sub>
       </div>
 
       {/* ── タブナビゲーション ── */}

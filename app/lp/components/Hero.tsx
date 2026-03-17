@@ -15,17 +15,17 @@ export default function Hero() {
           <div>
             <FadeIn>
               <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-blue-200/60 bg-white/60 px-4 py-1.5 text-[11px] font-semibold text-blue-700 backdrop-blur">
-                <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />クリニック特化 LINE運用プラットフォーム
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />LINE公式アカウント × クリニック特化プラットフォーム
               </div>
             </FadeIn>
             <TextReveal>
               <h1 className="mb-6 text-[2.2rem] font-extrabold leading-[1.25] tracking-tight md:text-5xl lg:text-[3.2rem]">
-                LINE 1つで<br /><span className="bg-gradient-to-r from-blue-600 to-sky-500 bg-clip-text text-transparent">クリニック業務</span>を<br />まるごとDX化
+                LINE公式アカウントで<br /><span className="bg-gradient-to-r from-blue-600 to-sky-500 bg-clip-text text-transparent">クリニック業務</span>を<br />まるごとDX化
               </h1>
             </TextReveal>
             <FadeIn delay={0.2}>
               <p className="mb-8 max-w-lg text-[15px] leading-[1.8] text-slate-500">
-                患者CRM・セグメント配信・リッチメニュー構築・問診フォーム・予約管理・会計・配送・AI自動返信まで。LINEを起点にクリニック運営のすべてをワンストップで実現します。
+                Lオペ for CLINIC なら、患者CRM・セグメント配信・リッチメニュー構築・問診・予約管理・会計・配送・AI自動返信まで。LINE公式アカウントを起点にクリニック運営のすべてをワンストップで実現します。
               </p>
             </FadeIn>
             <div className="flex flex-wrap gap-3">
@@ -35,7 +35,7 @@ export default function Hero() {
               <a href="#features" className="rounded-xl border border-slate-200 bg-white px-8 py-3.5 text-[13px] font-bold text-slate-600 transition hover:border-blue-200 hover:text-blue-600">機能を見る</a>
             </div>
             <StaggerChildren className="mt-10 flex flex-wrap gap-6 text-[11px] text-slate-400">
-              {["初期設定サポート無料", "最短2週間で導入", "IT導入補助金対象"].map((t) => (
+              {["初期設定サポート無料", "最短2週間で導入", "専任スタッフが伴走"].map((t) => (
                 <StaggerItem key={t}>
                   <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-blue-400" />{t}</span>
                 </StaggerItem>

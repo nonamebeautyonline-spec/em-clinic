@@ -9,7 +9,7 @@ export default function About() {
       <div className="text-center">
         <Label>ABOUT</Label>
         <Title>Lオペ for CLINIC とは</Title>
-        <Sub>LINE公式アカウントを「クリニックの業務基盤」へ進化させる、医療機関専用のオールインワン運用プラットフォームです。</Sub>
+        <Sub>Lオペ for CLINIC は、LINE公式アカウントを「クリニックの業務基盤」へ進化させる、医療機関専用のオールインワン運用プラットフォームです。</Sub>
       </div>
       <StaggerChildren className="grid gap-5 md:grid-cols-3">
         {[

@@ -2,15 +2,15 @@ import type { Metadata } from "next";
 
 const SITE_URL = "https://l-ope.jp";
 const LP_URL = `${SITE_URL}/lp`;
-const TITLE = "Lオペ for CLINIC | クリニック特化LINE運用プラットフォーム";
+const TITLE = "Lオペ for CLINIC | LINE公式アカウントでクリニック業務をDX化";
 const DESCRIPTION =
-  "LINE公式アカウントを活用したクリニック業務のDX化。患者CRM・予約管理・セグメント配信・リッチメニュー構築・オンライン問診・AI自動返信・決済・配送管理をオールインワンで提供。初期設定サポート無料・最短2週間で導入。";
+  "Lオペ for CLINICは、LINE公式アカウントを活用したクリニック専用の業務DXプラットフォームです。患者CRM・予約管理・セグメント配信・リッチメニュー構築・オンライン問診・AI自動返信・決済・配送管理をオールインワンで提供。初期設定サポート無料・最短2週間で導入。";
 
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
   keywords:
-    "クリニック LINE, クリニック DX, 医療 LINE公式, 患者CRM, 予約管理システム, オンライン問診, AI自動返信, リッチメニュー, クリニック経営, LINE配信, 医療DX, クリニック 業務効率化",
+    "Lオペ, Lオペ for CLINIC, LINE公式アカウント クリニック, クリニック LINE, クリニック DX, 医療 LINE公式, 患者CRM, 予約管理システム, オンライン問診, AI自動返信, リッチメニュー, クリニック経営, LINE配信, 医療DX, クリニック 業務効率化",
   alternates: {
     canonical: LP_URL,
   },
@@ -35,9 +35,11 @@ const jsonLd = [
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "Lオペ for CLINIC",
+    alternateName: ["Lオペ", "L-OPE for CLINIC"],
     url: SITE_URL,
     logo: `${SITE_URL}/images/l-ope-logo.png`,
-    description: "クリニック特化LINE運用プラットフォーム",
+    description:
+      "Lオペ for CLINICは、LINE公式アカウントを活用したクリニック専用の業務DXプラットフォームです。",
     contactPoint: {
       "@type": "ContactPoint",
       contactType: "sales",
@@ -48,7 +50,9 @@ const jsonLd = [
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     name: "Lオペ for CLINIC",
+    alternateName: "Lオペ",
     applicationCategory: "BusinessApplication",
+    applicationSubCategory: "LINE公式アカウント クリニック運用ツール",
     operatingSystem: "Web",
     description: DESCRIPTION,
     url: LP_URL,
@@ -65,7 +69,10 @@ const jsonLd = [
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "Lオペ for CLINIC",
+    alternateName: "Lオペ",
     url: SITE_URL,
+    description:
+      "LINE公式アカウントでクリニック業務をDX化するプラットフォーム「Lオペ for CLINIC」",
   },
   {
     "@context": "https://schema.org",

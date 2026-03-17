@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "Lオペ for CLINIC — クリニック特化LINE運用プラットフォーム";
+export const alt = "Lオペ for CLINIC — LINE公式アカウントでクリニック業務をDX化";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -79,7 +79,7 @@ export default function OGImage() {
                 background: "#3b82f6",
               }}
             />
-            クリニック特化 LINE運用プラットフォーム
+            LINE公式アカウント × クリニック特化
           </div>
 
           {/* タイトル */}
@@ -112,7 +112,7 @@ export default function OGImage() {
                 lineHeight: 1.4,
               }}
             >
-              LINE 1つでクリニック業務をまるごとDX化
+              LINE公式アカウントでクリニック業務をDX化
             </div>
           </div>
 
