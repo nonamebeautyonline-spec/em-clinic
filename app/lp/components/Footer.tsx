@@ -23,6 +23,7 @@ export function Footer() {
               { label: "FAQ", id: "faq" },
             ].map((l) => <a key={l.id} href={`#${l.id}`} className="hover:text-white">{l.label}</a>)}
             <Link href="/lp/features" className="hover:text-white">機能一覧</Link>
+            <Link href="/lp/column" className="hover:text-white">コラム</Link>
             <a href="/lp/contact" className="hover:text-white">お問い合わせ</a>
           </nav>
         </div>
