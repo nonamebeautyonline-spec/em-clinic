@@ -420,6 +420,15 @@ export default function TalkClient({ initialFriends, initialHasMore }: TalkClien
   const [actionSearch, setActionSearch] = useState("");
   const [executingAction, setExecutingAction] = useState(false);
 
+  // メディアピッカー
+  const [showMediaPicker, setShowMediaPicker] = useState(false);
+  const [mediaFiles, setMediaFiles] = useState<{ id: number; name: string; file_url: string; file_type: string; mime_type: string; file_size: number; folder_id: number | null; created_at: string; media_folders: { name: string } | null }[]>([]);
+  const [mediaFolders, setMediaFolders] = useState<{ id: number; name: string; file_count: number }[]>([]);
+  const [mediaFolderFilter, setMediaFolderFilter] = useState<number | null>(null);
+  const [mediaSearch, setMediaSearch] = useState("");
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [sendingMediaImage, setSendingMediaImage] = useState(false);
+
   // 右カラム
   const [patientTags, setPatientTags] = useState<PatientTag[]>([]);
   const [patientMark, setPatientMark] = useState("none");
@@ -1144,6 +1153,57 @@ export default function TalkClient({ initialFriends, initialHasMore }: TalkClien
     if (imageInputRef.current) imageInputRef.current.value = "";
   };
 
+  // メディアピッカーを開く
+  const openMediaPicker = async () => {
+    setShowAttachPanel(false);
+    setShowMediaPicker(true);
+    setMediaSearch("");
+    setMediaFolderFilter(null);
+    setMediaLoading(true);
+    try {
+      const [filesRes, foldersRes] = await Promise.all([
+        fetch("/api/admin/line/media?file_type=image", { credentials: "include" }),
+        fetch("/api/admin/line/media-folders", { credentials: "include" }),
+      ]);
+      const filesData = await filesRes.json();
+      const foldersData = await foldersRes.json();
+      if (filesData.files) setMediaFiles(filesData.files);
+      if (foldersData.folders) setMediaFolders(foldersData.folders);
+    } catch {
+      // エラー時は空表示
+    }
+    setMediaLoading(false);
+  };
+
+  // メディア画像を送信
+  const handleMediaImageSend = async (file: { file_url: string; name: string }) => {
+    if (!selectedPatient || sendingMediaImage) return;
+    setSendingMediaImage(true);
+    try {
+      const res = await fetch("/api/admin/line/send-media-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ patient_id: selectedPatient.patient_id, image_url: file.file_url }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        shouldScrollToBottom.current = true;
+        setMessages(prev => [...prev, {
+          id: data.messageId ?? Date.now(), content: data.imageUrl || `[画像] ${file.name}`, status: "sent",
+          message_type: "individual", sent_at: data.sentAt || new Date().toISOString(),
+          direction: "outgoing",
+        }]);
+        setShowMediaPicker(false);
+      } else {
+        alert((data.message || data.error) || "画像送信に失敗しました");
+      }
+    } catch {
+      alert("画像送信に失敗しました");
+    }
+    setSendingMediaImage(false);
+  };
+
   // アクション実行
   const openActionPicker = async () => {
     setShowAttachPanel(false);
@@ -1800,6 +1860,15 @@ export default function TalkClient({ initialFriends, initialHasMore }: TalkClien
                     </div>
                     <span className="text-xs font-medium text-gray-700">画像送信</span>
                   </button>
+                  <button
+                    onClick={openMediaPicker}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center group-hover:bg-indigo-500/20 transition-colors">
+                      <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                    </div>
+                    <span className="text-xs font-medium text-gray-700">メディアから選択</span>
+                  </button>
                   {lineCallEnabled && (
                   <button
                     onClick={() => { setShowAttachPanel(false); setShowCallConfirm(true); }}
@@ -2078,6 +2147,85 @@ export default function TalkClient({ initialFriends, initialHasMore }: TalkClien
       )}
 
       {/* アクション選択モーダル */}
+      {/* メディアピッカーモーダル */}
+      {showMediaPicker && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowMediaPicker(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col" style={{ maxHeight: "80vh" }} onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                  <svg className="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                </div>
+                メディアから選択
+              </h3>
+              <button onClick={() => setShowMediaPicker(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+              <select
+                value={mediaFolderFilter ?? ""}
+                onChange={e => setMediaFolderFilter(e.target.value ? parseInt(e.target.value) : null)}
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+              >
+                <option value="">すべてのフォルダ</option>
+                {mediaFolders.map(f => (
+                  <option key={f.id} value={f.id}>{f.name} ({f.file_count})</option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={mediaSearch}
+                onChange={e => setMediaSearch(e.target.value)}
+                placeholder="ファイル名で検索"
+                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+              />
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {mediaLoading ? (
+                <div className="text-center py-12 text-gray-400 text-sm">読み込み中...</div>
+              ) : (() => {
+                const filtered = mediaFiles.filter(f => {
+                  if (f.file_type !== "image") return false;
+                  if (mediaFolderFilter && f.folder_id !== mediaFolderFilter) return false;
+                  if (mediaSearch && !f.name.toLowerCase().includes(mediaSearch.toLowerCase())) return false;
+                  return true;
+                });
+                return filtered.length === 0 ? (
+                  <div className="text-center py-12 text-gray-300 text-sm">画像がありません</div>
+                ) : (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                    {filtered.map(f => (
+                      <button
+                        key={f.id}
+                        onClick={() => handleMediaImageSend(f)}
+                        disabled={sendingMediaImage}
+                        className="group relative aspect-square rounded-xl overflow-hidden border-2 border-transparent hover:border-indigo-500 transition-all disabled:opacity-50"
+                      >
+                        <img src={f.file_url} alt={f.name} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-lg px-3 py-1.5 shadow-lg">
+                            <span className="text-xs font-medium text-indigo-600">送信</span>
+                          </div>
+                        </div>
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                          <p className="text-[10px] text-white truncate">{f.name}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+            {sendingMediaImage && (
+              <div className="px-5 py-3 border-t border-gray-100 text-center">
+                <span className="text-sm text-indigo-600 font-medium">送信中...</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {showActionPicker && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowActionPicker(false)}>
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col" style={{ maxHeight: "80vh" }} onClick={e => e.stopPropagation()}>
