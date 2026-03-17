@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { ReactNode } from "react";
 import { articles } from "../articles";
+import ArticleThumbnail from "./article-thumbnail";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    型定義
@@ -79,16 +80,16 @@ function TableOfContents({ items }: { items: TocItem[] }) {
 
   return (
     <nav aria-label="目次">
-      <p className="mb-3 text-[12px] font-bold text-slate-400 tracking-wider">目次</p>
-      <ul className="space-y-0.5 border-l border-slate-200 text-[13px]">
+      <p className="mb-3 text-[12px] font-bold text-gray-400 tracking-wider">目次</p>
+      <ul className="space-y-0.5 border-l border-gray-200 text-[13px]">
         {items.map((item) => (
           <li key={item.id}>
             <a
               href={`#${item.id}`}
               className={`block border-l-2 py-1.5 pl-4 -ml-px transition ${
                 activeId === item.id
-                  ? "border-blue-500 font-semibold text-slate-900"
-                  : "border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                  ? "border-blue-500 font-semibold text-gray-900"
+                  : "border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-300"
               }`}
             >
               {item.label}
@@ -120,7 +121,7 @@ function ShareButtons({ title, slug }: { title: string; slug: string }) {
         href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-slate-900 hover:bg-slate-900 hover:text-white"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-400 transition hover:border-gray-900 hover:bg-gray-900 hover:text-white"
         aria-label="Xでシェア"
       >
         <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
@@ -129,14 +130,14 @@ function ShareButtons({ title, slug }: { title: string; slug: string }) {
         href={`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-[#06C755] hover:bg-[#06C755] hover:text-white"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-400 transition hover:border-[#06C755] hover:bg-[#06C755] hover:text-white"
         aria-label="LINEでシェア"
       >
         <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current"><path d="M12 2C6.48 2 2 5.82 2 10.5c0 3.31 2.61 6.18 6.5 7.33-.09.35-.59 2.25-.61 2.39 0 0-.01.09.04.12.05.04.11.02.11.02.14-.02 1.68-1.1 2.38-1.62.51.08 1.04.12 1.58.12 5.52 0 10-3.82 10-8.5S17.52 2 12 2z" /></svg>
       </a>
       <button
         onClick={copy}
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-sky-500 hover:bg-sky-500 hover:text-white"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-400 transition hover:border-sky-500 hover:bg-sky-500 hover:text-white"
         aria-label="URLをコピー"
       >
         {copied ? (
@@ -155,13 +156,13 @@ function ShareButtons({ title, slug }: { title: string; slug: string }) {
 
 function AuthorCard() {
   return (
-    <div className="flex items-start gap-4 rounded-lg border border-slate-200 p-5">
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[14px] font-bold text-slate-500">
+    <div className="flex items-start gap-4 rounded-lg border border-gray-200 p-5">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[14px] font-bold text-gray-500">
         L
       </div>
       <div>
-        <p className="text-[13px] font-bold text-slate-900">Lオペ for CLINIC 編集部</p>
-        <p className="mt-1 text-[12px] leading-relaxed text-slate-400">
+        <p className="text-[13px] font-bold text-gray-900">Lオペ for CLINIC 編集部</p>
+        <p className="mt-1 text-[12px] leading-relaxed text-gray-400">
           クリニック経営とLINE公式アカウント活用に関する最新情報をお届けします。予約管理・患者対応・DX推進など、クリニックの業務効率化に役立つノウハウを発信中。
         </p>
       </div>
@@ -176,7 +177,7 @@ function AuthorCard() {
 function KeyPoints({ points }: { points: string[] }) {
   return (
     <div className="rounded-lg border border-sky-200 bg-sky-50/50 p-5">
-      <p className="flex items-center gap-2 text-[13px] font-bold text-slate-800">
+      <p className="flex items-center gap-2 text-[13px] font-bold text-gray-800">
         <svg viewBox="0 0 20 20" className="h-4 w-4 text-sky-500" fill="currentColor">
           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
         </svg>
@@ -184,7 +185,7 @@ function KeyPoints({ points }: { points: string[] }) {
       </p>
       <ul className="mt-3 space-y-2">
         {points.map((p) => (
-          <li key={p} className="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600">
+          <li key={p} className="flex items-start gap-2.5 text-[13px] leading-relaxed text-gray-600">
             <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-sky-400" />
             {p}
           </li>
@@ -200,12 +201,12 @@ function KeyPoints({ points }: { points: string[] }) {
 
 export function InlineCTA() {
   return (
-    <div className="my-10 overflow-hidden rounded-xl bg-gradient-to-r from-blue-50 via-violet-50 to-indigo-50 p-6 text-center ring-1 ring-blue-200/50">
-      <p className="text-[14px] font-bold text-slate-800">クリニックのLINE活用、まずは無料で相談しませんか？</p>
-      <p className="mt-1 text-[12px] text-slate-400">Lオペ for CLINICの機能・料金・導入事例をまとめた資料をお送りします。</p>
+    <div className="my-10 overflow-hidden rounded-xl bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 p-6 text-center ring-1 ring-blue-100">
+      <p className="text-[14px] font-bold text-gray-800">クリニックのLINE活用、まずは無料で相談しませんか？</p>
+      <p className="mt-1 text-[12px] text-gray-500">Lオペ for CLINICの機能・料金・導入事例をまとめた資料をお送りします。</p>
       <a
         href="/lp#contact"
-        className="mt-4 inline-block rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-6 py-2.5 text-[12px] font-bold text-white transition hover:shadow-lg hover:shadow-blue-500/20"
+        className="mt-4 inline-block rounded-lg bg-blue-600 px-6 py-2.5 text-[12px] font-bold text-white transition hover:bg-blue-700 hover:shadow-lg"
       >
         無料で資料請求
       </a>
@@ -234,25 +235,25 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
   const self = articles.find((a) => a.slug === slug)!;
   const related = articles.filter((a) => a.slug !== slug).slice(0, 4);
   const articleRef = useRef<HTMLDivElement>(null);
-  const cc = categoryColors[self.category] || { bg: "bg-slate-50", text: "text-slate-600" };
+  const cc = categoryColors[self.category] || { bg: "bg-gray-50", text: "text-gray-600" };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white text-slate-800">
+    <div className="min-h-screen bg-white text-gray-800">
       <ReadingProgress />
 
       {/* ヘッダー */}
-      <header className="border-b border-slate-100 bg-white">
+      <header className="border-b border-gray-100 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/lp" className="flex items-center gap-1 text-[14px] font-bold tracking-tight text-slate-900 hover:opacity-70 transition">
+          <Link href="/lp" className="flex items-center gap-1 text-[14px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition">
             Lオペ <span className="text-blue-600">for CLINIC</span>
           </Link>
           <div className="flex items-center gap-4">
-            <Link href="/lp/column" className="text-[12px] text-slate-400 hover:text-slate-700 transition">
+            <Link href="/lp/column" className="text-[12px] text-gray-400 hover:text-gray-700 transition">
               コラム一覧
             </Link>
             <a
               href="/lp#contact"
-              className="rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-[12px] font-semibold text-white transition hover:shadow-lg hover:shadow-blue-500/20"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-[12px] font-semibold text-white transition hover:bg-blue-700"
             >
               資料請求
             </a>
@@ -261,41 +262,34 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
       </header>
 
       {/* パンくず */}
-      <div className="border-b border-slate-50 bg-slate-50/50">
+      <div className="border-b border-gray-100 bg-gray-50/50">
         <nav aria-label="パンくずリスト" className="mx-auto max-w-6xl px-6 py-3">
-          <ol className="flex items-center gap-2 text-[12px] text-slate-400 list-none m-0 p-0">
-            <li><Link href="/lp" className="hover:text-slate-700 transition">トップ</Link></li>
-            <li aria-hidden="true" className="text-gray-300">&gt;</li>
-            <li><Link href="/lp/column" className="hover:text-slate-700 transition">コラム</Link></li>
-            <li aria-hidden="true" className="text-gray-300">&gt;</li>
-            <li className="text-slate-700 font-medium">{breadcrumbLabel}</li>
+          <ol className="flex items-center gap-2 text-[12px] text-gray-400 list-none m-0 p-0">
+            <li><Link href="/lp" className="hover:text-blue-600 transition">トップ</Link></li>
+            <li aria-hidden="true" className="text-gray-300">/</li>
+            <li><Link href="/lp/column" className="hover:text-blue-600 transition">コラム</Link></li>
+            <li aria-hidden="true" className="text-gray-300">/</li>
+            <li className="text-gray-700 font-medium">{breadcrumbLabel}</li>
           </ol>
         </nav>
       </div>
 
-      {/* 記事ヘッダー */}
-      <div className="border-b border-slate-100">
-        <div className="mx-auto max-w-3xl px-6 py-10 md:py-14">
-          <div className="flex items-center gap-3">
-            <span className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold ${cc.bg} ${cc.text}`}>
-              {self.category}
-            </span>
-            <time className="text-[12px] text-slate-400">{formatDate(self.date)}</time>
+      {/* marchスタイル記事ヒーロー */}
+      <div className="mx-auto max-w-4xl px-6 pt-6">
+        <div className="overflow-hidden rounded-xl">
+          <ArticleThumbnail slug={slug} title={self.title} category={self.category} size="hero" />
+        </div>
+        {/* メタ情報 */}
+        <div className="mt-5 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-[11px] font-bold text-blue-600">L</div>
+              <span className="text-[12px] text-gray-500">Lオペ for CLINIC 編集部</span>
+            </div>
+            <time className="text-[12px] text-gray-400">{formatDate(self.date)}</time>
             <span className="text-[12px] text-gray-300">{self.readTime}</span>
           </div>
-          <h1 className="mt-4 text-[24px] font-bold leading-snug tracking-tight text-slate-900 md:text-[28px]">
-            {self.title}
-          </h1>
-          <p className="mt-3 text-[14px] leading-relaxed text-slate-500">{self.description}</p>
-
-          {/* シェアボタン（ヘッダー内） */}
-          <div className="mt-6 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-500">L</div>
-              <span className="text-[12px] text-slate-400">Lオペ for CLINIC 編集部</span>
-            </div>
-            <ShareButtons title={self.title} slug={slug} />
-          </div>
+          <ShareButtons title={self.title} slug={slug} />
         </div>
       </div>
 
@@ -312,35 +306,35 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
             )}
 
             {/* モバイル目次 */}
-            <details className="mb-10 rounded-lg border border-slate-200 p-4 lg:hidden">
-              <summary className="cursor-pointer text-[13px] font-bold text-slate-700">目次</summary>
+            <details className="mb-10 rounded-lg border border-gray-200 p-4 lg:hidden">
+              <summary className="cursor-pointer text-[13px] font-bold text-gray-700">目次</summary>
               <div className="mt-3">
                 <TableOfContents items={toc} />
               </div>
             </details>
 
             {/* 本文 */}
-            <div ref={articleRef} className="prose-article space-y-8 text-[15px] leading-[1.9] text-slate-600">
+            <div ref={articleRef} className="prose-article space-y-8 text-[15px] leading-[1.9] text-gray-600">
               {children}
             </div>
 
             {/* シェア + 著者 */}
             <div className="mt-16 space-y-6">
-              <div className="flex items-center justify-between border-t border-slate-100 pt-6">
-                <p className="text-[12px] font-bold text-slate-400">この記事をシェア</p>
+              <div className="flex items-center justify-between border-t border-gray-100 pt-6">
+                <p className="text-[12px] font-bold text-gray-400">この記事をシェア</p>
                 <ShareButtons title={self.title} slug={slug} />
               </div>
               <AuthorCard />
             </div>
 
-            {/* CTA */}
-            <div className="mt-10 overflow-hidden rounded-xl bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-900 p-8 text-center">
-              <p className="text-[11px] font-bold tracking-widest text-blue-300/60 uppercase">Lオペ for CLINIC</p>
-              <h2 className="mt-2 text-[18px] font-bold text-white">クリニックのLINE活用を始めませんか？</h2>
-              <p className="mt-1 text-[13px] text-blue-200/60">予約・問診・配信・決済をオールインワンで。</p>
+            {/* CTA（明るいトーン） */}
+            <div className="mt-10 overflow-hidden rounded-xl bg-gradient-to-br from-blue-50 via-indigo-50 to-violet-50 p-8 text-center ring-1 ring-blue-100">
+              <p className="text-[11px] font-bold tracking-widest text-blue-400 uppercase">Lオペ for CLINIC</p>
+              <h2 className="mt-2 text-[18px] font-bold text-gray-800">クリニックのLINE活用を始めませんか？</h2>
+              <p className="mt-1 text-[13px] text-gray-500">予約・問診・配信・決済をオールインワンで。</p>
               <a
                 href="/lp#contact"
-                className="mt-4 inline-block rounded-lg bg-gradient-to-r from-blue-500 to-violet-500 px-8 py-3 text-[13px] font-bold text-white transition hover:shadow-lg hover:shadow-blue-500/30"
+                className="mt-4 inline-block rounded-lg bg-blue-600 px-8 py-3 text-[13px] font-bold text-white transition hover:bg-blue-700 hover:shadow-lg"
               >
                 無料で資料請求
               </a>
@@ -348,10 +342,10 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
 
             {/* 関連記事 */}
             <div className="mt-12">
-              <h2 className="text-[16px] font-bold text-slate-900">関連記事</h2>
+              <h2 className="text-[16px] font-bold text-gray-900">関連記事</h2>
               <div className="mt-4 divide-y divide-slate-100">
                 {related.map((a) => {
-                  const rc = categoryColors[a.category] || { bg: "bg-slate-50", text: "text-slate-600" };
+                  const rc = categoryColors[a.category] || { bg: "bg-gray-50", text: "text-gray-600" };
                   return (
                     <Link
                       key={a.slug}
@@ -363,7 +357,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
                           {a.category}
                         </span>
                       </div>
-                      <p className="text-[13px] font-semibold text-slate-700 group-hover:text-blue-600 transition leading-relaxed">
+                      <p className="text-[13px] font-semibold text-gray-700 group-hover:text-blue-600 transition leading-relaxed">
                         {a.title}
                       </p>
                     </Link>
@@ -377,9 +371,9 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
           <aside className="hidden w-52 shrink-0 lg:block">
             <div className="sticky top-8 space-y-8">
               <TableOfContents items={toc} />
-              <div className="rounded-lg border border-slate-200 p-4 text-center">
-                <p className="text-[12px] font-bold text-slate-700">無料で資料請求</p>
-                <p className="mt-1 text-[11px] text-slate-400">まずはお気軽にご相談ください</p>
+              <div className="rounded-lg border border-gray-200 p-4 text-center">
+                <p className="text-[12px] font-bold text-gray-700">無料で資料請求</p>
+                <p className="mt-1 text-[11px] text-gray-400">まずはお気軽にご相談ください</p>
                 <a
                   href="/lp#contact"
                   className="mt-3 inline-block w-full rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 py-2.5 text-[11px] font-bold text-white transition hover:shadow-md hover:shadow-blue-500/20"
@@ -393,14 +387,18 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
       </div>
 
       {/* フッター */}
-      <footer className="border-t border-slate-100 bg-slate-50 py-8 text-center">
-        <Link href="/lp/column" className="text-[12px] text-slate-400 hover:text-slate-600 transition">
-          ← コラム一覧に戻る
-        </Link>
-        <span className="mx-3 text-gray-200">|</span>
-        <Link href="/lp" className="text-[12px] text-slate-400 hover:text-slate-600 transition">
-          Lオペ for CLINIC トップ
-        </Link>
+      <footer className="border-t border-gray-200 bg-gray-50 py-8 text-center">
+        <div className="flex items-center justify-center gap-6">
+          <Link href="/lp/column" className="text-[12px] text-gray-400 hover:text-blue-600 transition">
+            ← コラム一覧に戻る
+          </Link>
+          <Link href="/lp" className="text-[12px] text-gray-400 hover:text-blue-600 transition">
+            Lオペ for CLINIC トップ
+          </Link>
+          <Link href="/lp/features" className="text-[12px] text-gray-400 hover:text-blue-600 transition">
+            機能一覧
+          </Link>
+        </div>
       </footer>
     </div>
   );
@@ -424,11 +422,11 @@ export function ResultCard({ before, after, metric, description }: {
   description?: string;
 }) {
   return (
-    <div className="my-6 overflow-hidden rounded-lg border border-slate-200 bg-white">
+    <div className="my-6 overflow-hidden rounded-lg border border-gray-200 bg-white">
       <div className="flex items-stretch divide-x divide-slate-200">
-        <div className="flex-1 bg-slate-50 p-4 text-center">
-          <p className="text-[11px] font-bold text-slate-400 uppercase">Before</p>
-          <p className="mt-1 text-[22px] font-bold text-slate-400">{before}</p>
+        <div className="flex-1 bg-gray-50 p-4 text-center">
+          <p className="text-[11px] font-bold text-gray-400 uppercase">Before</p>
+          <p className="mt-1 text-[22px] font-bold text-gray-400">{before}</p>
         </div>
         <div className="flex items-center px-3">
           <svg className="h-5 w-5 text-sky-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M13 7l5 5m0 0l-5 5m5-5H6" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -438,9 +436,9 @@ export function ResultCard({ before, after, metric, description }: {
           <p className="mt-1 text-[22px] font-bold text-sky-600">{after}</p>
         </div>
       </div>
-      <div className="border-t border-slate-100 px-4 py-2.5 text-center">
-        <p className="text-[13px] font-bold text-slate-700">{metric}</p>
-        {description && <p className="mt-0.5 text-[12px] text-slate-400">{description}</p>}
+      <div className="border-t border-gray-100 px-4 py-2.5 text-center">
+        <p className="text-[13px] font-bold text-gray-700">{metric}</p>
+        {description && <p className="mt-0.5 text-[12px] text-gray-400">{description}</p>}
       </div>
     </div>
   );
@@ -451,11 +449,11 @@ export function StatGrid({ stats }: { stats: { value: string; unit?: string; lab
   return (
     <div className={`my-6 grid gap-3 ${stats.length <= 3 ? "grid-cols-3" : "grid-cols-2 md:grid-cols-4"}`}>
       {stats.map((s) => (
-        <div key={s.label} className="rounded-lg border border-slate-200 bg-white p-4 text-center">
-          <p className="text-[24px] font-bold tracking-tight text-slate-900">
-            {s.value}<span className="text-[14px] text-slate-400">{s.unit || ""}</span>
+        <div key={s.label} className="rounded-lg border border-gray-200 bg-white p-4 text-center">
+          <p className="text-[24px] font-bold tracking-tight text-gray-900">
+            {s.value}<span className="text-[14px] text-gray-400">{s.unit || ""}</span>
           </p>
-          <p className="mt-1 text-[11px] text-slate-500">{s.label}</p>
+          <p className="mt-1 text-[11px] text-gray-500">{s.label}</p>
         </div>
       ))}
     </div>
@@ -469,16 +467,16 @@ export function BarChart({ data, unit }: { data: { label: string; value: number;
     <div className="my-6 space-y-3">
       {data.map((d) => (
         <div key={d.label} className="flex items-center gap-3">
-          <span className="w-28 shrink-0 text-right text-[12px] text-slate-600">{d.label}</span>
+          <span className="w-28 shrink-0 text-right text-[12px] text-gray-600">{d.label}</span>
           <div className="flex-1">
-            <div className="h-7 rounded-sm bg-slate-100">
+            <div className="h-7 rounded-sm bg-gray-100">
               <div
                 className={`h-full rounded-sm ${d.color || "bg-sky-500"} transition-all duration-500`}
                 style={{ width: `${(d.value / maxVal) * 100}%` }}
               />
             </div>
           </div>
-          <span className="w-16 text-[13px] font-bold text-slate-700">{d.value}{unit || ""}</span>
+          <span className="w-16 text-[13px] font-bold text-gray-700">{d.value}{unit || ""}</span>
         </div>
       ))}
     </div>
@@ -491,20 +489,20 @@ export function ComparisonTable({ headers, rows }: {
   rows: (string | boolean)[][];
 }) {
   return (
-    <div className="my-6 overflow-x-auto rounded-lg border border-slate-200">
+    <div className="my-6 overflow-x-auto rounded-lg border border-gray-200">
       <table className="w-full text-[13px]">
         <thead>
-          <tr className="bg-slate-50">
+          <tr className="bg-gray-50">
             {headers.map((h, i) => (
-              <th key={i} className={`px-4 py-3 font-semibold text-slate-700 ${i === 0 ? "text-left" : "text-center"}`}>{h}</th>
+              <th key={i} className={`px-4 py-3 font-semibold text-gray-700 ${i === 0 ? "text-left" : "text-center"}`}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {rows.map((row, ri) => (
-            <tr key={ri} className="hover:bg-slate-50/50">
+            <tr key={ri} className="hover:bg-gray-50/50">
               {row.map((cell, ci) => (
-                <td key={ci} className={`px-4 py-3 ${ci === 0 ? "text-left text-slate-700" : "text-center"}`}>
+                <td key={ci} className={`px-4 py-3 ${ci === 0 ? "text-left text-gray-700" : "text-center"}`}>
                   {typeof cell === "boolean" ? (
                     cell ? (
                       <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-sky-100 text-sky-600">
@@ -549,7 +547,7 @@ export function Callout({ type = "info", title, children }: {
         </svg>
         <div>
           {title && <p className={`text-[13px] font-bold ${s.titleColor}`}>{title}</p>}
-          <div className="mt-1 text-[13px] leading-relaxed text-slate-600">{children}</div>
+          <div className="mt-1 text-[13px] leading-relaxed text-gray-600">{children}</div>
         </div>
       </div>
     </div>
@@ -563,14 +561,14 @@ export function FlowSteps({ steps }: { steps: { title: string; desc: string }[] 
       {steps.map((s, i) => (
         <div key={i} className="flex gap-4">
           <div className="flex flex-col items-center">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-900 text-[12px] font-bold text-white">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-[12px] font-bold text-white">
               {i + 1}
             </div>
             {i < steps.length - 1 && <div className="h-full w-px bg-gray-200" />}
           </div>
           <div className="pb-6">
-            <p className="text-[14px] font-bold text-slate-900">{s.title}</p>
-            <p className="mt-1 text-[13px] leading-relaxed text-slate-500">{s.desc}</p>
+            <p className="text-[14px] font-bold text-gray-900">{s.title}</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-gray-500">{s.desc}</p>
           </div>
         </div>
       ))}
@@ -600,12 +598,12 @@ export function DonutChart({ percentage, label, sublabel }: {
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-[20px] font-bold text-slate-900">{percentage}%</span>
+          <span className="text-[20px] font-bold text-gray-900">{percentage}%</span>
         </div>
       </div>
       <div>
-        <p className="text-[15px] font-bold text-slate-900">{label}</p>
-        {sublabel && <p className="mt-0.5 text-[12px] text-slate-400">{sublabel}</p>}
+        <p className="text-[15px] font-bold text-gray-900">{label}</p>
+        {sublabel && <p className="mt-0.5 text-[12px] text-gray-400">{sublabel}</p>}
       </div>
     </div>
   );
