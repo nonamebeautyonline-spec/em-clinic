@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   title: "コラム | Lオペ for CLINIC — クリニック LINE活用・DX情報",
   description:
     "クリニックのLINE公式アカウント活用事例・DX導入ガイド・ツール比較など、クリニック経営に役立つ情報を発信。Lオペ for CLINIC公式コラム。",
+  keywords: "クリニック LINE 活用事例, クリニック DX ガイド, LINE公式アカウント 活用, クリニック 予約システム 比較, クリニック 経営, 美容クリニック LINE, 歯科 LINE 活用, 皮膚科 LINE, オンライン診療 LINE, クリニック 集患, リピート率 向上, ブロック率 下げる, リッチメニュー 設計, AI自動返信 導入, クリニック KPI",
   alternates: { canonical: `${SITE_URL}/lp/column` },
   openGraph: {
     title: "コラム | Lオペ for CLINIC",

@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: "機能一覧 | Lオペ for CLINIC — LINE公式アカウント クリニック運用プラットフォーム",
   description:
     "Lオペ for CLINICの全40機能以上を一覧で紹介。患者CRM・セグメント配信・リッチメニュー・オンライン問診・予約管理・AI自動返信・音声カルテ・決済管理・配送管理・在庫管理・NPS調査・フロービルダーなど、LINE公式アカウントでクリニック業務をDX化する全機能を解説。",
+  keywords: "Lオペ 機能一覧, クリニック LINE 機能, 患者CRM, セグメント配信, リッチメニュー ビルダー, AI自動返信 クリニック, 音声カルテ AI, 予約管理 LINE, オンライン問診, 電子カルテ連携, 配送管理 クリニック, 在庫管理, NPS調査, フロービルダー, チャットボット ビルダー, A/Bテスト LINE, クーポン管理, ダッシュボード 経営, 売上分析 LTV, ステップシナリオ, Flex Message",
   alternates: { canonical: `${SITE_URL}/lp/features` },
   openGraph: {
     title: "機能一覧（40機能以上）| Lオペ for CLINIC",
