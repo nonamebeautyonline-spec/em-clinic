@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, { InlineCTA, Callout, StatGrid, ResultCard, FlowSteps, BarChart, ComparisonTable } from "../_components/article-layout";
 
@@ -136,11 +137,11 @@ export default function Page() {
         />
 
         <Callout type="success" title="LINEリマインドのコスト優位性">
-          SMSは1通あたり3〜10円のコストがかかりますが、LINEは配信プラン内であれば追加コストなしで送れます。到達率が高く低コストで、無断キャンセルを大幅に削減できます。
+          SMSは1通あたり3〜10円のコストがかかりますが、LINEは配信プラン内であれば追加コストなしで送れます。到達率が高く低コストで、無断キャンセルを大幅に削減できます。LINEリマインドによる無断キャンセル対策の詳細は<Link href="/lp/column/line-reservation-no-show" className="text-blue-600 underline">LINE予約管理で無断キャンセルを削減する方法</Link>で解説しています。
         </Callout>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">マーケティング連携</h3>
-        <p>LINE連携のある予約システムなら、予約データと配信機能を組み合わせた高度なマーケティングが可能になります。「最終来院から3ヶ月経過した患者にリマインド」「特定の施術を受けた患者に関連施術を案内」など、予約データをトリガーにした自動配信で再診率を向上させられます。</p>
+        <p>LINE連携のある予約システムなら、予約データと配信機能を組み合わせた高度なマーケティングが可能になります。「最終来院から3ヶ月経過した患者にリマインド」「特定の施術を受けた患者に関連施術を案内」など、予約データをトリガーにした自動配信で再診率を向上させられます。セグメント配信の具体的な手法は<Link href="/lp/column/segment-delivery-repeat" className="text-blue-600 underline">LINEセグメント配信でリピート率を向上させる方法</Link>もあわせてご覧ください。</p>
       </section>
 
       <section>
@@ -174,7 +175,7 @@ export default function Page() {
           <li><strong>自院の規模とフェーズに合ったシステムを選ぶ</strong> — 開業時はシンプルなものから始め、成長に合わせてアップグレード</li>
           <li><strong>トータルコストで比較</strong> — 初期費用だけでなく、月額・従量課金・オプション費用も含めて検討</li>
           <li><strong>リマインド機能の充実度</strong> — 無断キャンセル削減の効果が最も投資対効果が高い</li>
-          <li><strong>拡張性を見据える</strong> — 電子カルテ連携・決済連携・分院管理など、将来の拡張に対応できるか</li>
+          <li><strong>拡張性を見据える</strong> — <Link href="/lp/column/electronic-medical-record-guide" className="text-blue-600 underline">電子カルテ</Link>連携・決済連携・分院管理など、将来の拡張に対応できるか</li>
         </ol>
         <p className="mt-4">Lオペ for CLINICは、予約管理・LINE連携・問診・決済・配信をオールインワンで提供するクリニック専用プラットフォームです。予約システムの乗り換えや新規導入をご検討の方は、お気軽にご相談ください。</p>
       </section>

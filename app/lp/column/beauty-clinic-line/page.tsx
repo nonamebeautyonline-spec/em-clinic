@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, { InlineCTA, Callout, StatGrid, ResultCard, FlowSteps, BarChart, ComparisonTable, DonutChart } from "../_components/article-layout";
 
@@ -155,7 +156,7 @@ export default function Page() {
 
       <section>
         <h2 id="repeat-segment" className="text-xl font-bold text-gray-800">リピート施術のセグメント配信</h2>
-        <p>美容施術の多くは、効果を維持するために定期的な再施術が必要です。施術メニューごとに推奨される再施術サイクルは異なるため、セグメント配信で適切なタイミングにリマインドを送ることがリピート率向上の鍵になります。</p>
+        <p>美容施術の多くは、効果を維持するために定期的な再施術が必要です。施術メニューごとに推奨される再施術サイクルは異なるため、セグメント配信で適切なタイミングにリマインドを送ることがリピート率向上の鍵になります。セグメント配信の詳しい設計方法は<Link href="/lp/column/segment-delivery-repeat" className="text-sky-600 underline hover:text-sky-800">LINEセグメント配信でリピート率を向上</Link>で解説しています。</p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">施術別の配信サイクル</h3>
 
@@ -175,7 +176,7 @@ export default function Page() {
 
       <section>
         <h2 id="review-promotion" className="text-xl font-bold text-gray-800">口コミ促進 — 満足度アンケート+Google口コミ誘導</h2>
-        <p>美容クリニック選びにおいて、口コミは患者の意思決定に最も大きな影響を与える要因の一つです。</p>
+        <p>美容クリニック選びにおいて、口コミは患者の意思決定に最も大きな影響を与える要因の一つです。なお、配信のしすぎでブロックされてしまっては元も子もありません。<Link href="/lp/column/line-block-rate-reduction" className="text-sky-600 underline hover:text-sky-800">ブロック率を下げる5つの鉄則</Link>を押さえた上で口コミ促進を進めましょう。</p>
 
         <StatGrid stats={[
           { value: "0.5", unit: "点UP", label: "Google評価が上がるだけで" },
@@ -206,7 +207,7 @@ export default function Page() {
           { title: "口コミ", desc: "2ステップ方式でGoogle口コミの質と量を最大化" },
         ]} />
 
-        <p className="mt-4">Lオペ for CLINICは、美容クリニックに必要なこれらの機能をオールインワンで提供します。カウンセリング予約・写真管理・セグメント配信・口コミ促進まで、LINE一つで患者体験を最大化しませんか。</p>
+        <p className="mt-4">Lオペ for CLINICは、美容クリニックに必要なこれらの機能をオールインワンで提供します。カウンセリング予約・写真管理・セグメント配信・口コミ促進まで、LINE一つで患者体験を最大化しませんか。オンライン診療との連携に興味がある方は<Link href="/lp/column/online-medical-line" className="text-sky-600 underline hover:text-sky-800">オンライン診療×LINE</Link>の記事もご覧ください。</p>
       </section>
     </ArticleLayout>
   );

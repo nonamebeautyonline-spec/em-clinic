@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, { InlineCTA, Callout, StatGrid, ResultCard, FlowSteps, BarChart, ComparisonTable, DonutChart } from "../_components/article-layout";
 
@@ -62,7 +63,7 @@ export default function Page() {
         </Callout>
 
         <Callout type="success" title="AI自動返信で解決">
-          24時間365日の問い合わせ対応が実現し、患者が「聞きたい」と思ったその瞬間に回答を返すことで、新患獲得率とリピート率の両方を向上させることが可能です。
+          24時間365日の問い合わせ対応が実現し、患者が「聞きたい」と思ったその瞬間に回答を返すことで、新患獲得率とリピート率の両方を向上させることが可能です。新患獲得の前段としてLINE友だちを増やす方法は<Link href="/lp/column/clinic-line-friends-growth" className="text-blue-600 underline">LINE友だち集め月100人増やす7つの施策</Link>で解説しています。
         </Callout>
       </section>
 
@@ -126,7 +127,7 @@ export default function Page() {
         </ul>
 
         <Callout type="success" title="スタッフの業務を半分以上削減">
-          AI対応可能な問い合わせが全体の60%を占めるということは、スタッフの問い合わせ対応業務の半分以上をAIに任せられるということです。
+          AI対応可能な問い合わせが全体の60%を占めるということは、スタッフの問い合わせ対応業務の半分以上をAIに任せられるということです。AI自動返信と組み合わせて<Link href="/lp/column/rich-menu-design" className="text-blue-600 underline">リッチメニュー設計</Link>を最適化すると、患者のセルフサービス率をさらに高められます。
         </Callout>
       </section>
 
@@ -236,7 +237,7 @@ export default function Page() {
         <ol className="list-decimal pl-6 space-y-2">
           <li><strong>営業時間外対応が新患獲得の鍵</strong> — 問い合わせの70%が営業時間外。即時対応で他院への流出を防ぐ</li>
           <li><strong>ハイブリッド方式で精度とコストを最適化</strong> — 定型回答はルールベース、複雑な質問はAIで対応</li>
-          <li><strong>スタッフ修正フィードバックで精度向上</strong> — 運用しながら学習データを蓄積し、3ヶ月で正答率90%以上へ</li>
+          <li><strong>スタッフ修正フィードバックで精度向上</strong> — 運用しながら学習データを蓄積し、3ヶ月で正答率90%以上へ。的外れな回答によるブロックを防ぐコツは<Link href="/lp/column/line-block-rate-reduction" className="text-blue-600 underline">ブロック率を下げる5つの鉄則</Link>も参考になります</li>
           <li><strong>段階的に導入</strong> — いきなり全面導入ではなく、営業時間外→FAQ→対応範囲拡大と段階的にリリース</li>
           <li><strong>エスカレーション設計が最重要</strong> — AIが対応すべきでないケースを明確に定義し、確実に人間にバトンタッチ</li>
         </ol>

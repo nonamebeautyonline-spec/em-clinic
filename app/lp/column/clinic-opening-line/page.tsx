@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, { InlineCTA, Callout, StatGrid, ComparisonTable, FlowSteps, BarChart, DonutChart } from "../_components/article-layout";
 
@@ -93,7 +94,7 @@ export default function Page() {
         <p>開業3ヶ月前からは、友だち獲得のアクセルを踏みましょう。</p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-6">友だち先行登録キャンペーン</h3>
-        <p>「開業前に友だち登録された方限定」の特典を用意し、登録のインセンティブを高めます。</p>
+        <p>「開業前に友だち登録された方限定」の特典を用意し、登録のインセンティブを高めます。友だちを効率よく集める具体的な手法は<Link href="/lp/column/clinic-line-friends-growth" className="text-sky-600 underline hover:text-sky-800">LINE友だち集め月100人増やす7つの施策</Link>で詳しくまとめています。</p>
 
         <ComparisonTable
           headers={["特典タイプ", "内容", "効果"]}
@@ -226,7 +227,7 @@ export default function Page() {
 
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: 開業前からのLINE活用が集患の成否を分ける</h2>
-        <p>クリニック開業の成功は「開業日にどれだけ患者が来るか」で大きく左右されます。LINE公式アカウントを<strong>開業6ヶ月前から戦略的に活用</strong>することで、開業初日から予約が入る状態を作り、その後のリピート促進・口コミ拡散の好循環を生み出せます。</p>
+        <p>クリニック開業の成功は「開業日にどれだけ患者が来るか」で大きく左右されます。LINE公式アカウントを<strong>開業6ヶ月前から戦略的に活用</strong>することで、開業初日から予約が入る状態を作り、その後のリピート促進・口コミ拡散の好循環を生み出せます。リッチメニューの具体的な設計手法は<Link href="/lp/column/rich-menu-design" className="text-sky-600 underline hover:text-sky-800">リッチメニュー設計5つのポイント</Link>で、開業後の経営戦略については<Link href="/lp/column/clinic-management-success" className="text-sky-600 underline hover:text-sky-800">クリニック経営で成功するポイント</Link>で解説していますので、合わせてご確認ください。</p>
 
         <BarChart
           data={[

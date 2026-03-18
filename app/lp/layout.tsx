@@ -73,6 +73,16 @@ const jsonLd = [
       email: "info@l-ope.jp",
       availableLanguage: "Japanese",
     },
+    knowsAbout: [
+      "LINE公式アカウント運用",
+      "クリニックDX",
+      "患者CRM",
+      "医療業務効率化",
+      "オンライン問診",
+      "セグメント配信",
+      "AI自動返信",
+      "電子カルテ連携",
+    ],
     sameAs: [],
   },
   {

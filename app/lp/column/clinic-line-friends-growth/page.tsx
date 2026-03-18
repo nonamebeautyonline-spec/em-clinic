@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, { InlineCTA, Callout, StatGrid, BarChart, ComparisonTable, FlowSteps, ResultCard, DonutChart } from "../_components/article-layout";
 
@@ -69,7 +70,7 @@ export default function Page() {
           { value: "100", unit: "件", label: "予約数" },
         ]} />
 
-        <p>さらに、友だち数が増えるとセグメント配信の精度も向上します。母数が多いほどセグメントごとのサンプル数が確保でき、配信効果の検証・改善サイクルが回しやすくなるためです。</p>
+        <p>さらに、友だち数が増えるとセグメント配信の精度も向上します。母数が多いほどセグメントごとのサンプル数が確保でき、配信効果の検証・改善サイクルが回しやすくなるためです。セグメント配信の具体的な手法は<Link href="/lp/column/segment-delivery-repeat" className="text-emerald-700 underline">LINEセグメント配信でリピート率を向上させる方法</Link>で詳しく解説しています。</p>
       </section>
 
       <section>
@@ -85,7 +86,7 @@ export default function Page() {
         ]} />
 
         <Callout type="success" title="POPデザインのポイント">
-          「友だち追加で何ができるか」を明確に伝えましょう。「LINEで予約確認・変更ができます」「診察結果をLINEで受け取れます」など、患者にとっての具体的なメリットを打ち出すことが重要です。
+          「友だち追加で何ができるか」を明確に伝えましょう。「LINEで予約確認・変更ができます」「診察結果をLINEで受け取れます」など、患者にとっての具体的なメリットを打ち出すことが重要です。リッチメニューの設計次第で友だち追加後の体験が大きく変わるため、<Link href="/lp/column/rich-menu-design" className="text-emerald-700 underline">リッチメニュー設計5つのポイント</Link>も合わせて確認しておきましょう。
         </Callout>
       </section>
 
@@ -242,7 +243,7 @@ export default function Page() {
 
         <DonutChart percentage={80} label="来院患者のLINE登録率" sublabel="院内施策の徹底で目指す目標値" />
 
-        <p>LINE友だち数はクリニックの売上を左右する最重要指標の一つです。院内施策（POP・声かけ・特典）を軸に、Web・SNS・オフラインの導線を組み合わせることで、<strong>月100人以上のペースで友だちを増やす</strong>ことが可能です。</p>
+        <p>LINE友だち数はクリニックの売上を左右する最重要指標の一つです。院内施策（POP・声かけ・特典）を軸に、Web・SNS・オフラインの導線を組み合わせることで、<strong>月100人以上のペースで友だちを増やす</strong>ことが可能です。友だちを増やした後はブロックされないことも重要です。<Link href="/lp/column/line-block-rate-reduction" className="text-emerald-700 underline">ブロック率を下げる5つの鉄則</Link>も併せてご覧ください。</p>
 
         <Callout type="success" title="成功のポイント">
           一つの施策に頼るのではなく、複数の施策を同時に運用し、それぞれのKPIを追いかけること。友だち数が1,000人、2,000人と積み上がるにつれて、セグメント配信の効果も増幅し、クリニック経営の安定基盤が築かれます。

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, {
   InlineCTA,
@@ -57,7 +58,7 @@ export default function Page() {
       {/* ── なぜCRM ── */}
       <section>
         <h2 id="why-crm" className="text-xl font-bold text-gray-800">なぜクリニックにCRMが必要なのか</h2>
-        <p>クリニック経営の競争が激化する中、患者との関係性を管理し、再診率やLTVを高めるCRM（顧客関係管理）の導入が不可欠になっています。</p>
+        <p>クリニック経営の競争が激化する中、患者との関係性を管理し、再診率やLTVを高めるCRM（顧客関係管理）の導入が不可欠になっています。経営課題の全体像については<Link href="/lp/column/clinic-management-success" className="text-sky-600 underline hover:text-sky-800">クリニック経営で成功するポイント</Link>もあわせてご覧ください。</p>
 
         <StatGrid stats={[
           { value: "64", unit: "件", label: "2024年 医療機関倒産数" },
@@ -137,7 +138,7 @@ export default function Page() {
         <FlowSteps steps={[
           { title: "医療業界での導入実績", desc: "医療機関特有のワークフロー（予約・問診・カルテ）に対応した実績があるかを確認。汎用CRMは医療業務にフィットしない場合がある。" },
           { title: "セキュリティ水準", desc: "患者の個人情報・医療情報を扱うため、SSL暗号化・アクセス権限管理・監査ログなどのセキュリティ機能が必須。" },
-          { title: "LINE連携の有無", desc: "開封率80%のLINEと連携できるかは、患者コミュニケーションの効果に直結。LINE非対応のCRMは別途配信ツールが必要になりコスト増。" },
+          { title: "LINE連携の有無", desc: "開封率80%のLINEと連携できるかは、患者コミュニケーションの効果に直結。LINE非対応のCRMは別途配信ツールが必要になりコスト増。開封率80%のLINEと連携できるかは、患者コミュニケーションの効果に直結。LINE非対応のCRMは別途配信ツールが必要になりコスト増。" },
         ]} />
 
         <BarChart
@@ -166,7 +167,7 @@ export default function Page() {
           <ul className="mt-1 space-y-1">
             <li>• <strong>作業効率化</strong> — 手作業の転記・電話リマインド・紙問診からの解放</li>
             <li>• <strong>患者分析</strong> — LTV・リピート率・離脱率をデータで可視化し、施策を最適化</li>
-            <li>• <strong>コミュニケーション強化</strong> — パーソナライズされたフォローアップで患者満足度向上</li>
+            <li>• <strong>コミュニケーション強化</strong> — パーソナライズされたフォローアップで患者満足度向上（<Link href="/lp/column/segment-delivery-repeat" className="text-sky-600 underline hover:text-sky-800">LINEセグメント配信でリピート率を向上</Link>も参考になります）</li>
             <li>• <strong>経営判断の精度向上</strong> — ダッシュボードでKPIをリアルタイム把握</li>
           </ul>
         </Callout>
@@ -187,7 +188,7 @@ export default function Page() {
           ]}
         />
 
-        <p>LINE公式アカウントを中心にクリニック業務を一元管理したい場合は、Lオペ for CLINICがクリニック専用設計で最もフィットします。</p>
+        <p>LINE公式アカウントを中心にクリニック業務を一元管理したい場合は、Lオペ for CLINICがクリニック専用設計で最もフィットします。予約管理機能をさらに比較したい方は<Link href="/lp/column/reservation-system-comparison" className="text-sky-600 underline hover:text-sky-800">予約システム比較10選</Link>も参考にしてください。</p>
       </section>
     </ArticleLayout>
   );

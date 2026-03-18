@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, { InlineCTA, Callout, StatGrid, ResultCard, BarChart, FlowSteps, ComparisonTable, DonutChart } from "../_components/article-layout";
 
@@ -81,7 +82,7 @@ export default function Page() {
           { value: "5〜10", unit: "倍", label: "新患獲得 vs リピートのコスト差" },
         ]} />
         <h3 className="text-lg font-semibold text-gray-700 mt-4">改善アクション</h3>
-        <p>LINEのセグメント配信を活用し、最終来院日から一定期間経過した患者に自動でフォローメッセージを送信します。</p>
+        <p>LINEの<Link href="/lp/column/segment-delivery-repeat" className="text-blue-600 underline">セグメント配信</Link>を活用し、最終来院日から一定期間経過した患者に自動でフォローメッセージを送信します。</p>
         <ResultCard before="再診率 45%" after="再診率 70%" metric="+25pt 改善" description="LINEフォローメッセージ導入による再診率の変化" />
       </section>
 
@@ -107,7 +108,7 @@ export default function Page() {
 
       <section>
         <h2 id="kpi-4" className="text-xl font-bold text-gray-800">KPI 4: 予約充填率と無断キャンセル率</h2>
-        <p>予約枠がどれだけ埋まっているか（充填率）と、予約したのに連絡なく来院しなかった割合（無断キャンセル率）は、クリニックの稼働効率を直接示す重要指標です。</p>
+        <p>予約枠がどれだけ埋まっているか（充填率）と、予約したのに連絡なく来院しなかった割合（無断キャンセル率）は、クリニックの稼働効率を直接示す重要指標です。無断キャンセル率の改善施策については<Link href="/lp/column/line-reservation-no-show" className="text-blue-600 underline">LINE予約管理で無断キャンセルを削減する方法</Link>で詳しく解説しています。</p>
         <StatGrid stats={[
           { value: "85〜95", unit: "%", label: "予約充填率の理想値" },
           { value: "3", unit: "%以下", label: "無断キャンセル率の目標" },
@@ -123,7 +124,7 @@ export default function Page() {
 
       <section>
         <h2 id="kpi-5" className="text-xl font-bold text-gray-800">KPI 5: LINE友だち数と増加ペース</h2>
-        <p>LINE友だち数は、クリニックが保有する「直接リーチ可能な患者基盤」の規模を示します。友だち数の絶対値だけでなく、<strong>増加ペースとブロック率</strong>を合わせて管理することが重要です。</p>
+        <p>LINE友だち数は、クリニックが保有する「直接リーチ可能な患者基盤」の規模を示します。友だち数の絶対値だけでなく、<strong>増加ペースとブロック率</strong>を合わせて管理することが重要です。友だち数を効率的に増やす具体的な施策は<Link href="/lp/column/clinic-line-friends-growth" className="text-blue-600 underline">LINE友だち集め月100人増やす7つの施策</Link>を参考にしてください。</p>
         <StatGrid stats={[
           { value: "15", unit: "%以下", label: "ブロック率の目標" },
           { value: "2〜3", unit: "倍", label: "インセンティブ設定時の追加率向上" },

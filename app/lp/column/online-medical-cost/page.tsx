@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, {
   InlineCTA,
@@ -57,7 +58,7 @@ export default function Page() {
       {/* ── 全体像 ── */}
       <section>
         <h2 id="overview" className="text-xl font-bold text-gray-800">導入費用と運用費用の全体像</h2>
-        <p>オンライン診療の費用は大きく「導入時（初期費用）」と「運用時（ランニングコスト）」に分かれます。</p>
+        <p>オンライン診療の費用は大きく「導入時（初期費用）」と「運用時（ランニングコスト）」に分かれます。オンライン診療の仕組みや活用方法の全体像は<Link href="/lp/column/online-medical-line" className="text-sky-600 underline hover:text-sky-800">オンライン診療×LINE</Link>で解説しています。</p>
 
         <StatGrid stats={[
           { value: "50〜300", unit: "万円", label: "初期費用の目安" },
@@ -81,6 +82,7 @@ export default function Page() {
           ]}
         />
 
+        <p>予約システムの選定でお悩みの方は<Link href="/lp/column/reservation-system-comparison" className="text-sky-600 underline hover:text-sky-800">予約システム比較10選</Link>も参考にしてください。</p>
         <Callout type="warning" title="注意：電子カルテとの端末共用はNG">
           電子カルテとオンライン診療を同一端末で使用すると、患者情報漏洩や不正アクセスのリスクが高まります。端末は必ず分離してください。
         </Callout>
@@ -156,7 +158,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICは、LINE上で予約・問診・決済・配送管理まで完結するオールインワンプラットフォーム。オンライン診療の導入コストを最小限に抑えながら、患者体験を最大化します。</p>
+        <p>Lオペ for CLINICは、LINE上で予約・問診・決済・配送管理まで完結するオールインワンプラットフォーム。オンライン診療の導入コストを最小限に抑えながら、患者体験を最大化します。DX化の進め方全体については<Link href="/lp/column/clinic-dx-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>もご覧ください。</p>
       </section>
     </ArticleLayout>
   );

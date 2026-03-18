@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, { InlineCTA, Callout, StatGrid, ComparisonTable, FlowSteps, ResultCard, BarChart, DonutChart } from "../_components/article-layout";
 
@@ -96,7 +97,7 @@ export default function Page() {
 
       <section>
         <h2 id="line-flow" className="text-xl font-bold text-gray-800">LINE起点のオンライン診療フロー</h2>
-        <p>これらの課題を解決するのが、<strong>LINE公式アカウントを起点としたオンライン診療フロー</strong>です。患者が日常的に使っているLINEの中で、予約から配送まですべてが完結します。</p>
+        <p>これらの課題を解決するのが、<strong>LINE公式アカウントを起点としたオンライン診療フロー</strong>です。患者が日常的に使っているLINEの中で、予約から配送まですべてが完結します。予約システムの選び方については<Link href="/lp/column/reservation-system-comparison" className="text-sky-600 underline hover:text-sky-800">予約システム比較10選</Link>も合わせてご覧ください。</p>
 
         <FlowSteps steps={[
           { title: "予約（LINE）", desc: "リッチメニューから「オンライン診療予約」をタップ。空き枠がカレンダー形式で表示され、ワンタップで予約完了" },
@@ -160,7 +161,7 @@ export default function Page() {
 
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: LINEでオンライン診療の患者体験を根本から変える</h2>
-        <p>オンライン診療の成功は、医療の質だけでなく<strong>患者体験（UX）の設計</strong>にかかっています。専用アプリ・別システム決済・煩雑な予約といった従来の課題を、LINE起点のフローで一掃することで、患者の利便性とクリニックの業務効率を同時に向上させられます。</p>
+        <p>オンライン診療の成功は、医療の質だけでなく<strong>患者体験（UX）の設計</strong>にかかっています。専用アプリ・別システム決済・煩雑な予約といった従来の課題を、LINE起点のフローで一掃することで、患者の利便性とクリニックの業務効率を同時に向上させられます。なお、オンライン診療フローの起点となるリッチメニューの設計については<Link href="/lp/column/rich-menu-design" className="text-sky-600 underline hover:text-sky-800">リッチメニュー設計5つのポイント</Link>で詳しく解説しています。また、電子カルテとの連携を検討中の方は<Link href="/lp/column/electronic-medical-record-guide" className="text-sky-600 underline hover:text-sky-800">電子カルテ選び方ガイド</Link>も参考にしてください。</p>
         <p>Lオペ for CLINICは、LINE上での予約・問診・決済・配送追跡・フォローアップまでワンストップで提供。<strong>オンライン診療に最適化されたLINE運用プラットフォーム</strong>として、クリニックのオンライン診療を全面的にサポートします。</p>
       </section>
     </ArticleLayout>

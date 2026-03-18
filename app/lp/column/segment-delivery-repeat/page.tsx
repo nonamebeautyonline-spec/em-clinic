@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, {
   InlineCTA,
@@ -57,7 +58,7 @@ export default function Page() {
         <p>多くのクリニックがLINE公式アカウントで一斉配信を行っていますが、全患者に同じメッセージを送っても効果は限定的です。</p>
 
         <Callout type="warning" title="一斉配信の根本的な問題">
-          20代の美容目的の患者と60代の慢性疾患の患者では、必要な情報もフォローのタイミングも全く異なります。全員に同じメッセージを送ることは、患者にとって「不要な通知」となりブロックの原因に。
+          20代の美容目的の患者と60代の慢性疾患の患者では、必要な情報もフォローのタイミングも全く異なります。全員に同じメッセージを送ることは、患者にとって「不要な通知」となりブロックの原因になります。ブロック対策の詳細は<Link href="/lp/column/line-block-rate-reduction" className="text-emerald-700 underline">ブロック率を下げる5つの鉄則</Link>をご覧ください。
         </Callout>
 
         <BarChart
@@ -130,8 +131,8 @@ export default function Page() {
 
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: セグメント配信でリピート率向上を実現</h2>
-        <p>セグメント配信は、クリニックのLINE活用において<strong>最もROIが高い施策</strong>の一つです。一斉配信からセグメント配信に切り替えるだけで、再来院率が20〜30%向上するケースも珍しくありません。</p>
-        <p>Lオペ for CLINICなら、来院履歴・予約・決済データと連動したセグメント配信が標準機能として搭載。クリニックに最適化されたセグメント設計を簡単に実現できます。</p>
+        <p>セグメント配信は、クリニックのLINE活用において<strong>最もROIが高い施策</strong>の一つです。一斉配信からセグメント配信に切り替えるだけで、再来院率が20〜30%向上するケースも珍しくありません。セグメント配信の効果を最大化するには、まず友だち数の母数を増やすことが重要です。具体的な施策は<Link href="/lp/column/clinic-line-friends-growth" className="text-emerald-700 underline">LINE友だち集め月100人増やす7つの施策</Link>で解説しています。</p>
+        <p>Lオペ for CLINICなら、来院履歴・予約・決済データと連動したセグメント配信が標準機能として搭載。クリニックに最適化されたセグメント設計を簡単に実現できます。導入クリニックの具体的な成果については<Link href="/lp/column/clinic-line-case-studies" className="text-emerald-700 underline">クリニックのLINE公式アカウント活用事例5選</Link>もご覧ください。</p>
       </section>
     </ArticleLayout>
   );

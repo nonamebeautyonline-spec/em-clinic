@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, { InlineCTA, Callout, StatGrid, ResultCard, BarChart, FlowSteps, ComparisonTable } from "../_components/article-layout";
 
@@ -61,7 +62,7 @@ export default function Page() {
           ]}
         />
         <Callout type="warning" title="注意点">
-          <p>多くの運用代行業者はLステップやLinyなどの汎用LINE拡張ツールを利用しており、クリニック特化の知識を持つ業者は限られているのが現状です。</p>
+          <p>多くの運用代行業者はLステップやLinyなどの汎用LINE拡張ツールを利用しており、クリニック特化の知識を持つ業者は限られているのが現状です。汎用ツールとクリニック専用ツールの違いについては<Link href="/lp/column/lstep-vs-clinic-tool" className="text-sky-600 underline hover:text-sky-800">Lステップ・Liny vs クリニック専用ツール比較</Link>で詳しく解説しています。</p>
         </Callout>
       </section>
 
@@ -148,7 +149,7 @@ export default function Page() {
 
       <section>
         <h2 id="tool-selection" className="text-xl font-bold text-gray-800">自社運用を成功させるためのツール選び</h2>
-        <p>自社運用の成否は、<strong>使用するツールの選択</strong>に大きく左右されます。</p>
+        <p>自社運用の成否は、<strong>使用するツールの選択</strong>に大きく左右されます。実際にLINEを活用して成果を出したクリニックの事例は<Link href="/lp/column/clinic-line-case-studies" className="text-sky-600 underline hover:text-sky-800">クリニックのLINE公式アカウント活用事例5選</Link>も参考になります。</p>
         <h3 className="text-lg font-semibold text-gray-700 mt-4">ツール選びの5つのチェックポイント</h3>
         <FlowSteps steps={[
           { title: "クリニック業務に特化", desc: "予約管理・問診・カルテ連携など医療特有の機能が標準搭載されているか" },
@@ -178,7 +179,7 @@ export default function Page() {
           { value: "即時", unit: "", label: "急な配信変更の対応速度" },
           { value: "半額以下", unit: "", label: "ハイブリッド方式の年間コスト" },
         ]} />
-        <p className="mt-4">Lオペ for CLINICは、クリニックの自社運用を前提に設計されたLINE運用プラットフォームです。直感的な操作性と充実したテンプレートで、ITに詳しくないスタッフでもすぐに運用を開始できます。初期構築サポートからトレーニングまで、自社運用の立ち上げを伴走いたします。</p>
+        <p className="mt-4">Lオペ for CLINICは、クリニックの自社運用を前提に設計されたLINE運用プラットフォームです。直感的な操作性と充実したテンプレートで、ITに詳しくないスタッフでもすぐに運用を開始できます。初期構築サポートからトレーニングまで、自社運用の立ち上げを伴走いたします。まずは<Link href="/lp/column/clinic-line-friends-growth" className="text-sky-600 underline hover:text-sky-800">LINE友だち集め月100人増やす7つの施策</Link>から取り組んでみてはいかがでしょうか。</p>
       </section>
     </ArticleLayout>
   );

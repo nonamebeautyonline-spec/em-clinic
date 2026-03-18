@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, { InlineCTA, Callout, StatGrid, ResultCard, BarChart, FlowSteps, ComparisonTable } from "../_components/article-layout";
 
@@ -96,7 +97,7 @@ export default function Page() {
           { title: "来院・診察", desc: "医師は事前に問診内容を確認済み。効率的な診察が可能" },
         ]} />
         <Callout type="success" title="LINEで問診を送る利点">
-          <p>メールの開封率20〜30%に対し、LINEの開封率は80%超。問診の回答率も必然的に高くなります。また、患者は新たなアプリをインストールする必要がなく、普段使い慣れたLINEの画面から問診フォームにアクセスできます。</p>
+          <p>メールの開封率20〜30%に対し、LINEの開封率は80%超。問診の回答率も必然的に高くなります。また、患者は新たなアプリをインストールする必要がなく、普段使い慣れたLINEの画面から問診フォームにアクセスできます。問診後の予約管理と組み合わせるなら<Link href="/lp/column/reservation-system-comparison" className="text-blue-600 underline">予約システム比較10選</Link>も参考にしてください。</p>
         </Callout>
       </section>
 
@@ -141,7 +142,7 @@ export default function Page() {
           { label: "メール送付の回答率", value: 45, color: "#94a3b8" },
         ]} unit="%" />
         <Callout type="success" title="データ活用の事例">
-          <p>ある内科クリニックでは、オンライン問診データの分析から「花粉症の問い合わせが2月上旬から急増する」という傾向を発見。1月下旬にLINE配信を行ったところ、花粉症シーズンの来院数が<strong>前年比130%</strong>に増加しました。</p>
+          <p>ある内科クリニックでは、オンライン問診データの分析から「花粉症の問い合わせが2月上旬から急増する」という傾向を発見。1月下旬にLINE配信を行ったところ、花粉症シーズンの来院数が<strong>前年比130%</strong>に増加しました。このようなデータ活用をはじめとするクリニックのDX推進については<Link href="/lp/column/clinic-dx-guide" className="text-blue-600 underline">クリニックDX完全ガイド</Link>で体系的に解説しています。</p>
         </Callout>
       </section>
 
@@ -152,7 +153,7 @@ export default function Page() {
           { title: "スタッフの業務効率化", desc: "手入力・転記作業をゼロに" },
           { title: "経営データの活用", desc: "問診データの分析でマーケティング・経営判断を最適化" },
         ]} />
-        <p className="mt-4">Lオペ for CLINICは、LINE友だち追加から問診送付、予約連携までをワンストップで実現するオンライン問診機能を提供しています。紙の問診票からの移行を検討されている方は、ぜひお気軽にご相談ください。</p>
+        <p className="mt-4">オンライン問診で得たデータを電子カルテと連携させることで、さらなる業務効率化が実現します。連携のポイントは<Link href="/lp/column/electronic-medical-record-guide" className="text-blue-600 underline">電子カルテ選び方ガイド</Link>をご覧ください。Lオペ for CLINICは、LINE友だち追加から問診送付、予約連携までをワンストップで実現するオンライン問診機能を提供しています。紙の問診票からの移行を検討されている方は、ぜひお気軽にご相談ください。</p>
       </section>
     </ArticleLayout>
   );

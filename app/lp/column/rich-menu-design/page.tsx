@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, { InlineCTA, Callout, StatGrid, ComparisonTable, FlowSteps, BarChart, DonutChart } from "../_components/article-layout";
 
@@ -56,7 +57,7 @@ export default function Page() {
           リッチメニューは患者が最初に目にするUIであり、予約・問診・お問い合わせなど主要機能への入口です。設計がそのまま患者の行動導線と利便性を決定します。
         </Callout>
 
-        <p>LINE公式アカウントの標準機能では1パターンのリッチメニューしか設定できませんが、Lオペのようなツールを使えば、患者の状態に応じて<strong>複数のリッチメニューを動的に切り替える</strong>ことが可能になります。</p>
+        <p>LINE公式アカウントの標準機能では1パターンのリッチメニューしか設定できませんが、Lオペのようなツールを使えば、患者の状態に応じて<strong>複数のリッチメニューを動的に切り替える</strong>ことが可能になります。なお、友だち数を効率よく増やす施策については<Link href="/lp/column/clinic-line-friends-growth" className="text-sky-600 underline hover:text-sky-800">LINE友だち集め月100人増やす7つの施策</Link>をご覧ください。</p>
       </section>
 
       <section>
@@ -161,7 +162,7 @@ export default function Page() {
 
       <section>
         <h2 id="point-5" className="text-xl font-bold text-gray-800">ポイント5: 定期的なA/Bテストと改善</h2>
-        <p>リッチメニューは作って終わりではなく、<strong>継続的にテスト・改善するもの</strong>です。以下の要素をA/Bテストし、クリック率やコンバージョン率を改善していきましょう。</p>
+        <p>リッチメニューは作って終わりではなく、<strong>継続的にテスト・改善するもの</strong>です。配信施策全体のブロック率を抑える工夫については<Link href="/lp/column/line-block-rate-reduction" className="text-sky-600 underline hover:text-sky-800">ブロック率を下げる5つの鉄則</Link>も併せて確認しておくと効果的です。以下の要素をA/Bテストし、クリック率やコンバージョン率を改善していきましょう。</p>
 
         <ComparisonTable
           headers={["テスト要素", "パターン例", "検証ポイント"]}
@@ -202,7 +203,7 @@ export default function Page() {
 
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: リッチメニューはクリニックLINEの「顔」</h2>
-        <p>リッチメニューは患者がLINE公式アカウントを開いたときに最初に目にするUIであり、<strong>クリニックのデジタル上の「顔」</strong>とも言えます。ボタン配置・状態連動切替・デザイン・導線設計・継続改善の5つのポイントを押さえることで、患者の利便性と満足度を大きく向上させられます。</p>
+        <p>リッチメニューは患者がLINE公式アカウントを開いたときに最初に目にするUIであり、<strong>クリニックのデジタル上の「顔」</strong>とも言えます。ボタン配置・状態連動切替・デザイン・導線設計・継続改善の5つのポイントを押さえることで、患者の利便性と満足度を大きく向上させられます。美容クリニックでのリッチメニュー活用例は<Link href="/lp/column/beauty-clinic-line" className="text-sky-600 underline hover:text-sky-800">美容クリニックのLINE活用術</Link>でも紹介しています。</p>
         <p>Lオペ for CLINICでは、クリニック専用に設計されたリッチメニューテンプレートと、予約・来院状態に連動した自動切替機能を標準搭載。デザインの知識がなくても、<strong>プロ品質のリッチメニュー</strong>をすぐに導入できます。</p>
       </section>
     </ArticleLayout>

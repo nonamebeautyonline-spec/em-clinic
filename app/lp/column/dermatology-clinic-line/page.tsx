@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, { InlineCTA, Callout, StatGrid, ResultCard, FlowSteps, ComparisonTable, DonutChart } from "../_components/article-layout";
 
@@ -61,7 +62,7 @@ export default function Page() {
 
       <section>
         <h2 id="online-consultation" className="text-xl font-bold text-gray-800">オンライン診療×LINE — 再診は写真送信で完結</h2>
-        <p>皮膚科はオンライン診療との相性が非常に良い診療科です。特に再診では、患者が<strong>LINEで患部の写真を送信する</strong>だけで診察が完結するケースが多くあります。</p>
+        <p>皮膚科はオンライン診療との相性が非常に良い診療科です。オンライン診療とLINEの連携について詳しくは<Link href="/lp/column/online-medical-line" className="text-blue-600 underline">オンライン診療×LINEの活用法</Link>もあわせてご覧ください。特に再診では、患者が<strong>LINEで患部の写真を送信する</strong>だけで診察が完結するケースが多くあります。</p>
         <FlowSteps steps={[
           { title: "処方薬の残量確認", desc: "薬がなくなる2週間前にLINEで自動通知「お薬の残りはありますか？」" },
           { title: "症状写真の送信", desc: "患者がLINEのトーク画面から患部の写真を撮影・送信" },
@@ -123,7 +124,7 @@ export default function Page() {
           { value: "月2〜4", unit: "回", label: "最適な配信頻度" },
         ]} />
         <Callout type="info" title="配信のポイント">
-          <p>セグメント配信を活用して「アトピー性皮膚炎の患者」「ニキビ治療中の患者」など、関心のある情報のみを届けることで、開封率とクリック率を最大化できます。「かかりつけの皮膚科」としてのブランド認知を維持し、症状が出た際に真っ先に相談される関係性を構築しましょう。</p>
+          <p><Link href="/lp/column/segment-delivery-repeat" className="text-blue-600 underline">セグメント配信</Link>を活用して「アトピー性皮膚炎の患者」「ニキビ治療中の患者」など、関心のある情報のみを届けることで、開封率とクリック率を最大化できます。「かかりつけの皮膚科」としてのブランド認知を維持し、症状が出た際に真っ先に相談される関係性を構築しましょう。配信頻度が高すぎるとブロックにつながるため、<Link href="/lp/column/line-block-rate-reduction" className="text-blue-600 underline">ブロック率を下げる5つの鉄則</Link>も参考にしてください。</p>
         </Callout>
       </section>
 

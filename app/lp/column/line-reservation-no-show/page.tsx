@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, {
   InlineCTA,
@@ -68,7 +69,7 @@ export default function Page() {
 
       <section>
         <h2 id="phone-limit" className="text-xl font-bold text-gray-800">電話リマインドの限界</h2>
-        <p>多くのクリニックでは受付スタッフが予約前日に電話でリマインドしています。しかし、この方法には深刻な課題があります。</p>
+        <p>多くのクリニックでは受付スタッフが予約前日に電話でリマインドしています。しかし、この方法には深刻な課題があります。実際にLINEリマインドでキャンセルを80%削減した事例は<Link href="/lp/column/clinic-line-case-studies" className="text-emerald-700 underline">クリニックのLINE公式アカウント活用事例5選</Link>でも紹介しています。</p>
 
         <BarChart
           data={[
@@ -122,7 +123,7 @@ export default function Page() {
 
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ</h2>
-        <p>無断キャンセル対策の本質は、<strong>患者が「面倒くさい」と感じるハードルを徹底的に下げる</strong>ことです。LINEという日常的に使うツール上で、予約確認・変更・キャンセルをワンタップで完結させることが最も効果的です。</p>
+        <p>無断キャンセル対策の本質は、<strong>患者が「面倒くさい」と感じるハードルを徹底的に下げる</strong>ことです。LINEという日常的に使うツール上で、予約確認・変更・キャンセルをワンタップで完結させることが最も効果的です。予約システムの選び方については<Link href="/lp/column/reservation-system-comparison" className="text-emerald-700 underline">予約システム比較10選</Link>も参考にしてください。また、キャンセル対策と合わせて<Link href="/lp/column/line-block-rate-reduction" className="text-emerald-700 underline">ブロック率を下げる5つの鉄則</Link>も押さえておくと、患者との接点を維持しやすくなります。</p>
       </section>
     </ArticleLayout>
   );

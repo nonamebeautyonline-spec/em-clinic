@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, {
   InlineCTA,
@@ -73,7 +74,7 @@ export default function Page() {
           メールの約3倍、DMハガキの約7倍。LINEは患者に確実に届くコミュニケーションチャネルです。
         </Callout>
 
-        <p>しかし、多くのクリニックではLINE公式アカウントを開設しただけで活用しきれていないのが実情です。ここでは、LINE公式アカウントを効果的に活用しているクリニックの事例を5つご紹介します。</p>
+        <p>しかし、多くのクリニックではLINE公式アカウントを開設しただけで活用しきれていないのが実情です。ツール選定で迷っている方は<Link href="/lp/column/lstep-vs-clinic-tool" className="text-emerald-700 underline">Lステップ・Liny vs クリニック専用ツール比較</Link>も参考にしてください。ここでは、LINE公式アカウントを効果的に活用しているクリニックの事例を5つご紹介します。</p>
       </section>
 
       {/* ── 事例1 ── */}
@@ -116,6 +117,8 @@ export default function Page() {
         ]} />
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">成果</h3>
+        <p>セグメント配信の具体的なノウハウは<Link href="/lp/column/segment-delivery-repeat" className="text-emerald-700 underline">LINEセグメント配信でリピート率を向上させる方法</Link>で詳しく解説しています。</p>
+
         <ResultCard before="再診率 45%" after="再診率 70%" metric="再診率25ポイント向上" description="DMハガキの月額5万円コスト削減" />
 
         <DonutChart percentage={70} label="再診率 70%達成" sublabel="導入前45%から大幅に改善" />
@@ -139,6 +142,8 @@ export default function Page() {
         ]} />
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">成果</h3>
+        <p>リマインド配信によるキャンセル対策の詳細は<Link href="/lp/column/line-reservation-no-show" className="text-emerald-700 underline">LINE予約管理で無断キャンセルを削減する方法</Link>をご覧ください。</p>
+
         <ResultCard before="月30件" after="月6件" metric="無断キャンセルを80%削減" description="空き枠の稼働率向上で月間売上12%増加" />
 
         <StatGrid stats={[

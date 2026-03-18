@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, {
   InlineCTA,
@@ -57,7 +58,7 @@ export default function Page() {
         <p>「LINE公式アカウントをもっと活用したい」と考えたとき、まず候補に上がるのがLステップやLinyなどの汎用LINE配信ツールです。これらは飲食・EC・美容サロンなど幅広い業種に対応しており、高機能なツールです。</p>
 
         <Callout type="warning" title="クリニック特有の業務フローに注意">
-          汎用ツールは「配信・タグ管理」が主領域。問診・カルテ・決済・配送といった医療特有の業務フローはカバーできず、複数SaaSを組み合わせる必要があります。
+          汎用ツールは「配信・タグ管理」が主領域。問診・カルテ・決済・配送といった医療特有の業務フローはカバーできず、複数SaaSを組み合わせる必要があります。実際のクリニック活用事例は<Link href="/lp/column/clinic-line-case-studies" className="text-emerald-700 underline">クリニックのLINE公式アカウント活用事例5選</Link>で紹介しています。
         </Callout>
       </section>
 
@@ -122,7 +123,7 @@ export default function Page() {
 
       <section>
         <h2 id="cost" className="text-xl font-bold text-gray-800">費用の違い: 複数SaaS vs オールインワン</h2>
-        <p>クリニックが汎用ツール＋各種SaaSを組み合わせた場合と、オールインワンツールの費用を比較します。</p>
+        <p>クリニックが汎用ツール＋各種SaaSを組み合わせた場合と、オールインワンツールの費用を比較します。予約システム単体の比較は<Link href="/lp/column/reservation-system-comparison" className="text-emerald-700 underline">予約システム比較10選</Link>で詳しく解説しています。</p>
 
         <BarChart
           data={[
@@ -147,7 +148,7 @@ export default function Page() {
 
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: クリニックには専用ツールを選ぶべき</h2>
-        <p>Lステップ・Linyは優れたLINE配信ツールですが、クリニックの業務フロー全体をカバーするには力不足です。<strong>LINE配信だけでなく、予約・問診・カルテ・決済・配送まで統合管理</strong>したいクリニックには、専用設計のツールが最適解です。</p>
+        <p>Lステップ・Linyは優れたLINE配信ツールですが、クリニックの業務フロー全体をカバーするには力不足です。<strong>LINE配信だけでなく、予約・問診・カルテ・決済・配送まで統合管理</strong>したいクリニックには、専用設計のツールが最適解です。LINE起点でDXを進める全体像については<Link href="/lp/column/clinic-dx-guide" className="text-emerald-700 underline">クリニックDX完全ガイド</Link>も併せてご覧ください。</p>
       </section>
     </ArticleLayout>
   );

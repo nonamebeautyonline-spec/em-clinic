@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, { InlineCTA, Callout, StatGrid, ResultCard, BarChart, FlowSteps, ComparisonTable, DonutChart } from "../_components/article-layout";
 
@@ -57,7 +58,7 @@ export default function Page() {
           { label: "診療所 電子カルテ普及率", value: 50, color: "#94a3b8" },
         ]} unit="%" />
         <Callout type="point" title="LINEがDXの最初の一歩に最適な理由">
-          <p>LINEは患者の大半がすでに利用しているため、新たなアプリ導入のハードルがありません。小さく始めて大きな成果を出した5つの事例を紹介します。</p>
+          <p>LINEは患者の大半がすでに利用しているため、新たなアプリ導入のハードルがありません。小さく始めて大きな成果を出した5つの事例を紹介します。DXの全体像については<Link href="/lp/column/clinic-dx-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>もあわせてご覧ください。</p>
         </Callout>
       </section>
 
@@ -102,6 +103,7 @@ export default function Page() {
           { title: "キャンセル待ち自動通知", desc: "キャンセル発生時に待ちリストの患者へ自動通知" },
         ]} />
         <ResultCard before="無断キャンセル 月40件" after="無断キャンセル 月8件" metric="80% 削減" description="月間売上損失を60万円から12万円に削減" />
+        <p>無断キャンセル対策の詳しいノウハウは<Link href="/lp/column/line-reservation-no-show" className="text-sky-600 underline hover:text-sky-800">LINE予約管理で無断キャンセルを削減</Link>で解説しています。</p>
         <StatGrid stats={[
           { value: "60", unit: "%", label: "空き枠の再充填率" },
           { value: "20", unit: "時間/月", label: "リマインド電話の工数削減" },
@@ -161,6 +163,7 @@ export default function Page() {
           { value: "45", unit: "%", label: "治療完了後の再来院率（15%→）" },
         ]} />
         <ResultCard before="リハビリ中断率 35%" after="リハビリ中断率 12%" metric="23pt 改善" description="セグメント配信による継続治療サポートの効果" />
+        <p>セグメント配信の設計方法については<Link href="/lp/column/segment-delivery-repeat" className="text-sky-600 underline hover:text-sky-800">LINEセグメント配信でリピート率を向上</Link>で詳しく紹介しています。</p>
       </section>
 
       <section>

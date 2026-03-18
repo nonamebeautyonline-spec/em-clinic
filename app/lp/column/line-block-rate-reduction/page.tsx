@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, { InlineCTA, Callout, StatGrid, ResultCard, FlowSteps, BarChart, ComparisonTable, DonutChart } from "../_components/article-layout";
 
@@ -94,7 +95,7 @@ export default function Page() {
 
       <section>
         <h2 id="rule-2" className="text-xl font-bold text-gray-800">鉄則2: 患者に関係のある情報だけ送る — セグメント活用</h2>
-        <p>ブロック理由の第2位は「自分に関係のない情報が送られてくる」です。この問題を解決するのが<strong>セグメント配信</strong>です。</p>
+        <p>ブロック理由の第2位は「自分に関係のない情報が送られてくる」です。この問題を解決するのが<strong>セグメント配信</strong>です。セグメント配信の具体的な設計手法やリピート率向上の事例は<Link href="/lp/column/segment-delivery-repeat" className="text-sky-600 underline hover:text-sky-800">LINEセグメント配信でリピート率を向上</Link>で詳しく解説しています。</p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">効果的なセグメント例</h3>
 
@@ -198,7 +199,7 @@ export default function Page() {
 
       <section>
         <h2 id="case-study" className="text-xl font-bold text-gray-800">ブロック率を5%から0.8%に改善した事例</h2>
-        <p>ある皮膚科クリニック（友だち数3,200人）の事例をご紹介します。LINE公式アカウント開設当初は一斉配信を週2回行っており、ブロック率は<strong>5%</strong>に達していました。</p>
+        <p>ある皮膚科クリニック（友だち数3,200人）の事例をご紹介します。他のクリニックの成功事例は<Link href="/lp/column/clinic-line-case-studies" className="text-sky-600 underline hover:text-sky-800">クリニックのLINE公式アカウント活用事例5選</Link>でも紹介しています。LINE公式アカウント開設当初は一斉配信を週2回行っており、ブロック率は<strong>5%</strong>に達していました。</p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">実施した改善施策</h3>
 
@@ -234,7 +235,7 @@ export default function Page() {
           <li><strong>配信時間帯を最適化</strong> — 18〜20時のゴールデンタイムを活用し、開封率を最大化</li>
           <li><strong>ブロック分析でPDCAを回す</strong> — データに基づいた改善を継続し、ブロック率を最小化</li>
         </ol>
-        <p className="mt-4">Lオペ for CLINICなら、セグメント配信・配信スケジュール管理・ブロック率分析ダッシュボードまでオールインワンで提供。患者に嫌われない配信運用を、すぐに始められます。</p>
+        <p className="mt-4">Lオペ for CLINICなら、セグメント配信・配信スケジュール管理・ブロック率分析ダッシュボードまでオールインワンで提供。患者に嫌われない配信運用を、すぐに始められます。ブロック率を含むクリニック経営のKPI管理については<Link href="/lp/column/clinic-kpi-dashboard" className="text-sky-600 underline hover:text-sky-800">KPI7選</Link>も参考にしてください。</p>
       </section>
     </ArticleLayout>
   );

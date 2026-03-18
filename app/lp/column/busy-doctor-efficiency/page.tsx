@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, {
   InlineCTA,
@@ -140,13 +141,13 @@ export default function Page() {
       {/* ── DX詳細 ── */}
       <section>
         <h2 id="dx-detail" className="text-xl font-bold text-gray-800">DXで変わるクリニック業務</h2>
-        <p>DXは「初期投資が必要」というハードルがありますが、導入後の効果は絶大です。</p>
+        <p>DXは「初期投資が必要」というハードルがありますが、導入後の効果は絶大です。DXの全体像や進め方は<Link href="/lp/column/clinic-dx-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>で体系的に解説しています。</p>
 
         <ComparisonTable
           headers={["業務", "Before（手作業）", "After（DX化）"]}
           rows={[
             ["予約受付", "電話対応 1日2時間", "LINE予約で自動受付"],
-            ["問診", "紙の問診票を手入力", "LINE問診で自動取込"],
+            ["問診", "紙の問診票を手入力", "LINE問診で自動取込（詳細は「オンライン問診導入ガイド」参照）"],
             ["リマインド", "前日に電話（不在率50%）", "LINE自動送信（開封率80%）"],
             ["再診促進", "DMハガキ（開封率12%）", "セグメント配信（開封率80%）"],
             ["決済", "窓口精算・銀行振込確認", "LINE上でカード決済完結"],
@@ -169,13 +170,13 @@ export default function Page() {
         <Callout type="success" title="開業医の業務効率化のポイント">
           <ul className="mt-1 space-y-1">
             <li>• 開業医は「医師」と「経営者」の二足のわらじ。時間管理が経営の生命線</li>
-            <li>• 予約・問診・リマインド・決済の自動化で受付業務を60%削減可能</li>
+            <li>• 予約・問診・リマインド・決済の自動化で受付業務を60%削減可能（<Link href="/lp/column/online-questionnaire-guide" className="text-sky-600 underline hover:text-sky-800">オンライン問診導入ガイド</Link>も参考にしてください）</li>
             <li>• LINEを起点にしたDXなら、患者の利便性向上と業務効率化を同時に実現</li>
             <li>• 「いつかやる」ではなく「今始める」ことで、競合クリニックとの差別化につながる</li>
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICは、開業医の「診療に集中したい」という想いを実現するクリニック専用のLINE運用プラットフォームです。予約・問診・配信・決済・配送管理をオールインワンで自動化し、忙しい開業医の時間を取り戻します。</p>
+        <p>Lオペ for CLINICは、開業医の「診療に集中したい」という想いを実現するクリニック専用のLINE運用プラットフォームです。予約・問診・配信・決済・配送管理をオールインワンで自動化し、忙しい開業医の時間を取り戻します。AI自動返信による問い合わせ対応の自動化については<Link href="/lp/column/ai-auto-reply-guide" className="text-sky-600 underline hover:text-sky-800">AI自動返信導入ガイド</Link>もご覧ください。</p>
       </section>
     </ArticleLayout>
   );

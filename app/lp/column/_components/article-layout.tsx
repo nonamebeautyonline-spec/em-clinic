@@ -155,15 +155,33 @@ function ShareButtons({ title, slug }: { title: string; slug: string }) {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function AuthorCard() {
+  const personJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "name": "Lオペ for CLINIC 編集部",
+    "url": "https://l-ope.jp/lp/about",
+    "worksFor": {
+      "@type": "Organization",
+      "name": "Lオペ for CLINIC",
+      "url": "https://l-ope.jp",
+    },
+    "description": "クリニック×LINE活用の専門メディア。医療DX・LINE公式アカウント運用・患者CRM・予約管理の実践的ノウハウを発信。",
+    "knowsAbout": ["LINE公式アカウント運用", "クリニックDX", "患者CRM", "医療業務効率化"],
+  };
+
   return (
     <div className="flex items-start gap-4 rounded-lg border border-gray-200 p-5">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
+      />
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[14px] font-bold text-gray-500">
         L
       </div>
       <div>
         <p className="text-[13px] font-bold text-gray-900">Lオペ for CLINIC 編集部</p>
         <p className="mt-1 text-[12px] leading-relaxed text-gray-400">
-          クリニック経営とLINE公式アカウント活用に関する最新情報をお届けします。予約管理・患者対応・DX推進など、クリニックの業務効率化に役立つノウハウを発信中。
+          クリニック×LINE活用の専門メディア。医療DX・LINE公式アカウント運用・患者CRM・予約管理の実践的ノウハウを発信。
         </p>
       </div>
     </div>
@@ -290,7 +308,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-[11px] font-bold text-blue-600">L</div>
               <span className="text-[12px] text-gray-500">Lオペ for CLINIC 編集部</span>
             </div>
-            <time className="text-[12px] text-gray-400">{formatDate(self.date)}</time>
+            <time dateTime={self.date} className="text-[12px] text-gray-400">{formatDate(self.date)}</time>
             <span className="text-[12px] text-gray-300">{self.readTime}</span>
           </div>
           <ShareButtons title={self.title} slug={slug} />

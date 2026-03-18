@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, { InlineCTA, Callout, StatGrid, ResultCard, FlowSteps, BarChart, ComparisonTable } from "../_components/article-layout";
 
@@ -61,7 +62,7 @@ export default function Page() {
         />
 
         <Callout type="warning" title="根本原因は「コミュニケーション不足」">
-          定期検診の離脱（「痛みがなくなったから」「忙しくて忘れた」）、治療中断（複数回通院が必要な治療の途中離脱）、無断キャンセル。これらの課題はいずれも「患者との適切なタイミングでのコミュニケーション不足」が原因です。LINEで解決できます。
+          定期検診の離脱（「痛みがなくなったから」「忙しくて忘れた」）、治療中断（複数回通院が必要な治療の途中離脱）、無断キャンセル。これらの課題はいずれも「患者との適切なタイミングでのコミュニケーション不足」が原因です。LINEで解決できます。無断キャンセル対策については<Link href="/lp/column/line-reservation-no-show" className="text-blue-600 underline">LINE予約管理で無断キャンセルを削減する方法</Link>も参考にしてください。
         </Callout>
       </section>
 
@@ -172,7 +173,7 @@ export default function Page() {
         />
 
         <Callout type="point" title="情報提供から予約導線へ">
-          季節やイベントに紐づけた配信は「自分に関係がある」と感じてもらいやすく、開封率が向上します。配信内容の最後に予約リンクを添えておくことで、自然な導線を作れます。
+          季節やイベントに紐づけた配信は「自分に関係がある」と感じてもらいやすく、開封率が向上します。配信内容の最後に予約リンクを添えておくことで、自然な導線を作れます。ブロックされないための配信テクニックは<Link href="/lp/column/line-block-rate-reduction" className="text-blue-600 underline">ブロック率を下げる5つの鉄則</Link>で詳しく解説しています。
         </Callout>
       </section>
 
@@ -225,7 +226,7 @@ export default function Page() {
           { title: "口腔ケアTips配信", desc: "有益な情報で友だち離脱を防止し、来院モチベーションを維持" },
         ]} />
 
-        <p className="mt-4">Lオペ for CLINICは、歯科クリニックの定期検診リマインド・治療計画管理・予約連携をオールインワンで提供します。定期検診の通院率向上とキャンセル削減を実現しませんか。</p>
+        <p className="mt-4">歯科クリニックでもLINE友だちの集め方は重要です。具体的な施策は<Link href="/lp/column/clinic-line-friends-growth" className="text-blue-600 underline">LINE友だち集め月100人増やす7つの施策</Link>を参考にしてください。Lオペ for CLINICは、歯科クリニックの定期検診リマインド・治療計画管理・予約連携をオールインワンで提供します。定期検診の通院率向上とキャンセル削減を実現しませんか。</p>
       </section>
     </ArticleLayout>
   );

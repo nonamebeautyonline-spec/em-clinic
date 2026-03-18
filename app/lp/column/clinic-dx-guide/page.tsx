@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, {
   InlineCTA,
@@ -56,7 +57,7 @@ export default function Page() {
         <p>DX（デジタルトランスフォーメーション）とは、デジタル技術を活用して業務プロセスやサービス提供の方法を根本的に変革することです。クリニックにおけるDXとは、紙やExcel、電話に頼っていた業務をデジタル化し、<strong>患者体験の向上と業務効率化を同時に実現</strong>することを指します。</p>
 
         <Callout type="warning" title="「何から始めればいいか分からない」が最大の壁">
-          電子カルテ・予約システム・LINE配信・決済...選択肢が多すぎて手が止まるケースが大半です。このガイドでは、LINE公式アカウントを起点にした段階的なDXの進め方を解説します。
+          電子カルテ・予約システム・LINE配信・決済...選択肢が多すぎて手が止まるケースが大半です。LINE活用の具体的な成功事例は<Link href="/lp/column/clinic-line-case-studies" className="text-emerald-700 underline">クリニックのLINE公式アカウント活用事例5選</Link>で紹介しています。このガイドでは、LINE公式アカウントを起点にした段階的なDXの進め方を解説します。
         </Callout>
       </section>
 
@@ -94,7 +95,7 @@ export default function Page() {
 
         <FlowSteps steps={[
           { title: "LINE公式アカウント開設（1日目）", desc: "Messaging APIを設定し、院内にQRコードを掲示。来院患者に友だち追加を促し、まずはLINEを「連絡手段」として活用開始。" },
-          { title: "リッチメニュー+自動応答の設定（1週間目）", desc: "「予約する」「問診票を記入」「アクセス」などのボタンを配置。よくある質問にはAI自動返信を設定し、電話問い合わせを大幅に削減。" },
+          { title: "リッチメニュー+自動応答の設定（1週間目）", desc: "「予約する」「問診票を記入」「アクセス」などのボタンを配置。リッチメニューの設計ノウハウは別記事で解説。よくある質問にはAI自動返信を設定し、電話問い合わせを大幅に削減。" },
           { title: "オンライン問診+予約管理（2週間目）", desc: "紙の問診票をLINE上のフォームに移行。来院前に問診完了で待ち時間短縮。予約もLINE上で完結し、前日に自動リマインドを送信。" },
           { title: "セグメント配信+患者CRM（1ヶ月目）", desc: "来院履歴・診療科・タグなどのデータを活用。再診促進・キャンペーン告知・定期検診リマインドなど、患者ごとに最適なメッセージを配信。" },
           { title: "決済・配送・分析の統合（2ヶ月目〜）", desc: "LINE上でオンライン決済を完了。配送管理も統合。ダッシュボードで売上・予約数・リピート率・LTVをリアルタイム確認。" },
@@ -117,7 +118,7 @@ export default function Page() {
 
         <Callout type="point" title="成功するDXの3原則">
           <ol className="list-decimal pl-5 space-y-1 mt-1">
-            <li><strong>クリニック専用のオールインワンツール</strong>を選ぶ（汎用ツールの組み合わせは管理が煩雑に）</li>
+            <li><strong>クリニック専用のオールインワンツール</strong>を選ぶ（汎用ツールとの違いは<Link href="/lp/column/lstep-vs-clinic-tool" className="text-emerald-700 underline">Lステップ・Liny vs クリニック専用ツール比較</Link>を参照）</li>
             <li><strong>自動化できる部分は徹底的に自動化</strong>する（手動作業を残さない設計）</li>
             <li><strong>小さく始めて段階的に拡張</strong>する（ステップ1-2が安定してから次へ）</li>
           </ol>
@@ -126,7 +127,7 @@ export default function Page() {
 
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: LINE公式アカウントからDXを始めよう</h2>
-        <p>クリニックDXは、LINE公式アカウントという「患者がすでに使っているチャネル」から始めるのが最も効果的です。紙→デジタル、電話→LINE、手作業→自動化を段階的に進めることで、<strong>スタッフの業務負担を削減しながら患者満足度を向上</strong>させることができます。</p>
+        <p>クリニックDXは、LINE公式アカウントという「患者がすでに使っているチャネル」から始めるのが最も効果的です。紙→デジタル、電話→LINE、手作業→自動化を段階的に進めることで、<strong>スタッフの業務負担を削減しながら患者満足度を向上</strong>させることができます。リッチメニューの設計ポイントは<Link href="/lp/column/rich-menu-design" className="text-emerald-700 underline">リッチメニュー設計5つのポイント</Link>で詳しく解説しています。</p>
 
         <DonutChart percentage={80} label="LINE開封率" sublabel="メール(20%)の4倍の到達力" />
 

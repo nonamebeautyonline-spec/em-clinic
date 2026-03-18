@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, {
   InlineCTA,
@@ -105,6 +106,7 @@ export default function Page() {
           { title: "経営理念の策定と共有", desc: "クリニックが目指す方向性を明確にし、スタッフ全員で共有。採用基準や意思決定の軸になる。" },
           { title: "データに基づく経営判断", desc: "KPIをダッシュボードで管理し、予約数・リピート率・LTVなどの数値で経営状況を把握する。" },
         ]} />
+        <p>具体的にどのKPIを追うべきかは<Link href="/lp/column/clinic-kpi-dashboard" className="text-sky-600 underline hover:text-sky-800">クリニック経営で見るべきKPI7選</Link>で詳しく解説しています。</p>
 
         <StatGrid stats={[
           { value: "80", unit: "%", label: "LINEメッセージ開封率" },
@@ -123,7 +125,7 @@ export default function Page() {
           <ol className="mt-2 space-y-2 list-decimal pl-4">
             <li><strong>経営知識の不足</strong> — 医療の専門家でも経営の専門家ではない。会計・マーケティング・労務の知識が不足</li>
             <li><strong>スタッフの定着率低下</strong> — 採用コストがかさみ、サービス品質も低下する悪循環</li>
-            <li><strong>集患力の弱さ</strong> — WebサイトやSNSの活用が不十分で、新患獲得の導線がない</li>
+            <li><strong>集患力の弱さ</strong> — WebサイトやSNSの活用が不十分で、新患獲得の導線がない（<Link href="/lp/column/clinic-line-friends-growth" className="text-sky-600 underline hover:text-sky-800">LINE友だち集め月100人増やす7つの施策</Link>も参考にしてください）</li>
           </ol>
         </Callout>
 
@@ -141,7 +143,7 @@ export default function Page() {
       {/* ── LINE活用 ── */}
       <section>
         <h2 id="line-solution" className="text-xl font-bold text-gray-800">LINE活用で経営課題を解決する</h2>
-        <p>上記の失敗要因の多くは、LINEを活用したDX化で大幅に改善できます。</p>
+        <p>上記の失敗要因の多くは、LINEを活用したDX化で大幅に改善できます。具体的な成功事例は<Link href="/lp/column/medical-dx-success-stories" className="text-sky-600 underline hover:text-sky-800">医療DXの成功事例5選</Link>でも紹介しています。</p>
 
         <ComparisonTable
           headers={["経営課題", "従来の対策", "LINE活用の解決策"]}
