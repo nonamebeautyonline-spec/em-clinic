@@ -6,6 +6,7 @@ import { inquirySchema } from "@/lib/validations/inquiry";
 import { normalizeJPPhone } from "@/lib/phone";
 import { sendEmail } from "@/lib/email";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { resolveTenantId, tenantPayload } from "@/lib/tenant";
 
 const NOTIFY_EMAIL =
   process.env.APPLICATION_NOTIFY_EMAIL || "info@l-ope.jp";
@@ -30,7 +31,9 @@ export async function POST(req: NextRequest) {
   const phone = data.phone ? normalizeJPPhone(data.phone) : "";
 
   // DB保存
+  const tenantId = resolveTenantId(req);
   const { error: dbError } = await supabaseAdmin.from("inquiries").insert({
+    ...tenantPayload(tenantId),
     company_name: data.company_name || null,
     contact_name: data.contact_name,
     service_name: data.service_name || null,
