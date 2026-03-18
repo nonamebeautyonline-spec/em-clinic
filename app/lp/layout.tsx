@@ -115,6 +115,20 @@ const jsonLd = [
       },
     ],
   },
+  /* SiteNavigationElement — Googleサイトリンク表示を促進 */
+  ...[
+    { name: "Lオペとは", url: `${LP_URL}/about` },
+    { name: "機能一覧", url: `${LP_URL}/features` },
+    { name: "料金プラン", url: `${LP_URL}#pricing` },
+    { name: "コラム", url: `${LP_URL}/column` },
+    { name: "お問い合わせ", url: `${LP_URL}/contact` },
+  ].map((item, i) => ({
+    "@context": "https://schema.org",
+    "@type": "SiteNavigationElement",
+    name: item.name,
+    url: item.url,
+    position: i + 1,
+  })),
 ];
 
 export default function LPLayout({ children }: { children: React.ReactNode }) {
