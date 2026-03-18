@@ -187,21 +187,63 @@ function FeatureIcon({ color }: { color: string }) {
 
 /* JSON-LD */
 const totalFeatures = featureCategories.reduce((sum, c) => sum + c.features.length, 0);
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "ItemList",
-  name: "Lオペ for CLINIC 機能一覧",
-  description: `LINE公式アカウントでクリニック業務をDX化するLオペ for CLINICの全${totalFeatures}機能`,
-  numberOfItems: totalFeatures,
-  itemListElement: featureCategories.flatMap((cat, ci) =>
-    cat.features.map((f, fi) => ({
-      "@type": "ListItem",
-      position: ci * 10 + fi + 1,
-      name: f.name,
-      description: f.desc,
-    }))
-  ),
-};
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Lオペ for CLINIC 機能一覧",
+    description: `LINE公式アカウントでクリニック業務をDX化するLオペ for CLINICの全${totalFeatures}機能`,
+    numberOfItems: totalFeatures,
+    itemListElement: featureCategories.flatMap((cat, ci) =>
+      cat.features.map((f, fi) => ({
+        "@type": "ListItem",
+        position: ci * 10 + fi + 1,
+        name: f.name,
+        description: f.desc,
+      }))
+    ),
+  },
+  /* Offer — 料金プラン構造化データ */
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Lオペ for CLINIC",
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web",
+    offers: [
+      {
+        "@type": "Offer",
+        name: "スタンダードプラン",
+        price: "71500",
+        priceCurrency: "JPY",
+        priceSpecification: {
+          "@type": "UnitPriceSpecification",
+          price: "71500",
+          priceCurrency: "JPY",
+          unitText: "月額",
+          referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode: "MON" },
+        },
+        description: "予約・カルテ・問診まで診療業務をカバー。全機能利用可・ユーザー数無制限。",
+        url: `${SITE_URL}/lp#pricing`,
+      },
+      {
+        "@type": "Offer",
+        name: "プロプラン",
+        price: "121000",
+        priceCurrency: "JPY",
+        priceSpecification: {
+          "@type": "UnitPriceSpecification",
+          price: "121000",
+          priceCurrency: "JPY",
+          unitText: "月額",
+          referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode: "MON" },
+        },
+        description: "決済・配送・分析まで業務をまるごとDX化。全機能利用可・ユーザー数無制限。",
+        url: `${SITE_URL}/lp#pricing`,
+      },
+    ],
+  },
+];
 
 /* サイドバー目次用 */
 const tocItems = featureCategories.map((cat) => ({

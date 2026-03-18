@@ -18,8 +18,10 @@ const jsonLd = {
   headline: self.title,
   description: self.description,
   datePublished: self.date,
+  dateModified: self.date,
+  image: `${SITE_URL}/lp/opengraph-image`,
   author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
+  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
   mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
 };
 

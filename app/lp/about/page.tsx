@@ -19,21 +19,54 @@ export const metadata: Metadata = {
 };
 
 /* JSON-LD */
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "WebPage",
-  name: "Lオペ for CLINICとは？",
-  description: "クリニック特化LINE公式アカウント運用プラットフォーム",
-  url: `${SITE_URL}/lp/about`,
-  isPartOf: { "@type": "WebSite", name: "Lオペ for CLINIC", url: SITE_URL },
-  breadcrumb: {
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "トップ", item: `${SITE_URL}/lp` },
-      { "@type": "ListItem", position: 2, name: "Lオペ for CLINICとは？", item: `${SITE_URL}/lp/about` },
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "Lオペ for CLINICとは？",
+    description: "クリニック特化LINE公式アカウント運用プラットフォーム",
+    url: `${SITE_URL}/lp/about`,
+    isPartOf: { "@type": "WebSite", name: "Lオペ for CLINIC", url: SITE_URL },
+    breadcrumb: {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "トップ", item: `${SITE_URL}/lp` },
+        { "@type": "ListItem", position: 2, name: "Lオペ for CLINICとは？", item: `${SITE_URL}/lp/about` },
+      ],
+    },
+  },
+  /* FAQPage — Google検索結果にFAQ表示 */
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      { q: "LINE公式アカウントを持っていなくても始められますか？", a: "はい。LINE公式アカウントの開設から初期設定まで、すべてサポートいたします。既にアカウントをお持ちの場合は、既存の友だちデータを引き継いで導入可能です。" },
+      { q: "Lステップなどの汎用ツールからの乗り換えは可能ですか？", a: "可能です。既存のLINE公式アカウントはそのまま利用でき、友だちリストも引き継げます。配信シナリオの移行もサポートいたします。" },
+      { q: "患者の個人情報のセキュリティは大丈夫ですか？", a: "SSL暗号化通信、データの暗号化保存、アクセス権限管理、監査ログ機能を標準搭載。医療情報を扱うサービスとして、セキュリティを最優先に設計しています。" },
+      { q: "導入にはどのくらいの期間がかかりますか？", a: "最短2週間で本番運用を開始できます。リッチメニューのデザインや問診フォームのカスタマイズ内容によって前後しますが、1ヶ月以内の導入が一般的です。" },
+      { q: "月額費用以外にかかる費用はありますか？", a: "初期構築費用が別途必要です。月額費用にはすべての基本機能が含まれており、隠れた追加料金はありません。詳しくは料金ページをご覧ください。" },
+      { q: "途中でプラン変更はできますか？", a: "いつでも変更可能です。友だち数の増加や機能追加のニーズに合わせて、柔軟にプランをアップグレードできます。" },
+    ].map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  },
+  /* HowTo — 導入ステップを構造化 */
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: "Lオペ for CLINICの導入方法",
+    description: "お問い合わせから最短2週間で運用開始。初期設定はサポートチームが代行するため、現場の負担はほぼゼロです。",
+    totalTime: "P14D",
+    step: [
+      { "@type": "HowToStep", position: 1, name: "お問い合わせ・ヒアリング", text: "貴院の課題・運用状況をヒアリング。最適なプランをご提案します。" },
+      { "@type": "HowToStep", position: 2, name: "初期設定・構築", text: "LINE公式アカウントの設定、リッチメニュー構築、問診フォーム作成を代行。" },
+      { "@type": "HowToStep", position: 3, name: "スタッフ研修・テスト運用", text: "管理画面の操作研修を実施。テスト環境で動作確認を行います。" },
+      { "@type": "HowToStep", position: 4, name: "本番運用開始", text: "患者へのLINE告知を開始。運用開始後もサポートチームが伴走します。" },
     ],
   },
-};
+];
 
 /* ─── 導入メリット数値 ─── */
 const metrics = [
