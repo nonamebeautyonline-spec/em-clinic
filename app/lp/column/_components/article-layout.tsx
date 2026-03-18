@@ -233,7 +233,11 @@ const categoryColors: Record<string, { bg: string; text: string }> = {
 
 export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, children }: ArticleLayoutProps) {
   const self = articles.find((a) => a.slug === slug)!;
-  const related = articles.filter((a) => a.slug !== slug).slice(0, 4);
+  /* 関連記事: 同カテゴリ優先 → 残りから補完して4件 */
+  const others = articles.filter((a) => a.slug !== slug);
+  const sameCategory = others.filter((a) => a.category === self.category);
+  const diffCategory = others.filter((a) => a.category !== self.category);
+  const related = [...sameCategory, ...diffCategory].slice(0, 4);
   const articleRef = useRef<HTMLDivElement>(null);
   const cc = categoryColors[self.category] || { bg: "bg-gray-50", text: "text-gray-600" };
 

@@ -203,7 +203,7 @@ const jsonLd = [
       }))
     ),
   },
-  /* Offer — 料金プラン構造化データ */
+  /* Offer — 料金プラン構造化データ（価格は問い合わせ後に案内） */
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -214,32 +214,16 @@ const jsonLd = [
       {
         "@type": "Offer",
         name: "スタンダードプラン",
-        price: "71500",
-        priceCurrency: "JPY",
-        priceSpecification: {
-          "@type": "UnitPriceSpecification",
-          price: "71500",
-          priceCurrency: "JPY",
-          unitText: "月額",
-          referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode: "MON" },
-        },
         description: "予約・カルテ・問診まで診療業務をカバー。全機能利用可・ユーザー数無制限。",
-        url: `${SITE_URL}/lp#pricing`,
+        availability: "https://schema.org/InStock",
+        url: `${SITE_URL}/lp/contact`,
       },
       {
         "@type": "Offer",
         name: "プロプラン",
-        price: "121000",
-        priceCurrency: "JPY",
-        priceSpecification: {
-          "@type": "UnitPriceSpecification",
-          price: "121000",
-          priceCurrency: "JPY",
-          unitText: "月額",
-          referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode: "MON" },
-        },
         description: "決済・配送・分析まで業務をまるごとDX化。全機能利用可・ユーザー数無制限。",
-        url: `${SITE_URL}/lp#pricing`,
+        availability: "https://schema.org/InStock",
+        url: `${SITE_URL}/lp/contact`,
       },
     ],
   },
