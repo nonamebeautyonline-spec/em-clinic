@@ -176,7 +176,13 @@ async function sendReminders(rule: ReminderRule, tenantId: string | null, target
       messages = [{ type: "flex", altText: flex.altText, contents: flex.contents }];
     } else {
       const dateStr = formatDateJP(reservation.reserved_date);
-      const timeStr = reservation.reserved_time?.substring(0, 5) || "";
+      const hhmm = reservation.reserved_time?.substring(0, 5) || "";
+      // 開始〜終了（15分枠）: "12:15〜12:30"
+      const timeStr = hhmm ? (() => {
+        const [hh, mm] = hhmm.split(":").map(Number);
+        const endTotal = hh * 60 + mm + 15;
+        return `${hhmm}〜${Math.floor(endTotal / 60)}:${String(endTotal % 60).padStart(2, "0")}`;
+      })() : "";
       const formattedTime = formatReservationTime(reservation.reserved_date, reservation.reserved_time);
       const text = (rule.message_template || buildReminderMessage(formattedTime))
         .replace(/\{name\}/g, patient.name || reservation.patient_name || "")
