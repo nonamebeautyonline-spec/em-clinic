@@ -343,9 +343,12 @@ const RIGHT_COLUMN_SECTIONS = [
 export interface TalkClientProps {
   initialFriends?: Friend[];
   initialHasMore?: boolean;
+  initialPinnedIds?: string[];
+  initialReadTimestamps?: Record<string, string>;
+  initialVisibleSections?: Record<string, boolean>;
 }
 
-export default function TalkClient({ initialFriends, initialHasMore }: TalkClientProps) {
+export default function TalkClient({ initialFriends, initialHasMore, initialPinnedIds, initialReadTimestamps, initialVisibleSections }: TalkClientProps) {
   const searchParams = useSearchParams();
   const initialPid = searchParams.get("pid");
 
@@ -362,9 +365,9 @@ export default function TalkClient({ initialFriends, initialHasMore }: TalkClien
   const [msgSearchResults, setMsgSearchResults] = useState<{ patient_id: string; content: string; sent_at: string }[]>([]);
   const [msgSearching, setMsgSearching] = useState(false);
   const msgSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
-  const pinnedIdsRef = useRef<string[]>([]);
-  const pinsReadyRef = useRef(false);
+  const [pinnedIds, setPinnedIds] = useState<string[]>(initialPinnedIds ?? []);
+  const pinnedIdsRef = useRef<string[]>(initialPinnedIds ?? []);
+  const pinsReadyRef = useRef(initialPinnedIds !== undefined);
   // displayCount は廃止（サーバーページネーション）
   const listRef = useRef<HTMLDivElement>(null);
   const [pullRefreshing, setPullRefreshing] = useState(false);
@@ -455,7 +458,7 @@ export default function TalkClient({ initialFriends, initialHasMore }: TalkClien
   const [isBlocked, setIsBlocked] = useState(false);
 
   // 右カラム表示設定
-  const [visibleSections, setVisibleSections] = useState<Record<string, boolean>>({});
+  const [visibleSections, setVisibleSections] = useState<Record<string, boolean>>(initialVisibleSections ?? {});
   const [showSectionSettings, setShowSectionSettings] = useState(false);
   const isSectionVisible = (key: string) => visibleSections[key] !== false;
 
@@ -466,7 +469,7 @@ export default function TalkClient({ initialFriends, initialHasMore }: TalkClien
   const [mobileView, setMobileView] = useState<"list" | "message" | "info">("list");
 
   // 既読タイムスタンプ管理（DB共有）
-  const [readTimestamps, setReadTimestamps] = useState<Record<string, string>>({});
+  const [readTimestamps, setReadTimestamps] = useState<Record<string, string>>(initialReadTimestamps ?? {});
   // 未読のみ表示フィルタ
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
 
@@ -537,7 +540,16 @@ export default function TalkClient({ initialFriends, initialHasMore }: TalkClien
     pinsReadyRef.current = true;
   }, []);
 
-  useEffect(() => { initPinsAndReads(); }, [initPinsAndReads]);
+  useEffect(() => {
+    // SSRで初期データ取得済みの場合はクライアント再取得をスキップ
+    if (initialPinnedIds !== undefined) {
+      pinsReadyRef.current = true;
+      setFriendsLoading(false);
+      return;
+    }
+    initPinsAndReads();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initPinsAndReads]);
 
   const savePins = (ids: string[]) => {
     setPinnedIds(ids);
