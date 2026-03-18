@@ -409,9 +409,11 @@ interface Props {
   category: string;
   /** "card" = 一覧カード / "hero" = 記事ページヒーロー / "sm" = 関連記事サムネイル */
   size?: "card" | "hero" | "sm";
+  /** タイトル非表示（カード下部にタイトルがある場合） */
+  hideTitle?: boolean;
 }
 
-export default function ArticleThumbnail({ slug, title, category, size = "card" }: Props) {
+export default function ArticleThumbnail({ slug, title, category, size = "card", hideTitle = false }: Props) {
   const meta = thumbMeta[slug] || { subtitle: "", ill: "phone-chat" };
   const theme = catTheme[category] || catTheme["ガイド"];
   const Illustration = illustrations[meta.ill] || IllPhoneChat;
@@ -468,18 +470,20 @@ export default function ArticleThumbnail({ slug, title, category, size = "card" 
           </div>
 
           {/* メインタイトル */}
-          <h2
-            className={`mt-2 font-extrabold leading-snug tracking-tight text-gray-800 ${
-              isHero
-                ? "text-[22px] md:text-[30px]"
-                : "text-[14px] md:text-[16px] line-clamp-3"
-            }`}
-          >
-            {title}
-          </h2>
+          {!hideTitle && (
+            <h2
+              className={`mt-2 font-extrabold leading-snug tracking-tight text-gray-800 ${
+                isHero
+                  ? "text-[22px] md:text-[30px]"
+                  : "text-[14px] md:text-[16px] line-clamp-3"
+              }`}
+            >
+              {title}
+            </h2>
+          )}
 
           {/* サブタイトル */}
-          {meta.subtitle && (
+          {meta.subtitle && !hideTitle && (
             <p
               className={`mt-1.5 text-gray-500 ${
                 isHero ? "text-[14px]" : "text-[11px] line-clamp-1"

@@ -111,7 +111,7 @@ export default function ColumnIndex() {
                 >
                   <div className="overflow-hidden">
                     <div className="transition-transform duration-300 group-hover:scale-[1.03]">
-                      <ArticleThumbnail slug={a.slug} title={a.title} category={a.category} size="card" />
+                      <ArticleThumbnail slug={a.slug} title={a.title} category={a.category} size="sm" />
                     </div>
                   </div>
                   <div className="px-5 py-4">
@@ -119,7 +119,7 @@ export default function ColumnIndex() {
                     <h3 className="mt-2 text-[15px] font-bold leading-snug text-gray-900 line-clamp-2 group-hover:text-blue-700 transition-colors">
                       {a.title}
                     </h3>
-                    <p className="mt-1.5 text-[13px] leading-relaxed text-gray-500 line-clamp-2">{a.description}</p>
+                    <p className="mt-1.5 text-[13px] leading-relaxed text-gray-500 line-clamp-3">{a.description}</p>
                   </div>
                 </Link>
               );
@@ -167,7 +167,7 @@ export default function ColumnIndex() {
                   {/* サムネイル */}
                   <div className="overflow-hidden">
                     <div className="transition-transform duration-300 group-hover:scale-[1.02]">
-                      <ArticleThumbnail slug={a.slug} title={a.title} category={a.category} size="card" />
+                      <ArticleThumbnail slug={a.slug} title={a.title} category={a.category} size="card" hideTitle />
                     </div>
                   </div>
 
@@ -186,8 +186,13 @@ export default function ColumnIndex() {
                       </span>
                     </div>
 
+                    {/* タイトル */}
+                    <h3 className="mt-2.5 text-[15px] font-bold leading-snug text-gray-900 line-clamp-2 group-hover:text-blue-700 transition-colors">
+                      {a.title}
+                    </h3>
+
                     {/* 説明文 */}
-                    <p className="mt-3 text-[14px] leading-[1.7] text-gray-600 line-clamp-3">{a.description}</p>
+                    <p className="mt-2 text-[13px] leading-relaxed text-gray-500 line-clamp-2">{a.description}</p>
 
                     {/* 続きを読む */}
                     <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-blue-600 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
