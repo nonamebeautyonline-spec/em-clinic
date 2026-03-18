@@ -16,7 +16,17 @@ export const metadata: Metadata = {
     siteName: "Lオペ for CLINIC",
     locale: "ja_JP",
     type: "website",
+    images: [{ url: `${SITE_URL}/lp/opengraph-image`, width: 1200, height: 630 }],
   },
+};
+
+/* JSON-LD 構造化データ */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "ContactPage",
+  name: "お問い合わせ | Lオペ for CLINIC",
+  url: `${SITE_URL}/lp/contact`,
+  isPartOf: { "@type": "WebSite", name: "Lオペ for CLINIC", url: SITE_URL },
 };
 
 export default function ContactLayout({
@@ -24,5 +34,13 @@ export default function ContactLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      {children}
+    </>
+  );
 }

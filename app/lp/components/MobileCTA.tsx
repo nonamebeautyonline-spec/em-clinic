@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useTransform } from "motion/react";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    モバイル固定CTAバー（スクロール600px以降で表示）

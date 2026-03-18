@@ -264,6 +264,28 @@ export default async function CategoryPage({ params }: Props) {
             ))}
           </div>
 
+          {/* 他のカテゴリも見る */}
+          <section className="mt-12 border-t border-gray-200 pt-8">
+            <h2 className="text-lg font-bold text-gray-800 mb-4">他のカテゴリのコラム</h2>
+            <div className="flex flex-wrap gap-3">
+              {categories.filter((c) => c.slug !== slug).map((c) => (
+                <Link
+                  key={c.slug}
+                  href={`/lp/column/category/${c.slug}`}
+                  className="px-4 py-2 bg-gray-100 rounded-lg text-sm text-gray-700 hover:bg-gray-200 transition"
+                >
+                  {c.label}
+                </Link>
+              ))}
+              <Link
+                href="/lp/column"
+                className="px-4 py-2 bg-sky-50 rounded-lg text-sm text-sky-700 hover:bg-sky-100 transition"
+              >
+                すべての記事
+              </Link>
+            </div>
+          </section>
+
           {/* CTA */}
           <div className="mt-14 overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 via-indigo-50 to-violet-50 p-10 text-center ring-1 ring-blue-100 md:p-14">
             <p className="text-[12px] font-bold tracking-widest text-blue-400 uppercase">

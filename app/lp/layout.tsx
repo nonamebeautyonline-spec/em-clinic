@@ -35,6 +35,10 @@ export const metadata: Metadata = {
     "クリニック経営", "クリニック 集患 方法", "再診率 向上", "リピート率 向上", "無断キャンセル 防止",
     "クリニック 業務改善", "医療機関 LINE活用",
   ].join(", "),
+  icons: {
+    icon: [{ url: "/icon.png", sizes: "778x778", type: "image/png" }],
+    apple: [{ url: "/icon.png", sizes: "778x778", type: "image/png" }],
+  },
   alternates: {
     canonical: LP_URL,
   },
@@ -83,7 +87,7 @@ const jsonLd = [
       "AI自動返信",
       "電子カルテ連携",
     ],
-    sameAs: [],
+    sameAs: ["https://l-ope.jp/lp/about"],
   },
   {
     "@context": "https://schema.org",

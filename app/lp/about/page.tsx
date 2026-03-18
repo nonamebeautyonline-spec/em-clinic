@@ -16,6 +16,7 @@ export const metadata: Metadata = {
     siteName: "Lオペ for CLINIC",
     locale: "ja_JP",
     type: "website",
+    images: [{ url: `${SITE_URL}/lp/about/opengraph-image`, width: 1200, height: 630 }],
   },
 };
 
@@ -167,7 +168,10 @@ const faqs = [
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-white text-gray-900" style={{ fontFeatureSettings: "'palt'" }}>
+    <div className="min-h-screen bg-gray-50 text-gray-900" style={{ fontFeatureSettings: "'palt'" }}>
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:rounded focus:shadow-lg focus:text-sky-700">
+        メインコンテンツへスキップ
+      </a>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       {/* ヘッダー */}
@@ -187,9 +191,9 @@ export default function AboutPage() {
         </div>
       </header>
 
-      <main className="pt-14">
+      <main id="main-content" className="pt-14">
         {/* パンくず */}
-        <nav aria-label="パンくずリスト" className="border-b border-gray-100 bg-white">
+        <nav aria-label="パンくずリスト" className="border-b border-gray-100 bg-white/80 backdrop-blur-sm">
           <div className="mx-auto max-w-6xl px-6 py-2.5">
             <ol className="flex items-center gap-1.5 text-[12px] text-gray-400 list-none m-0 p-0">
               <li><Link href="/lp" className="hover:text-blue-600 transition">トップ</Link></li>
@@ -237,7 +241,7 @@ export default function AboutPage() {
 
               {/* ヒーローイラスト（SVG） */}
               <div className="hidden w-full max-w-md md:block">
-                <svg viewBox="0 0 400 320" className="w-full">
+                <svg viewBox="0 0 400 320" className="w-full" role="img" aria-label="LINE公式アカウントでクリニック業務を一元管理するイメージ図">
                   {/* スマートフォン */}
                   <rect x="140" y="20" width="120" height="220" rx="20" fill="white" stroke="#93c5fd" strokeWidth="2.5" />
                   <rect x="155" y="45" width="90" height="165" rx="6" fill="#eff6ff" />
@@ -298,11 +302,11 @@ export default function AboutPage() {
         </section>
 
         {/* ═══ 数値実績（カード型+アイコン） ═══ */}
-        <section className="border-b border-gray-100 bg-white">
+        <section className="bg-white">
           <div className="mx-auto max-w-5xl px-6 py-14 md:py-16">
             <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
               {metrics.map((m) => (
-                <div key={m.label} className="rounded-2xl bg-gradient-to-br from-blue-50/80 to-indigo-50/60 p-6 text-center ring-1 ring-blue-100/50">
+                <div key={m.label} className="rounded-2xl bg-gradient-to-br from-blue-50/80 to-indigo-50/60 p-6 text-center shadow-sm ring-1 ring-blue-100/60">
                   <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
                     {metricIcons[m.icon]}
                   </div>
@@ -318,7 +322,7 @@ export default function AboutPage() {
         </section>
 
         {/* ═══ お悩み ═══ */}
-        <section className="border-b border-gray-100">
+        <section className="bg-gray-50">
           <div className="mx-auto max-w-4xl px-6 py-16 md:py-20">
             <p className="text-center text-[12px] font-bold tracking-widest text-blue-500 uppercase">Pain Points</p>
             <h2 className="mt-3 text-center text-[24px] font-bold tracking-tight text-gray-900 md:text-[28px]">
@@ -326,7 +330,7 @@ export default function AboutPage() {
             </h2>
             <div className="mt-10 grid gap-4 md:grid-cols-2">
               {painPoints.map((p) => (
-                <div key={p.title} className="flex items-start gap-4 rounded-xl border border-gray-200 bg-white p-5 transition hover:border-blue-200 hover:shadow-md hover:-translate-y-0.5">
+                <div key={p.title} className="flex items-start gap-4 rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-200/60 transition hover:ring-blue-200 hover:shadow-md hover:-translate-y-0.5">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-[18px]">
                     {p.icon}
                   </span>
@@ -349,7 +353,7 @@ export default function AboutPage() {
         </section>
 
         {/* ═══ Lオペとは ═══ */}
-        <section className="border-b border-gray-100 bg-gradient-to-br from-blue-50/50 to-indigo-50/30">
+        <section className="bg-white">
           <div className="mx-auto max-w-4xl px-6 py-16 md:py-20">
             <p className="text-center text-[12px] font-bold tracking-widest text-blue-500 uppercase">What is Lオペ?</p>
             <h2 className="mt-3 text-center text-[24px] font-bold tracking-tight text-gray-900 md:text-[28px]">
@@ -362,7 +366,7 @@ export default function AboutPage() {
               <p>
                 一般的なLINE配信ツール（Lステップ、Liny等）は、飲食店・EC・スクールなど幅広い業種向けに設計されています。そのため、クリニック特有の<strong className="text-gray-900">予約管理・問診・カルテ・決済・配送</strong>といった業務には対応していません。
               </p>
-              <div className="rounded-xl bg-white p-6 ring-1 ring-blue-100">
+              <div className="rounded-xl bg-blue-50/40 p-6 shadow-sm ring-1 ring-blue-100">
                 <p className="text-[14px] font-bold text-gray-900">
                   「LINEの配信ツール」ではなく、「LINEで動くクリニックの業務基盤」。
                 </p>
@@ -375,7 +379,7 @@ export default function AboutPage() {
         </section>
 
         {/* ═══ 機能紹介（アイコン付きカード） ═══ */}
-        <section className="border-b border-gray-100">
+        <section className="bg-gray-50">
           <div className="mx-auto max-w-5xl px-6 py-16 md:py-20">
             <p className="text-center text-[12px] font-bold tracking-widest text-blue-500 uppercase">Features</p>
             <h2 className="mt-3 text-center text-[24px] font-bold tracking-tight text-gray-900 md:text-[28px]">
@@ -391,7 +395,7 @@ export default function AboutPage() {
                   </div>
                   <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {group.features.map((f) => (
-                      <div key={f.name} className="rounded-xl border border-gray-200 bg-white p-5 transition hover:border-blue-200 hover:shadow-md hover:-translate-y-0.5">
+                      <div key={f.name} className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-200/60 transition hover:ring-blue-200 hover:shadow-md hover:-translate-y-0.5">
                         <div className="flex items-center gap-3">
                           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-50 text-[16px]">{f.icon}</span>
                           <p className="text-[14px] font-bold text-gray-900">{f.name}</p>
@@ -405,7 +409,7 @@ export default function AboutPage() {
             </div>
 
             <div className="mt-10 text-center">
-              <Link href="/lp/features" className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 px-6 py-2.5 text-[13px] font-semibold text-blue-600 ring-1 ring-gray-200 transition hover:bg-blue-50 hover:ring-blue-200">
+              <Link href="/lp/features" className="inline-flex items-center gap-1.5 rounded-full bg-white px-6 py-2.5 text-[13px] font-semibold text-blue-600 shadow-sm ring-1 ring-gray-200 transition hover:bg-blue-50 hover:ring-blue-200">
                 全機能一覧を見る
                 <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </Link>
@@ -425,7 +429,7 @@ export default function AboutPage() {
         </section>
 
         {/* ═══ 比較表 ═══ */}
-        <section className="border-b border-gray-100">
+        <section className="bg-white">
           <div className="mx-auto max-w-4xl px-6 py-16 md:py-20">
             <p className="text-center text-[12px] font-bold tracking-widest text-blue-500 uppercase">Comparison</p>
             <h2 className="mt-3 text-center text-[24px] font-bold tracking-tight text-gray-900 md:text-[28px]">
@@ -435,7 +439,7 @@ export default function AboutPage() {
               Lステップ・Liny等の汎用LINE配信ツールは「配信」に特化。Lオペ for CLINICは「クリニック業務全体」をカバーします。
             </p>
 
-            <div className="mt-8 overflow-hidden rounded-2xl border border-gray-200 shadow-sm">
+            <div className="mt-8 overflow-hidden rounded-2xl shadow-sm ring-1 ring-gray-200/60">
               <table className="w-full text-[13px]">
                 <thead>
                   <tr className="bg-gray-50">
@@ -483,7 +487,7 @@ export default function AboutPage() {
         </section>
 
         {/* ═══ 導入ステップ（タイムライン） ═══ */}
-        <section className="border-b border-gray-100 bg-gradient-to-br from-blue-50/30 to-white">
+        <section className="bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-50">
           <div className="mx-auto max-w-4xl px-6 py-16 md:py-20">
             <p className="text-center text-[12px] font-bold tracking-widest text-blue-500 uppercase">How it works</p>
             <h2 className="mt-3 text-center text-[24px] font-bold tracking-tight text-gray-900 md:text-[28px]">
@@ -511,7 +515,7 @@ export default function AboutPage() {
         </section>
 
         {/* ═══ FAQ ═══ */}
-        <section className="border-b border-gray-100">
+        <section className="bg-white">
           <div className="mx-auto max-w-3xl px-6 py-16 md:py-20">
             <p className="text-center text-[12px] font-bold tracking-widest text-blue-500 uppercase">FAQ</p>
             <h2 className="mt-3 text-center text-[24px] font-bold tracking-tight text-gray-900 md:text-[28px]">
@@ -519,7 +523,7 @@ export default function AboutPage() {
             </h2>
             <div className="mt-10 space-y-3">
               {faqs.map((f) => (
-                <details key={f.q} className="group overflow-hidden rounded-xl border border-gray-200 bg-white transition-all hover:border-blue-200">
+                <details key={f.q} className="group overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200/60 transition-all hover:ring-blue-200">
                   <summary className="flex cursor-pointer items-center justify-between px-6 py-4 text-[14px] font-bold text-gray-900">
                     <span className="flex items-center gap-3">
                       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[11px] font-bold text-blue-600">Q</span>
@@ -537,7 +541,7 @@ export default function AboutPage() {
         </section>
 
         {/* ═══ 最終CTA（明るいトーン） ═══ */}
-        <section className="bg-gradient-to-br from-blue-50 via-indigo-50 to-violet-50">
+        <section className="bg-gradient-to-br from-blue-100/60 via-indigo-50 to-violet-50">
           <div className="mx-auto max-w-3xl px-6 py-16 text-center md:py-20">
             <p className="text-[12px] font-bold tracking-widest text-blue-400 uppercase">Get Started</p>
             <h2 className="mt-3 text-[24px] font-bold tracking-tight text-gray-900 md:text-[32px]">
@@ -558,16 +562,16 @@ export default function AboutPage() {
         </section>
       </main>
 
-      {/* フッター（明るいトーン） */}
-      <footer className="border-t border-gray-200 bg-white py-10">
+      {/* フッター（ダーク系） */}
+      <footer className="bg-slate-900 py-10">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-6 md:flex-row md:justify-between">
-          <p className="text-[13px] font-bold text-gray-900">Lオペ <span className="text-blue-600">for CLINIC</span></p>
+          <p className="text-[13px] font-bold text-white">Lオペ <span className="text-blue-400">for CLINIC</span></p>
           <div className="flex items-center gap-6">
-            <Link href="/lp" className="text-[12px] text-gray-400 hover:text-blue-600 transition">製品トップ</Link>
-            <Link href="/lp/features" className="text-[12px] text-gray-400 hover:text-blue-600 transition">機能一覧</Link>
-            <Link href="/lp/column" className="text-[12px] text-gray-400 hover:text-blue-600 transition">コラム</Link>
+            <Link href="/lp" className="text-[12px] text-slate-400 hover:text-white transition">製品トップ</Link>
+            <Link href="/lp/features" className="text-[12px] text-slate-400 hover:text-white transition">機能一覧</Link>
+            <Link href="/lp/column" className="text-[12px] text-slate-400 hover:text-white transition">コラム</Link>
           </div>
-          <p className="text-[11px] text-gray-400">&copy; 2026 Lオペ for CLINIC</p>
+          <p className="text-[11px] text-slate-500">&copy; 2026 Lオペ for CLINIC</p>
         </div>
       </footer>
     </div>

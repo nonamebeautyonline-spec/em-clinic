@@ -9,7 +9,7 @@ import {
   useScroll,
   animate,
   type Variants,
-} from "framer-motion";
+} from "motion/react";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    LP アニメーション共通コンポーネント

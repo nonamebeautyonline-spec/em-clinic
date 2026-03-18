@@ -22,18 +22,36 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: self.date,
-  dateModified: self.date,
-  image: `${SITE_URL}/lp/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
+const faqItems = [
+  { q: "クリニックDXの導入費用はどのくらいですか？", a: "導入範囲によって異なりますが、LINE公式アカウント+予約システムであれば月額数万円から始められます。クラウド型電子カルテを含めても初期費用0〜50万円、月額5〜10万円程度が目安です。段階的に導入することで初期投資を抑えられます。" },
+  { q: "ITに詳しくないスタッフでも使えますか？", a: "はい。Lオペ for CLINICはクリニック専用に設計されており、LINEのように直感的に操作できます。導入時の研修サポートもあるため、ITに不慣れなスタッフでも1〜2週間で日常業務に活用できるようになります。" },
+  { q: "電子カルテとの連携は可能ですか？", a: "はい。API連携に対応したクラウド型電子カルテであれば、問診データの自動転記やフォローアップの自動化が可能です。連携可能なカルテの種類は個別にご相談ください。" },
+  { q: "DX導入にどのくらいの期間がかかりますか？", a: "LINE公式アカウントの開設と基本設定は最短1週間で完了します。予約システム・問診・セグメント配信まで含めた本格運用開始までは1〜2ヶ月が目安です。段階的に導入するため、業務への影響を最小限に抑えられます。" },
+];
+
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: self.title,
+    description: self.description,
+    datePublished: self.date,
+    dateModified: self.updatedDate || self.date,
+    image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
+    author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
+    publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
+    mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqItems.map((item) => ({
+      "@type": "Question",
+      name: item.q,
+      acceptedAnswer: { "@type": "Answer", text: item.a },
+    })),
+  },
+];
 
 const keyPoints = [
   "クリニックDXの全体像 -- 電子カルテ・予約・問診・決済・経営管理のデジタル化ロードマップ",
@@ -217,6 +235,24 @@ export default function Page() {
         <p>本ガイドで紹介した各テーマの詳細記事と合わせて、自院のDXロードマップを策定してみてください。LINE運用の具体的な進め方は<Link href="/lp/column/line-operation-guide" className="text-emerald-700 underline">クリニックのLINE公式アカウント運用完全ガイド</Link>で体系的にまとめています。クリニック向けCRMの選定については<Link href="/lp/column/clinic-crm-comparison" className="text-emerald-700 underline">クリニック向けCRM比較6選</Link>も参考にしてください。</p>
 
         <p>Lオペ for CLINICは、本ガイドで解説したDX領域をワンストップでカバーするクリニック専用プラットフォームです。LINE連携の予約管理・問診・セグメント配信・決済・KPIダッシュボードまで、すべて一つのシステムで完結します。</p>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section>
+        <h2 className="text-xl font-bold text-gray-800">よくある質問</h2>
+        <div className="mt-4 space-y-3">
+          {faqItems.map((item) => (
+            <details key={item.q} className="group rounded-xl border border-slate-200 bg-white">
+              <summary className="flex cursor-pointer items-center justify-between gap-4 px-5 py-4 text-[15px] font-semibold text-gray-800 select-none">
+                {item.q}
+                <span className="shrink-0 text-slate-400 transition group-open:rotate-180">
+                  <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
+                </span>
+              </summary>
+              <div className="border-t border-slate-100 px-5 py-4 text-sm leading-relaxed text-gray-600">{item.a}</div>
+            </details>
+          ))}
+        </div>
       </section>
     </ArticleLayout>
   );

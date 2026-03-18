@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
+import Link from "next/link";
 import { Section, Label, Title, Sub, MockWindow } from "./shared";
 import { FadeIn, StaggerChildren, StaggerItem } from "./animations";
 
@@ -81,6 +82,15 @@ const categories = [
   },
 ];
 
+/* ─── カテゴリ別 関連コラムリンク ─── */
+const categoryColumnLinks: Record<string, { href: string; label: string }> = {
+  line: { href: "/lp/column/segment-delivery-repeat", label: "LINEセグメント配信でリピート率を向上させる方法" },
+  ai: { href: "/lp/column/ai-auto-reply-guide", label: "AI自動返信導入ガイド" },
+  clinic: { href: "/lp/column/reservation-system-comparison", label: "クリニック予約システム比較10選" },
+  payment: { href: "/lp/column/dermatology-clinic-line", label: "皮膚科の処方薬配送とフォローアップ自動化" },
+  analytics: { href: "/lp/column/clinic-kpi-dashboard", label: "LINEダッシュボードで見るべきKPI7選" },
+};
+
 export default function Features() {
   const [activeTab, setActiveTab] = useState("line");
   const active = categories.find((c) => c.id === activeTab)!;
@@ -146,6 +156,20 @@ export default function Features() {
                 </motion.article>
               ))}
             </div>
+            {/* 関連コラムリンク */}
+            {categoryColumnLinks[activeTab] && (
+              <div className="mt-6 text-center">
+                <Link
+                  href={categoryColumnLinks[activeTab].href}
+                  className="inline-flex items-center gap-1.5 text-[13px] font-medium text-blue-600 hover:text-blue-700 transition"
+                >
+                  詳しくはコラムで: {categoryColumnLinks[activeTab].label}
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </Link>
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
       </div>

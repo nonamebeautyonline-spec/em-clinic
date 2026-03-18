@@ -213,11 +213,31 @@ const jsonLd = [
       })),
     },
   },
+  /* WebPage — ページ情報 */
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "機能一覧 | Lオペ for CLINIC",
+    description:
+      "Lオペ for CLINICの全40機能以上を一覧で紹介。患者CRM・セグメント配信・リッチメニュー・オンライン問診・予約管理・AI自動返信・音声カルテ・決済管理・配送管理・在庫管理・NPS調査・フロービルダーなど、LINE公式アカウントでクリニック業務をDX化する全機能を解説。",
+    url: `${SITE_URL}/lp/features`,
+    isPartOf: { "@type": "WebSite", name: "Lオペ for CLINIC", url: SITE_URL },
+    breadcrumb: {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Lオペ for CLINIC", item: `${SITE_URL}/lp` },
+        { "@type": "ListItem", position: 2, name: "機能一覧", item: `${SITE_URL}/lp/features` },
+      ],
+    },
+  },
 ];
 
 export default function FeaturesPage() {
   return (
     <div className="min-h-screen bg-white text-gray-900">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:rounded focus:shadow-lg focus:text-sky-700">
+        メインコンテンツへスキップ
+      </a>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -261,7 +281,7 @@ export default function FeaturesPage() {
       </section>
 
       {/* ──────────────── メインコンテンツ ──────────────── */}
-      <div className="mx-auto max-w-5xl px-6 py-16">
+      <div id="main-content" className="mx-auto max-w-5xl px-6 py-16">
         {featureCategories.map((cat, catIdx) => (
           <section
             key={cat.category}

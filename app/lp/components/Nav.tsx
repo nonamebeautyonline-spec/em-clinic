@@ -17,7 +17,7 @@ export default function Nav() {
     <nav className="fixed top-0 z-50 w-full border-b border-slate-100/60 bg-white/80 backdrop-blur-xl">
       <div className="mx-auto flex h-[60px] max-w-6xl items-center justify-between px-5">
         <a href="#" className="flex items-center gap-2.5">
-          <Image src="/icon.png" alt="Lオペ" width={36} height={36} className="rounded-lg object-contain" />
+          <Image src="/icon.png" alt="Lオペ" width={36} height={36} className="rounded-lg object-contain" priority />
           <span className="text-[15px] font-bold tracking-tight">Lオペ <span className="text-blue-600">for CLINIC</span></span>
         </a>
         <div className="hidden items-center gap-7 md:flex">

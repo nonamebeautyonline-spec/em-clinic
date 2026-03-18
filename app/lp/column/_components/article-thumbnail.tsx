@@ -407,8 +407,8 @@ interface Props {
   slug: string;
   title: string;
   category: string;
-  /** "card" = 一覧カード / "hero" = 記事ページヒーロー */
-  size?: "card" | "hero";
+  /** "card" = 一覧カード / "hero" = 記事ページヒーロー / "sm" = 関連記事サムネイル */
+  size?: "card" | "hero" | "sm";
 }
 
 export default function ArticleThumbnail({ slug, title, category, size = "card" }: Props) {
@@ -417,6 +417,24 @@ export default function ArticleThumbnail({ slug, title, category, size = "card" 
   const Illustration = illustrations[meta.ill] || IllPhoneChat;
 
   const isHero = size === "hero";
+  const isSm = size === "sm";
+
+  /* sm サイズ: 関連記事用の小さいサムネイル */
+  if (isSm) {
+    return (
+      <div
+        className={`relative overflow-hidden bg-gradient-to-br ${theme.from} ${theme.to} aspect-[4/3] flex items-center justify-center`}
+      >
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -right-4 -top-4 h-12 w-12 rounded-full bg-white/20" />
+          <div className="absolute -left-3 bottom-0 h-8 w-8 rounded-full bg-white/15" />
+        </div>
+        <div className="relative z-10 h-[50px] w-[65px]">
+          <Illustration />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

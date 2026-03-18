@@ -166,7 +166,7 @@ export default function ContactPage() {
           <div>
             <label className="mb-1.5 block text-sm font-semibold text-slate-700">既存のLINE公式アカウント・連携システムはありますか？</label>
             <div className="mt-2 flex gap-4">
-              <label className="flex items-center gap-2 text-sm text-slate-600">
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg py-2 px-3 text-sm text-slate-600 transition hover:bg-slate-50">
                 <input
                   type="radio"
                   name="has_existing_line"
@@ -176,7 +176,7 @@ export default function ContactPage() {
                 />
                 あり
               </label>
-              <label className="flex items-center gap-2 text-sm text-slate-600">
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg py-2 px-3 text-sm text-slate-600 transition hover:bg-slate-50">
                 <input
                   type="radio"
                   name="has_existing_line"
@@ -255,6 +255,28 @@ export default function ContactPage() {
             送信いただいた情報は<Link href="/lp/privacy" className="underline hover:text-slate-600">プライバシーポリシー</Link>に基づき適切に管理いたします。
           </p>
         </form>
+
+        {/* FAQ セクション */}
+        <div className="mt-12">
+          <h2 className="mb-6 text-center text-xl font-bold text-slate-900">よくある質問</h2>
+          <div className="space-y-3">
+            {[
+              { q: "資料請求後、すぐに営業の連絡が来ますか？", a: "いいえ、まず資料をお送りし、ご希望の場合のみオンラインデモをご案内します。" },
+              { q: "費用は発生しますか？", a: "資料請求・ご相談は完全無料です。" },
+              { q: "どのような資料がもらえますか？", a: "機能概要・導入事例・料金プランをまとめた資料をお送りします。" },
+            ].map((item) => (
+              <details key={item.q} className="group rounded-xl border border-slate-200 bg-white">
+                <summary className="flex cursor-pointer items-center justify-between gap-4 px-5 py-4 text-[15px] font-semibold text-slate-800 select-none">
+                  {item.q}
+                  <span className="shrink-0 text-slate-400 transition group-open:rotate-180">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
+                  </span>
+                </summary>
+                <div className="border-t border-slate-100 px-5 py-4 text-sm leading-relaxed text-slate-600">{item.a}</div>
+              </details>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

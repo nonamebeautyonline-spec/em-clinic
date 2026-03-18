@@ -21,18 +21,36 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: self.date,
-  dateModified: self.date,
-  image: `${SITE_URL}/lp/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
+const faqItems = [
+  { q: "LINE公式アカウントの運用にかかる費用は？", a: "LINE公式アカウント自体は無料で開設できます。メッセージ配信数に応じた従量課金（月額0〜15,000円程度）に加え、Lオペ for CLINICのようなクリニック専用ツールを利用する場合は月額数万円からです。広告費を含めても、チラシやWeb広告より費用対効果が高いケースがほとんどです。" },
+  { q: "クリニックでLINE公式アカウントを始めるのに必要な準備は？", a: "必要なのはLINEビジネスIDの取得とアカウント開設（所要時間約10分）だけです。その後、プロフィール設定・あいさつメッセージ・リッチメニューを整え、院内にQRコードを掲示すれば基本的な運用を開始できます。認証済みアカウントの申請もおすすめです。" },
+  { q: "LINE友だち数は何人から効果が出ますか？", a: "一般的に500人を超えるとセグメント配信の効果が実感しやすくなります。ただし、100人程度でも予約リマインドや問診の自動送信など、業務効率化の効果は十分に得られます。まずは来院患者への声かけで月100人の追加を目指しましょう。" },
+  { q: "配信頻度はどのくらいが適切ですか？", a: "月2〜4回が目安です。週1回を超えるとブロック率が上がる傾向があります。ただし、予約リマインドや問診送信などの個別通知は配信頻度にカウントされないため、一斉配信の頻度を抑えつつ個別通知で利便性を高めるのが効果的です。" },
+];
+
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: self.title,
+    description: self.description,
+    datePublished: self.date,
+    dateModified: self.updatedDate || self.date,
+    image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
+    author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
+    publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
+    mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqItems.map((item) => ({
+      "@type": "Question",
+      name: item.q,
+      acceptedAnswer: { "@type": "Answer", text: item.a },
+    })),
+  },
+];
 
 const keyPoints = [
   "LINE公式アカウントの基本設定から高度な自動化まで、クリニック運用の全体像を把握できる",
@@ -211,6 +229,24 @@ export default function Page() {
         <p>本ガイドで紹介した各テーマの詳細記事と合わせて、自院に合った運用プランを組み立ててみてください。LINE活用と合わせてクリニック全体のDXを進めたい方は、<Link href="/lp/column/clinic-dx-complete-guide" className="text-emerald-700 underline">クリニックDX完全ガイド</Link>も参考になります。また、LINE活用の具体的な成功事例は<Link href="/lp/column/clinic-line-case-studies" className="text-emerald-700 underline">クリニックのLINE公式アカウント活用事例5選</Link>でご確認いただけます。</p>
 
         <p>Lオペ for CLINICは、本ガイドで解説したすべての機能をワンストップで提供するクリニック専用プラットフォームです。友だち管理・セグメント配信・リッチメニュー・AI自動返信・予約連携まで、LINE運用に必要な機能がすべて揃っています。</p>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section>
+        <h2 className="text-xl font-bold text-gray-800">よくある質問</h2>
+        <div className="mt-4 space-y-3">
+          {faqItems.map((item) => (
+            <details key={item.q} className="group rounded-xl border border-slate-200 bg-white">
+              <summary className="flex cursor-pointer items-center justify-between gap-4 px-5 py-4 text-[15px] font-semibold text-gray-800 select-none">
+                {item.q}
+                <span className="shrink-0 text-slate-400 transition group-open:rotate-180">
+                  <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
+                </span>
+              </summary>
+              <div className="border-t border-slate-100 px-5 py-4 text-sm leading-relaxed text-gray-600">{item.a}</div>
+            </details>
+          ))}
+        </div>
       </section>
     </ArticleLayout>
   );
