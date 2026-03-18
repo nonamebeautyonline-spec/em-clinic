@@ -111,15 +111,11 @@ export default function ColumnIndex() {
                 >
                   <div className="overflow-hidden">
                     <div className="transition-transform duration-300 group-hover:scale-[1.03]">
-                      <ArticleThumbnail slug={a.slug} title={a.title} category={a.category} size="card" hideTitle />
+                      <ArticleThumbnail slug={a.slug} title={a.title} category={a.category} size="card" />
                     </div>
                   </div>
                   <div className="px-5 py-4">
-                    <CategoryPill category={a.category} />
-                    <h3 className="mt-2 text-[15px] font-bold leading-snug text-gray-900 line-clamp-2 group-hover:text-blue-700 transition-colors">
-                      {a.title}
-                    </h3>
-                    <p className="mt-1.5 text-[13px] leading-relaxed text-gray-500 line-clamp-3">{a.description}</p>
+                    <p className="text-[13px] leading-relaxed text-gray-500 line-clamp-3">{a.description}</p>
                   </div>
                 </Link>
               );
