@@ -72,10 +72,10 @@ const jsonLd = [
 
 /* ─── 導入メリット数値 ─── */
 const metrics = [
-  { value: "80", unit: "%", label: "LINE開封率", note: "メールの約3倍", icon: "mail" as const },
-  { value: "50", unit: "%", label: "無断キャンセル削減", note: "自動リマインドで", icon: "calendar" as const },
+  { value: "90", unit: "%", label: "LINE開封率", note: "メールDM（12%）の約7倍", icon: "mail" as const },
+  { value: "80", unit: "%", label: "無断キャンセル削減", note: "自動リマインドで", icon: "calendar" as const },
   { value: "3", unit: "倍", label: "再診率向上", note: "セグメント配信で", icon: "repeat" as const },
-  { value: "60", unit: "%", label: "受付業務削減", note: "問診自動化で", icon: "clock" as const },
+  { value: "60", unit: "%", label: "受付業務削減", note: "問診・予約自動化で", icon: "clock" as const },
 ];
 
 const metricIcons: Record<string, React.ReactNode> = {
@@ -303,18 +303,22 @@ export default function AboutPage() {
 
         {/* ═══ 数値実績（カード型+アイコン） ═══ */}
         <section className="bg-white">
-          <div className="mx-auto max-w-5xl px-6 py-14 md:py-16">
-            <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
+          <div className="mx-auto max-w-6xl px-6 py-16 md:py-20">
+            <p className="text-center text-[12px] font-bold tracking-widest text-blue-500 uppercase">Results</p>
+            <h2 className="mt-3 text-center text-[24px] font-bold tracking-tight text-gray-900 md:text-[28px]">
+              Lオペ導入で実現できる効果
+            </h2>
+            <div className="mt-10 grid grid-cols-2 gap-5 md:grid-cols-4">
               {metrics.map((m) => (
-                <div key={m.label} className="rounded-2xl bg-gradient-to-br from-blue-50/80 to-indigo-50/60 p-6 text-center shadow-sm ring-1 ring-blue-100/60">
-                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                <div key={m.label} className="rounded-2xl bg-gradient-to-br from-blue-50/80 to-indigo-50/60 p-6 text-center shadow-sm ring-1 ring-blue-100/60 md:p-8">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
                     {metricIcons[m.icon]}
                   </div>
-                  <p className="mt-3 text-[32px] font-bold tracking-tight text-gray-900 md:text-[40px]">
-                    {m.value}<span className="text-[16px] text-gray-400">{m.unit}</span>
+                  <p className="mt-4 text-[40px] font-extrabold tracking-tight text-gray-900 md:text-[52px]">
+                    {m.value}<span className="text-[18px] font-bold text-gray-400 md:text-[22px]">{m.unit}</span>
                   </p>
-                  <p className="mt-1 text-[13px] font-bold text-gray-700">{m.label}</p>
-                  <p className="mt-0.5 text-[11px] text-gray-400">{m.note}</p>
+                  <p className="mt-1 text-[14px] font-bold text-gray-700 md:text-[15px]">{m.label}</p>
+                  <p className="mt-1 text-[12px] text-gray-400">{m.note}</p>
                 </div>
               ))}
             </div>
