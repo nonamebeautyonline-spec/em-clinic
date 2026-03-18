@@ -33,6 +33,7 @@ const thumbMeta: Record<string, { subtitle: string; ill: string }> = {
   "clinic-crm-comparison":            { subtitle: "CRMの選び方と導入メリット", ill: "comparison" },
   "online-medical-cost":              { subtitle: "運営費用や安くするコツを紹介", ill: "digital" },
   "busy-doctor-efficiency":           { subtitle: "忙しさの原因と効率化の方法", ill: "people" },
+  "clinic-line-tool-5-comparison":    { subtitle: "5社の機能・費用を徹底比較", ill: "comparison" },
 };
 
 /* ─── カテゴリ色設定 ─── */

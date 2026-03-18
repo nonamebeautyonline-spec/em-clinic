@@ -245,4 +245,13 @@ export const articles: Article[] = [
     category: "ガイド",
     readTime: "15分",
   },
+  {
+    slug: "clinic-line-tool-5-comparison",
+    title: "クリニック向けLINEツール5社比較｜メディカルフォース・March・medibot・Lステップとの違い",
+    description: "クリニック向けLINE活用ツール5社（Lオペ for CLINIC・メディカルフォース・March・medibot・Lステップ）を機能・費用・LINE連携度で徹底比較。自院に合うツールの選び方を解説。",
+    date: "2026-03-18",
+    updatedDate: "2026-03-18",
+    category: "比較",
+    readTime: "12分",
+  },
 ];
