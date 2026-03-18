@@ -46,6 +46,10 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="電子カルテ" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
+        クリニック向け電子カルテは、初期費用が安く院外からもアクセスできるクラウド型が主流になりつつあります。さらにLINE連携により問診データを自動でカルテに取り込めば、業務効率が劇的に改善します。本記事では、クラウド型とオンプレミス型の比較、選定時の5つのチェックポイント、導入事例を解説します。
+      </p>
+
       <section>
         <h2 id="types" className="text-xl font-bold text-gray-800">電子カルテの種類: クラウド型 vs オンプレミス型</h2>
         <p>クリニック向け電子カルテは大きく<strong>クラウド型</strong>と<strong>オンプレミス型</strong>の2種類に分類されます。それぞれの特徴を理解した上で、自院に最適なタイプを選ぶことが重要です。</p>

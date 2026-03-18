@@ -48,6 +48,10 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="ブロック率対策" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
+        クリニックのLINEブロック率を下げるには、配信頻度を月2〜4回に抑える・セグメント配信で関連情報だけ送る・有益なコンテンツを混ぜる・配信時間帯を最適化する・ブロック分析でPDCAを回すの5つの鉄則が効果的です。本記事では、ブロック率5%から0.8%に改善した実際の事例と施策を紹介します。
+      </p>
+
       <section>
         <h2 id="block-rate-impact" className="text-xl font-bold text-gray-800">ブロック率の業界平均とクリニック経営への影響</h2>
         <p>LINE公式アカウントにおけるブロック率とは、友だち登録した後にブロックされた割合のことです。業界全体の平均ブロック率は<strong>20〜30%</strong>と言われていますが、クリニックの場合は配信内容の工夫次第で<strong>5%以下</strong>に抑えることが可能です。</p>

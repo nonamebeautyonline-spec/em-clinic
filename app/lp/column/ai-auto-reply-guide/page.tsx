@@ -48,6 +48,8 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="AI自動返信" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニックの初回問い合わせの約70%は営業時間外に発生しており、AI自動返信の導入で新患獲得率を大幅に改善できます。本記事では、ルールベースとAI返信の違い、精度を高める学習方法、エスカレーション設計まで実践的な導入ステップを解説します。</p>
+
       <section>
         <h2 id="why-after-hours" className="text-xl font-bold text-gray-800">夜間・休日の問い合わせ対応が重要な理由</h2>
         <p>クリニックを探している患者の多くは、仕事や家事が落ち着いた夜間や、時間に余裕のある休日に情報収集を行います。</p>

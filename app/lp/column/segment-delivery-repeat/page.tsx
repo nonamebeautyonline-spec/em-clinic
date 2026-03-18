@@ -53,6 +53,10 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="セグメント配信" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
+        クリニックのリピート率を上げるには、一斉配信ではなくセグメント配信が不可欠です。診療科目・来院回数・最終来院日・年齢層・施術内容の5軸で患者を分類し、それぞれに最適なメッセージを届けることで、開封率・再診率ともに大幅な改善が見込めます。本記事では具体的な分類方法と効果比較データを紹介します。
+      </p>
+
       <section>
         <h2 id="why-not-mass" className="text-xl font-bold text-gray-800">なぜ一斉配信ではリピート率が上がらないのか</h2>
         <p>多くのクリニックがLINE公式アカウントで一斉配信を行っていますが、全患者に同じメッセージを送っても効果は限定的です。</p>

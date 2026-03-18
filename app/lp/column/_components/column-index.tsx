@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { articles } from "../articles";
+import { categories } from "../categories";
 import ArticleThumbnail from "./article-thumbnail";
 
 /* ─── カテゴリ設定 ─── */
@@ -209,21 +210,17 @@ export default function ColumnIndex() {
               <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200/60">
                 <h3 className="text-[15px] font-bold text-gray-900">カテゴリ</h3>
                 <div className="mt-4 space-y-1">
-                  {allCategories.filter(c => c !== "すべて").map((cat) => {
-                    const count = articles.filter((a) => a.category === cat).length;
+                  {categories.map((cat) => {
+                    const count = articles.filter((a) => cat.matchValues.includes(a.category)).length;
                     return (
-                      <button
-                        key={cat}
-                        onClick={() => { setActive(cat); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-[14px] transition ${
-                          active === cat
-                            ? "bg-blue-50 font-semibold text-blue-600"
-                            : "text-gray-600 hover:bg-gray-50"
-                        }`}
+                      <Link
+                        key={cat.slug}
+                        href={`/lp/column/category/${cat.slug}`}
+                        className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-[14px] text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition"
                       >
-                        {cat}
-                        <span className={`text-[12px] ${active === cat ? "text-blue-400" : "text-gray-300"}`}>{count}</span>
-                      </button>
+                        {cat.label}
+                        <span className="text-[12px] text-gray-300">{count}</span>
+                      </Link>
                     );
                   })}
                 </div>

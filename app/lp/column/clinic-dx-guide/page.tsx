@@ -52,6 +52,10 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="DXガイド" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
+        クリニックDXはLINE公式アカウントを起点に、予約・問診・会計・配送を5ステップで段階的にデジタル化するのが最も成功率の高い進め方です。本記事では、何から始めればいいか分からないクリニック向けに、具体的なロードマップと失敗しないためのポイントを解説します。
+      </p>
+
       <section>
         <h2 id="what-is-dx" className="text-xl font-bold text-gray-800">クリニックDXとは何か</h2>
         <p>DX（デジタルトランスフォーメーション）とは、デジタル技術を活用して業務プロセスやサービス提供の方法を根本的に変革することです。クリニックにおけるDXとは、紙やExcel、電話に頼っていた業務をデジタル化し、<strong>患者体験の向上と業務効率化を同時に実現</strong>することを指します。</p>

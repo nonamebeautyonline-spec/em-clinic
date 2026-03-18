@@ -55,6 +55,10 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
+        クリニックのLINE公式アカウント活用で成果を出すには、問診自動化・セグメント配信・自動リマインド・オンライン決済・AI返信の5施策が効果的です。本記事では、実際に成果を上げた5つのクリニック事例と、汎用ツールではなくクリニック専用ツールを選ぶべき理由を具体的なデータとともに解説します。
+      </p>
+
       {/* ── なぜLINE ── */}
       <section>
         <h2 id="why-line" className="text-xl font-bold text-gray-800">なぜクリニックにLINE公式アカウントが必要なのか</h2>

@@ -55,6 +55,8 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">2024年の医療機関倒産件数は過去最多の64件に達し、経営力がクリニック存続の鍵となっています。成功するクリニックに共通するのは、人材育成・設備管理・資金繰りの3業務の最適化と、LINE等のDXツールを活用した患者リピート率の向上です。</p>
+
       {/* ── 倒産データ ── */}
       <section>
         <h2 id="bankruptcy-data" className="text-xl font-bold text-gray-800">医療機関の倒産が過去最多に</h2>

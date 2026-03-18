@@ -55,6 +55,8 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="比較" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニック向けCRMは、LINE連携・電子カルテ連携・セグメント配信の3機能を基準に選ぶべきです。本記事では多機能型・実績重視型の6製品を比較し、CRM選定の判断基準と、LINE連携CRMが再診率・患者LTV向上に最も効果的な理由を解説します。</p>
+
       {/* ── なぜCRM ── */}
       <section>
         <h2 id="why-crm" className="text-xl font-bold text-gray-800">なぜクリニックにCRMが必要なのか</h2>

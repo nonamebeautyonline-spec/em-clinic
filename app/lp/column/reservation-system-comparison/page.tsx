@@ -46,6 +46,8 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="予約システム比較" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニック向け予約システムは、LINE連携・電子カルテ連携・リマインド自動送信の3機能を軸に選ぶのが正解です。本記事では主要10システムの費用・機能を比較し、クリニック規模別のおすすめと、LINE連携で予約率・来院率が向上する理由を解説します。</p>
+
       <section>
         <h2 id="required-features" className="text-xl font-bold text-gray-800">クリニック予約システムに求められる機能</h2>
         <p>クリニックの予約システムは、一般的なサービス業の予約管理とは求められる機能が大きく異なります。医療特有の要件を満たしたシステムを選ぶことが、導入後の運用成功の鍵です。</p>

@@ -48,6 +48,8 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="医療DX事例" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">LINE起点の医療DXにより、予約数150%増・無断キャンセル80%減・スタッフ残業ゼロを実現したクリニックが続出しています。本記事では5つの成功事例の具体的な導入プロセスと成果データ、そして共通する3つの成功法則を解説します。</p>
+
       <section>
         <h2 id="dx-trend" className="text-xl font-bold text-gray-800">医療DXの現状と動向</h2>
         <Callout type="warning" title="クリニックレベルのDXは依然として遅れている">

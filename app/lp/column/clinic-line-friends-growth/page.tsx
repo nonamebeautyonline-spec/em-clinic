@@ -50,6 +50,10 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="友だち集め" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
+        LINE公式アカウントの友だち数を月100人ペースで増やすには、院内POP・受付声かけ・友だち追加特典・Web導線・SNS連携・チラシ・SMS案内の7施策を組み合わせるのが効果的です。本記事では、各施策の具体的なやり方とKPI設計の方法を解説します。
+      </p>
+
       <section>
         <h2 id="why-friends-matter" className="text-xl font-bold text-gray-800">なぜ友だち数がクリニック経営に直結するのか</h2>
         <p>LINE公式アカウントの運用効果は、シンプルに<strong>「リーチ率 × 友だち数 = 売上インパクト」</strong>という構造で決まります。どれだけ良い配信コンテンツを用意しても、友だち数が少なければ届く母数が限られ、予約・来院につながる件数も小さくなります。</p>

@@ -56,6 +56,8 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="業務改善" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">開業医が忙しい最大の理由は、診療に加え経営・労務・DX対応を1人で兼務する構造にあります。LINE予約・オンライン問診・AI自動返信の3つのDX施策を導入することで、1日あたり2〜3時間の業務削減が可能です。本記事では具体的な効率化方法を解説します。</p>
+
       {/* ── スケジュール ── */}
       <section>
         <h2 id="schedule" className="text-xl font-bold text-gray-800">開業医の1日のスケジュール</h2>

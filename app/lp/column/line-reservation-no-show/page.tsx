@@ -53,6 +53,10 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="予約管理" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
+        クリニックの無断キャンセル（ノーショー）を削減するには、LINEによる自動リマインド・ワンタップ変更・キャンセル待ち管理・当日確認・ペナルティ設計の5施策が効果的です。本記事では、LINE予約管理で無断キャンセル率を大幅に改善した具体的な方法と導入効果データを解説します。
+      </p>
+
       <section>
         <h2 id="impact" className="text-xl font-bold text-gray-800">無断キャンセルがクリニック経営に与える影響</h2>
 

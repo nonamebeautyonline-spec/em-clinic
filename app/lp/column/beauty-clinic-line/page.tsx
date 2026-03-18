@@ -48,6 +48,10 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="美容クリニック" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
+        美容クリニックのLINE活用では、カウンセリング予約のデジタル化・施術前リマインド自動送信・アフターフォロー・ビフォーアフター写真管理・リピート施術のセグメント配信・口コミ促進の6施策が売上向上に直結します。本記事では、美容クリニック特有のニーズに合わせた具体的な運用方法を解説します。
+      </p>
+
       <section>
         <h2 id="beauty-line-needs" className="text-xl font-bold text-gray-800">美容クリニック特有のLINE活用ニーズ</h2>
         <p>美容クリニックは一般的な内科や歯科と異なり、自由診療が中心で患者の意思決定プロセスが長いという特徴があります。施術を検討している患者は、複数のクリニックを比較しながら情報収集を行い、カウンセリングを受けてから施術を決断するケースがほとんどです。</p>

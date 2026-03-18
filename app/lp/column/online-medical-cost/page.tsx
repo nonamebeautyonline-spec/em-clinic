@@ -55,6 +55,8 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">オンライン診療の導入費用は初期50〜300万円、月額運用コスト3〜15万円が目安です。費用を抑えるには、LINE連携型の一気通貫システムを選び、補助金を活用するのが効果的です。本記事では、導入・運用・患者側の費用を項目別に詳しく解説します。</p>
+
       {/* ── 全体像 ── */}
       <section>
         <h2 id="overview" className="text-xl font-bold text-gray-800">導入費用と運用費用の全体像</h2>

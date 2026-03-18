@@ -47,6 +47,8 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="オンライン問診" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">紙の問診票をLINE連携のオンライン問診に切り替えることで、来院前に問診が完了し待ち時間を10〜15分短縮できます。本記事では、紙問診が抱える5つの課題、LINE×オンライン問診の具体的フロー、フォーム設計のベストプラクティスと移行手順を解説します。</p>
+
       <section>
         <h2 id="paper-problems" className="text-xl font-bold text-gray-800">紙の問診票の課題 — なぜ今オンライン問診が求められるのか</h2>
         <Callout type="warning" title="紙の問診票が抱える5つの課題">

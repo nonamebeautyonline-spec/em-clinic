@@ -49,6 +49,10 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="リッチメニュー" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
+        クリニックのLINEリッチメニューは、患者の行動パターンに合わせた配置・状態連動切替・デザイン統一・タップ数最小化・A/Bテストの5つのポイントを押さえて設計すると、予約率・問診完了率が大幅に向上します。本記事では、よくある失敗パターンと改善策を具体的に解説します。
+      </p>
+
       <section>
         <h2 id="what-is-rich-menu" className="text-xl font-bold text-gray-800">リッチメニューとは何か</h2>
         <p>リッチメニューとは、LINE公式アカウントのトーク画面下部に常時表示される<strong>タップ可能な画像メニュー</strong>です。最大6つのエリアに分割でき、各エリアにURL遷移・テキスト送信・クーポン表示などのアクションを設定できます。</p>

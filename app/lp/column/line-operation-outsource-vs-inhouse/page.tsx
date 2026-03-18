@@ -48,6 +48,8 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="運用代行vs自社" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニックのLINE運用は、初期構築を外注し運用は自社で行う「ハイブリッド方式」が最もコストパフォーマンスに優れています。本記事では、運用代行と自社運用の費用・効果を比較し、クリニック規模別の最適な運用方法と判断基準を解説します。</p>
+
       <section>
         <h2 id="what-is-outsource" className="text-xl font-bold text-gray-800">LINE運用代行とは何か</h2>
         <p>LINE公式アカウントの運用代行とは、クリニックのLINE公式アカウントの構築・配信・分析などの業務を外部の専門業者に委託するサービスです。</p>

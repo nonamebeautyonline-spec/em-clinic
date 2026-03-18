@@ -47,6 +47,8 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="皮膚科LINE活用" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">皮膚科クリニックでは、慢性疾患の治療継続と処方薬の定期補充が最大の課題です。LINEを活用した写真送信による再診フロー、オンライン決済・配送の自動化、アトピー・ニキビ等の長期フォローアップシナリオで治療継続率を大幅に向上できます。</p>
+
       <section>
         <h2 id="challenges" className="text-xl font-bold text-gray-800">皮膚科クリニック特有の課題</h2>
         <p>皮膚科クリニックは、他の診療科にはない特有の課題を抱えています。</p>

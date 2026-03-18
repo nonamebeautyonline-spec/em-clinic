@@ -50,6 +50,8 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="経営KPI" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニック経営を改善するには、新患数・リピート率・患者LTV・予約充填率・LINE友だち数・開封率・売上推移の7つのKPIを定期的に計測することが重要です。本記事では各KPIの目標値の設定方法と、LINEダッシュボードを使った週次レビューの実践フレームワークを紹介します。</p>
+
       <section>
         <h2 id="why-kpi" className="text-xl font-bold text-gray-800">なぜクリニック経営にKPI管理が必要か</h2>
         <Callout type="warning" title="感覚ベースの経営判断は危険">

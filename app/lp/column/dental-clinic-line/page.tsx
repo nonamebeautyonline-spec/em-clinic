@@ -48,6 +48,8 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="歯科LINE活用" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">歯科クリニックの定期検診離脱・治療中断・無断キャンセルは、LINEの自動リマインド・治療計画共有・口腔ケアTips配信で大幅に改善できます。本記事では、小児歯科や矯正・インプラント等の自費診療も含め、LINE活用の具体策と導入効果を紹介します。</p>
+
       <section>
         <h2 id="dental-challenges" className="text-xl font-bold text-gray-800">歯科クリニック特有の課題 — 定期検診の離脱・治療中断・キャンセル</h2>
         <p>歯科クリニックは他の診療科と比較して、いくつかの特有の経営課題を抱えています。これらの課題を理解し、LINEを活用して解決していくことで、安定した経営基盤を構築できます。</p>

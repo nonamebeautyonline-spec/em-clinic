@@ -48,6 +48,10 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="開業×LINE" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
+        クリニック開業時のLINE活用は、開業6ヶ月前からアカウント開設・友だち集めを始めるのが成功の鍵です。開業前に友だちを確保しておけば、初日から予約が入る状態でスタートできます。本記事では、開業6ヶ月前から開業後までの時系列ロードマップとチェックリストを解説します。
+      </p>
+
       <section>
         <h2 id="why-before-opening" className="text-xl font-bold text-gray-800">開業前からLINEを始めるべき理由</h2>
         <p>クリニックの開業準備では、内装工事・医療機器の選定・スタッフ採用など多くのタスクに追われます。しかし、<strong>集患の準備は開業日からでは遅い</strong>のが実情です。</p>

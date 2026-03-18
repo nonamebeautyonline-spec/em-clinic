@@ -46,6 +46,10 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="オンライン診療" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
+        オンライン診療はLINEを起点にすることで、予約・問診・ビデオ通話・決済・処方薬配送まで一気通貫で完結できます。初診からのオンライン診療が恒久化された今、患者体験を最大化する5つの運用ポイントと導入効果を本記事で解説します。
+      </p>
+
       <section>
         <h2 id="market-trend" className="text-xl font-bold text-gray-800">オンライン診療の市場動向と規制緩和</h2>
         <p>オンライン診療は、コロナ禍を契機に一気に普及が加速しました。厚生労働省の規制緩和により、<strong>初診からのオンライン診療が恒久的に認められ</strong>、対象疾患の制限も大幅に緩和されています。</p>

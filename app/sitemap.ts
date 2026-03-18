@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { articles } from "./lp/column/articles";
+import { categories } from "./lp/column/categories";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = "https://l-ope.jp";
@@ -37,6 +38,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 0.7,
     },
+    ...categories.map((c) => ({
+      url: `${baseUrl}/lp/column/category/${c.slug}`,
+      lastModified: today,
+      changeFrequency: "weekly" as const,
+      priority: 0.6,
+    })),
     ...articles.map((a) => ({
       url: `${baseUrl}/lp/column/${a.slug}`,
       lastModified: new Date(a.date),
