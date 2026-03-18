@@ -155,9 +155,9 @@ export default function Page() {
         />
 
         <ResultCard
-          before="複数ツール月額10万円+"
-          after="Lオペ1本で一元管理"
-          metric="業務ツールの一本化でコスト削減＆運用効率UP"
+          before="複数ツール月15〜30万+人件費"
+          after="Lオペ1本で月15〜20万"
+          metric="ツール代＋人件費をまとめて削減。事務スタッフ1人で運用完結"
         />
       </section>
 

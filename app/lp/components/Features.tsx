@@ -62,7 +62,7 @@ const categories = [
       { name: "配送管理", desc: "配送CSVワンクリック出力→追跡番号一括登録→患者へLINE自動通知" },
       { name: "在庫管理", desc: "入出庫の自動記録・在庫台帳で推移を可視化。発注判断をサポート" },
       { name: "商品マスタ", desc: "処方薬・施術の価格・カテゴリをまとめて管理。フォルダ階層で大量商品も整理" },
-      { name: "未払い自動督促", desc: "未払い発生から3日・7日・14日の3段階でLINE自動通知。回収率を向上" },
+
       { name: "ポイント自動付与", desc: "購入金額・初回購入・累計額に応じたポイントルールを設定。リピート促進を自動化" },
     ],
   },
@@ -385,16 +385,15 @@ export default function Features() {
                   <div className="flex gap-2">
                     <button className="flex-1 rounded-lg border border-slate-200 py-2 text-[10px] font-semibold text-slate-500">配送CSV出力</button>
                     <button className="flex-1 rounded-lg border border-slate-200 py-2 text-[10px] font-semibold text-slate-500">追跡番号一括登録</button>
-                    <button className="flex-1 rounded-lg bg-emerald-500 py-2 text-[10px] font-bold text-white">未払い督促を送信</button>
                   </div>
                 </div>
               </MockWindow>
             </div>
             <div className="w-full lg:w-[42%] lg:pt-4">
               <h4 className="mb-3 text-xl font-extrabold tracking-tight text-slate-900 md:text-2xl">決済から配送まで一気通貫</h4>
-              <p className="mb-5 text-[14px] leading-[1.9] text-slate-500">GMO決済・銀行振込の消込から配送CSV出力・追跡番号の一括登録まで、管理画面で完結。未払いの自動督促もLINEで3段階配信され、回収率を向上させます。</p>
+              <p className="mb-5 text-[14px] leading-[1.9] text-slate-500">GMO決済・銀行振込の消込から配送CSV出力・追跡番号の一括登録まで、管理画面で完結。決済状況・配送ステータスを一覧で把握できます。</p>
               <ul className="space-y-2.5">
-                {["LINE上で申込→決済までシームレスに完結", "配送CSVワンクリック出力＋追跡番号一括登録", "未払い3段階自動督促（3日・7日・14日）", "在庫管理・入出庫台帳で発注判断もサポート"].map((d) => (
+                {["LINE上で申込→決済までシームレスに完結", "配送CSVワンクリック出力＋追跡番号一括登録", "在庫管理・入出庫台帳で発注判断もサポート"].map((d) => (
                   <li key={d} className="flex items-start gap-2.5 text-[13px] text-slate-600">
                     <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[9px] text-blue-600">&#10003;</span>
                     {d}

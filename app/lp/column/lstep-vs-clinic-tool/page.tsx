@@ -114,7 +114,7 @@ export default function Page() {
         <Callout type="point" title="クリニック専用ツールを選ぶべき3つの理由">
           <ol className="list-decimal pl-5 space-y-2 mt-1">
             <li><strong>データが分断されない</strong> — 問い合わせ・予約・来院・決済・配送がすべて1画面で連携。抜け漏れゼロ</li>
-            <li><strong>複数SaaSの費用を集約</strong> — 個別契約で月額10万円超のコストをオールインワンで大幅削減</li>
+            <li><strong>ツール代＋人件費をまとめて削減</strong> — カルテ・予約・LINE/CRMの個別導入で月15〜30万＋管理人件費。Lオペなら月15〜20万でオールインワン、事務スタッフ1人で運用完結</li>
             <li><strong>医療特化の自動化シナリオ</strong> — 友だち追加から再診促進まで全自動フロー。汎用ツールでは実現困難</li>
           </ol>
         </Callout>

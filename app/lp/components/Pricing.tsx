@@ -23,8 +23,8 @@ const pricingJsonLd = {
 export function Pricing() {
   /* ── 機能プラン ── */
   const funcPlans = [
-    { name: "スタンダード", desc: "予約・カルテ・問診まで診療業務をカバー", features: ["LINE配信・CRM", "予約管理・問診", "カルテ・患者管理", "リッチメニュービルダー", "自動リマインド"], pop: true },
-    { name: "プロ", desc: "決済・配送・分析まで業務をまるごとDX化", features: ["スタンダードの全機能", "決済管理（Square/GMO）", "配送管理・在庫管理", "D&Dダッシュボード", "売上分析・LTV分析"] },
+    { name: "スタンダード", desc: "予約・カルテ・問診まで診療業務をカバー", features: ["LINE配信・CRM", "予約管理・問診", "カルテ・患者管理", "リッチメニュービルダー", "自動リマインド"] },
+    { name: "プロ", desc: "決済・配送・分析まで業務をまるごとDX化", features: ["スタンダードの全機能", "決済管理（Square/GMO）", "配送管理・在庫管理", "D&Dダッシュボード", "売上分析・LTV分析"], pop: true },
   ];
   /* ── オプション ── */
   const options = [
