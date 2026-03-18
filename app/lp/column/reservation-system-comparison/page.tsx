@@ -46,7 +46,7 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="予約システム比較" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニック向け予約システムは、LINE連携・電子カルテ連携・リマインド自動送信の3機能を軸に選ぶのが正解です。本記事では主要10システムの費用・機能を比較し、クリニック規模別のおすすめと、LINE連携で予約率・来院率が向上する理由を解説します。</p>
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニック向け予約システムは、LINE連携・電子カルテ連携・リマインド自動送信の<strong>3機能</strong>を軸に選ぶのが正解です。本記事では主要<strong>10システム</strong>の費用・機能を比較し、クリニック規模別のおすすめと、LINE連携で予約率・来院率が向上する理由を解説します。</p>
 
       <section>
         <h2 id="required-features" className="text-xl font-bold text-gray-800">クリニック予約システムに求められる機能</h2>
@@ -127,6 +127,8 @@ export default function Page() {
 
         <ResultCard before="40%" after="75%" metric="予約完了率" description="Web予約からLINE予約に切り替えることで、アプリ切替の手間が減り予約完了率が大幅向上" />
 
+        <p>LINE連携ありの予約システムに切り替えると、予約完了率が<strong>40%から75%</strong>に向上するケースがあります。</p>
+
         <h3 className="text-lg font-semibold text-gray-700 mt-4">リマインドの到達率</h3>
 
         <BarChart
@@ -179,7 +181,7 @@ export default function Page() {
           <li><strong>リマインド機能の充実度</strong> — 無断キャンセル削減の効果が最も投資対効果が高い</li>
           <li><strong>拡張性を見据える</strong> — <Link href="/lp/column/electronic-medical-record-guide" className="text-blue-600 underline">電子カルテ</Link>連携・決済連携・分院管理など、将来の拡張に対応できるか</li>
         </ol>
-        <p className="mt-4">Lオペ for CLINICは、予約管理・LINE連携・問診・決済・配信をオールインワンで提供するクリニック専用プラットフォームです。予約システムの乗り換えや新規導入をご検討の方は、お気軽にご相談ください。</p>
+        <p className="mt-4">Lオペ for CLINICは、<Link href="/lp/features#予約・診察" className="text-sky-600 underline hover:text-sky-800">予約管理</Link>・LINE連携・問診・決済・配信をオールインワンで提供するクリニック専用プラットフォームです。予約システムの乗り換えや新規導入をご検討の方は、お気軽にご相談ください。</p>
       </section>
     </ArticleLayout>
   );

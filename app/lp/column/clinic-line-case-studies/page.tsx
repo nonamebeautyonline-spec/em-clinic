@@ -56,7 +56,7 @@ export default function Page() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
-        クリニックのLINE公式アカウント活用で成果を出すには、問診自動化・セグメント配信・自動リマインド・オンライン決済・AI返信の5施策が効果的です。本記事では、実際に成果を上げた5つのクリニック事例と、汎用ツールではなくクリニック専用ツールを選ぶべき理由を具体的なデータとともに解説します。
+        クリニックのLINE公式アカウント活用で成果を出すには、問診自動化・セグメント配信・自動リマインド・オンライン決済・AI返信の<strong>5施策</strong>が効果的です。本記事では、実際に成果を上げた<strong>5つのクリニック事例</strong>と、汎用ツールではなくクリニック専用ツールを選ぶべき理由を具体的なデータとともに解説します。
       </p>
 
       {/* ── なぜLINE ── */}
@@ -225,7 +225,7 @@ export default function Page() {
           unit="% 改善"
         />
 
-        <p>Lオペ for CLINICは、これら5つの事例で紹介した施策をすべて実現できるクリニック専用のLINE運用プラットフォームです。</p>
+        <p>Lオペ for CLINICは、これら5つの事例で紹介した施策をすべて実現できるクリニック専用のLINE運用プラットフォームです。予約管理・セグメント配信・AI自動返信・決済連携など、搭載している<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">全機能の一覧はこちら</Link>でご確認いただけます。LINE運用の始め方から自動化まで体系的に知りたい方は<Link href="/lp/column/line-operation-guide" className="text-emerald-700 underline">LINE公式アカウント運用完全ガイド</Link>をご覧ください。</p>
       </section>
     </ArticleLayout>
   );

@@ -48,7 +48,7 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="AI自動返信" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニックの初回問い合わせの約70%は営業時間外に発生しており、AI自動返信の導入で新患獲得率を大幅に改善できます。本記事では、ルールベースとAI返信の違い、精度を高める学習方法、エスカレーション設計まで実践的な導入ステップを解説します。</p>
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニックの初回問い合わせの<strong>約70%</strong>は営業時間外に発生しており、AI自動返信の導入で新患獲得率を<strong>大幅に改善</strong>できます。本記事では、ルールベースとAI返信の違い、精度を高める学習方法、エスカレーション設計まで実践的な導入ステップを解説します。</p>
 
       <section>
         <h2 id="why-after-hours" className="text-xl font-bold text-gray-800">夜間・休日の問い合わせ対応が重要な理由</h2>
@@ -243,7 +243,7 @@ export default function Page() {
           <li><strong>段階的に導入</strong> — いきなり全面導入ではなく、営業時間外→FAQ→対応範囲拡大と段階的にリリース</li>
           <li><strong>エスカレーション設計が最重要</strong> — AIが対応すべきでないケースを明確に定義し、確実に人間にバトンタッチ</li>
         </ol>
-        <p className="mt-4">Lオペ for CLINICのAI自動返信は、クリニック向けに最適化されたナレッジベースとスタッフ修正フィードバック機能を標準搭載。導入から運用改善まで一貫してサポートします。24時間の問い合わせ対応で、新患獲得を最大化しませんか。</p>
+        <p className="mt-4">Lオペ for CLINICの<Link href="/lp/features#AI機能" className="text-sky-600 underline hover:text-sky-800">AI自動返信</Link>は、クリニック向けに最適化されたナレッジベースとスタッフ修正フィードバック機能を標準搭載。導入から運用改善まで一貫してサポートします。24時間の問い合わせ対応で、新患獲得を最大化しませんか。</p>
       </section>
     </ArticleLayout>
   );

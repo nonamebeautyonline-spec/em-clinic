@@ -55,7 +55,7 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">オンライン診療の導入費用は初期50〜300万円、月額運用コスト3〜15万円が目安です。費用を抑えるには、LINE連携型の一気通貫システムを選び、補助金を活用するのが効果的です。本記事では、導入・運用・患者側の費用を項目別に詳しく解説します。</p>
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">オンライン診療の導入費用は<strong>初期50〜300万円</strong>、<strong>月額運用コスト3〜15万円</strong>が目安です。費用を抑えるには、LINE連携型の一気通貫システムを選び、補助金を活用するのが効果的です。本記事では、導入・運用・患者側の費用を項目別に詳しく解説します。</p>
 
       {/* ── 全体像 ── */}
       <section>
@@ -160,7 +160,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICは、LINE上で予約・問診・決済・配送管理まで完結するオールインワンプラットフォーム。オンライン診療の導入コストを最小限に抑えながら、患者体験を最大化します。DX化の進め方全体については<Link href="/lp/column/clinic-dx-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>もご覧ください。</p>
+        <p>Lオペ for CLINICは、LINE上で予約・問診・<Link href="/lp/features#決済・配送" className="text-sky-600 underline hover:text-sky-800">決済・配送管理</Link>まで完結するオールインワンプラットフォーム。オンライン診療の導入コストを最小限に抑えながら、患者体験を最大化します。DX化の進め方全体については<Link href="/lp/column/clinic-dx-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>もご覧ください。</p>
       </section>
     </ArticleLayout>
   );

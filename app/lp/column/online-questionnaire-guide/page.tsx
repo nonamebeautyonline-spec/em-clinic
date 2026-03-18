@@ -47,7 +47,7 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="オンライン問診" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">紙の問診票をLINE連携のオンライン問診に切り替えることで、来院前に問診が完了し待ち時間を10〜15分短縮できます。本記事では、紙問診が抱える5つの課題、LINE×オンライン問診の具体的フロー、フォーム設計のベストプラクティスと移行手順を解説します。</p>
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">紙の問診票をLINE連携のオンライン問診に切り替えることで、来院前に問診が完了し待ち時間を<strong>10〜15分短縮</strong>できます。本記事では、紙問診が抱える<strong>5つの課題</strong>、LINE×オンライン問診の具体的フロー、フォーム設計のベストプラクティスと移行手順を解説します。</p>
 
       <section>
         <h2 id="paper-problems" className="text-xl font-bold text-gray-800">紙の問診票の課題 — なぜ今オンライン問診が求められるのか</h2>
@@ -155,7 +155,7 @@ export default function Page() {
           { title: "スタッフの業務効率化", desc: "手入力・転記作業をゼロに" },
           { title: "経営データの活用", desc: "問診データの分析でマーケティング・経営判断を最適化" },
         ]} />
-        <p className="mt-4">オンライン問診で得たデータを電子カルテと連携させることで、さらなる業務効率化が実現します。連携のポイントは<Link href="/lp/column/electronic-medical-record-guide" className="text-blue-600 underline">電子カルテ選び方ガイド</Link>をご覧ください。Lオペ for CLINICは、LINE友だち追加から問診送付、予約連携までをワンストップで実現するオンライン問診機能を提供しています。紙の問診票からの移行を検討されている方は、ぜひお気軽にご相談ください。</p>
+        <p className="mt-4">オンライン問診で得たデータを電子カルテと連携させることで、さらなる業務効率化が実現します。連携のポイントは<Link href="/lp/column/electronic-medical-record-guide" className="text-blue-600 underline">電子カルテ選び方ガイド</Link>をご覧ください。Lオペ for CLINICは、LINE友だち追加から問診送付、<Link href="/lp/features#予約・診察" className="text-sky-600 underline hover:text-sky-800">予約連携</Link>までをワンストップで実現するオンライン問診機能を提供しています。紙の問診票からの移行を検討されている方は、ぜひお気軽にご相談ください。</p>
       </section>
     </ArticleLayout>
   );

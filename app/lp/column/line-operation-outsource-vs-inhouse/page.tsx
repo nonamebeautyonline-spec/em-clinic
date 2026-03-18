@@ -48,7 +48,7 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="運用代行vs自社" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニックのLINE運用は、初期構築を外注し運用は自社で行う「ハイブリッド方式」が最もコストパフォーマンスに優れています。本記事では、運用代行と自社運用の費用・効果を比較し、クリニック規模別の最適な運用方法と判断基準を解説します。</p>
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニックのLINE運用は、初期構築を外注し運用は自社で行う<strong>「ハイブリッド方式」</strong>が最もコストパフォーマンスに優れています。本記事では、運用代行と自社運用の費用・効果を比較し、クリニック規模別の最適な運用方法と判断基準を解説します。</p>
 
       <section>
         <h2 id="what-is-outsource" className="text-xl font-bold text-gray-800">LINE運用代行とは何か</h2>
@@ -181,7 +181,7 @@ export default function Page() {
           { value: "即時", unit: "", label: "急な配信変更の対応速度" },
           { value: "半額以下", unit: "", label: "ハイブリッド方式の年間コスト" },
         ]} />
-        <p className="mt-4">Lオペ for CLINICは、クリニックの自社運用を前提に設計されたLINE運用プラットフォームです。直感的な操作性と充実したテンプレートで、ITに詳しくないスタッフでもすぐに運用を開始できます。初期構築サポートからトレーニングまで、自社運用の立ち上げを伴走いたします。まずは<Link href="/lp/column/clinic-line-friends-growth" className="text-sky-600 underline hover:text-sky-800">LINE友だち集め月100人増やす7つの施策</Link>から取り組んでみてはいかがでしょうか。</p>
+        <p className="mt-4">Lオペ for CLINICは、クリニックの自社運用を前提に設計されたLINE運用プラットフォームです。直感的な操作性と充実したテンプレートで、ITに詳しくないスタッフでもすぐに運用を開始できます。<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">全機能一覧</Link>もご覧ください。初期構築サポートからトレーニングまで、自社運用の立ち上げを伴走いたします。まずは<Link href="/lp/column/clinic-line-friends-growth" className="text-sky-600 underline hover:text-sky-800">LINE友だち集め月100人増やす7つの施策</Link>から取り組んでみてはいかがでしょうか。</p>
       </section>
     </ArticleLayout>
   );

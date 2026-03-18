@@ -49,7 +49,7 @@ export default function Page() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
-        クリニック開業時のLINE活用は、開業6ヶ月前からアカウント開設・友だち集めを始めるのが成功の鍵です。開業前に友だちを確保しておけば、初日から予約が入る状態でスタートできます。本記事では、開業6ヶ月前から開業後までの時系列ロードマップとチェックリストを解説します。
+        クリニック開業時のLINE活用は、<strong>開業6ヶ月前</strong>からアカウント開設・友だち集めを始めるのが成功の鍵です。開業前に友だちを確保しておけば、<strong>初日から予約が入る状態</strong>でスタートできます。本記事では、開業6ヶ月前から開業後までの時系列ロードマップとチェックリストを解説します。
       </p>
 
       <section>
@@ -243,7 +243,7 @@ export default function Page() {
           unit="（準備完了度%）"
         />
 
-        <p>Lオペ for CLINICは、開業準備期間からのLINE構築をトータルサポート。アカウント開設・リッチメニュー設計・予約連携・問診フォーム・自動配信まで、<strong>開業に必要なLINE機能をワンパッケージ</strong>で提供しています。開業を控えたドクターは、ぜひ早めにご相談ください。</p>
+        <p>Lオペ for CLINICは、開業準備期間からのLINE構築をトータルサポート。アカウント開設・リッチメニュー設計・予約連携・問診フォーム・自動配信まで、<strong>開業に必要なLINE機能をワンパッケージ</strong>で提供しています。<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">全機能一覧</Link>もご確認の上、開業を控えたドクターはぜひ早めにご相談ください。</p>
       </section>
     </ArticleLayout>
   );

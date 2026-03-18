@@ -47,7 +47,7 @@ export default function Page() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
-        クリニック向け電子カルテは、初期費用が安く院外からもアクセスできるクラウド型が主流になりつつあります。さらにLINE連携により問診データを自動でカルテに取り込めば、業務効率が劇的に改善します。本記事では、クラウド型とオンプレミス型の比較、選定時の5つのチェックポイント、導入事例を解説します。
+        クリニック向け電子カルテは、初期費用が安く院外からもアクセスできるクラウド型が主流になりつつあります。さらにLINE連携により問診データを自動でカルテに取り込めば、業務効率が<strong>劇的に改善</strong>します。本記事では、クラウド型とオンプレミス型の比較、選定時の<strong>5つのチェックポイント</strong>、導入事例を解説します。
       </p>
 
       <section>
@@ -157,7 +157,7 @@ export default function Page() {
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: LINE連携を前提に電子カルテを選ぶ時代</h2>
         <p>電子カルテ選びは「カルテ入力の効率化」だけでなく、<strong>患者コミュニケーション全体の効率化</strong>という視点が重要です。LINE連携に対応した電子カルテを選ぶことで、問診・予約・リマインド・フォローアップまで一気通貫の業務効率化が実現します。Web問診の導入についてさらに詳しく知りたい方は<Link href="/lp/column/online-questionnaire-guide" className="text-sky-600 underline hover:text-sky-800">オンライン問診導入ガイド</Link>も参考にしてください。また、クリニック全体のDX推進については<Link href="/lp/column/clinic-dx-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>で体系的に解説しています。</p>
-        <p>Lオペ for CLINICは、主要なクラウド型電子カルテとの連携に対応。LINE上での問診データをカルテに自動転記する機能や、来院データに基づく自動フォローメッセージなど、<strong>電子カルテとLINEの架け橋</strong>となるプラットフォームです。</p>
+        <p>Lオペ for CLINICは、主要なクラウド型電子カルテとの連携に対応。LINE上での問診データをカルテに自動転記する機能や、来院データに基づく自動フォローメッセージなど、<strong>電子カルテとLINEの架け橋</strong>となるプラットフォームです。<Link href="/lp/features#予約・診察" className="text-sky-600 underline hover:text-sky-800">予約・診察カテゴリの全機能</Link>もご確認ください。</p>
       </section>
     </ArticleLayout>
   );

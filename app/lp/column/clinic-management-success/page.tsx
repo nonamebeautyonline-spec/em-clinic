@@ -55,7 +55,7 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">2024年の医療機関倒産件数は過去最多の64件に達し、経営力がクリニック存続の鍵となっています。成功するクリニックに共通するのは、人材育成・設備管理・資金繰りの3業務の最適化と、LINE等のDXツールを活用した患者リピート率の向上です。</p>
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">2024年の医療機関倒産件数は過去最多の<strong>64件</strong>に達し、経営力がクリニック存続の鍵となっています。成功するクリニックに共通するのは、人材育成・設備管理・資金繰りの<strong>3業務の最適化</strong>と、LINE等のDXツールを活用した患者リピート率の向上です。</p>
 
       {/* ── 倒産データ ── */}
       <section>
@@ -177,7 +177,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICは、クリニック経営に必要な予約・問診・配信・決済・分析をLINE公式アカウント上で一元化。経営の「攻め」と「守り」の両方を支援します。</p>
+        <p>Lオペ for CLINICは、クリニック経営に必要な予約・問診・配信・決済・分析をLINE公式アカウント上で一元化。経営の「攻め」と「守り」の両方を支援します。<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">全機能一覧</Link>もあわせてご確認ください。</p>
       </section>
     </ArticleLayout>
   );

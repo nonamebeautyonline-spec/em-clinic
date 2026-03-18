@@ -54,7 +54,7 @@ export default function Page() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
-        クリニックの無断キャンセル（ノーショー）を削減するには、LINEによる自動リマインド・ワンタップ変更・キャンセル待ち管理・当日確認・ペナルティ設計の5施策が効果的です。本記事では、LINE予約管理で無断キャンセル率を大幅に改善した具体的な方法と導入効果データを解説します。
+        クリニックの無断キャンセル（ノーショー）を削減するには、LINEによる自動リマインド・ワンタップ変更・キャンセル待ち管理・当日確認・ペナルティ設計の<strong>5施策</strong>が効果的です。本記事では、LINE予約管理で無断キャンセル率を<strong>大幅に改善</strong>した具体的な方法と導入効果データを解説します。
       </p>
 
       <section>
@@ -127,7 +127,7 @@ export default function Page() {
 
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ</h2>
-        <p>無断キャンセル対策の本質は、<strong>患者が「面倒くさい」と感じるハードルを徹底的に下げる</strong>ことです。LINEという日常的に使うツール上で、予約確認・変更・キャンセルをワンタップで完結させることが最も効果的です。予約システムの選び方については<Link href="/lp/column/reservation-system-comparison" className="text-emerald-700 underline">予約システム比較10選</Link>も参考にしてください。また、キャンセル対策と合わせて<Link href="/lp/column/line-block-rate-reduction" className="text-emerald-700 underline">ブロック率を下げる5つの鉄則</Link>も押さえておくと、患者との接点を維持しやすくなります。</p>
+        <p>無断キャンセル対策の本質は、<strong>患者が「面倒くさい」と感じるハードルを徹底的に下げる</strong>ことです。LINEという日常的に使うツール上で、予約確認・変更・キャンセルをワンタップで完結させることが最も効果的です。Lオペ for CLINICの<Link href="/lp/features#予約・診察" className="text-sky-600 underline hover:text-sky-800">予約・スケジュール管理機能</Link>では、これらの機能が標準搭載されています。予約システムの選び方については<Link href="/lp/column/reservation-system-comparison" className="text-emerald-700 underline">予約システム比較10選</Link>も参考にしてください。また、キャンセル対策と合わせて<Link href="/lp/column/line-block-rate-reduction" className="text-emerald-700 underline">ブロック率を下げる5つの鉄則</Link>も押さえておくと、患者との接点を維持しやすくなります。</p>
       </section>
     </ArticleLayout>
   );

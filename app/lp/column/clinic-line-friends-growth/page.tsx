@@ -51,8 +51,19 @@ export default function Page() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
-        LINE公式アカウントの友だち数を月100人ペースで増やすには、院内POP・受付声かけ・友だち追加特典・Web導線・SNS連携・チラシ・SMS案内の7施策を組み合わせるのが効果的です。本記事では、各施策の具体的なやり方とKPI設計の方法を解説します。
+        LINE公式アカウントの友だち数を<strong>月100人ペース</strong>で増やすには、院内POP・受付声かけ・友だち追加特典・Web導線・SNS連携・チラシ・SMS案内の<strong>7施策</strong>を組み合わせるのが効果的です。本記事では、各施策の具体的なやり方とKPI設計の方法を解説します。
       </p>
+
+      {/* SEO用セマンティックリスト — Featured Snippet対策 */}
+      <ol className="list-decimal pl-6 space-y-1 text-[14px] text-gray-700">
+        <li>院内POPとQRコード設置</li>
+        <li>受付スタッフからの声かけ</li>
+        <li>友だち追加特典（初回割引・次回予約優先等）</li>
+        <li>Webサイト・Googleマップからの導線</li>
+        <li>SNS（Instagram・Facebook）からの導線</li>
+        <li>チラシ・ショップカード</li>
+        <li>既存患者へのSMS・メール案内</li>
+      </ol>
 
       <section>
         <h2 id="why-friends-matter" className="text-xl font-bold text-gray-800">なぜ友だち数がクリニック経営に直結するのか</h2>
@@ -253,7 +264,7 @@ export default function Page() {
           一つの施策に頼るのではなく、複数の施策を同時に運用し、それぞれのKPIを追いかけること。友だち数が1,000人、2,000人と積み上がるにつれて、セグメント配信の効果も増幅し、クリニック経営の安定基盤が築かれます。
         </Callout>
 
-        <p>Lオペ for CLINICでは、友だち追加の経路分析・QRコード生成・自動応答メッセージの設定まで、友だち集めに必要な機能をワンストップで提供しています。</p>
+        <p>Lオペ for CLINICでは、友だち追加の経路分析・QRコード生成・自動応答メッセージの設定まで、友だち集めに必要な機能をワンストップで提供しています。詳しくは<Link href="/lp/features#分析・レポート" className="text-sky-600 underline hover:text-sky-800">分析・レポート機能</Link>をご覧ください。</p>
       </section>
     </ArticleLayout>
   );

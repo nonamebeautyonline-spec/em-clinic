@@ -50,7 +50,18 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="経営KPI" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニック経営を改善するには、新患数・リピート率・患者LTV・予約充填率・LINE友だち数・開封率・売上推移の7つのKPIを定期的に計測することが重要です。本記事では各KPIの目標値の設定方法と、LINEダッシュボードを使った週次レビューの実践フレームワークを紹介します。</p>
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニック経営を改善するには、新患数・リピート率・患者LTV・予約充填率・LINE友だち数・開封率・売上推移の<strong>7つのKPI</strong>を定期的に計測することが重要です。本記事では各KPIの目標値の設定方法と、LINEダッシュボードを使った<strong>週次レビュー</strong>の実践フレームワークを紹介します。</p>
+
+      {/* SEO用セマンティックリスト — Featured Snippet対策 */}
+      <ol className="list-decimal pl-6 space-y-1 text-[14px] text-gray-700">
+        <li>新患数（月次・チャネル別）</li>
+        <li>リピート率（再診率・来院頻度）</li>
+        <li>患者LTV（生涯価値）</li>
+        <li>予約充填率と無断キャンセル率</li>
+        <li>LINE友だち数と増加ペース</li>
+        <li>メッセージ開封率・クリック率</li>
+        <li>売上推移と客単価</li>
+      </ol>
 
       <section>
         <h2 id="why-kpi" className="text-xl font-bold text-gray-800">なぜクリニック経営にKPI管理が必要か</h2>
@@ -198,7 +209,7 @@ export default function Page() {
           { title: "ダッシュボードで見える化", desc: "手動集計ではなくリアルタイムで確認できる仕組みを導入" },
           { title: "週次レビューで改善サイクル", desc: "数値に基づいた意思決定を習慣化する" },
         ]} />
-        <p className="mt-4">Lオペ for CLINICは、LINE公式アカウントの運用データとクリニックの経営データを統合し、これらのKPIを一元管理できるプラットフォームです。データドリブンなクリニック経営を始めてみませんか？</p>
+        <p className="mt-4">Lオペ for CLINICは、LINE公式アカウントの運用データとクリニックの経営データを統合し、これらのKPIを<Link href="/lp/features#分析・レポート" className="text-sky-600 underline hover:text-sky-800">ダッシュボード</Link>で一元管理できるプラットフォームです。データドリブンなクリニック経営を始めてみませんか？</p>
       </section>
     </ArticleLayout>
   );

@@ -48,7 +48,7 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="歯科LINE活用" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">歯科クリニックの定期検診離脱・治療中断・無断キャンセルは、LINEの自動リマインド・治療計画共有・口腔ケアTips配信で大幅に改善できます。本記事では、小児歯科や矯正・インプラント等の自費診療も含め、LINE活用の具体策と導入効果を紹介します。</p>
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">歯科クリニックの定期検診離脱・治療中断・無断キャンセルは、LINEの自動リマインド・治療計画共有・口腔ケアTips配信で<strong>大幅に改善</strong>できます。本記事では、小児歯科や矯正・インプラント等の自費診療も含め、LINE活用の具体策と導入効果を紹介します。</p>
 
       <section>
         <h2 id="dental-challenges" className="text-xl font-bold text-gray-800">歯科クリニック特有の課題 — 定期検診の離脱・治療中断・キャンセル</h2>
@@ -228,7 +228,7 @@ export default function Page() {
           { title: "口腔ケアTips配信", desc: "有益な情報で友だち離脱を防止し、来院モチベーションを維持" },
         ]} />
 
-        <p className="mt-4">歯科クリニックでもLINE友だちの集め方は重要です。具体的な施策は<Link href="/lp/column/clinic-line-friends-growth" className="text-blue-600 underline">LINE友だち集め月100人増やす7つの施策</Link>を参考にしてください。Lオペ for CLINICは、歯科クリニックの定期検診リマインド・治療計画管理・予約連携をオールインワンで提供します。定期検診の通院率向上とキャンセル削減を実現しませんか。</p>
+        <p className="mt-4">歯科クリニックでもLINE友だちの集め方は重要です。具体的な施策は<Link href="/lp/column/clinic-line-friends-growth" className="text-blue-600 underline">LINE友だち集め月100人増やす7つの施策</Link>を参考にしてください。Lオペ for CLINICは、歯科クリニックの定期検診リマインド・治療計画管理・<Link href="/lp/features#予約・診察" className="text-sky-600 underline hover:text-sky-800">予約連携</Link>をオールインワンで提供します。定期検診の通院率向上とキャンセル削減を実現しませんか。</p>
       </section>
     </ArticleLayout>
   );

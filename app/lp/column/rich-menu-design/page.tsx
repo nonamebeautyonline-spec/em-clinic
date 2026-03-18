@@ -50,8 +50,17 @@ export default function Page() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
-        クリニックのLINEリッチメニューは、患者の行動パターンに合わせた配置・状態連動切替・デザイン統一・タップ数最小化・A/Bテストの5つのポイントを押さえて設計すると、予約率・問診完了率が大幅に向上します。本記事では、よくある失敗パターンと改善策を具体的に解説します。
+        クリニックのLINEリッチメニューは、患者の行動パターンに合わせた配置・状態連動切替・デザイン統一・タップ数最小化・A/Bテストの<strong>5つのポイント</strong>を押さえて設計すると、予約率・問診完了率が<strong>大幅に向上</strong>します。本記事では、よくある失敗パターンと改善策を具体的に解説します。
       </p>
+
+      {/* SEO用セマンティックリスト — Featured Snippet対策 */}
+      <ol className="list-decimal pl-6 space-y-1 text-[14px] text-gray-700">
+        <li>患者の行動パターンに合わせたボタン配置</li>
+        <li>状態連動切替（予約前/予約後/来院後でメニュー変更）</li>
+        <li>デザインの統一感とブランディング</li>
+        <li>タップ数を最小にする導線設計</li>
+        <li>定期的なA/Bテストと改善</li>
+      </ol>
 
       <section>
         <h2 id="what-is-rich-menu" className="text-xl font-bold text-gray-800">リッチメニューとは何か</h2>
@@ -208,7 +217,7 @@ export default function Page() {
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: リッチメニューはクリニックLINEの「顔」</h2>
         <p>リッチメニューは患者がLINE公式アカウントを開いたときに最初に目にするUIであり、<strong>クリニックのデジタル上の「顔」</strong>とも言えます。ボタン配置・状態連動切替・デザイン・導線設計・継続改善の5つのポイントを押さえることで、患者の利便性と満足度を大きく向上させられます。美容クリニックでのリッチメニュー活用例は<Link href="/lp/column/beauty-clinic-line" className="text-sky-600 underline hover:text-sky-800">美容クリニックのLINE活用術</Link>でも紹介しています。</p>
-        <p>Lオペ for CLINICでは、クリニック専用に設計されたリッチメニューテンプレートと、予約・来院状態に連動した自動切替機能を標準搭載。デザインの知識がなくても、<strong>プロ品質のリッチメニュー</strong>をすぐに導入できます。</p>
+        <p>Lオペ for CLINICでは、クリニック専用に設計されたリッチメニューテンプレートと、予約・来院状態に連動した自動切替機能を標準搭載。デザインの知識がなくても、<strong>プロ品質のリッチメニュー</strong>をすぐに導入できます。<Link href="/lp/features#ノーコード構築" className="text-sky-600 underline hover:text-sky-800">リッチメニュービルダー</Link>の詳細はこちらからご確認いただけます。</p>
       </section>
     </ArticleLayout>
   );

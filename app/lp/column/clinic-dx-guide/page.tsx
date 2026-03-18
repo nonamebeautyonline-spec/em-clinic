@@ -53,8 +53,17 @@ export default function Page() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
-        クリニックDXはLINE公式アカウントを起点に、予約・問診・会計・配送を5ステップで段階的にデジタル化するのが最も成功率の高い進め方です。本記事では、何から始めればいいか分からないクリニック向けに、具体的なロードマップと失敗しないためのポイントを解説します。
+        クリニックDXはLINE公式アカウントを起点に、予約・問診・会計・配送を<strong>5ステップ</strong>で段階的にデジタル化するのが最も成功率の高い進め方です。本記事では、何から始めればいいか分からないクリニック向けに、具体的なロードマップと失敗しないためのポイントを解説します。
       </p>
+
+      {/* SEO用セマンティックリスト — Featured Snippet対策 */}
+      <ol className="list-decimal pl-6 space-y-1 text-[14px] text-gray-700">
+        <li>LINE公式アカウント開設（1日目）</li>
+        <li>リッチメニュー+自動応答の設定（1週間目）</li>
+        <li>オンライン問診+予約管理（2週間目）</li>
+        <li>セグメント配信+患者CRM（1ヶ月目）</li>
+        <li>決済・配送・分析の統合（2ヶ月目〜）</li>
+      </ol>
 
       <section>
         <h2 id="what-is-dx" className="text-xl font-bold text-gray-800">クリニックDXとは何か</h2>
@@ -135,7 +144,7 @@ export default function Page() {
 
         <DonutChart percentage={80} label="LINE開封率" sublabel="メール(20%)の4倍の到達力" />
 
-        <p>Lオペ for CLINICは、この5ステップをすべてワンストップで実現できるクリニック専用プラットフォームです。</p>
+        <p>Lオペ for CLINICは、この5ステップをすべてワンストップで実現できるクリニック専用プラットフォームです。各ステップで活用できる具体的な機能は<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">機能一覧ページ</Link>でご確認いただけます。電子カルテ・予約・問診・決済を含むDXの全体設計については<Link href="/lp/column/clinic-dx-complete-guide" className="text-emerald-700 underline">クリニックDX完全ガイド</Link>もぜひご覧ください。</p>
       </section>
     </ArticleLayout>
   );

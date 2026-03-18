@@ -54,7 +54,7 @@ export default function Page() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
-        クリニックのリピート率を上げるには、一斉配信ではなくセグメント配信が不可欠です。診療科目・来院回数・最終来院日・年齢層・施術内容の5軸で患者を分類し、それぞれに最適なメッセージを届けることで、開封率・再診率ともに大幅な改善が見込めます。本記事では具体的な分類方法と効果比較データを紹介します。
+        クリニックのリピート率を上げるには、一斉配信ではなくセグメント配信が不可欠です。診療科目・来院回数・最終来院日・年齢層・施術内容の<strong>5軸</strong>で患者を分類し、それぞれに最適なメッセージを届けることで、開封率・再診率ともに<strong>大幅な改善</strong>が見込めます。本記事では具体的な分類方法と効果比較データを紹介します。
       </p>
 
       <section>
@@ -136,7 +136,7 @@ export default function Page() {
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: セグメント配信でリピート率向上を実現</h2>
         <p>セグメント配信は、クリニックのLINE活用において<strong>最もROIが高い施策</strong>の一つです。一斉配信からセグメント配信に切り替えるだけで、再来院率が20〜30%向上するケースも珍しくありません。セグメント配信の効果を最大化するには、まず友だち数の母数を増やすことが重要です。具体的な施策は<Link href="/lp/column/clinic-line-friends-growth" className="text-emerald-700 underline">LINE友だち集め月100人増やす7つの施策</Link>で解説しています。</p>
-        <p>Lオペ for CLINICなら、来院履歴・予約・決済データと連動したセグメント配信が標準機能として搭載。クリニックに最適化されたセグメント設計を簡単に実現できます。導入クリニックの具体的な成果については<Link href="/lp/column/clinic-line-case-studies" className="text-emerald-700 underline">クリニックのLINE公式アカウント活用事例5選</Link>もご覧ください。</p>
+        <p>Lオペ for CLINICなら、来院履歴・予約・決済データと連動した<Link href="/lp/features#メッセージ配信" className="text-sky-600 underline hover:text-sky-800">セグメント配信機能</Link>が標準搭載。クリニックに最適化されたセグメント設計を簡単に実現できます。導入クリニックの具体的な成果については<Link href="/lp/column/clinic-line-case-studies" className="text-emerald-700 underline">クリニックのLINE公式アカウント活用事例5選</Link>もご覧ください。セグメント配信を含むLINE運用の全体像は<Link href="/lp/column/line-operation-guide" className="text-emerald-700 underline">LINE公式アカウント運用完全ガイド</Link>で体系的にまとめています。</p>
       </section>
     </ArticleLayout>
   );

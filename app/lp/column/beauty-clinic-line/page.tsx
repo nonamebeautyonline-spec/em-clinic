@@ -49,7 +49,7 @@ export default function Page() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
-        美容クリニックのLINE活用では、カウンセリング予約のデジタル化・施術前リマインド自動送信・アフターフォロー・ビフォーアフター写真管理・リピート施術のセグメント配信・口コミ促進の6施策が売上向上に直結します。本記事では、美容クリニック特有のニーズに合わせた具体的な運用方法を解説します。
+        美容クリニックのLINE活用では、カウンセリング予約のデジタル化・施術前リマインド自動送信・アフターフォロー・ビフォーアフター写真管理・リピート施術のセグメント配信・口コミ促進の<strong>6施策</strong>が売上向上に直結します。本記事では、美容クリニック特有のニーズに合わせた具体的な運用方法を解説します。
       </p>
 
       <section>
@@ -211,7 +211,7 @@ export default function Page() {
           { title: "口コミ", desc: "2ステップ方式でGoogle口コミの質と量を最大化" },
         ]} />
 
-        <p className="mt-4">Lオペ for CLINICは、美容クリニックに必要なこれらの機能をオールインワンで提供します。カウンセリング予約・写真管理・セグメント配信・口コミ促進まで、LINE一つで患者体験を最大化しませんか。オンライン診療との連携に興味がある方は<Link href="/lp/column/online-medical-line" className="text-sky-600 underline hover:text-sky-800">オンライン診療×LINE</Link>の記事もご覧ください。</p>
+        <p className="mt-4">Lオペ for CLINICは、美容クリニックに必要なこれらの機能をオールインワンで提供します。<Link href="/lp/features#患者CRM" className="text-sky-600 underline hover:text-sky-800">患者CRM</Link>から<Link href="/lp/features#メッセージ配信" className="text-sky-600 underline hover:text-sky-800">セグメント配信</Link>まで、LINE一つで患者体験を最大化しませんか。オンライン診療との連携に興味がある方は<Link href="/lp/column/online-medical-line" className="text-sky-600 underline hover:text-sky-800">オンライン診療×LINE</Link>の記事もご覧ください。</p>
       </section>
     </ArticleLayout>
   );

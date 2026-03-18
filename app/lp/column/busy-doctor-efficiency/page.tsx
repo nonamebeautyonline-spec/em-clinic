@@ -56,7 +56,7 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="業務改善" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">開業医が忙しい最大の理由は、診療に加え経営・労務・DX対応を1人で兼務する構造にあります。LINE予約・オンライン問診・AI自動返信の3つのDX施策を導入することで、1日あたり2〜3時間の業務削減が可能です。本記事では具体的な効率化方法を解説します。</p>
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">開業医が忙しい最大の理由は、診療に加え経営・労務・DX対応を1人で兼務する構造にあります。LINE予約・オンライン問診・AI自動返信の<strong>3つのDX施策</strong>を導入することで、<strong>1日あたり2〜3時間</strong>の業務削減が可能です。本記事では具体的な効率化方法を解説します。</p>
 
       {/* ── スケジュール ── */}
       <section>
@@ -178,7 +178,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICは、開業医の「診療に集中したい」という想いを実現するクリニック専用のLINE運用プラットフォームです。予約・問診・配信・決済・配送管理をオールインワンで自動化し、忙しい開業医の時間を取り戻します。AI自動返信による問い合わせ対応の自動化については<Link href="/lp/column/ai-auto-reply-guide" className="text-sky-600 underline hover:text-sky-800">AI自動返信導入ガイド</Link>もご覧ください。</p>
+        <p>Lオペ for CLINICは、開業医の「診療に集中したい」という想いを実現するクリニック専用のLINE運用プラットフォームです。予約・問診・配信・決済・配送管理を<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">オールインワンで自動化</Link>し、忙しい開業医の時間を取り戻します。AI自動返信による問い合わせ対応の自動化については<Link href="/lp/column/ai-auto-reply-guide" className="text-sky-600 underline hover:text-sky-800">AI自動返信導入ガイド</Link>もご覧ください。</p>
       </section>
     </ArticleLayout>
   );

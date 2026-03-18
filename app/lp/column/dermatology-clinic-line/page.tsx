@@ -47,7 +47,7 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="皮膚科LINE活用" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">皮膚科クリニックでは、慢性疾患の治療継続と処方薬の定期補充が最大の課題です。LINEを活用した写真送信による再診フロー、オンライン決済・配送の自動化、アトピー・ニキビ等の長期フォローアップシナリオで治療継続率を大幅に向上できます。</p>
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">皮膚科クリニックでは、慢性疾患の治療継続と処方薬の定期補充が最大の課題です。LINEを活用した写真送信による再診フロー、オンライン決済・配送の自動化、アトピー・ニキビ等の長期フォローアップシナリオで治療継続率を<strong>大幅に向上</strong>できます。</p>
 
       <section>
         <h2 id="challenges" className="text-xl font-bold text-gray-800">皮膚科クリニック特有の課題</h2>
@@ -161,7 +161,7 @@ export default function Page() {
           { title: "処方薬の決済・配送自動化", desc: "ワンタップ決済と自動配送で薬切れによる治療中断を防止" },
           { title: "長期フォローアップの自動化", desc: "治療段階に応じたメッセージ配信で慢性疾患の継続治療をサポート" },
         ]} />
-        <p className="mt-4">Lオペ for CLINICは、これらの皮膚科特化機能をすべて備えたLINE運用プラットフォームです。処方薬の配送管理から患者の写真管理、フォローアップの自動化まで、皮膚科クリニックのDXを強力にサポートします。</p>
+        <p className="mt-4">Lオペ for CLINICは、これらの皮膚科特化機能をすべて備えたLINE運用プラットフォームです。処方薬の<Link href="/lp/features#決済・配送" className="text-sky-600 underline hover:text-sky-800">配送管理</Link>から患者の写真管理、フォローアップの自動化まで、皮膚科クリニックのDXを強力にサポートします。</p>
       </section>
     </ArticleLayout>
   );

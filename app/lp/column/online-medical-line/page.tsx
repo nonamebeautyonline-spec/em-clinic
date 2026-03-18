@@ -47,7 +47,7 @@ export default function Page() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
-        オンライン診療はLINEを起点にすることで、予約・問診・ビデオ通話・決済・処方薬配送まで一気通貫で完結できます。初診からのオンライン診療が恒久化された今、患者体験を最大化する5つの運用ポイントと導入効果を本記事で解説します。
+        オンライン診療はLINEを起点にすることで、予約・問診・ビデオ通話・決済・処方薬配送まで<strong>一気通貫で完結</strong>できます。初診からのオンライン診療が恒久化された今、患者体験を最大化する<strong>5つの運用ポイント</strong>と導入効果を本記事で解説します。
       </p>
 
       <section>
@@ -166,7 +166,7 @@ export default function Page() {
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: LINEでオンライン診療の患者体験を根本から変える</h2>
         <p>オンライン診療の成功は、医療の質だけでなく<strong>患者体験（UX）の設計</strong>にかかっています。専用アプリ・別システム決済・煩雑な予約といった従来の課題を、LINE起点のフローで一掃することで、患者の利便性とクリニックの業務効率を同時に向上させられます。なお、オンライン診療フローの起点となるリッチメニューの設計については<Link href="/lp/column/rich-menu-design" className="text-sky-600 underline hover:text-sky-800">リッチメニュー設計5つのポイント</Link>で詳しく解説しています。また、電子カルテとの連携を検討中の方は<Link href="/lp/column/electronic-medical-record-guide" className="text-sky-600 underline hover:text-sky-800">電子カルテ選び方ガイド</Link>も参考にしてください。</p>
-        <p>Lオペ for CLINICは、LINE上での予約・問診・決済・配送追跡・フォローアップまでワンストップで提供。<strong>オンライン診療に最適化されたLINE運用プラットフォーム</strong>として、クリニックのオンライン診療を全面的にサポートします。</p>
+        <p>Lオペ for CLINICは、LINE上での予約・問診・決済・配送追跡・フォローアップまでワンストップで提供。<strong>オンライン診療に最適化されたLINE運用プラットフォーム</strong>として、クリニックのオンライン診療を全面的にサポートします。<Link href="/lp/features#決済・配送" className="text-sky-600 underline hover:text-sky-800">決済・配送管理機能</Link>の詳細もご覧ください。</p>
       </section>
     </ArticleLayout>
   );

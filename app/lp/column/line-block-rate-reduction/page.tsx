@@ -49,8 +49,17 @@ export default function Page() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
-        クリニックのLINEブロック率を下げるには、配信頻度を月2〜4回に抑える・セグメント配信で関連情報だけ送る・有益なコンテンツを混ぜる・配信時間帯を最適化する・ブロック分析でPDCAを回すの5つの鉄則が効果的です。本記事では、ブロック率5%から0.8%に改善した実際の事例と施策を紹介します。
+        クリニックのLINEブロック率を下げるには、配信頻度を<strong>月2〜4回</strong>に抑える・セグメント配信で関連情報だけ送る・有益なコンテンツを混ぜる・配信時間帯を最適化する・ブロック分析でPDCAを回すの<strong>5つの鉄則</strong>が効果的です。本記事では、ブロック率<strong>5%から0.8%</strong>に改善した実際の事例と施策を紹介します。
       </p>
+
+      {/* SEO用セマンティックリスト — Featured Snippet対策 */}
+      <ol className="list-decimal pl-6 space-y-1 text-[14px] text-gray-700">
+        <li>配信頻度は月2〜4回がベスト</li>
+        <li>患者に関係のある情報だけ送る（セグメント活用）</li>
+        <li>有益なコンテンツを混ぜる（健康Tips・季節の健康情報）</li>
+        <li>配信時間帯を最適化（18〜20時がゴールデンタイム）</li>
+        <li>ブロック分析を行い改善PDCAを回す</li>
+      </ol>
 
       <section>
         <h2 id="block-rate-impact" className="text-xl font-bold text-gray-800">ブロック率の業界平均とクリニック経営への影響</h2>
@@ -239,7 +248,7 @@ export default function Page() {
           <li><strong>配信時間帯を最適化</strong> — 18〜20時のゴールデンタイムを活用し、開封率を最大化</li>
           <li><strong>ブロック分析でPDCAを回す</strong> — データに基づいた改善を継続し、ブロック率を最小化</li>
         </ol>
-        <p className="mt-4">Lオペ for CLINICなら、セグメント配信・配信スケジュール管理・ブロック率分析ダッシュボードまでオールインワンで提供。患者に嫌われない配信運用を、すぐに始められます。ブロック率を含むクリニック経営のKPI管理については<Link href="/lp/column/clinic-kpi-dashboard" className="text-sky-600 underline hover:text-sky-800">KPI7選</Link>も参考にしてください。</p>
+        <p className="mt-4">Lオペ for CLINICなら、<Link href="/lp/features#メッセージ配信" className="text-sky-600 underline hover:text-sky-800">セグメント配信</Link>・配信スケジュール管理・<Link href="/lp/features#分析・レポート" className="text-sky-600 underline hover:text-sky-800">ブロック率分析ダッシュボード</Link>までオールインワンで提供。患者に嫌われない配信運用を、すぐに始められます。ブロック率を含むクリニック経営のKPI管理については<Link href="/lp/column/clinic-kpi-dashboard" className="text-sky-600 underline hover:text-sky-800">KPI7選</Link>も参考にしてください。</p>
       </section>
     </ArticleLayout>
   );

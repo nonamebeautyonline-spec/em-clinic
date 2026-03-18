@@ -55,7 +55,7 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="比較" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニック向けCRMは、LINE連携・電子カルテ連携・セグメント配信の3機能を基準に選ぶべきです。本記事では多機能型・実績重視型の6製品を比較し、CRM選定の判断基準と、LINE連携CRMが再診率・患者LTV向上に最も効果的な理由を解説します。</p>
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニック向けCRMは、LINE連携・電子カルテ連携・セグメント配信の<strong>3機能</strong>を基準に選ぶべきです。本記事では多機能型・実績重視型の<strong>6製品</strong>を比較し、CRM選定の判断基準と、LINE連携CRMが再診率・患者LTV向上に最も効果的な理由を解説します。</p>
 
       {/* ── なぜCRM ── */}
       <section>
@@ -190,7 +190,7 @@ export default function Page() {
           ]}
         />
 
-        <p>LINE公式アカウントを中心にクリニック業務を一元管理したい場合は、Lオペ for CLINICがクリニック専用設計で最もフィットします。予約管理機能をさらに比較したい方は<Link href="/lp/column/reservation-system-comparison" className="text-sky-600 underline hover:text-sky-800">予約システム比較10選</Link>も参考にしてください。</p>
+        <p>LINE公式アカウントを中心にクリニック業務を一元管理したい場合は、Lオペ for CLINICが<Link href="/lp/features#患者CRM" className="text-sky-600 underline hover:text-sky-800">クリニック専用CRM</Link>として最もフィットします。予約管理機能をさらに比較したい方は<Link href="/lp/column/reservation-system-comparison" className="text-sky-600 underline hover:text-sky-800">予約システム比較10選</Link>も参考にしてください。</p>
       </section>
     </ArticleLayout>
   );
