@@ -322,6 +322,12 @@ export async function processSquareEvent(params: SquareHandlerParams): Promise<v
         const rules = await getBusinessRules(tenantId ?? undefined);
         if (rules.notifyReorderPaid) {
           const thankMsg = rules.paymentThankMessageCard || "お支払いありがとうございます。発送準備を進めてまいります。";
+          // 商品名は商品マスタから取得（/api/square/payと同じ情報を送る）
+          let productName = itemsText || undefined;
+          if (!productName && productCode) {
+            const p = await getProductByCode(productCode, tid);
+            productName = p?.title || productCode;
+          }
           const { data: pt } = await withTenant(
             supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
             tenantId
@@ -332,7 +338,7 @@ export async function processSquareEvent(params: SquareHandlerParams): Promise<v
               message: thankMsg,
               shipping: { shippingName: shipName, postalCode: postal, address, phone: finalPhone, email: finalEmail },
               paymentMethod: "credit_card",
-              productName: itemsText || undefined,
+              productName,
               amount: amountText ? parseFloat(amountText) : undefined,
               tenantId: tenantId ?? undefined,
             });
