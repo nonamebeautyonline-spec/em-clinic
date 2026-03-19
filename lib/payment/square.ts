@@ -31,6 +31,15 @@ export class SquarePaymentProvider implements PaymentProvider {
   async createCheckoutLink(params: CheckoutParams): Promise<CheckoutResult> {
     const config = await this.getConfig();
 
+    console.log("[square] createCheckoutLink config:", {
+      tenantId: this.tenantId,
+      hasAccessToken: !!config.accessToken,
+      tokenPrefix: config.accessToken?.slice(0, 10),
+      locationId: config.locationId,
+      env: config.env,
+      baseUrl: config.baseUrl,
+    });
+
     if (!config.accessToken || !config.locationId) {
       throw new Error("Square設定が不足しています（access_token または location_id）");
     }
@@ -78,8 +87,9 @@ export class SquarePaymentProvider implements PaymentProvider {
     );
 
     if (!res.ok) {
-      console.error("Square CreatePaymentLink failed:", res.status);
-      throw new Error("決済リンクの作成に失敗しました");
+      const errBody = await res.text().catch(() => "");
+      console.error("Square CreatePaymentLink failed:", res.status, errBody);
+      throw new Error(`決済リンクの作成に失敗しました (${res.status})`);
     }
 
     const json = await res.json();
