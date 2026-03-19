@@ -4,7 +4,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getAllProducts } from "@/lib/products";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { checkInventoryAlerts } from "@/lib/inventory-alert";
 import { parseBody } from "@/lib/validations/helpers";
 import { productCreateSchema, productUpdateSchema } from "@/lib/validations/admin-operations";
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   // productsテーブルは lib/products.ts 経由で既にテナント対応済み
   const products = await getAllProducts(tenantId ?? undefined);
   return NextResponse.json({ products });
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, productCreateSchema);
   if ("error" in parsed) return parsed.error;
   const {
@@ -81,14 +81,14 @@ export async function PUT(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, productUpdateSchema);
   if ("error" in parsed) return parsed.error;
   const { id, ...updates } = parsed.data;
 
   updates.updated_at = new Date().toISOString();
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin.from("products").update(updates), tenantId
   ).eq("id", id).select().single();
 
@@ -109,7 +109,7 @@ export async function DELETE(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
 
@@ -118,7 +118,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   // 物理削除ではなく無効化
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin.from("products").update({ is_active: false, updated_at: new Date().toISOString() }), tenantId
   ).eq("id", id);
 

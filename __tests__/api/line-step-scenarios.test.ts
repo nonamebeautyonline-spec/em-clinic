@@ -64,7 +64,9 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
+  resolveTenantIdOrThrow: vi.fn(() => "test-tenant"),
   withTenant: vi.fn((q: SupabaseChain) => q),
+  strictWithTenant: vi.fn((q: SupabaseChain) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { buildPrescriptionTimeline } from "@/lib/prescription-timeline";
 
 export const dynamic = "force-dynamic";
@@ -12,14 +12,14 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const patientId = req.nextUrl.searchParams.get("patientId")?.trim();
   if (!patientId) {
     return badRequest("patientId は必須です");
   }
 
   const [ordersRes, reordersRes] = await Promise.all([
-    withTenant(
+    strictWithTenant(
       supabaseAdmin
         .from("orders")
         .select("product_code, paid_at, created_at")
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
         .order("created_at", { ascending: false }),
       tenantId,
     ),
-    withTenant(
+    strictWithTenant(
       supabaseAdmin
         .from("reorders")
         .select("product_code, paid_at, created_at, karte_note")

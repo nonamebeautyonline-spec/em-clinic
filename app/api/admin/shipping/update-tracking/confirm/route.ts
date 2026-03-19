@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateTrackingConfirmSchema } from "@/lib/validations/shipping";
 
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const parsed = await parseBody(req, updateTrackingConfirmSchema);
     if ("error" in parsed) return parsed.error;
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
         batch.map(async (entry: TrackingEntry) => {
           const { payment_id, tracking_number } = entry;
           try {
-            const { data, error } = await withTenant(
+            const { data, error } = await strictWithTenant(
               supabase.from("orders").update({
                 tracking_number: tracking_number,
                 shipping_status: "shipped",
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
             }
 
             if (!data || data.length === 0) {
-              const { data: existing } = await withTenant(
+              const { data: existing } = await strictWithTenant(
                 supabase.from("orders").select("id, shipping_status").eq("id", payment_id),
                 tenantId
               );
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
 
             // ★ 合箱対応: 同一出荷バッチの兄弟注文も自動更新
             if (data[0]?.patient_id && data[0]?.shipping_list_created_at) {
-              const { data: siblings } = await withTenant(
+              const { data: siblings } = await strictWithTenant(
                 supabase.from("orders").update({
                   tracking_number,
                   shipping_status: "shipped",

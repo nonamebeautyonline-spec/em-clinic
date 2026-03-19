@@ -4,7 +4,7 @@ import { serverError, unauthorized } from "@/lib/api-error";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabase, supabaseAdmin } from "@/lib/supabase";
 import { normalizeJPPhone } from "@/lib/phone";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { MERGE_TABLES } from "@/lib/merge-tables";
 import { getBusinessRules } from "@/lib/business-rules";
 import { parseBody } from "@/lib/validations/helpers";
@@ -42,7 +42,7 @@ async function retrySupabaseWrite<T>(
 
 export async function POST(req: NextRequest) {
   try {
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const parsed = await parseBody(req, intakeSchema);
     if ("error" in parsed) return parsed.error;
     const body = parsed.data;
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
         // ★ supabaseAdmin を使う（anon key だと RLS で読めず null になる）
         // ★ 複数 intake レコード対策: 問診本体（reserve_id あり）を優先取得
         //   カルテレコード（note が "再処方" 始まり）の方が created_at が古い場合があるため
-        const { data: intakeRows } = await withTenant(
+        const { data: intakeRows } = await strictWithTenant(
           supabaseAdmin
             .from("intake")
             .select("id, answers, reserve_id, status, note")
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
         // ★ レースコンディション対策: insert直前に再チェック
         let targetRecord = existingRecord;
         if (!targetRecord && intakePayload.reserve_id) {
-          const { data: byReserveId } = await withTenant(
+          const { data: byReserveId } = await strictWithTenant(
             supabaseAdmin
               .from("intake")
               .select("id, answers, reserve_id, status, note")
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
           if (byReserveId) targetRecord = byReserveId;
         }
         const result = targetRecord
-          ? await withTenant(
+          ? await strictWithTenant(
               supabaseAdmin
                 .from("intake")
                 .update(intakePayload)
@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
       retrySupabaseWrite(async () => {
         // 既存レコードを取得して、空値で上書きしないようにする
         // ★ supabaseAdmin を使う（anon key だと RLS で読めず null → name 消失バグの原因）
-        const { data: existingAnswerer } = await withTenant(
+        const { data: existingAnswerer } = await strictWithTenant(
           supabaseAdmin
             .from("patients")
             .select("tel, name, name_kana, sex, birthday, line_id")
@@ -228,7 +228,7 @@ export async function POST(req: NextRequest) {
     // line_id で直接検索し、同じ line_id を持つ LINE_ 患者を全てクリーンアップ
     if (!patientId.startsWith("LINE_")) {
       try {
-        const { data: currentPatient } = await withTenant(
+        const { data: currentPatient } = await strictWithTenant(
           supabaseAdmin
             .from("patients")
             .select("line_id")
@@ -240,7 +240,7 @@ export async function POST(req: NextRequest) {
         const resolvedLineId = currentPatient?.line_id;
         if (resolvedLineId) {
           // line_id が同じ LINE_ 患者を全て検索
-          const { data: fakePatients } = await withTenant(
+          const { data: fakePatients } = await strictWithTenant(
             supabaseAdmin
               .from("patients")
               .select("patient_id")
@@ -256,7 +256,7 @@ export async function POST(req: NextRequest) {
             // 関連テーブルの patient_id を正規に付け替え（MERGE_TABLES で一元管理）
             await Promise.all(
               MERGE_TABLES.map(async (table) => {
-                const { error } = await withTenant(
+                const { error } = await strictWithTenant(
                   supabaseAdmin
                     .from(table)
                     .update({ patient_id: patientId })
@@ -272,7 +272,7 @@ export async function POST(req: NextRequest) {
 
             // ピン留めのIDも移行（admin_users.pinned_patients JSONB配列）
             try {
-              const { data: admins } = await withTenant(
+              const { data: admins } = await strictWithTenant(
                 supabaseAdmin
                   .from("admin_users")
                   .select("id, pinned_patients"),
@@ -282,7 +282,7 @@ export async function POST(req: NextRequest) {
                 const pins: string[] = admin.pinned_patients || [];
                 if (pins.includes(fakeId)) {
                   const newPins = pins.map((p: string) => p === fakeId ? patientId : p);
-                  await withTenant(
+                  await strictWithTenant(
                     supabaseAdmin
                       .from("admin_users")
                       .update({ pinned_patients: newPins })
@@ -300,8 +300,8 @@ export async function POST(req: NextRequest) {
             const { migrateFriendSummary } = await import("@/lib/merge-tables");
             await migrateFriendSummary(fakeId, patientId);
             // 仮レコード削除（intake → patients の順）
-            await withTenant(supabaseAdmin.from("intake").delete().eq("patient_id", fakeId), tenantId);
-            await withTenant(supabaseAdmin.from("patients").delete().eq("patient_id", fakeId), tenantId);
+            await strictWithTenant(supabaseAdmin.from("intake").delete().eq("patient_id", fakeId), tenantId);
+            await strictWithTenant(supabaseAdmin.from("patients").delete().eq("patient_id", fakeId), tenantId);
             console.log(`[Intake] Fake record ${fakeId} merged and deleted`);
           }
         }
@@ -316,7 +316,7 @@ export async function POST(req: NextRequest) {
       if (rules.intakeReminderHours > 0 && patientId && !patientId.startsWith("LINE_")) {
         const remindAt = new Date(Date.now() + rules.intakeReminderHours * 60 * 60 * 1000).toISOString();
         // line_id を取得
-        const { data: ptData } = await withTenant(
+        const { data: ptData } = await strictWithTenant(
           supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
           tenantId
         );

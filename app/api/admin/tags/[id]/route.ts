@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { tagUpdateSchema } from "@/lib/validations/admin-operations";
 
@@ -26,12 +26,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
 
   // このタグが付いた患者IDを取得
   const { data: ptRows, error } = await fetchAll(
-    () => withTenant(
+    () => strictWithTenant(
       supabaseAdmin.from("patient_tags").select("patient_id, assigned_at").eq("tag_id", Number(id)).order("assigned_at", { ascending: false }),
       tenantId
     ) as unknown as { range: (from: number, to: number) => Promise<{ data: Record<string, unknown>[] | null; error: { message: string } | null }> },
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const BATCH = 500;
   for (let i = 0; i < patientIds.length; i += BATCH) {
     const chunk = patientIds.slice(i, i + BATCH);
-    const { data } = await withTenant(
+    const { data } = await strictWithTenant(
       supabaseAdmin
         .from("patients")
         .select("patient_id, name, line_id")
@@ -79,13 +79,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
   const parsed = await parseBody(req, tagUpdateSchema);
   if ("error" in parsed) return parsed.error;
   const { name, color, description } = parsed.data;
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("tag_definitions")
       .update({ name, color, description })
@@ -102,10 +102,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin
       .from("tag_definitions")
       .delete()

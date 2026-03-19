@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import {
   getEnabledFeatures,
   ALL_FEATURES,
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const enabled = await getEnabledFeatures(tenantId);
 
   return NextResponse.json({

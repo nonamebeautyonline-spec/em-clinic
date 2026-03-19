@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -13,14 +13,14 @@ export async function GET(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const LINE_ACCESS_TOKEN = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patient_id");
     if (!patientId) return badRequest("patient_id required");
 
     // patient_id から line_id を patients テーブルから取得
-    const { data: patientRow } = await withTenant(
+    const { data: patientRow } = await strictWithTenant(
       supabaseAdmin
         .from("patients")
         .select("line_id")
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 
     if (blocked) {
       // 最新のイベントが既にブロックなら重複挿入しない
-      const { data: lastEvent } = await withTenant(
+      const { data: lastEvent } = await strictWithTenant(
         supabaseAdmin
           .from("message_log")
           .select("id, event_type")

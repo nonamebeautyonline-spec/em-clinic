@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { financialsSchema } from "@/lib/validations/admin-operations";
 
@@ -22,14 +22,14 @@ export async function GET(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const { searchParams } = new URL(req.url);
     const yearMonth = searchParams.get("year_month");
 
     if (yearMonth) {
       // 特定月のデータを取得
-      const { data, error } = await withTenant(
+      const { data, error } = await strictWithTenant(
         supabase
           .from("monthly_financials")
           .select("*")
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: true, data });
     } else {
       // 直近12ヶ月分のデータを取得
-      const { data, error } = await withTenant(
+      const { data, error } = await strictWithTenant(
         supabase
           .from("monthly_financials")
           .select("*")
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const parsed = await parseBody(req, financialsSchema);
     if ("error" in parsed) return parsed.error;

@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { getBalance, getHistory } from "@/lib/points";
 
 type RouteContext = { params: Promise<{ patientId: string }> };
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { patientId } = await context.params;
 
   if (!patientId) return badRequest("patientId は必須です");

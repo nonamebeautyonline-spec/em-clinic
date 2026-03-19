@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 // 売上トレンドAPI: 月別・年別の売上推移と前期比較を提供
 export async function GET(request: NextRequest) {
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(request);
+    const tenantId = resolveTenantIdOrThrow(request);
     const searchParams = request.nextUrl.searchParams;
     const granularity = searchParams.get("granularity") || "monthly"; // monthly | yearly
     const monthsBack = parseInt(searchParams.get("months") || "12", 10);
@@ -46,7 +46,7 @@ async function getMonthlyTrends(
   const endDate = new Date(Date.UTC(currentYear, currentMonth + 1, 1, 0, 0, 0) - jstOffset);
 
   const [squareResult, bankResult, refundResult] = await Promise.all([
-    withTenant(
+    strictWithTenant(
       supabaseAdmin.from("orders").select("amount, paid_at, patient_id")
         .eq("payment_method", "credit_card")
         .not("paid_at", "is", null)
@@ -55,7 +55,7 @@ async function getMonthlyTrends(
         .limit(100000),
       tenantId,
     ),
-    withTenant(
+    strictWithTenant(
       supabaseAdmin.from("orders").select("amount, created_at, patient_id")
         .eq("payment_method", "bank_transfer")
         .in("status", ["pending_confirmation", "confirmed"])
@@ -64,7 +64,7 @@ async function getMonthlyTrends(
         .limit(100000),
       tenantId,
     ),
-    withTenant(
+    strictWithTenant(
       supabaseAdmin.from("orders").select("refunded_amount, amount, refunded_at")
         .eq("refund_status", "COMPLETED")
         .gte("refunded_at", startDate.toISOString())
@@ -165,7 +165,7 @@ async function getYearlyTrends(
   const endDate = new Date(Date.UTC(currentYear + 1, 0, 1, 0, 0, 0) - jstOffset);
 
   const [squareResult, bankResult, refundResult] = await Promise.all([
-    withTenant(
+    strictWithTenant(
       supabaseAdmin.from("orders").select("amount, paid_at, patient_id")
         .eq("payment_method", "credit_card")
         .not("paid_at", "is", null)
@@ -174,7 +174,7 @@ async function getYearlyTrends(
         .limit(100000),
       tenantId,
     ),
-    withTenant(
+    strictWithTenant(
       supabaseAdmin.from("orders").select("amount, created_at, patient_id")
         .eq("payment_method", "bank_transfer")
         .in("status", ["pending_confirmation", "confirmed"])
@@ -183,7 +183,7 @@ async function getYearlyTrends(
         .limit(100000),
       tenantId,
     ),
-    withTenant(
+    strictWithTenant(
       supabaseAdmin.from("orders").select("refunded_amount, amount, refunded_at")
         .eq("refund_status", "COMPLETED")
         .gte("refunded_at", startDate.toISOString())

@@ -4,7 +4,7 @@ import { conflict, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { logAudit } from "@/lib/audit";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import {
   createVocabularySchema,
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   // クエリパラメータでフィルタ
   const { searchParams } = new URL(req.url);
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
   const specialty = searchParams.get("specialty");
   const search = searchParams.get("search");
 
-  let query = withTenant(
+  let query = strictWithTenant(
     supabaseAdmin
       .from("medical_vocabulary")
       .select("*")
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   // action パラメータで分岐
   const { searchParams } = new URL(req.url);
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
   const { term, reading, category, specialty, boost_weight } = parsed.data;
 
   // 重複チェック
-  const { data: existing } = await withTenant(
+  const { data: existing } = await strictWithTenant(
     supabaseAdmin
       .from("medical_vocabulary")
       .select("id")
@@ -141,7 +141,7 @@ async function handleSeed(req: NextRequest, tenantId: string | null) {
   const entries = getDefaultVocabulary(specialties as Specialty[]);
 
   // 既存のデフォルト辞書を削除（同テナント）
-  await withTenant(
+  await strictWithTenant(
     supabaseAdmin
       .from("medical_vocabulary")
       .delete()
@@ -194,14 +194,14 @@ export async function PUT(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const parsed = await parseBody(req, updateVocabularySchema);
   if ("error" in parsed) return parsed.error;
   const { id, ...updates } = parsed.data;
 
   // 存在チェック
-  const { data: existing } = await withTenant(
+  const { data: existing } = await strictWithTenant(
     supabaseAdmin.from("medical_vocabulary").select("id").eq("id", id),
     tenantId
   ).single();
@@ -210,7 +210,7 @@ export async function PUT(req: NextRequest) {
     return notFound("用語が見つかりません");
   }
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("medical_vocabulary")
       .update(updates)
@@ -237,13 +237,13 @@ export async function DELETE(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const parsed = await parseBody(req, deleteVocabularySchema);
   if ("error" in parsed) return parsed.error;
   const { id } = parsed.data;
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin.from("medical_vocabulary").delete().eq("id", id),
     tenantId
   );

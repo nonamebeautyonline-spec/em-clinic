@@ -10,7 +10,9 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
+  resolveTenantIdOrThrow: vi.fn(() => "test-tenant"),
   withTenant: vi.fn((q: unknown) => q),
+  strictWithTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -134,8 +136,8 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
       mockGetSettingsBulk.mockResolvedValue(bulkMap);
 
       // デフォルトテナントではenvフォールバックが効く
-      const { resolveTenantId } = await import("@/lib/tenant");
-      (resolveTenantId as ReturnType<typeof vi.fn>).mockReturnValueOnce("00000000-0000-0000-0000-000000000001");
+      const { resolveTenantIdOrThrow } = await import("@/lib/tenant");
+      (resolveTenantIdOrThrow as ReturnType<typeof vi.fn>).mockReturnValueOnce("00000000-0000-0000-0000-000000000001");
 
       // 環境変数をセット
       const originalEnv = process.env.SQUARE_ACCESS_TOKEN;

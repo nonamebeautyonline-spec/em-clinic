@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth, getAdminUserId } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { unauthorized, serverError } from "@/lib/api-error";
 
 // 有効な metric_type の一覧
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     const isAuthorized = await verifyAdminAuth(request);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(request);
+    const tenantId = resolveTenantIdOrThrow(request);
     const searchParams = request.nextUrl.searchParams;
     const yearMonth = searchParams.get("year_month");
     const withActuals = searchParams.get("with_actuals") === "true";
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       .select("*")
       .order("metric_type");
 
-    query = withTenant(query, tenantId);
+    query = strictWithTenant(query, tenantId);
 
     if (yearMonth && isValidYearMonth(yearMonth)) {
       query = query.eq("year_month", yearMonth);
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     const isAuthorized = await verifyAdminAuth(request);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(request);
+    const tenantId = resolveTenantIdOrThrow(request);
     const userId = await getAdminUserId(request);
     const body = await request.json();
 
@@ -152,7 +152,7 @@ export async function DELETE(request: NextRequest) {
     const isAuthorized = await verifyAdminAuth(request);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(request);
+    const tenantId = resolveTenantIdOrThrow(request);
     const body = await request.json();
     const { id } = body;
 
@@ -161,7 +161,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     let query = supabaseAdmin.from("kpi_targets").delete().eq("id", id);
-    query = withTenant(query, tenantId);
+    query = strictWithTenant(query, tenantId);
 
     const { error } = await query;
     if (error) {
@@ -206,7 +206,7 @@ async function fetchActuals(
     repeatPatientsResult,
   ] = await Promise.all([
     // 売上: orders の paid_at が期間内のもの（credit_card + bank_transfer confirmed）
-    withTenant(
+    strictWithTenant(
       supabaseAdmin
         .from("orders")
         .select("amount")
@@ -216,7 +216,7 @@ async function fetchActuals(
       tenantId,
     ),
     // 新規患者: intake の created_at が期間内
-    withTenant(
+    strictWithTenant(
       supabaseAdmin
         .from("intake")
         .select("*", { count: "exact", head: true })
@@ -225,7 +225,7 @@ async function fetchActuals(
       tenantId,
     ),
     // 予約数
-    withTenant(
+    strictWithTenant(
       supabaseAdmin
         .from("reservations")
         .select("*", { count: "exact", head: true })
@@ -234,7 +234,7 @@ async function fetchActuals(
       tenantId,
     ),
     // 決済完了数
-    withTenant(
+    strictWithTenant(
       supabaseAdmin
         .from("orders")
         .select("*", { count: "exact", head: true })
@@ -243,7 +243,7 @@ async function fetchActuals(
       tenantId,
     ),
     // 診察完了（OK）の患者
-    withTenant(
+    strictWithTenant(
       supabaseAdmin
         .from("reservations")
         .select("patient_id")
@@ -254,7 +254,7 @@ async function fetchActuals(
       tenantId,
     ),
     // 診察後に決済した患者
-    withTenant(
+    strictWithTenant(
       supabaseAdmin
         .from("orders")
         .select("patient_id")
@@ -264,7 +264,7 @@ async function fetchActuals(
       tenantId,
     ),
     // 総患者（period内で1回以上注文あり）
-    withTenant(
+    strictWithTenant(
       supabaseAdmin
         .from("orders")
         .select("patient_id")
@@ -275,7 +275,7 @@ async function fetchActuals(
     ),
     // リピート患者（2回以上注文歴がある患者）
     // 簡易版: 期間内に paid_at がある注文の patient_id のうち、それ以前にも注文がある患者
-    withTenant(
+    strictWithTenant(
       supabaseAdmin
         .from("orders")
         .select("patient_id")

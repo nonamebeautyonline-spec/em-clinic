@@ -21,6 +21,7 @@ vi.mock("@/lib/settings", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
+  resolveTenantIdOrThrow: vi.fn(() => null),
 }));
 
 import { GET, PUT } from "@/app/api/admin/bank-accounts/route";

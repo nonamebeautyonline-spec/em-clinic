@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { notFound, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
 import { executeActionSchema } from "@/lib/validations/line-management";
@@ -23,14 +23,14 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const lineToken = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
   const parsed = await parseBody(req, executeActionSchema);
   if ("error" in parsed) return parsed.error;
   const { action_id, patient_id } = parsed.data;
 
   // アクション取得
-  const { data: action, error: actionError } = await withTenant(
+  const { data: action, error: actionError } = await strictWithTenant(
     supabaseAdmin
       .from("actions")
       .select("*")
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   const results: { step: number; type: string; success: boolean; detail?: string }[] = [];
 
   // 患者の LINE UID・名前を patients テーブルから取得
-  const { data: patientData } = await withTenant(
+  const { data: patientData } = await strictWithTenant(
     supabaseAdmin
       .from("patients")
       .select("name, line_id")
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
             results.push({ step: i, type: step.type, success: false, detail: "テンプレート未指定" });
             break;
           }
-          const { data: tmpl } = await withTenant(
+          const { data: tmpl } = await strictWithTenant(
             supabaseAdmin
               .from("message_templates")
               .select("content, message_type")
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
             results.push({ step: i, type: step.type, success: false, detail: "タグ未指定" });
             break;
           }
-          const { error: tagErr } = await withTenant(
+          const { error: tagErr } = await strictWithTenant(
             supabaseAdmin
               .from("patient_tags")
               .upsert({ ...tenantPayload(tenantId), patient_id, tag_id: step.tag_id, assigned_by: "action" }, { onConflict: "patient_id,tag_id" }),
@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
             results.push({ step: i, type: step.type, success: false, detail: "タグ未指定" });
             break;
           }
-          const { error: rmErr } = await withTenant(
+          const { error: rmErr } = await strictWithTenant(
             supabaseAdmin
               .from("patient_tags")
               .delete()
@@ -196,7 +196,7 @@ export async function POST(req: NextRequest) {
             results.push({ step: i, type: step.type, success: false, detail: "マーク未指定" });
             break;
           }
-          const { error: markErr } = await withTenant(
+          const { error: markErr } = await strictWithTenant(
             supabaseAdmin
               .from("patient_marks")
               .upsert({
@@ -223,7 +223,7 @@ export async function POST(req: NextRequest) {
             results.push({ step: i, type: step.type, success: false, detail: "LINE UID未登録" });
             break;
           }
-          const { data: menuData } = await withTenant(
+          const { data: menuData } = await strictWithTenant(
             supabaseAdmin
               .from("rich_menus")
               .select("line_rich_menu_id, name")
@@ -265,7 +265,7 @@ export async function POST(req: NextRequest) {
         break;
       case "send_template":
         if (step.template_id) {
-          const { data: t } = await withTenant(
+          const { data: t } = await strictWithTenant(
             supabaseAdmin.from("message_templates").select("name").eq("id", step.template_id),
             tenantId
           ).maybeSingle();
@@ -274,7 +274,7 @@ export async function POST(req: NextRequest) {
         break;
       case "tag_add":
         if (step.tag_id) {
-          const { data: t } = await withTenant(
+          const { data: t } = await strictWithTenant(
             supabaseAdmin.from("tag_definitions").select("name").eq("id", step.tag_id),
             tenantId
           ).maybeSingle();
@@ -283,7 +283,7 @@ export async function POST(req: NextRequest) {
         break;
       case "tag_remove":
         if (step.tag_id) {
-          const { data: t } = await withTenant(
+          const { data: t } = await strictWithTenant(
             supabaseAdmin.from("tag_definitions").select("name").eq("id", step.tag_id),
             tenantId
           ).maybeSingle();

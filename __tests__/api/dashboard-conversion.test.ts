@@ -45,7 +45,9 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
+  resolveTenantIdOrThrow: vi.fn(() => "test-tenant"),
   withTenant: vi.fn((q: unknown) => q),
+  strictWithTenant: vi.fn((q: unknown) => q),
 }));
 
 import { GET } from "@/app/api/admin/dashboard-conversion/route";
@@ -196,8 +198,8 @@ describe("初診→再診転換率API - GET", () => {
   });
 
   it("Supabaseエラー時は500を返す", async () => {
-    const { withTenant } = await import("@/lib/tenant");
-    (withTenant as Mock).mockRejectedValueOnce(new Error("DB接続エラー"));
+    const { strictWithTenant } = await import("@/lib/tenant");
+    (strictWithTenant as Mock).mockRejectedValueOnce(new Error("DB接続エラー"));
 
     const req = new Request("http://localhost/api/admin/dashboard-conversion");
     const res = await GET(req as any);

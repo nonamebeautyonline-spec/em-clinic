@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createActionSchema, updateActionSchema } from "@/lib/validations/line-management";
 
@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const folderId = searchParams.get("folder_id");
 
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
   if (folderId) query = query.eq("folder_id", parseInt(folderId));
 
-  const { data, error } = await withTenant(query, tenantId);
+  const { data, error } = await strictWithTenant(query, tenantId);
   if (error) return serverError(error.message);
   return NextResponse.json({ actions: data || [] });
 }
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, createActionSchema);
   if ("error" in parsed) return parsed.error;
   const { name, folder_id, steps, repeat_enabled } = parsed.data;
@@ -58,12 +58,12 @@ export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, updateActionSchema);
   if ("error" in parsed) return parsed.error;
   const { id, name, folder_id, steps, repeat_enabled } = parsed.data;
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("actions")
       .update({
@@ -86,12 +86,12 @@ export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return badRequest("IDは必須です");
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin
       .from("actions")
       .delete()

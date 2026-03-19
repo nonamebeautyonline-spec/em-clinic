@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const lineToken = await getSettingOrEnv(
     "line", "channel_access_token",
     "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN",
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
     const statDate = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
 
     // 既に収集済みならスキップ
-    const { data: existing } = await withTenant(
+    const { data: existing } = await strictWithTenant(
       supabaseAdmin
         .from("line_daily_stats")
         .select("id")
@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
     // message_log から送信数
     const dayStart = `${statDate}T00:00:00+09:00`;
     const dayEnd = `${statDate}T23:59:59+09:00`;
-    const { count: messagesSent } = await withTenant(
+    const { count: messagesSent } = await strictWithTenant(
       supabaseAdmin
         .from("message_log")
         .select("id", { count: "exact", head: true })
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
     );
 
     // click_tracking_events からクリック数
-    const { data: clickEvents } = await withTenant(
+    const { data: clickEvents } = await strictWithTenant(
       supabaseAdmin
         .from("click_tracking_events")
         .select("id, ip_address")

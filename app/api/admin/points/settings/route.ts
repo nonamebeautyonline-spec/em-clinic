@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, tenantPayload, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, tenantPayload, strictWithTenant } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getPointSettings } from "@/lib/points";
 
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     const settings = await getPointSettings(tenantId);
@@ -34,7 +34,7 @@ export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     const body = await req.json();

@@ -12,7 +12,9 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
+  resolveTenantIdOrThrow: vi.fn(() => "test-tenant"),
   withTenant: vi.fn((q: unknown) => q),
+  strictWithTenant: vi.fn((q: unknown) => q),
 }));
 
 // jsPDF モック — vi.hoisted() でホイスト対応の変数を作成

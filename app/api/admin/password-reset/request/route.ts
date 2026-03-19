@@ -5,7 +5,7 @@ import { serverError } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { randomBytes } from "crypto";
 import { sendPasswordResetEmail } from "@/lib/email";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { parseBody } from "@/lib/validations/helpers";
 import { adminPasswordResetRequestSchema } from "@/lib/validations/admin-operations";
@@ -18,7 +18,7 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const parsed = await parseBody(req, adminPasswordResetRequestSchema);
     if ("error" in parsed) return parsed.error;
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ユーザー存在チェック
-    const { data: user } = await withTenant(
+    const { data: user } = await strictWithTenant(
       supabase
         .from("admin_users")
         .select("id, email, name, is_active")
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 既存のトークンを無効化（古いものを削除）
-    await withTenant(
+    await strictWithTenant(
       supabase
         .from("password_reset_tokens")
         .delete()

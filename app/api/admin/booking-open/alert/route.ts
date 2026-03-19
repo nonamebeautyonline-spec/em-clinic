@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   // JSTで現在日時を取得
   const now = new Date();
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   const nextMonthStr = `${nextYear}-${String(nextMonth > 12 ? 1 : nextMonth).padStart(2, "0")}`;
 
   // 予約設定からbooking_open_day（期限日）を取得
-  const { data: settingsData } = await withTenant(
+  const { data: settingsData } = await strictWithTenant(
     supabaseAdmin.from("reservation_settings").select("booking_open_day"),
     tenantId
   ).single();
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
   }
 
   // 翌月の開放状態を確認
-  const { data: openData } = await withTenant(
+  const { data: openData } = await strictWithTenant(
     supabaseAdmin
       .from("booking_open_settings")
       .select("is_open")

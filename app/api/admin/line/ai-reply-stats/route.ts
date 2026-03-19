@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 // トークンあたりの推定コスト（USD）— GPT-4o-mini 相当
 const COST_PER_INPUT_TOKEN = 0.00000015;
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const period = Number(req.nextUrl.searchParams.get("period")) || 30;
   const validPeriod = [7, 30, 90].includes(period) ? period : 30;
 
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   const periodStartStr = periodStart.toISOString().slice(0, 10);
 
   // --- 1. 期間内の全ドラフトを取得 ---
-  const { data: drafts, error: draftsError } = await withTenant(
+  const { data: drafts, error: draftsError } = await strictWithTenant(
     supabaseAdmin
       .from("ai_reply_drafts")
       .select("id, status, ai_category, confidence, input_tokens, output_tokens, created_at, sent_at, original_message, draft_reply, model_used")

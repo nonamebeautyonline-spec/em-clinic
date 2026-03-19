@@ -32,7 +32,9 @@ vi.mock("@/lib/ai-reply", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
+  resolveTenantIdOrThrow: vi.fn(() => null),
   withTenant: vi.fn((query: unknown) => query),
+  strictWithTenant: vi.fn((query: unknown) => query),
 }));
 
 vi.mock("@/lib/settings", () => ({

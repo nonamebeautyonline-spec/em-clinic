@@ -4,7 +4,7 @@ import { notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { logAudit } from "@/lib/audit";
 import { parseBody } from "@/lib/validations/helpers";
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const lineToken = await getSettingOrEnv("line", "channel_access_token", "LINE_NOTIFY_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
     const lineGroupId = await getSettingOrEnv("line", "admin_group_id", "LINE_ADMIN_GROUP_ID", tenantId ?? undefined) || "";
 
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     const { id } = parsed.data; // id = reorder_number
 
     // まずpatient_idとstatusを取得
-    const { data: reorderData, error: fetchError } = await withTenant(
+    const { data: reorderData, error: fetchError } = await strictWithTenant(
       supabaseAdmin
         .from("reorders")
         .select("id, patient_id, status")
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ステータス更新
-    const { error: dbError } = await withTenant(
+    const { error: dbError } = await strictWithTenant(
       supabaseAdmin
         .from("reorders")
         .update({

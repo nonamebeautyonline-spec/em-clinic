@@ -3,11 +3,11 @@
 // ログイン後: 業種・有効オプション情報も返す
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 
 export async function GET(req: NextRequest) {
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   if (!tenantId) {
     return NextResponse.json({
       ok: true,

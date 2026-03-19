@@ -9,7 +9,7 @@ import {
   type MenuAutoRule,
 } from "@/lib/menu-auto-rules";
 import { supabaseAdmin } from "@/lib/supabase";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { menuRuleSchema } from "@/lib/validations/line-management";
 
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const rules = await loadMenuRules(tenantId ?? undefined);
   return NextResponse.json({ rules });
 }
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, menuRuleSchema);
   if ("error" in parsed) return parsed.error;
   const { rule } = parsed.data as unknown as { rule: Partial<MenuAutoRule> };
@@ -65,7 +65,7 @@ export async function DELETE(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return badRequest("idは必須です");
@@ -81,10 +81,10 @@ export async function PUT(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   // 全LINE連携済み患者を取得
-  const { data: patients } = await withTenant(
+  const { data: patients } = await strictWithTenant(
     supabaseAdmin
       .from("patients")
       .select("patient_id")

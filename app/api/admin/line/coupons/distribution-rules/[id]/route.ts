@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 // 有効なトリガータイプ
 const VALID_TRIGGER_TYPES = ["birthday", "first_purchase_days", "nth_visit", "tag_added"] as const;
@@ -21,10 +21,10 @@ export async function GET(
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
 
-  const { data: rule, error } = await withTenant(
+  const { data: rule, error } = await strictWithTenant(
     supabaseAdmin
       .from("coupon_distribution_rules")
       .select("*, coupons(id, name, code, discount_type, discount_value)")
@@ -46,7 +46,7 @@ export async function PUT(
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
 
   let body: Record<string, unknown>;
@@ -80,7 +80,7 @@ export async function PUT(
   if (trigger_config !== undefined) updateData.trigger_config = trigger_config;
   if (is_active !== undefined) updateData.is_active = is_active;
 
-  const { data: rule, error } = await withTenant(
+  const { data: rule, error } = await strictWithTenant(
     supabaseAdmin
       .from("coupon_distribution_rules")
       .update(updateData)
@@ -104,10 +104,10 @@ export async function DELETE(
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin
       .from("coupon_distribution_rules")
       .delete()

@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { findDuplicateCandidates, ignoreDuplicatePair } from "@/lib/patient-dedup";
 import { parseBody } from "@/lib/validations/helpers";
 import { ignoreDuplicateSchema } from "@/lib/validations/dedup";
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const minScore = Number(req.nextUrl.searchParams.get("min_score") || "70");
 
   try {
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await parseBody(req, ignoreDuplicateSchema);
   if (error) return error;
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     const result = await ignoreDuplicatePair(data.patient_id_a, data.patient_id_b, tenantId);

@@ -16,6 +16,8 @@ import { acquireLock } from "@/lib/distributed-lock";
 import { checkSpamBurst } from "@/lib/spam-burst";
 import { findScenarioByKeyword, getActiveSession, startScenario, processUserInput, getNextMessage } from "@/lib/chatbot-engine";
 import { sanitizeFlexContents } from "@/lib/flex-sanitize";
+import { checkIdempotency } from "@/lib/idempotency";
+import { notifyWebhookFailure } from "@/lib/notifications/webhook-failure";
 
 /** after()で処理するAI返信の対象患者リスト（リクエスト単位） */
 let pendingAiReplyTargets: Array<{ lineUid: string; patientId: string; patientName: string; tenantId: string | null }> = [];
@@ -1651,58 +1653,82 @@ export async function POST(req: NextRequest) {
       const groupId: string = ev?.source?.groupId || "";
       const lineUid: string = ev?.source?.userId || "";
 
-      // ===== 管理グループからのイベント =====
-      if (groupId === LINE_ADMIN_GROUP_ID) {
-        if (ev?.type === "postback") {
-          await handleAdminPostback(groupId, ev.postback?.data || "", tenantId, LINE_NOTIFY_TOKEN);
+      // 冪等チェック（LINEリトライ時の重複処理防止）
+      const lineEventId = (ev as Record<string, unknown>)?.webhookEventId as string | undefined;
+      let idem: Awaited<ReturnType<typeof checkIdempotency>> | null = null;
+      if (lineEventId) {
+        idem = await checkIdempotency("line", lineEventId, tenantId, { type: ev.type, userId: ev.source?.userId });
+        if (idem.duplicate) {
+          console.log(`[webhook] LINE duplicate event skipped: ${lineEventId}`);
+          continue;
         }
-        continue;
       }
 
-      // ===== 個人ユーザーからのイベント =====
-      if (sourceType === "user" && lineUid) {
-        // 連打防止（message / postback のみ対象）
-        if (ev.type === "message" || ev.type === "postback") {
-          const burst = await checkSpamBurst(lineUid);
-          if (burst.blocked) {
-            console.log("[webhook] burst blocked:", lineUid, ev.type);
-            if (burst.shouldNotify) {
-              const patient = await findOrCreatePatient(lineUid, tenantId, LINE_ACCESS_TOKEN);
-              await logEvent({
-                tenantId,
-                patient_id: patient?.patient_id,
-                line_uid: lineUid,
-                direction: "incoming",
-                event_type: "system",
-                message_type: "system",
-                content: "リッチメニューなどの連打が検知されたためメッセージの処理をスキップします。",
-                status: "skipped",
-              });
+      try {
+        // ===== 管理グループからのイベント =====
+        if (groupId === LINE_ADMIN_GROUP_ID) {
+          if (ev?.type === "postback") {
+            await handleAdminPostback(groupId, ev.postback?.data || "", tenantId, LINE_NOTIFY_TOKEN);
+          }
+          await idem?.markCompleted();
+          continue;
+        }
+
+        // ===== 個人ユーザーからのイベント =====
+        if (sourceType === "user" && lineUid) {
+          // 連打防止（message / postback のみ対象）
+          if (ev.type === "message" || ev.type === "postback") {
+            const burst = await checkSpamBurst(lineUid);
+            if (burst.blocked) {
+              console.log("[webhook] burst blocked:", lineUid, ev.type);
+              if (burst.shouldNotify) {
+                const patient = await findOrCreatePatient(lineUid, tenantId, LINE_ACCESS_TOKEN);
+                await logEvent({
+                  tenantId,
+                  patient_id: patient?.patient_id,
+                  line_uid: lineUid,
+                  direction: "incoming",
+                  event_type: "system",
+                  message_type: "system",
+                  content: "リッチメニューなどの連打が検知されたためメッセージの処理をスキップします。",
+                  status: "skipped",
+                });
+              }
+              await idem?.markCompleted();
+              continue;
             }
-            continue;
+          }
+
+          switch (ev.type) {
+            case "follow":
+              await handleFollow(lineUid, tenantId, LINE_ACCESS_TOKEN);
+              break;
+
+            case "unfollow":
+              await handleUnfollow(lineUid, tenantId);
+              break;
+
+            case "message":
+              await handleMessage(lineUid, ev.message || {}, tenantId, LINE_ACCESS_TOKEN);
+              break;
+
+            case "postback":
+              await handleUserPostback(lineUid, ev.postback?.data || "", tenantId, LINE_ACCESS_TOKEN);
+              break;
+
+            default:
+              console.log("[webhook] Unhandled event type:", ev.type);
           }
         }
 
-        switch (ev.type) {
-          case "follow":
-            await handleFollow(lineUid, tenantId, LINE_ACCESS_TOKEN);
-            break;
-
-          case "unfollow":
-            await handleUnfollow(lineUid, tenantId);
-            break;
-
-          case "message":
-            await handleMessage(lineUid, ev.message || {}, tenantId, LINE_ACCESS_TOKEN);
-            break;
-
-          case "postback":
-            await handleUserPostback(lineUid, ev.postback?.data || "", tenantId, LINE_ACCESS_TOKEN);
-            break;
-
-          default:
-            console.log("[webhook] Unhandled event type:", ev.type);
-        }
+        await idem?.markCompleted();
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : "unknown error";
+        await idem?.markFailed(errMsg);
+        notifyWebhookFailure("line", lineEventId || "unknown", err, tenantId ?? undefined).catch(() => {});
+        console.error(`[webhook] LINE event error (${ev.type}):`, err);
+        // エラーがあっても次のイベントは処理を続行
+        continue;
       }
     }
 

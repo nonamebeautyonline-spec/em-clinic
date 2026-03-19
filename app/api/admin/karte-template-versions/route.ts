@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { z } from "zod";
 
@@ -14,13 +14,13 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const templateId = req.nextUrl.searchParams.get("template_id");
   if (!templateId) {
     return badRequest("template_id は必須です");
   }
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("karte_template_versions")
       .select("id, template_id, version, name, category, body, changed_by, created_at")
@@ -44,14 +44,14 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const parsed = await parseBody(req, restoreSchema);
   if ("error" in parsed) return parsed.error;
   const { template_id, version_id } = parsed.data;
 
   // 復元元のバージョンを取得
-  const { data: version } = await withTenant(
+  const { data: version } = await strictWithTenant(
     supabaseAdmin
       .from("karte_template_versions")
       .select("body, name, category")
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 現在のテンプレートをバージョン履歴に保存（復元前）
-  const { data: current } = await withTenant(
+  const { data: current } = await strictWithTenant(
     supabaseAdmin
       .from("karte_templates")
       .select("id, name, category, body, current_version")
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
 
   // テンプレート本体を復元版で更新
   const newVersion = (current?.current_version || 1) + 1;
-  const { data: updated, error } = await withTenant(
+  const { data: updated, error } = await strictWithTenant(
     supabaseAdmin
       .from("karte_templates")
       .update({

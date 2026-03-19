@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { karteEditSessionSchema } from "@/lib/validations/admin-operations";
 
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     if (!isAuthorized)
       return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const intakeId = req.nextUrl.searchParams.get("intakeId");
     if (!intakeId)
       return badRequest("intakeIdは必須です");
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     // 期限切れセッションを除外して取得
     const cutoff = new Date(Date.now() - HEARTBEAT_TIMEOUT_SEC * 1000).toISOString();
 
-    const { data, error } = await withTenant(
+    const { data, error } = await strictWithTenant(
       supabaseAdmin
         .from("karte_edit_sessions")
         .select("id, intake_id, editor_name, last_heartbeat, created_at")
@@ -59,10 +59,10 @@ export async function POST(req: NextRequest) {
     if ("error" in parsed) return parsed.error;
     const { intakeId, editorName } = parsed.data;
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     // 既存セッションがあれば削除して再作成（同一ユーザーの再接続対応）
-    await withTenant(
+    await strictWithTenant(
       supabaseAdmin
         .from("karte_edit_sessions")
         .delete()
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
       tenantId
     );
 
-    const { data, error } = await withTenant(
+    const { data, error } = await strictWithTenant(
       supabaseAdmin
         .from("karte_edit_sessions")
         .insert({
@@ -106,9 +106,9 @@ export async function PUT(req: NextRequest) {
     if (!sessionId)
       return badRequest("sessionIdは必須です");
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
-    const { error } = await withTenant(
+    const { error } = await strictWithTenant(
       supabaseAdmin
         .from("karte_edit_sessions")
         .update({ last_heartbeat: new Date().toISOString() })
@@ -136,11 +136,11 @@ export async function DELETE(req: NextRequest) {
     const intakeId = req.nextUrl.searchParams.get("intakeId");
     const editorName = req.nextUrl.searchParams.get("editorName");
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     if (sessionId) {
       // セッションID指定で削除
-      await withTenant(
+      await strictWithTenant(
         supabaseAdmin
           .from("karte_edit_sessions")
           .delete()
@@ -149,7 +149,7 @@ export async function DELETE(req: NextRequest) {
       );
     } else if (intakeId && editorName) {
       // intakeId + editorName で削除（beforeunload用）
-      await withTenant(
+      await strictWithTenant(
         supabaseAdmin
           .from("karte_edit_sessions")
           .delete()

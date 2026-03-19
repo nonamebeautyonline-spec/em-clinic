@@ -635,6 +635,7 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "tenant-1"),
+  resolveTenantIdOrThrow: vi.fn(() => "tenant-1"),
 }));
 
 function buildAdminGetRequest(): NextRequest {

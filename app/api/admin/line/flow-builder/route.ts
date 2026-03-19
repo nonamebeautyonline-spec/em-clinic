@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 
 // フローグラフの型定義
 interface FlowNodeData {
@@ -96,7 +96,7 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const scenarioId = searchParams.get("scenario_id");
 
@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
   }
 
   // シナリオ存在確認
-  const { data: scenario, error: scenarioError } = await withTenant(
+  const { data: scenario, error: scenarioError } = await strictWithTenant(
     supabaseAdmin
       .from("step_scenarios")
       .select("id, name")
@@ -118,7 +118,7 @@ export async function GET(req: NextRequest) {
   }
 
   // step_items 取得
-  const { data: items, error: itemsError } = await withTenant(
+  const { data: items, error: itemsError } = await strictWithTenant(
     supabaseAdmin
       .from("step_items")
       .select(STEP_ITEM_COLUMNS)
@@ -154,7 +154,7 @@ export async function PUT(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   let body: PutRequestBody;
   try {
@@ -174,7 +174,7 @@ export async function PUT(req: NextRequest) {
   }
 
   // シナリオ存在確認
-  const { data: scenario, error: scenarioError } = await withTenant(
+  const { data: scenario, error: scenarioError } = await strictWithTenant(
     supabaseAdmin
       .from("step_scenarios")
       .select("id")
@@ -190,7 +190,7 @@ export async function PUT(req: NextRequest) {
   const steps = convertGraphToSteps(graph);
 
   // 既存 step_items を全削除
-  const { error: deleteError } = await withTenant(
+  const { error: deleteError } = await strictWithTenant(
     supabaseAdmin
       .from("step_items")
       .delete()
@@ -235,7 +235,7 @@ export async function PUT(req: NextRequest) {
   }
 
   // updated_at を更新
-  await withTenant(
+  await strictWithTenant(
     supabaseAdmin
       .from("step_scenarios")
       .update({ updated_at: new Date().toISOString() })

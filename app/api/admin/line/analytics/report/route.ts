@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const period = Number(req.nextUrl.searchParams.get("period")) || 30;
   const validPeriod = [7, 30, 90].includes(period) ? period : 30;
 
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
   const periodEndStr = now.toISOString().slice(0, 10);
 
   // 配信データ取得（analytics/route.ts と同じロジック）
-  const { data: broadcastRows } = await withTenant(
+  const { data: broadcastRows } = await strictWithTenant(
     supabaseAdmin
       .from("broadcasts")
       .select("id, name, status, total_targets, sent_count, failed_count, no_uid_count, sent_at, created_at")
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
   const broadcastClickMap = new Map<number, { total: number; unique: number }>();
 
   if (broadcastIds.length > 0) {
-    const { data: clickLinks } = await withTenant(
+    const { data: clickLinks } = await strictWithTenant(
       supabaseAdmin
         .from("click_tracking_links")
         .select("id, broadcast_id")
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
       for (const l of clickLinks) linkToBroadcast.set(l.id, l.broadcast_id);
 
       const { data: clickEvts } = await fetchAll(() =>
-        withTenant(
+        strictWithTenant(
           supabaseAdmin
             .from("click_tracking_events")
             .select("link_id, ip_address")
@@ -121,7 +121,7 @@ export async function GET(req: NextRequest) {
     if (!sentDate) continue;
     const sentStart = new Date(sentDate);
     const sentEnd = new Date(sentStart.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const { count: orderCount } = await withTenant(
+    const { count: orderCount } = await strictWithTenant(
       supabaseAdmin
         .from("orders")
         .select("id", { count: "exact", head: true })

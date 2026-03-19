@@ -8,7 +8,9 @@ vi.mock("@/lib/admin-auth", () => ({ verifyAdminAuth: mockVerifyAdminAuth }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
+  resolveTenantIdOrThrow: vi.fn(() => "test-tenant"),
   withTenant: vi.fn((query) => query),
+  strictWithTenant: vi.fn((query: unknown) => query),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 

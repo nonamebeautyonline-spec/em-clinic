@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverError } from "@/lib/api-error";
 import { cookies } from "next/headers";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { getBalance, getHistory } from "@/lib/points";
 
 /**
@@ -13,7 +13,7 @@ import { getBalance, getHistory } from "@/lib/points";
  */
 export async function GET(req: NextRequest) {
   try {
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const cookieStore = await cookies();
     const patientId =
       cookieStore.get("__Host-patient_id")?.value ||

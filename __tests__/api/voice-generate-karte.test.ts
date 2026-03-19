@@ -31,7 +31,9 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
+  resolveTenantIdOrThrow: vi.fn(() => "test-tenant"),
   withTenant: vi.fn(() => ({ data: [], error: null })),
+  strictWithTenant: vi.fn((q: unknown) => q),
 }));
 
 beforeEach(() => {

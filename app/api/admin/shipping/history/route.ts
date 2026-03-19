@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from"); // YYYY-MM-DD
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   }
 
   // shipping_dateが設定されている（=発送済み）注文を日付範囲で取得
-  const { data: orders, error } = await withTenant(
+  const { data: orders, error } = await strictWithTenant(
     supabaseAdmin.from("orders").select("id, patient_id, tracking_number, shipping_date, shipping_name").gte("shipping_date", from).lte("shipping_date", to).not("shipping_date", "is", null).order("shipping_date", { ascending: false }),
     tenantId
   );
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
   const pids = Array.from(new Set((orders || []).map(o => o.patient_id).filter(Boolean)));
   const nameMap: Record<string, string> = {};
   if (pids.length > 0) {
-    const { data: pData } = await withTenant(
+    const { data: pData } = await strictWithTenant(
       supabaseAdmin.from("patients").select("patient_id, name").in("patient_id", pids),
       tenantId
     );

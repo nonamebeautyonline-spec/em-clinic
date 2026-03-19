@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
 import { executeFullExport } from "@/lib/export-worker";
 
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   // エクスポートジョブ作成
   const { data: job, error } = await supabaseAdmin
@@ -51,8 +51,8 @@ export async function GET(req: NextRequest) {
     return badRequest("jobIdパラメータが必要です");
   }
 
-  const tenantIdForGet = resolveTenantId(req);
-  const { data: job, error } = await withTenant(
+  const tenantIdForGet = resolveTenantIdOrThrow(req);
+  const { data: job, error } = await strictWithTenant(
     supabaseAdmin
       .from("export_jobs")
       .select("id, status, record_counts, error_message, tables_included, created_at, completed_at")

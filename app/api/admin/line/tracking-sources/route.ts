@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import {
   createTrackingSourceSchema,
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const folderId = searchParams.get("folder_id");
 
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     query = query.eq("folder_id", Number(folderId));
   }
 
-  const { data, error } = await withTenant(query, tenantId);
+  const { data, error } = await strictWithTenant(query, tenantId);
   if (error) return serverError(error.message);
 
   // CV数を取得（converted_atがnullでないvisit）
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
   let convertedMap: Record<number, number> = {};
 
   if (sourceIds.length > 0) {
-    const { data: cvData } = await withTenant(
+    const { data: cvData } = await strictWithTenant(
       supabaseAdmin
         .from("tracking_visits")
         .select("source_id")
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, createTrackingSourceSchema);
   if ("error" in parsed) return parsed.error;
 
@@ -132,7 +132,7 @@ export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, updateTrackingSourceSchema);
   if ("error" in parsed) return parsed.error;
 
@@ -141,7 +141,7 @@ export async function PUT(req: NextRequest) {
   // name があればトリム
   if (updates.name) updates.name = updates.name.trim();
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("tracking_sources")
       .update({ ...updates, updated_at: new Date().toISOString() })
@@ -158,13 +158,13 @@ export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return badRequest("IDは必須です");
 
   // 関連する訪問記録も削除
-  await withTenant(
+  await strictWithTenant(
     supabaseAdmin
       .from("tracking_visits")
       .delete()
@@ -172,7 +172,7 @@ export async function DELETE(req: NextRequest) {
     tenantId
   );
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin
       .from("tracking_sources")
       .delete()

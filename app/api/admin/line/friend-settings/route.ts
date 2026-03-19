@@ -3,7 +3,7 @@ import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { setDefaultRichMenu } from "@/lib/line-richmenu";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateFriendSettingsSchema } from "@/lib/validations/line-management";
 
@@ -12,9 +12,9 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("friend_add_settings")
       .select("*")
@@ -31,12 +31,12 @@ export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, updateFriendSettingsSchema);
   if ("error" in parsed) return parsed.error;
   const { setting_key, setting_value, enabled } = parsed.data as { setting_key: string; setting_value: unknown; enabled?: boolean };
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("friend_add_settings")
       .update({ setting_value, enabled, updated_at: new Date().toISOString() })
@@ -50,7 +50,7 @@ export async function PUT(req: NextRequest) {
   const sv = setting_value as Record<string, unknown> | null | undefined;
   if (setting_key === "new_friend" && sv?.menu_change) {
     const menuChangeId = sv.menu_change;
-    const { data: menu } = await withTenant(
+    const { data: menu } = await strictWithTenant(
       supabaseAdmin
         .from("rich_menus")
         .select("line_rich_menu_id")
@@ -63,11 +63,11 @@ export async function PUT(req: NextRequest) {
       const ok = await setDefaultRichMenu(menu.line_rich_menu_id, tenantId ?? undefined);
       if (ok) {
         // DB上の selected フラグも更新（旧デフォルトを解除 → 新デフォルトを設定）
-        await withTenant(
+        await strictWithTenant(
           supabaseAdmin.from("rich_menus").update({ selected: false }).neq("id", Number(menuChangeId)),
           tenantId
         );
-        await withTenant(
+        await strictWithTenant(
           supabaseAdmin.from("rich_menus").update({ selected: true }).eq("id", Number(menuChangeId)),
           tenantId
         );

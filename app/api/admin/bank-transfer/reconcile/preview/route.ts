@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSetting } from "@/lib/settings";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -51,13 +51,13 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Preview] Parsed ${transfers.length} transfers from CSV`);
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     // Supabase接続
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // pending_confirmationの注文を取得
-    const { data: pendingOrdersWithNames, error: fetchNamesError } = await withTenant(
+    const { data: pendingOrdersWithNames, error: fetchNamesError } = await strictWithTenant(
       supabase
         .from("orders")
         .select("id, patient_id, product_code, amount, account_name, shipping_name")
@@ -237,7 +237,7 @@ export async function POST(req: NextRequest) {
       const tid = tenantId || "00000000-0000-0000-0000-000000000001";
 
       // 既存行を取得して重複チェック用キーセットを作成
-      const { data: existingRows } = await withTenant(
+      const { data: existingRows } = await strictWithTenant(
         supabase
           .from("bank_statements")
           .select("transaction_date, description, deposit, withdrawal"),
@@ -293,7 +293,7 @@ export async function POST(req: NextRequest) {
         orderId: m.order.id,
       }));
       for (const md of matchedDates) {
-        await withTenant(
+        await strictWithTenant(
           supabase
             .from("bank_statements")
             .update({ reconciled: true, matched_order_id: md.orderId })

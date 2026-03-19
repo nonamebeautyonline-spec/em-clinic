@@ -4,7 +4,7 @@ import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getSetting, setSetting, deleteSetting } from "@/lib/settings";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 interface TestAccount {
   patient_id: string;
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const patientIds = await getPatientIds(tenantId ?? undefined);
 
   if (patientIds.length === 0) {
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
   }
 
   // 患者情報を一括取得
-  const { data: patients } = await withTenant(
+  const { data: patients } = await strictWithTenant(
     supabaseAdmin.from("patients").select("patient_id, name, line_id").in("patient_id", patientIds),
     tenantId
   );
@@ -86,7 +86,7 @@ export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const body = await req.json();
   const patientId = body.patient_id?.trim();
   if (!patientId) {
@@ -94,7 +94,7 @@ export async function PUT(req: NextRequest) {
   }
 
   // 患者存在確認
-  const { data: patient } = await withTenant(
+  const { data: patient } = await strictWithTenant(
     supabaseAdmin.from("patients").select("name, line_id").eq("patient_id", patientId),
     tenantId
   ).maybeSingle();
@@ -131,7 +131,7 @@ export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const body = await req.json().catch(() => ({}));
   const patientId = body.patient_id?.trim();
 

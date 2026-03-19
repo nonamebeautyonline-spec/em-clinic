@@ -96,6 +96,10 @@
     {
       "path": "/api/cron/square-token-refresh",
       "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/webhook-cleanup",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

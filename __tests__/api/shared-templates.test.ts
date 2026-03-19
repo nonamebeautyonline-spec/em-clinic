@@ -58,7 +58,9 @@ vi.mock("@/lib/validations/helpers", () => ({
 vi.mock("@/lib/tenant", () => ({
   tenantPayload: vi.fn((tenantId: string) => ({ tenant_id: tenantId || "00000000-0000-0000-0000-000000000001" })),
   resolveTenantId: vi.fn().mockReturnValue("tenant-1"),
+  resolveTenantIdOrThrow: vi.fn(() => "tenant-1"),
   withTenant: vi.fn((query: unknown) => query),
+  strictWithTenant: vi.fn((query: unknown) => query),
   DEFAULT_TENANT_ID: "00000000-0000-0000-0000-000000000001",
 }));
 

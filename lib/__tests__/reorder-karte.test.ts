@@ -46,6 +46,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   withTenant: <T>(query: T) => query,
+  strictWithTenant: <T>(query: T) => query,
 }));
 
 import { extractDose, buildKarteNote, createReorderPaymentKarte } from "@/lib/reorder-karte";

@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unauthorized, serverError } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { replayWebhookEvent } from "@/lib/webhook-replay";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export async function POST(
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
 

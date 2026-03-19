@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { badRequest, serverError, unauthorized, notFound } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getStripeClient } from "@/lib/stripe";
 import { getPlanByKey, MESSAGE_PLANS } from "@/lib/plan-config";
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
   const isAuth = await verifyAdminAuth(req);
   if (!isAuth) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   if (!tenantId) return badRequest("テナントが特定できません");
 
   try {
@@ -159,7 +159,7 @@ export async function POST(req: NextRequest) {
   const isAuth = await verifyAdminAuth(req);
   if (!isAuth) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   if (!tenantId) return badRequest("テナントが特定できません");
 
   // レート制限（プラン変更/解約は1分に5回まで）
@@ -207,7 +207,7 @@ export async function DELETE(req: NextRequest) {
   const isAuth = await verifyAdminAuth(req);
   if (!isAuth) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   if (!tenantId) return badRequest("テナントが特定できません");
 
   // レート制限

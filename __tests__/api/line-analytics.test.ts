@@ -11,7 +11,9 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
+  resolveTenantIdOrThrow: vi.fn(() => null),
   withTenant: vi.fn((q: unknown) => q),
+  strictWithTenant: vi.fn((q: unknown) => q),
 }));
 
 // getSettingOrEnv モック

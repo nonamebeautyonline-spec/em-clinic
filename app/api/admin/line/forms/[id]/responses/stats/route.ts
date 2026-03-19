@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { aggregateFormStats, type FormFieldDef } from "@/lib/form-stats";
 
 // フォーム回答集計API
@@ -13,14 +13,14 @@ export async function GET(
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from"); // 期間フィルタ開始（ISO日付）
   const to = searchParams.get("to"); // 期間フィルタ終了（ISO日付）
 
   // フォーム情報取得
-  const { data: form } = await withTenant(
+  const { data: form } = await strictWithTenant(
     supabaseAdmin
       .from("forms")
       .select("id, name, fields")
@@ -35,7 +35,7 @@ export async function GET(
   let offset = 0;
   const pageSize = 5000;
   for (;;) {
-    let query = withTenant(
+    let query = strictWithTenant(
       supabaseAdmin
         .from("form_responses")
         .select("answers, submitted_at")

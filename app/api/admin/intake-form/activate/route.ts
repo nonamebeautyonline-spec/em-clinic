@@ -4,14 +4,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized, badRequest, notFound } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized)
     return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   let body: { id?: string };
   try {
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     return badRequest("テンプレートIDが必要です");
 
   // 対象テンプレートの存在確認
-  const { data: target, error: fetchError } = await withTenant(
+  const { data: target, error: fetchError } = await strictWithTenant(
     supabaseAdmin
       .from("intake_form_definitions")
       .select("id")
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     return notFound("テンプレートが見つかりません");
 
   // 同テナントの全テンプレートを非アクティブに
-  const { error: deactivateError } = await withTenant(
+  const { error: deactivateError } = await strictWithTenant(
     supabaseAdmin
       .from("intake_form_definitions")
       .update({ is_active: false, updated_at: new Date().toISOString() }),

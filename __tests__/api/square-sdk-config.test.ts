@@ -12,6 +12,7 @@ vi.mock("@/lib/settings", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
+  resolveTenantIdOrThrow: vi.fn(() => "test-tenant"),
 }));
 
 vi.mock("@/lib/square-account-server", () => ({

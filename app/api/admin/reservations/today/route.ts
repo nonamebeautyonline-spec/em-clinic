@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     // 今日の日付範囲を計算（JST）
     const now = new Date();
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     const endOfDay = new Date(Date.UTC(year, month, date + 1, 0, 0, 0) - jstOffset);
 
     // 本日の予約を取得
-    const { data: reservations, error } = await withTenant(
+    const { data: reservations, error } = await strictWithTenant(
       supabase
         .from("reservations")
         .select("*")

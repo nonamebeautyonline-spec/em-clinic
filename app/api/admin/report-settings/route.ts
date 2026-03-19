@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unauthorized, serverError, badRequest } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { getSetting, setSetting } from "@/lib/settings";
 import { generateWeeklyReport } from "@/lib/report-generator";
 import { sendEmail } from "@/lib/email";
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const isAuthorized = await verifyAdminAuth(request);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(request);
+  const tenantId = resolveTenantIdOrThrow(request);
 
   try {
     const [enabled, frequency, emails] = await Promise.all([
@@ -45,7 +45,7 @@ export async function PUT(request: NextRequest) {
   const isAuthorized = await verifyAdminAuth(request);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(request);
+  const tenantId = resolveTenantIdOrThrow(request);
 
   let body: z.infer<typeof updateSchema>;
   try {

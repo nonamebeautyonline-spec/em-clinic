@@ -3,7 +3,7 @@ import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import {
   getVisitCounts, getPurchaseAmounts, getLastVisitDates, getReorderCounts,
   matchBehaviorCondition
@@ -50,9 +50,9 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("broadcasts")
       .select("*")
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, broadcastSchema);
   if ("error" in parsed) return parsed.error;
   const { name, filter_rules, message, scheduled_at } = parsed.data;
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
   const targetPatientIds = targets.map(t => t.patient_id);
   const nextReservationMap = new Map<string, { date: string; time: string }>();
   if (targetPatientIds.length > 0) {
-    const { data: reservations } = await withTenant(
+    const { data: reservations } = await strictWithTenant(
       supabaseAdmin
         .from("reservations")
         .select("patient_id, reserved_date, reserved_time")
@@ -198,7 +198,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 配信レコード更新
-  await withTenant(
+  await strictWithTenant(
     supabaseAdmin.from("broadcasts").update({
       status: "sent",
       sent_at: new Date().toISOString(),
@@ -227,13 +227,13 @@ export async function resolveTargets(rules: FilterRules, tenantId: string | null
   // patients テーブルから patient_name, line_id を取得（intake の冗長カラムを使わない）
   const [intakeRes, patientsRes] = await Promise.all([
     fetchAll(
-      () => withTenant(
+      () => strictWithTenant(
         supabaseAdmin.from("intake").select("patient_id").not("patient_id", "is", null).order("created_at", { ascending: false }),
         tenantId
       ),
     ),
     fetchAll(
-      () => withTenant(
+      () => strictWithTenant(
         supabaseAdmin.from("patients").select("patient_id, name, line_id"),
         tenantId
       ),
@@ -300,7 +300,7 @@ async function applyCondition(
   switch (condition.type) {
     case "tag": {
       const { data: tagged } = await fetchAll(
-        () => withTenant(
+        () => strictWithTenant(
           supabaseAdmin.from("patient_tags").select("patient_id").eq("tag_id", condition.tag_id!),
           tenantId
         )
@@ -322,7 +322,7 @@ async function applyCondition(
 
     case "mark": {
       const { data: marks } = await fetchAll(
-        () => withTenant(
+        () => strictWithTenant(
           supabaseAdmin.from("patient_marks").select("patient_id, mark").in("mark", condition.values || []),
           tenantId
         )
@@ -335,7 +335,7 @@ async function applyCondition(
 
     case "field": {
       const { data: fieldVals } = await fetchAll(
-        () => withTenant(
+        () => strictWithTenant(
           supabaseAdmin.from("friend_field_values").select("patient_id, value").eq("field_id", condition.field_id!),
           tenantId
         )
@@ -415,7 +415,7 @@ async function applyCondition(
       if (!val) return targets;
       const pids = targets.map(t => t.patient_id);
       const { data: patientsData } = await fetchAll(
-        () => withTenant(
+        () => strictWithTenant(
           supabaseAdmin.from("patients").select("patient_id, created_at").in("patient_id", pids),
           tenantId
         )
@@ -438,7 +438,7 @@ async function applyCondition(
       const pids = targets.map(t => t.patient_id);
       // intake.status でフィルタ
       const { data: intakes } = await fetchAll(
-        () => withTenant(
+        () => strictWithTenant(
           supabaseAdmin.from("intake").select("patient_id, status").in("patient_id", pids),
           tenantId
         )
@@ -466,7 +466,7 @@ async function applyCondition(
       const today = new Date().toISOString().split("T")[0];
       // アクティブな予約 = 今日以降かつキャンセルされていない予約
       const { data: reservations } = await fetchAll(
-        () => withTenant(
+        () => strictWithTenant(
           supabaseAdmin.from("reservations")
             .select("patient_id")
             .in("patient_id", pids)

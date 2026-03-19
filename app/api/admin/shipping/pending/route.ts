@@ -3,7 +3,7 @@ import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getProductNamesMap } from "@/lib/products";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 interface OrderRow {
   id: string;
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     // ★ 商品名マップをDBから取得（productsテーブルは既にテナント対応済み）
     const PRODUCT_NAMES = await getProductNamesMap(tenantId ?? undefined);
@@ -64,13 +64,13 @@ export async function GET(req: NextRequest) {
     const selectCols = "id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at";
 
     // ★ 全ての未発送confirmed注文（カットオフなし・発送漏れも自動検出）
-    const { data: ordersConfirmed, error: ordersConfirmedError } = await withTenant(
+    const { data: ordersConfirmed, error: ordersConfirmedError } = await strictWithTenant(
       supabaseAdmin.from("orders").select(selectCols).is("shipping_date", null).eq("status", "confirmed").or("refund_status.is.null,refund_status.not.in.(COMPLETED,PENDING)").order("paid_at", { ascending: false }).limit(100000),
       tenantId
     );
 
     // ★ 振込確認待ち注文
-    const { data: ordersPending, error: ordersPendingError } = await withTenant(
+    const { data: ordersPending, error: ordersPendingError } = await strictWithTenant(
       supabaseAdmin.from("orders").select(selectCols).is("shipping_date", null).eq("status", "pending_confirmation").eq("payment_method", "bank_transfer").or("refund_status.is.null,refund_status.not.in.(COMPLETED,PENDING)").order("created_at", { ascending: false }).limit(100000),
       tenantId
     );
@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
     const patientNameMap: Record<string, string> = {};
 
     if (patientIds.length > 0) {
-      const { data: pData } = await withTenant(
+      const { data: pData } = await strictWithTenant(
         supabaseAdmin.from("patients").select("patient_id, name").in("patient_id", patientIds),
         tenantId
       );
@@ -118,7 +118,7 @@ export async function GET(req: NextRequest) {
     // 購入回数を計算（各患者の注文数）- バッチ処理で高速化
     const purchaseCountMap: Record<string, number> = {};
     if (patientIds.length > 0) {
-      const { data: allPatientOrders } = await withTenant(
+      const { data: allPatientOrders } = await strictWithTenant(
         supabaseAdmin.from("orders").select("patient_id").in("patient_id", patientIds).limit(100000),
         tenantId
       );

@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { bankTransferManualConfirmSchema } from "@/lib/validations/admin-operations";
 
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     if ("error" in parsed) return parsed.error;
     const { order_id, memo } = parsed.data;
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     console.log(`[ManualConfirm] Processing order: ${order_id}`);
 
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // 対象の注文を取得
-    const { data: order, error: fetchError } = await withTenant(
+    const { data: order, error: fetchError } = await strictWithTenant(
       supabase
         .from("orders")
         .select("id, patient_id, product_code, amount, status, payment_method")
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     }
 
     // payment_idを採番（bt_XXX形式）
-    const { data: allBtOrders } = await withTenant(
+    const { data: allBtOrders } = await strictWithTenant(
       supabase
         .from("orders")
         .select("id")
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     // 更新
     const now = new Date().toISOString();
-    const { error: updateError } = await withTenant(
+    const { error: updateError } = await strictWithTenant(
       supabase
         .from("orders")
         .update({
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     console.log(`[ManualConfirm] Updated ${order_id} → ${nextBtId} (confirmed)`);
 
     // ★ bank_statementsを照合済みに更新（旧order_idで紐づいている行）
-    const { error: stmtError } = await withTenant(
+    const { error: stmtError } = await strictWithTenant(
       supabase
         .from("bank_statements")
         .update({ reconciled: true, matched_order_id: nextBtId })

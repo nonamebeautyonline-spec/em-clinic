@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -13,9 +13,9 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
   if (!isAuthorized) return unauthorized();
 
   const { id: scenarioId } = await ctx.params;
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("chatbot_nodes")
       .select("*")
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
   if (!isAuthorized) return unauthorized();
 
   const { id: scenarioId } = await ctx.params;
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   let body: Record<string, unknown>;
   try {
@@ -73,7 +73,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   if (!isAuthorized) return unauthorized();
 
   const { id: scenarioId } = await ctx.params;
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   let body: Record<string, unknown>;
   try {
@@ -92,7 +92,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   if (body.data !== undefined) update.data = body.data;
   if (body.next_node_id !== undefined) update.next_node_id = body.next_node_id || null;
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("chatbot_nodes")
       .update(update)
@@ -111,12 +111,12 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
   if (!isAuthorized) return unauthorized();
 
   const { id: scenarioId } = await ctx.params;
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const nodeId = searchParams.get("node_id");
   if (!nodeId) return badRequest("node_id は必須です");
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin
       .from("chatbot_nodes")
       .delete()

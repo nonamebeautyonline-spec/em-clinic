@@ -9,6 +9,7 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
+  resolveTenantIdOrThrow: vi.fn(() => null),
 }));
 
 vi.mock("@/lib/validations/helpers", () => ({

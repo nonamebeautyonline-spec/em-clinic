@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { getLegalConfig, setLegalConfig } from "@/lib/legal/config";
 
 // 設定取得
@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const config = await getLegalConfig(tenantId ?? undefined);
   return NextResponse.json({ config });
 }
@@ -20,7 +20,7 @@ export async function PUT(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   let body: { config: { termsText?: string; privacyText?: string } };
   try {

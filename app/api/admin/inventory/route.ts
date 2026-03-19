@@ -4,7 +4,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getProducts } from "@/lib/products";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { getSetting } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
 import { inventorySchema } from "@/lib/validations/admin-operations";
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const date = searchParams.get("date");
   const from = searchParams.get("from");
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
       .eq("logged_date", date)
       .order("location");
 
-    query = withTenant(query, tenantId);
+    query = strictWithTenant(query, tenantId);
     const { data: logs, error } = await query;
     if (error) {
       console.error("[inventory API] GET error:", error.message);
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
       .select("updated_at")
       .order("updated_at", { ascending: false })
       .limit(1);
-    lastUpdatedQuery = withTenant(lastUpdatedQuery, tenantId);
+    lastUpdatedQuery = strictWithTenant(lastUpdatedQuery, tenantId);
     const { data: lastRow } = await lastUpdatedQuery;
     const lastUpdatedAt = lastRow?.[0]?.updated_at ?? null;
 
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
       .lt("logged_date", date)
       .order("logged_date", { ascending: false })
       .limit(1);
-    prevDateQuery = withTenant(prevDateQuery, tenantId);
+    prevDateQuery = strictWithTenant(prevDateQuery, tenantId);
     const { data: prevDateRow } = await prevDateQuery;
     const prevDate = prevDateRow?.[0]?.logged_date ?? null;
 
@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
         .select("id, product_id, item_key, section, location, logged_date, box_count, shipped_count, received_count, note")
         .eq("logged_date", prevDate)
         .order("location");
-      prevLogsQuery = withTenant(prevLogsQuery, tenantId);
+      prevLogsQuery = strictWithTenant(prevLogsQuery, tenantId);
       const { data: prevData } = await prevLogsQuery;
       prevLogs = prevData ?? [];
     }
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
       .lte("logged_date", to)
       .order("logged_date", { ascending: false });
 
-    query = withTenant(query, tenantId);
+    query = strictWithTenant(query, tenantId);
     const { data: logs, error } = await query;
     if (error) {
       console.error("[inventory API] GET history error:", error.message);
@@ -113,7 +113,7 @@ export async function GET(req: NextRequest) {
       .gt("box_count", 0)
       .order("logged_date", { ascending: false })
       .limit(1);
-    anchorQuery = withTenant(anchorQuery, tenantId);
+    anchorQuery = strictWithTenant(anchorQuery, tenantId);
     const { data: anchorRow } = await anchorQuery;
     const anchorDate = anchorRow?.[0]?.logged_date ?? null;
 
@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
         .select("item_key, section, location, logged_date, box_count, shipped_count, received_count")
         .gte("logged_date", anchorDate)
         .lt("logged_date", from);
-      seedLogsQuery = withTenant(seedLogsQuery, tenantId);
+      seedLogsQuery = strictWithTenant(seedLogsQuery, tenantId);
       const { data: seedData } = await seedLogsQuery;
       seedLogs = seedData ?? [];
     }
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, inventorySchema);
   if ("error" in parsed) return parsed.error;
   const { date, entries } = parsed.data;
@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
     .from("inventory_logs")
     .delete()
     .eq("logged_date", date);
-  delQuery = withTenant(delQuery, tenantId);
+  delQuery = strictWithTenant(delQuery, tenantId);
   const { error: delError } = await delQuery;
   if (delError) {
     console.error("[inventory API] DELETE error:", delError.message);

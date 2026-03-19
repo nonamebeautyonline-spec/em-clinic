@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { pinsUpdateSchema } from "@/lib/validations/admin-operations";
 
@@ -15,9 +15,9 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("admin_users")
       .select("pinned_patients"),
@@ -50,14 +50,14 @@ export async function PUT(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const parsed = await parseBody(req, pinsUpdateSchema);
   if ("error" in parsed) return parsed.error;
   const pins = Array.isArray(parsed.data.pins) ? parsed.data.pins.slice(0, MAX_PINS) : [];
 
   // 全ユーザーに同じピンを書き込む（フィルタなしで全行更新）
-  const { data: users } = await withTenant(
+  const { data: users } = await strictWithTenant(
     supabaseAdmin
       .from("admin_users")
       .select("id"),
@@ -65,7 +65,7 @@ export async function PUT(req: NextRequest) {
   );
 
   for (const u of users || []) {
-    const { error } = await withTenant(
+    const { error } = await strictWithTenant(
       supabaseAdmin
         .from("admin_users")
         .update({ pinned_patients: pins })

@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { unauthorized, serverError, notFound, badRequest } from "@/lib/api-error";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { getBackupStatus, decryptBackupData } from "@/lib/tenant-backup";
 
 type Params = { params: Promise<{ id: string }> };
@@ -11,7 +11,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(request: NextRequest, { params }: Params) {
   if (!(await verifyAdminAuth(request))) return unauthorized();
 
-  const tenantId = resolveTenantId(request);
+  const tenantId = resolveTenantIdOrThrow(request);
   if (!tenantId) return badRequest("テナントIDが必要です");
 
   const { id } = await params;

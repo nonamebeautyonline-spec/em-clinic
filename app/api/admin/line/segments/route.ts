@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getSetting, setSetting } from "@/lib/settings";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { saveSegmentSchema } from "@/lib/validations/line-broadcast";
 
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const segments = await loadSegments(tenantId ?? undefined);
   return NextResponse.json({ segments });
 }
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, saveSegmentSchema);
   if ("error" in parsed) return parsed.error;
   const { name, includeConditions, excludeConditions } = parsed.data;
@@ -65,7 +65,7 @@ export async function DELETE(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return badRequest("idは必須です");

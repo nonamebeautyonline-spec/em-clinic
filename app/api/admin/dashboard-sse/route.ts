@@ -101,7 +101,7 @@ async function fetchSnapshot(
   const { startISO, endISO, startDate, endDate } = getTodayRange();
 
   // テナントフィルター付きクエリのヘルパー
-  const withTenant = <T extends { eq: (column: string, value: string) => T }>(query: T): T => {
+  const strictWithTenant = <T extends { eq: (column: string, value: string) => T }>(query: T): T => {
     if (tenantId) {
       return query.eq("tenant_id", tenantId);
     }
@@ -125,7 +125,7 @@ async function fetchSnapshot(
     todayNewPatientsResult,
   ] = await Promise.all([
     // 今日の予約数
-    withTenant(
+    strictWithTenant(
       supabase
         .from("reservations")
         .select("*", { count: "exact", head: true })
@@ -133,7 +133,7 @@ async function fetchSnapshot(
         .lt("reserved_date", endDate),
     ),
     // 今日のキャンセル数
-    withTenant(
+    strictWithTenant(
       supabase
         .from("reservations")
         .select("*", { count: "exact", head: true })
@@ -142,7 +142,7 @@ async function fetchSnapshot(
         .eq("status", "canceled"),
     ),
     // 今日の決済数
-    withTenant(
+    strictWithTenant(
       supabase
         .from("orders")
         .select("*", { count: "exact", head: true })
@@ -151,7 +151,7 @@ async function fetchSnapshot(
         .lt("paid_at", endISO),
     ),
     // 今日の新規患者数（intake基準）
-    withTenant(
+    strictWithTenant(
       supabase
         .from("intake")
         .select("*", { count: "exact", head: true })
@@ -159,7 +159,7 @@ async function fetchSnapshot(
         .lt("created_at", endISO),
     ),
     // 最新予約のタイムスタンプ
-    withTenant(
+    strictWithTenant(
       supabase
         .from("reservations")
         .select("created_at")
@@ -169,7 +169,7 @@ async function fetchSnapshot(
         .limit(1),
     ).maybeSingle(),
     // 最新決済のタイムスタンプ
-    withTenant(
+    strictWithTenant(
       supabase
         .from("orders")
         .select("paid_at")
@@ -180,7 +180,7 @@ async function fetchSnapshot(
         .limit(1),
     ).maybeSingle(),
     // 最新患者のタイムスタンプ
-    withTenant(
+    strictWithTenant(
       supabase
         .from("intake")
         .select("created_at")
@@ -221,7 +221,7 @@ async function fetchSnapshot(
       return q;
     })(),
     // 本日の新規患者数（patientsテーブル基準）
-    withTenant(
+    strictWithTenant(
       supabase
         .from("patients")
         .select("*", { count: "exact", head: true })

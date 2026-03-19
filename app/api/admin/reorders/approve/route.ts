@@ -7,7 +7,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
 import { formatProductCode } from "@/lib/patient-utils";
 import { extractDose, buildKarteNote } from "@/lib/reorder-karte";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { getBusinessRules } from "@/lib/business-rules";
 import { logAudit } from "@/lib/audit";
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const lineToken = await getSettingOrEnv("line", "channel_access_token", "LINE_NOTIFY_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
     const lineGroupId = await getSettingOrEnv("line", "admin_group_id", "LINE_ADMIN_GROUP_ID", tenantId ?? undefined) || "";
 
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     const { id } = parsed.data; // id = reorder_number
 
     // まずpatient_idとstatusを取得
-    const { data: reorderData, error: fetchError } = await withTenant(
+    const { data: reorderData, error: fetchError } = await strictWithTenant(
       supabaseAdmin
         .from("reorders")
         .select("id, patient_id, status, product_code")
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ステータス更新（レースコンディション防止: status=pending条件付き）
-    const { data: updatedRows, error: dbError } = await withTenant(
+    const { data: updatedRows, error: dbError } = await strictWithTenant(
       supabaseAdmin
         .from("reorders")
         .update({
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
         let prevDose: number | null = null;
 
         // 前回の決済済みreorderから用量を取得
-        const { data: prevReorders } = await withTenant(
+        const { data: prevReorders } = await strictWithTenant(
           supabaseAdmin
             .from("reorders")
             .select("product_code")
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
         const note = buildKarteNote(reorderData.product_code, prevDose, currentDose);
 
         // reorders.karte_note に保存（来院履歴は patientbundle で reorders から直接表示）
-        await withTenant(
+        await strictWithTenant(
           supabaseAdmin
             .from("reorders")
             .update({ karte_note: note })
@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
     if (!rules.notifyReorderApprove) {
       lineNotify = "skipped";
     } else if (reorderData.patient_id) {
-      const { data: patient } = await withTenant(
+      const { data: patient } = await strictWithTenant(
         supabaseAdmin
           .from("patients")
           .select("line_id")
@@ -206,7 +206,7 @@ export async function POST(req: NextRequest) {
     }
 
     // LINE通知結果をDBに保存
-    await withTenant(
+    await strictWithTenant(
       supabaseAdmin
         .from("reorders")
         .update({ line_notify_result: lineNotify })

@@ -13,6 +13,7 @@ vi.mock("@/lib/line-push", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   withTenant: vi.fn((query: unknown) => query),
+  strictWithTenant: vi.fn((query: unknown) => query),
   tenantPayload: vi.fn((tid: string | null) => ({ tenant_id: tid || null })),
 }));
 

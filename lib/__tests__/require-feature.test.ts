@@ -5,6 +5,7 @@ const mockHasFeature = vi.fn();
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: (...args: unknown[]) => mockResolveTenantId(...args),
+  resolveTenantIdOrThrow: (...args: unknown[]) => mockResolveTenantId(...args),
 }));
 
 vi.mock("@/lib/feature-flags", () => ({

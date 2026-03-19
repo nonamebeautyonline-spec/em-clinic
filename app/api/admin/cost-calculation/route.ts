@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
     const startDate = `${yearMonth}-01`;
     const endDate = new Date(year, month, 0).toISOString().split("T")[0];
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const jstOffset = 9 * 60 * 60 * 1000;
     const startISO = new Date(new Date(`${startDate}T00:00:00`).getTime() - jstOffset).toISOString();
@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
     // 2クエリを並列実行（逐次ページネーション→並列に最適化）
     const [squareResult, bankResult] = await Promise.all([
       // カード決済
-      withTenant(
+      strictWithTenant(
         supabase
           .from("orders")
           .select("id, product_code, amount")
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
         tenantId
       ),
       // 銀行振込
-      withTenant(
+      strictWithTenant(
         supabase
           .from("orders")
           .select("id, product_code, amount")

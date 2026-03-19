@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -10,9 +10,9 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
-  const { count, error } = await withTenant(
+  const { count, error } = await strictWithTenant(
     supabaseAdmin
       .from("reorders")
       .select("*", { count: "exact", head: true })

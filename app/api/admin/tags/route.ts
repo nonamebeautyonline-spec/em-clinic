@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { conflict, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { tagCreateSchema } from "@/lib/validations/admin-operations";
 
@@ -11,10 +11,10 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const simple = new URL(req.url).searchParams.get("simple") === "true";
 
-  const { data: tagDefs, error } = await withTenant(
+  const { data: tagDefs, error } = await strictWithTenant(
     supabaseAdmin
       .from("tag_definitions")
       .select("*")
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
   const PAGE = 1000;
   let from = 0;
   while (true) {
-    const { data: batch } = await withTenant(
+    const { data: batch } = await strictWithTenant(
       supabaseAdmin
         .from("patient_tags")
         .select("tag_id")
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const parsed = await parseBody(req, tagCreateSchema);
   if ("error" in parsed) return parsed.error;

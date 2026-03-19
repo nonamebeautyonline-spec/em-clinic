@@ -3,17 +3,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 // 送信ログ取得（日別・ルール別集計）
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   // reminder_sent_log を直近30日分取得（scheduled_messages の status と結合）
-  const { data: logs, error } = await withTenant(
+  const { data: logs, error } = await strictWithTenant(
     supabaseAdmin
       .from("reminder_sent_log")
       .select("id, rule_id, reservation_id, scheduled_message_id, created_at")
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   const statusMap = new Map<number, string>();
 
   if (msgIds.length > 0) {
-    const { data: msgs } = await withTenant(
+    const { data: msgs } = await strictWithTenant(
       supabaseAdmin
         .from("scheduled_messages")
         .select("id, status")
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 
   // ルール名取得
   const ruleIds = [...new Set(logs.map((l: { rule_id: number }) => l.rule_id))];
-  const { data: rules } = await withTenant(
+  const { data: rules } = await strictWithTenant(
     supabaseAdmin
       .from("reminder_rules")
       .select("id, name, message_format, send_hour, send_minute, target_day_offset")

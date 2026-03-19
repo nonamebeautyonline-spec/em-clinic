@@ -3,23 +3,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   // friend_summaries（最新テキスト時刻）と chat_reads（既読時刻）を並列取得
   const [fsRes, crRes] = await Promise.all([
-    withTenant(
+    strictWithTenant(
       supabaseAdmin
         .from("friend_summaries")
         .select("patient_id, last_msg_at"),
       tenantId
     ),
-    withTenant(
+    strictWithTenant(
       supabaseAdmin
         .from("chat_reads")
         .select("patient_id, read_at"),

@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
 import { generateInvoicePDF } from "@/lib/invoice-pdf";
 import { getPlanByKey } from "@/lib/plan-config";
@@ -18,7 +18,7 @@ export async function GET(
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   if (!tenantId) {
     return badRequest("テナントが特定できません");
   }

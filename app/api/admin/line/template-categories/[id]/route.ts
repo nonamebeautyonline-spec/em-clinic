@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { z } from "zod";
 
@@ -31,7 +31,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
 
   // 並び替え一括更新の場合（id === "reorder"）
@@ -41,7 +41,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const { orders } = parsed.data;
 
     for (const o of orders) {
-      const { error } = await withTenant(
+      const { error } = await strictWithTenant(
         supabaseAdmin
           .from("template_categories")
           .update({ sort_order: o.sort_order })
@@ -64,7 +64,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return badRequest("更新するフィールドがありません");
   }
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("template_categories")
       .update(updates)
@@ -87,11 +87,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
 
   // 対象カテゴリの名前を取得
-  const { data: cat, error: catError } = await withTenant(
+  const { data: cat, error: catError } = await strictWithTenant(
     supabaseAdmin.from("template_categories").select("name").eq("id", Number(id)),
     tenantId
   ).single();
@@ -106,7 +106,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   }
 
   // このカテゴリのテンプレートを「未分類」に移動
-  await withTenant(
+  await strictWithTenant(
     supabaseAdmin
       .from("message_templates")
       .update({ category: "未分類" })
@@ -115,7 +115,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   );
 
   // カテゴリを削除
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin.from("template_categories").delete().eq("id", Number(id)),
     tenantId
   );

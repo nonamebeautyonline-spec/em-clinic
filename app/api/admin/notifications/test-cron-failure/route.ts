@@ -5,13 +5,13 @@ import { unauthorized, serverError } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getSetting } from "@/lib/settings";
 import { pushMessage } from "@/lib/line-push";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req) ?? undefined;
+  const tenantId = resolveTenantIdOrThrow(req) ?? undefined;
 
   try {
     const [slackWebhookUrl, lineNotifyUid] = await Promise.all([

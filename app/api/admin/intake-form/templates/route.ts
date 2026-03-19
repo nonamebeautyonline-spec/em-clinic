@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized, badRequest } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 // テンプレート一覧取得
 export async function GET(req: NextRequest) {
@@ -11,9 +11,9 @@ export async function GET(req: NextRequest) {
   if (!isAuthorized)
     return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("intake_form_definitions")
       .select("id, name, is_active, created_at, updated_at")
@@ -34,7 +34,7 @@ export async function DELETE(req: NextRequest) {
   if (!isAuthorized)
     return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   let body: { id?: string };
   try {
@@ -48,7 +48,7 @@ export async function DELETE(req: NextRequest) {
     return badRequest("テンプレートIDが必要です");
 
   // 対象テンプレートを確認（アクティブなものは削除不可）
-  const { data: target, error: fetchError } = await withTenant(
+  const { data: target, error: fetchError } = await strictWithTenant(
     supabaseAdmin
       .from("intake_form_definitions")
       .select("id, is_active")

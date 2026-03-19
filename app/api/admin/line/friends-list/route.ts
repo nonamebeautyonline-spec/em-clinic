@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { getFriendsListCache, setFriendsListCache } from "@/lib/redis";
 import { transformFriendsRow as transformRow } from "@/lib/friends-list-transform";
 
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
   const tAuth = Date.now();
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const url = req.nextUrl;
   const searchId = url.searchParams.get("id")?.trim() || "";
   const searchName = url.searchParams.get("name")?.trim() || "";

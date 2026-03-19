@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createNpsSchema, updateNpsSchema } from "@/lib/validations/line-management";
 
@@ -12,9 +12,9 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
-  const { data: surveys, error } = await withTenant(
+  const { data: surveys, error } = await strictWithTenant(
     supabaseAdmin.from("nps_surveys").select("*").order("created_at", { ascending: false }),
     tenantId
   );
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   // 回答数を付与
   const enriched = await Promise.all(
     (surveys || []).map(async (s) => {
-      const { count } = await withTenant(
+      const { count } = await strictWithTenant(
         supabaseAdmin.from("nps_responses").select("*", { count: "exact", head: true }).eq("survey_id", s.id),
         tenantId
       );
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, createNpsSchema);
   if ("error" in parsed) return parsed.error;
   const { title, question_text, comment_label, thank_you_message, auto_send_after, auto_send_delay_hours } = parsed.data;
@@ -68,12 +68,12 @@ export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, updateNpsSchema);
   if ("error" in parsed) return parsed.error;
   const { id, title, question_text, comment_label, thank_you_message, is_active, auto_send_after, auto_send_delay_hours } = parsed.data;
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin.from("nps_surveys").update({
       title: title?.trim() || "",
       question_text: question_text || "",
@@ -96,12 +96,12 @@ export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return badRequest("IDは必須です");
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin.from("nps_surveys").delete().eq("id", parseInt(id)),
     tenantId
   );

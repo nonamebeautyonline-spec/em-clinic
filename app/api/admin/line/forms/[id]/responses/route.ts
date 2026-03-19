@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 // 回答一覧取得
 export async function GET(
@@ -12,13 +12,13 @@ export async function GET(
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
   const { searchParams } = new URL(req.url);
   const format = searchParams.get("format"); // "csv" でCSV出力
 
   // フォーム情報
-  const { data: form } = await withTenant(
+  const { data: form } = await strictWithTenant(
     supabaseAdmin
       .from("forms")
       .select("id, name, fields")
@@ -33,7 +33,7 @@ export async function GET(
   let offset = 0;
   const pageSize = 5000;
   for (;;) {
-    const { data: page, error: pageError } = await withTenant(
+    const { data: page, error: pageError } = await strictWithTenant(
       supabaseAdmin
         .from("form_responses")
         .select("*")

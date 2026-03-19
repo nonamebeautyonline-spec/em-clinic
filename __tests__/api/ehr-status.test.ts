@@ -46,6 +46,14 @@ vi.mock("@/lib/admin-auth", () => ({
   verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 
+vi.mock("@/lib/tenant", () => ({
+  resolveTenantId: vi.fn(() => "test-tenant-123"),
+  resolveTenantIdOrThrow: vi.fn(() => "test-tenant-123"),
+  withTenant: vi.fn((q: unknown) => q),
+  strictWithTenant: vi.fn((q: unknown) => q),
+  tenantPayload: vi.fn((tid: string) => ({ tenant_id: tid })),
+}));
+
 vi.mock("@/lib/session", () => ({
   validateSession: vi.fn().mockResolvedValue(true),
 }));

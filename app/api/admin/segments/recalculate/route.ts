@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import {
   classifyPatients,
   saveSegments,
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     // 全患者を分類

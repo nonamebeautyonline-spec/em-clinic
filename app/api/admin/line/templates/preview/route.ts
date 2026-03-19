@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { templatePreviewSchema } from "@/lib/validations/template-preview";
 
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   // リクエストボディのバリデーション
   const parsed = await parseBody(req, templatePreviewSchema);
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
   // 患者IDが指定されている場合 → 実データで置換
   try {
     // 患者情報を取得
-    const { data: patient } = await withTenant(
+    const { data: patient } = await strictWithTenant(
       supabaseAdmin
         .from("patients")
         .select("name, patient_id")
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
 
     // 次回予約を取得（将来日の最も近い予約）
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-    const { data: nextReservation } = await withTenant(
+    const { data: nextReservation } = await strictWithTenant(
       supabaseAdmin
         .from("reservations")
         .select("reserved_date, reserved_time")

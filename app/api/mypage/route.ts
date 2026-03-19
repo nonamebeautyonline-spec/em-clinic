@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { redis, getDashboardCacheKey } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { validateBody } from "@/lib/validations/helpers";
 import { mypageDashboardSchema } from "@/lib/validations/mypage";
 
@@ -137,12 +137,12 @@ async function getPatientInfoFromSupabase(
   try {
     // patients と intake を並列取得
     const [patientRes, intakeRes] = await Promise.all([
-      withTenant(supabaseAdmin
+      strictWithTenant(supabaseAdmin
         .from("patients")
         .select("patient_id, name, line_id")
         .eq("patient_id", patientId), tenantId)
         .maybeSingle(),
-      withTenant(supabaseAdmin
+      strictWithTenant(supabaseAdmin
         .from("intake")
         .select("patient_id, status, answers")
         .eq("patient_id", patientId)
@@ -183,7 +183,7 @@ async function getNextReservationFromSupabase(
   tenantId: string | null
 ): Promise<{ id: string; datetime: string; title: string; status: string } | null> {
   try {
-    const { data: rows, error } = await withTenant(supabaseAdmin
+    const { data: rows, error } = await strictWithTenant(supabaseAdmin
       .from("reservations")
       .select("reserve_id, reserved_date, reserved_time, status")
       .eq("patient_id", patientId)
@@ -231,13 +231,13 @@ async function getConsultationHistoryFromSupabase(
   try {
     // intake(診察完了分) と reservations を並列取得
     const [intakeRes, resRes] = await Promise.all([
-      withTenant(supabaseAdmin
+      strictWithTenant(supabaseAdmin
         .from("intake")
         .select("reserve_id, status, note, updated_at")
         .eq("patient_id", patientId)
         .eq("status", "OK"), tenantId)
         .order("updated_at", { ascending: false }),
-      withTenant(supabaseAdmin
+      strictWithTenant(supabaseAdmin
         .from("reservations")
         .select("reserve_id, reserved_date, reserved_time, prescription_menu")
         .eq("patient_id", patientId), tenantId),
@@ -276,7 +276,7 @@ async function getConsultationHistoryFromSupabase(
  */
 async function getOrdersFromSupabase(patientId: string, tenantId: string | null): Promise<OrderForMyPage[]> {
   try {
-    const { data, error } = await withTenant(supabaseAdmin
+    const { data, error } = await strictWithTenant(supabaseAdmin
       .from("orders")
       .select("*")
       .eq("patient_id", patientId), tenantId)
@@ -341,7 +341,7 @@ async function getReordersFromSupabase(patientId: string, tenantId: string | nul
   months: number | undefined;
 }[]> {
   try {
-    const { data, error } = await withTenant(supabaseAdmin
+    const { data, error } = await strictWithTenant(supabaseAdmin
       .from("reorders")
       .select("id, status, created_at, product_code, reorder_number")
       .eq("patient_id", patientId), tenantId)
@@ -395,12 +395,12 @@ export async function POST(_req: NextRequest) {
     const patientId = getCookieValue("__Host-patient_id") || getCookieValue("patient_id");
     if (!patientId) return fail("unauthorized", 401);
 
-    const tenantId = resolveTenantId(_req);
+    const tenantId = resolveTenantIdOrThrow(_req);
     const lineUserId = getCookieValue("__Host-line_user_id") || getCookieValue("line_user_id");
 
     // ★ line_user_id と patient_id の整合性チェック（アカウント切替による他人データ表示防止）
     if (lineUserId && patientId) {
-      const { data: patientCheck } = await withTenant(supabaseAdmin
+      const { data: patientCheck } = await strictWithTenant(supabaseAdmin
         .from("patients")
         .select("line_id")
         .eq("patient_id", patientId), tenantId)
@@ -490,7 +490,7 @@ export async function POST(_req: NextRequest) {
 
     // LINE UID がDBにない場合、非同期で patients を更新（intake の line_id は不要）
     if (shouldSaveLineId) {
-      withTenant(supabaseAdmin
+      strictWithTenant(supabaseAdmin
         .from("patients")
         .update({ line_id: lineUserId })
         .eq("patient_id", patientId), tenantId)

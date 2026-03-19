@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, notFound, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
 
 // GET: 完了済みジョブのCSVデータをダウンロード
@@ -15,10 +15,10 @@ export async function GET(
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { jobId } = await params;
 
-  const { data: job, error } = await withTenant(
+  const { data: job, error } = await strictWithTenant(
     supabaseAdmin
       .from("export_jobs")
       .select("id, status, file_url, error_message")

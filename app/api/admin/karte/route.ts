@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { karteCreateSchema } from "@/lib/validations/admin-operations";
 
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const parsed = await parseBody(req, karteCreateSchema);
     if ("error" in parsed) return parsed.error;
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     const note = String(parsed.data.note ?? "");
 
     // patient_name を answerers → intake フォールバックで取得
-    const { data: answerer } = await withTenant(
+    const { data: answerer } = await strictWithTenant(
       supabaseAdmin
         .from("patients")
         .select("name")

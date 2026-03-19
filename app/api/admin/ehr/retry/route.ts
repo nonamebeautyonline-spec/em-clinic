@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
 import { parseBody } from "@/lib/validations/helpers";
 import { ehrRetrySchema, ehrBulkRetrySchema, ehrLogsQuerySchema } from "@/lib/validations/ehr";
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   // ボディをパース（sync_id / sync_ids どちらかを受け付ける）
   let body: Record<string, unknown>;
@@ -176,7 +176,7 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   // クエリパラメータのバリデーション
   const url = new URL(req.url);

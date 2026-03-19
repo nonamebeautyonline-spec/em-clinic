@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const from = searchParams.get("from") || "";
   const to = searchParams.get("to") || "";
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   switch (type) {
     case "daily":
@@ -40,7 +40,7 @@ async function getDailyRevenue(from: string, to: string, tenantId: string | null
   if (from) query = query.gte("paid_at", from);
   if (to) query = query.lte("paid_at", to + "T23:59:59");
 
-  const { data } = await withTenant(query.limit(10000), tenantId);
+  const { data } = await strictWithTenant(query.limit(10000), tenantId);
   if (!data) return NextResponse.json({ daily: [] });
 
   const map = new Map<string, { revenue: number; refunds: number; count: number }>();
@@ -70,7 +70,7 @@ async function getDailyRevenue(from: string, to: string, tenantId: string | null
 
 /** 患者LTV（生涯価値） */
 async function getLTV(tenantId: string | null) {
-  const { data: orders } = await withTenant(
+  const { data: orders } = await strictWithTenant(
     supabaseAdmin
       .from("orders")
       .select("patient_id, amount, paid_at, refund_status, refunded_amount")
@@ -133,7 +133,7 @@ async function getLTV(tenantId: string | null) {
 
 /** コホート分析（月別初回購入→リピート率） */
 async function getCohort(tenantId: string | null) {
-  const { data: orders } = await withTenant(
+  const { data: orders } = await strictWithTenant(
     supabaseAdmin
       .from("orders")
       .select("patient_id, paid_at")
@@ -199,7 +199,7 @@ async function getProductBreakdown(from: string, to: string, tenantId: string | 
   if (from) query = query.gte("paid_at", from);
   if (to) query = query.lte("paid_at", to + "T23:59:59");
 
-  const { data } = await withTenant(query.limit(10000), tenantId);
+  const { data } = await strictWithTenant(query.limit(10000), tenantId);
   if (!data) return NextResponse.json({ products: [] });
 
   const map = new Map<string, { revenue: number; count: number }>();

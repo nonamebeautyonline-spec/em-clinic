@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 async function fetchAll(buildQuery: () => { range: (from: number, to: number) => PromiseLike<{ data: Record<string, unknown>[] | null; error: { message: string } | null }> }, pageSize = 5000) {
   const all: Record<string, unknown>[] = [];
@@ -31,7 +26,7 @@ export async function GET(request: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(request);
+    const tenantId = resolveTenantIdOrThrow(request);
 
     // 今日の日付（JST）
     const now = new Date();
@@ -48,8 +43,8 @@ export async function GET(request: NextRequest) {
     const monthStartISO = monthStart.toISOString();
 
     // 1. 本日の予約件数（reservationsテーブル）
-    const { count: todayReservations } = await withTenant(
-      supabase
+    const { count: todayReservations } = await strictWithTenant(
+      supabaseAdmin
         .from("reservations")
         .select("*", { count: "exact", head: true })
         .gte("reserved_time", todayStartISO)
@@ -58,49 +53,25 @@ export async function GET(request: NextRequest) {
       tenantId
     );
 
-    // 2. 本日の配送件数（ordersテーブル、shipping_dateが今日）
-    const { data: todayShippingData } = await fetchAll(() =>
-      withTenant(
-        supabase
-          .from("orders")
-          .select("product_code, patient_id")
-          .gte("shipping_date", todayStartISO.split("T")[0])
-          .lt("shipping_date", todayEndISO.split("T")[0]),
-        tenantId
-      )
-    );
+    // 2. 本日の配送件数 — RPC で新規/リピート判定（N+1解消）
+    const todayStartDate = todayStartISO.split("T")[0];
+    const todayEndDate = todayEndISO.split("T")[0];
 
-    const todayShippingTotal = todayShippingData?.length || 0;
+    const { data: shippingStats } = await supabaseAdmin.rpc("get_today_shipping_stats", {
+      p_tenant_id: tenantId,
+      p_today_start: todayStartDate,
+      p_today_end: todayEndDate,
+    });
 
-    // 新規・再処方の判定（簡易版：patient_idの初回注文か判定）
-    const patientIds = todayShippingData?.map((o) => o.patient_id) || [];
-    const uniquePatientIds = [...new Set(patientIds)];
-
-    let todayShippingFirst = 0;
-    let todayShippingReorder = 0;
-
-    for (const patientId of uniquePatientIds) {
-      const { count } = await withTenant(
-        supabase
-          .from("orders")
-          .select("*", { count: "exact", head: true })
-          .eq("patient_id", patientId)
-          .lt("created_at", todayStartISO),
-        tenantId
-      );
-
-      if (count === 0) {
-        todayShippingFirst++;
-      } else {
-        todayShippingReorder++;
-      }
-    }
+    const todayShippingTotal = shippingStats?.[0]?.total_count ?? 0;
+    const todayShippingFirst = shippingStats?.[0]?.first_order_count ?? 0;
+    const todayShippingReorder = shippingStats?.[0]?.reorder_count ?? 0;
 
     // 3. 本日の売上
     // Square（ordersテーブル、payment_method = 'card'、paid_atが今日）
     const { data: squareOrders } = await fetchAll(() =>
-      withTenant(
-        supabase
+      strictWithTenant(
+        supabaseAdmin
           .from("orders")
           .select("amount")
           .eq("payment_method", "credit_card")
@@ -115,8 +86,8 @@ export async function GET(request: NextRequest) {
 
     // 銀行振込（ordersテーブル、payment_method='bank_transfer'、paid_atが今日）
     const { data: bankTransferOrders } = await fetchAll(() =>
-      withTenant(
-        supabase
+      strictWithTenant(
+        supabaseAdmin
           .from("orders")
           .select("amount")
           .eq("payment_method", "bank_transfer")
@@ -132,56 +103,32 @@ export async function GET(request: NextRequest) {
 
     const todayTotalRevenue = todaySquareRevenue + todayBankTransferRevenue;
 
-    // 4. リピート率（今月の再注文 / 今月の全注文）
-    const { data: monthOrders } = await fetchAll(() =>
-      withTenant(
-        supabase
-          .from("orders")
-          .select("patient_id")
-          .gte("paid_at", monthStartISO),
-        tenantId
-      )
-    );
+    // 4. リピート率 — RPC で月次リピート率計算（N+1解消）
+    const { data: repeatStats } = await supabaseAdmin.rpc("get_monthly_repeat_rate", {
+      p_tenant_id: tenantId,
+      p_month_start: monthStartISO,
+    });
 
-    const monthPatientIds = monthOrders?.map((o) => o.patient_id) || [];
-    let monthReorderCount = 0;
-
-    for (const patientId of monthPatientIds) {
-      const { count } = await withTenant(
-        supabase
-          .from("orders")
-          .select("*", { count: "exact", head: true })
-          .eq("patient_id", patientId)
-          .lt("created_at", monthStartISO),
-        tenantId
-      );
-
-      if (count && count > 0) {
-        monthReorderCount++;
-      }
-    }
-
-    const repeatRate =
-      monthPatientIds.length > 0 ? Math.round((monthReorderCount / monthPatientIds.length) * 100) : 0;
+    const repeatRate = repeatStats?.[0]?.repeat_rate ?? 0;
 
     // 5. 今月の統計
-    const { count: totalPatients } = await withTenant(
-      supabase
+    const { count: totalPatients } = await strictWithTenant(
+      supabaseAdmin
         .from("intake")
         .select("*", { count: "exact", head: true }),
       tenantId
     );
 
-    const { count: activePatients } = await withTenant(
-      supabase
+    const { count: activePatients } = await strictWithTenant(
+      supabaseAdmin
         .from("orders")
         .select("patient_id", { count: "exact", head: true })
         .gte("paid_at", monthStartISO),
       tenantId
     );
 
-    const { count: newPatients } = await withTenant(
-      supabase
+    const { count: newPatients } = await strictWithTenant(
+      supabaseAdmin
         .from("intake")
         .select("*", { count: "exact", head: true })
         .gte("created_at", monthStartISO),

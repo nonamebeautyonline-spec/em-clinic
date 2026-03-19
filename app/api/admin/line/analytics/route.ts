@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 
 // Supabaseクエリ結果用の型定義
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const lineToken = await getSettingOrEnv(
     "line",
     "channel_access_token",
@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
   periodStart.setDate(periodStart.getDate() - validPeriod);
   const periodStartStr = periodStart.toISOString().slice(0, 10);
 
-  const { data: chartRows } = await withTenant(
+  const { data: chartRows } = await strictWithTenant(
     supabaseAdmin
       .from("line_daily_stats")
       .select("stat_date, followers, targeted_reaches, blocks, messages_sent, total_clicks, unique_clicks")
@@ -151,7 +151,7 @@ export async function GET(req: NextRequest) {
   }[];
 
   // --- 3. 配信別統計（直近50件） ---
-  const { data: broadcastRows } = await withTenant(
+  const { data: broadcastRows } = await strictWithTenant(
     supabaseAdmin
       .from("broadcasts")
       .select("id, name, status, total_targets, sent_count, failed_count, no_uid_count, sent_at, created_at")
@@ -166,7 +166,7 @@ export async function GET(req: NextRequest) {
   let broadcastClickMap = new Map<number, { total: number; unique: number; linkIds: number[] }>();
 
   if (broadcastIds.length > 0) {
-    const { data: clickLinks } = await withTenant(
+    const { data: clickLinks } = await strictWithTenant(
       supabaseAdmin
         .from("click_tracking_links")
         .select("id, broadcast_id")
@@ -187,7 +187,7 @@ export async function GET(req: NextRequest) {
       }
 
       const { data: clickEvts } = await fetchAll<ClickEventRow>(() =>
-        withTenant(
+        strictWithTenant(
           supabaseAdmin
             .from("click_tracking_events")
             .select("link_id, ip_address, clicked_at")
@@ -232,7 +232,7 @@ export async function GET(req: NextRequest) {
       // 配信後7日間を転換期間として計算
       const sentEnd = new Date(sentStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-      const { count: orderCount } = await withTenant(
+      const { count: orderCount } = await strictWithTenant(
         supabaseAdmin
           .from("orders")
           .select("id", { count: "exact", head: true })

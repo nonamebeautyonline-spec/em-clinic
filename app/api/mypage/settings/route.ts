@@ -2,12 +2,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMypageConfig } from "@/lib/mypage/config";
 import { getSetting } from "@/lib/settings";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const tid = tenantId ?? undefined;
   const [config, reorderRequiresReservation] = await Promise.all([
     getMypageConfig(tid),

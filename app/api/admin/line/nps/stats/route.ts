@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 interface NpsResponseRow {
   survey_id: number;
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
 
   // survey_ids: カンマ区切り（空なら全調査）
@@ -48,13 +48,13 @@ export async function GET(req: NextRequest) {
   const to = searchParams.get("to"); // YYYY-MM
 
   // 調査一覧取得（名前表示用）
-  const { data: surveys } = await withTenant(
+  const { data: surveys } = await strictWithTenant(
     supabaseAdmin.from("nps_surveys").select("id, title"),
     tenantId,
   );
 
   // 回答取得
-  let query = withTenant(
+  let query = strictWithTenant(
     supabaseAdmin
       .from("nps_responses")
       .select("survey_id, score, created_at")

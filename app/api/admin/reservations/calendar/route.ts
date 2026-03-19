@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     // クエリパラメータ取得
     const searchParams = req.nextUrl.searchParams;
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 予約データ取得（指定期間）
-    const { data: reservations, error: resvError } = await withTenant(
+    const { data: reservations, error: resvError } = await strictWithTenant(
       supabaseAdmin
         .from("reservations")
         .select("*")
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
     ];
     const patientMap = new Map<string, { name: string; tel: string }>();
     if (patientIds.length > 0) {
-      const { data: patients } = await withTenant(
+      const { data: patients } = await strictWithTenant(
         supabaseAdmin
           .from("patients")
           .select("patient_id, name, tel")
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
     ];
     const doctorMap = new Map<string, string>();
     if (doctorIds.length > 0) {
-      const { data: doctors } = await withTenant(
+      const { data: doctors } = await strictWithTenant(
         supabaseAdmin
           .from("doctors")
           .select("doctor_id, doctor_name")

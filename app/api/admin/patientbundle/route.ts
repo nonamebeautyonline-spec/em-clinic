@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { formatProductCode, formatPaymentMethod, formatReorderStatus, formatDateJST } from "@/lib/patient-utils";
 import { normalizeJPPhone } from "@/lib/phone";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const patientId = (req.nextUrl.searchParams.get("patientId") || "").trim();
     if (!patientId) {
       return NextResponse.json({ ok: false, message: "missing_patientId" }, { status: 400 });
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
     // 5テーブル並列取得（intake正規化: patient_name/line_id→patients、reserved_date/time/prescription_menu→reservations）
     const [answererRes, intakeRes, reservationsRes, ordersRes, reordersRes] = await Promise.all([
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("patients")
           .select("patient_id, name, name_kana, tel, sex, birthday, line_id")
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
           .maybeSingle(),
         tenantId
       ),
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("intake")
           .select("id, patient_id, reserve_id, status, note, answers, created_at")
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
           .limit(50),
         tenantId
       ),
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("reservations")
           .select("reserve_id, reserved_date, reserved_time, prescription_menu, status")
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
           .limit(50),
         tenantId
       ),
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("orders")
           .select("id, product_code, product_name, amount, paid_at, payment_method, tracking_number, shipping_date, shipping_status, refund_status, created_at")
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
           .limit(30),
         tenantId
       ),
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("reorders")
           .select("id, reorder_number, product_code, status, note, karte_note, created_at, approved_at, paid_at")

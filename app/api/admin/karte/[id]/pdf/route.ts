@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized, notFound, serverError } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { generateKartePDF } from "@/lib/karte-pdf";
 import type { KarteSoapData, KarteVitalData } from "@/lib/karte-pdf";
 import { parseJsonToSoap } from "@/lib/soap-parser";
@@ -25,7 +25,7 @@ export async function GET(
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const { id } = await params;
     const intakeId = Number(id);
 
@@ -39,7 +39,7 @@ export async function GET(
       .select("id, patient_id, note, note_format, prescription_menu, reserved_date, reserved_time, status, created_at, answers")
       .eq("id", intakeId);
 
-    const { data: intake, error: intakeErr } = await withTenant(intakeQuery.maybeSingle(), tenantId);
+    const { data: intake, error: intakeErr } = await strictWithTenant(intakeQuery.maybeSingle(), tenantId);
 
     if (intakeErr) {
       console.error("[karte/pdf] intake取得エラー:", intakeErr);
@@ -61,7 +61,7 @@ export async function GET(
         .eq("patient_id", intake.patient_id)
         .limit(1);
 
-      const { data: patient } = await withTenant(patientQuery.maybeSingle(), tenantId);
+      const { data: patient } = await strictWithTenant(patientQuery.maybeSingle(), tenantId);
       if (patient?.name) {
         patientName = patient.name;
       }
@@ -101,7 +101,7 @@ export async function GET(
           .order("measured_at", { ascending: false })
           .limit(1);
 
-        const { data: vitalsData } = await withTenant(vitalsQuery, tenantId);
+        const { data: vitalsData } = await strictWithTenant(vitalsQuery, tenantId);
         if (vitalsData && vitalsData.length > 0) {
           const v = vitalsData[0];
           vitals = {
@@ -129,7 +129,7 @@ export async function GET(
         .eq("intake_id", intakeId)
         .order("created_at", { ascending: true });
 
-      const { data: images } = await withTenant(imagesQuery, tenantId);
+      const { data: images } = await strictWithTenant(imagesQuery, tenantId);
       if (images) {
         imageUrls = images.map((img: { url: string }) => img.url).filter(Boolean);
       }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createScheduleSchema } from "@/lib/validations/line-management";
 
@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const patientId = searchParams.get("patient_id");
   const statusFilter = searchParams.get("status"); // "scheduled" でフィルタ可能
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   if (patientId) query = query.eq("patient_id", patientId);
   if (statusFilter) query = query.eq("status", statusFilter);
 
-  const { data, error } = await withTenant(query, tenantId);
+  const { data, error } = await strictWithTenant(query, tenantId);
 
   if (error) return serverError(error.message);
   return NextResponse.json({ schedules: data });
@@ -31,14 +31,14 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const parsed = await parseBody(req, createScheduleSchema);
   if ("error" in parsed) return parsed.error;
   const { patient_id, message, scheduled_at } = parsed.data;
 
   // LINE UIDを取得（patientsテーブルから）
-  const { data: patient } = await withTenant(
+  const { data: patient } = await strictWithTenant(
     supabaseAdmin.from("patients").select("line_id").eq("patient_id", patient_id),
     tenantId
   ).maybeSingle();

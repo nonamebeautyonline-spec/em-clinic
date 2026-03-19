@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { notFound, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 interface NpsResponse {
   score: number;
@@ -17,12 +17,12 @@ export async function GET(
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
   const surveyId = parseInt(id);
 
   // 調査情報
-  const { data: survey } = await withTenant(
+  const { data: survey } = await strictWithTenant(
     supabaseAdmin.from("nps_surveys").select("*").eq("id", surveyId).single(),
     tenantId
   );
@@ -32,7 +32,7 @@ export async function GET(
   }
 
   // 全回答取得
-  const { data: responses } = await withTenant(
+  const { data: responses } = await strictWithTenant(
     supabaseAdmin.from("nps_responses")
       .select("*")
       .eq("survey_id", surveyId)

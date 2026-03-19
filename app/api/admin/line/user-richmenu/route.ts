@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
 import { assignUserRichMenuSchema } from "@/lib/validations/line-management";
@@ -27,7 +27,7 @@ async function fetchLineRichMenuDetail(richMenuId: string, token: string) {
 // DBまたはLINE APIからメニュー情報を構築
 async function resolveRichMenu(richMenuId: string, isDefault: boolean, tenantId: string | null, token: string) {
   // まずDBを確認
-  const { data: dbMenu } = await withTenant(
+  const { data: dbMenu } = await strictWithTenant(
     supabaseAdmin.from("rich_menus").select("id, name, image_url, line_rich_menu_id").eq("line_rich_menu_id", richMenuId),
     tenantId
   ).maybeSingle();
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const LINE_ACCESS_TOKEN = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
 
     const { searchParams } = new URL(req.url);
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
     if (!patientId) return badRequest("patient_id required");
 
     // patient_id から line_id を patients テーブルから取得
-    const { data: patientRow } = await withTenant(
+    const { data: patientRow } = await strictWithTenant(
       supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId),
       tenantId
     ).maybeSingle();
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const LINE_ACCESS_TOKEN = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
 
   const parsed = await parseBody(req, assignUserRichMenuSchema);
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
   const { patient_id, rich_menu_id } = parsed.data;
 
   // DBからline_rich_menu_idを取得
-  const { data: menu } = await withTenant(
+  const { data: menu } = await strictWithTenant(
     supabaseAdmin.from("rich_menus").select("id, name, line_rich_menu_id, image_url").eq("id", rich_menu_id),
     tenantId
   ).maybeSingle();
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
   }
 
   // patient_id から line_id を patients テーブルから取得
-  const { data: patientRow } = await withTenant(
+  const { data: patientRow } = await strictWithTenant(
     supabaseAdmin.from("patients").select("line_id").eq("patient_id", patient_id),
     tenantId
   ).maybeSingle();

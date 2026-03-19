@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { bankTransferReconcileConfirmSchema } from "@/lib/validations/admin-operations";
 
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     if ("error" in parsed) return parsed.error;
     const matches: ConfirmMatch[] = parsed.data.matches;
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     console.log(`[Confirm] Processing ${matches.length} matches`);
 
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
       }
 
       // patient_idでpending_confirmationの注文を検索
-      const { data: pendingOrders, error: fetchError } = await withTenant(
+      const { data: pendingOrders, error: fetchError } = await strictWithTenant(
         supabase
           .from("orders")
           .select("id, patient_id, product_code, amount")
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
       const orderId = pendingOrders[0].id;
 
       // payment_idを採番（bt_XXX形式）
-      const { data: allBtOrders } = await withTenant(
+      const { data: allBtOrders } = await strictWithTenant(
         supabase
           .from("orders")
           .select("id")
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
 
       // 更新
       const now = new Date().toISOString();
-      const { error: updateError } = await withTenant(
+      const { error: updateError } = await strictWithTenant(
         supabase
           .from("orders")
           .update({
@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
 
         // ★ bank_statementsを照合済みに更新（matched_order_idまたは振込情報で特定）
         // 1) matched_order_idが旧IDの行を更新
-        const { data: updatedByOrderId } = await withTenant(
+        const { data: updatedByOrderId } = await strictWithTenant(
           supabase
             .from("bank_statements")
             .update({ reconciled: true, matched_order_id: nextBtId })
@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
         // 2) まだ更新できていない場合、振込日・摘要・金額で特定して更新
         if (!updatedByOrderId || updatedByOrderId.length === 0) {
           const transferDate = match.transfer.date.replace(/\//g, "-");
-          await withTenant(
+          await strictWithTenant(
             supabase
               .from("bank_statements")
               .update({ reconciled: true, matched_order_id: nextBtId })

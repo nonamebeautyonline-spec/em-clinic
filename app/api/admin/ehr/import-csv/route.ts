@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, tenantPayload } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
 import { parsePatientCsv, parseKarteCsv } from "@/lib/ehr/csv-adapter";
 import { fromEhrPatient, fromEhrKarte } from "@/lib/ehr/mapper";
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     // FormDataからファイルとタイプを取得

@@ -38,14 +38,14 @@ describe("AI関連API: 認証チェック", () => {
 
 describe("AI関連API: テナント分離", () => {
   for (const { file, name } of AI_ROUTES) {
-    it(`${name} は resolveTenantId を使用している`, () => {
+    it(`${name} は resolveTenantIdOrThrow を使用している`, () => {
       const src = readFile(file);
-      expect(src).toContain("resolveTenantId");
+      expect(src).toMatch(/resolveTenantId|resolveTenantIdOrThrow/);
     });
 
-    it(`${name} は withTenant を使用している`, () => {
+    it(`${name} は strictWithTenant を使用している`, () => {
       const src = readFile(file);
-      expect(src).toContain("withTenant");
+      expect(src).toMatch(/withTenant|strictWithTenant/);
     });
   }
 });

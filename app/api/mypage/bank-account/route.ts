@@ -1,7 +1,7 @@
 // 患者マイページ用 振込先口座情報API（公開、認証不要）
 import { NextRequest, NextResponse } from "next/server";
 import { getSetting } from "@/lib/settings";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import type { BankAccount } from "@/lib/bank-account";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ const LEGACY_BANK_KEYS = [
 ] as const;
 
 export async function GET(req: NextRequest) {
-  const tenantId = resolveTenantId(req) ?? undefined;
+  const tenantId = resolveTenantIdOrThrow(req) ?? undefined;
 
   // 新形式: JSON配列 + アクティブID
   const accountsJson = await getSetting("payment", "bank_accounts", tenantId);

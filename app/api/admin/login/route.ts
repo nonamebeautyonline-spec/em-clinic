@@ -4,7 +4,7 @@ import { serverError, tooManyRequests } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { SignJWT } from "jose";
 import bcrypt from "bcryptjs";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { checkRateLimit, resetRateLimit, getClientIp } from "@/lib/rate-limit";
 import { parseBody } from "@/lib/validations/helpers";
 import { adminLoginSchema } from "@/lib/validations/admin-login";
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
     }).catch((err) => console.error("[Admin Login] Session create error:", err));
 
     // 共有URL（テナントコンテキストなし）からのログインの場合、テナントのサブドメインURLを返す
-    const requestTenantId = resolveTenantId(req);
+    const requestTenantId = resolveTenantIdOrThrow(req);
     let redirectUrl: string | null = null;
 
     if (!requestTenantId && user.tenant_id) {

@@ -170,11 +170,11 @@ type TabType = "reservation" | "shipping" | "payment" | "reorder_apply" | "reord
 
 const TABS: { key: TabType; label: string; group: "flex" | "event" }[] = [
   { key: "reservation", label: "予約通知", group: "flex" },
-  { key: "shipping", label: "発送通知", group: "flex" },
   { key: "payment", label: "決済案内", group: "flex" },
+  { key: "reorder_paid", label: "決済完了", group: "event" },
+  { key: "shipping", label: "発送通知", group: "flex" },
   { key: "reorder_apply", label: "再処方申請", group: "event" },
   { key: "reorder_approve", label: "再処方承認", group: "event" },
-  { key: "reorder_paid", label: "決済完了", group: "event" },
   { key: "no_answer", label: "不通通知", group: "event" },
   { key: "intake_reminder", label: "問診リマインダー", group: "event" },
 ];
@@ -198,7 +198,7 @@ export default function FlexSection({ onToast }: Props) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabType>("reservation");
+  const [activeTab, setActiveTab] = useState<TabType | null>(null);
   const [reservationSubTab, setReservationSubTab] = useState<"created" | "changed" | "canceled">("created");
   const [configInitialized, setConfigInitialized] = useState(false);
 
@@ -342,6 +342,7 @@ export default function FlexSection({ onToast }: Props) {
   };
 
   const isFlexTab = activeTab === "reservation" || activeTab === "shipping" || activeTab === "payment";
+  const toggleTab = (key: TabType) => setActiveTab(prev => prev === key ? null : key);
 
   if (loading) {
     return (

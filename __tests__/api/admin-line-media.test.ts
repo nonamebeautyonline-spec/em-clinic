@@ -40,7 +40,9 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn().mockReturnValue("test-tenant"),
+  resolveTenantIdOrThrow: vi.fn(() => "test-tenant"),
   withTenant: vi.fn((query: unknown) => query),
+  strictWithTenant: vi.fn((query: unknown) => query),
   tenantPayload: vi.fn((id: string) => ({ tenant_id: id })),
 }));
 
@@ -112,8 +114,8 @@ describe("admin/line/media API テスト", () => {
     });
 
     it("2. 全件取得 → 200", async () => {
-      const { withTenant } = await import("@/lib/tenant");
-      vi.mocked(withTenant).mockResolvedValueOnce({ data: [{ id: 1, name: "file1.jpg" }], error: null } as unknown as Promise<{ data: unknown; error: unknown }>);
+      const { strictWithTenant } = await import("@/lib/tenant");
+      vi.mocked(strictWithTenant).mockResolvedValueOnce({ data: [{ id: 1, name: "file1.jpg" }], error: null } as unknown as Promise<{ data: unknown; error: unknown }>);
 
       const req = createMockRequest("https://example.com/api/admin/line/media");
       const res = await GET(req);
@@ -124,8 +126,8 @@ describe("admin/line/media API テスト", () => {
     });
 
     it("3. folder_idフィルタ", async () => {
-      const { withTenant } = await import("@/lib/tenant");
-      vi.mocked(withTenant).mockResolvedValueOnce({ data: [{ id: 2, name: "folder_file.jpg" }], error: null } as unknown as Promise<{ data: unknown; error: unknown }>);
+      const { strictWithTenant } = await import("@/lib/tenant");
+      vi.mocked(strictWithTenant).mockResolvedValueOnce({ data: [{ id: 2, name: "folder_file.jpg" }], error: null } as unknown as Promise<{ data: unknown; error: unknown }>);
 
       const req = createMockRequest("https://example.com/api/admin/line/media?folder_id=5");
       const res = await GET(req);
@@ -136,8 +138,8 @@ describe("admin/line/media API テスト", () => {
     });
 
     it("4. searchフィルタ", async () => {
-      const { withTenant } = await import("@/lib/tenant");
-      vi.mocked(withTenant).mockResolvedValueOnce({ data: [{ id: 3, name: "search_match.jpg" }], error: null } as unknown as Promise<{ data: unknown; error: unknown }>);
+      const { strictWithTenant } = await import("@/lib/tenant");
+      vi.mocked(strictWithTenant).mockResolvedValueOnce({ data: [{ id: 3, name: "search_match.jpg" }], error: null } as unknown as Promise<{ data: unknown; error: unknown }>);
 
       const req = createMockRequest("https://example.com/api/admin/line/media?search=match");
       const res = await GET(req);
@@ -148,8 +150,8 @@ describe("admin/line/media API テスト", () => {
     });
 
     it("5. DBエラー → 500", async () => {
-      const { withTenant } = await import("@/lib/tenant");
-      vi.mocked(withTenant).mockResolvedValueOnce({ data: null, error: { message: "DB接続エラー" } } as unknown as Promise<{ data: unknown; error: unknown }>);
+      const { strictWithTenant } = await import("@/lib/tenant");
+      vi.mocked(strictWithTenant).mockResolvedValueOnce({ data: null, error: { message: "DB接続エラー" } } as unknown as Promise<{ data: unknown; error: unknown }>);
 
       const req = createMockRequest("https://example.com/api/admin/line/media");
       const res = await GET(req);
@@ -295,8 +297,8 @@ describe("admin/line/media API テスト", () => {
       });
 
       // withTenantの結果に.select().single()チェーンを持たせる
-      const { withTenant } = await import("@/lib/tenant");
-      vi.mocked(withTenant).mockReturnValueOnce({
+      const { strictWithTenant } = await import("@/lib/tenant");
+      vi.mocked(strictWithTenant).mockReturnValueOnce({
         select: vi.fn().mockReturnValue({
           single: vi.fn().mockResolvedValue({
             data: { id: 1, name: "renamed.jpg", folder_id: 2 },
@@ -340,10 +342,10 @@ describe("admin/line/media API テスト", () => {
     });
 
     it("18. 正常削除 → 200", async () => {
-      const { withTenant } = await import("@/lib/tenant");
+      const { strictWithTenant } = await import("@/lib/tenant");
 
       // 最初のwithTenant呼出: ファイルURL取得
-      vi.mocked(withTenant)
+      vi.mocked(strictWithTenant)
         .mockReturnValueOnce({
           single: vi.fn().mockResolvedValue({
             data: { file_url: "https://storage.example.com/storage/v1/object/public/line-images/media/image/test.jpg" },

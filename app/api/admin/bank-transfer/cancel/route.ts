@@ -4,7 +4,7 @@ import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { logAudit } from "@/lib/audit";
 import { parseBody } from "@/lib/validations/helpers";
@@ -41,12 +41,12 @@ export async function POST(req: NextRequest) {
     if ("error" in parsed) return parsed.error;
     const { order_id, action, memo } = parsed.data;
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const lineToken = await getSettingOrEnv("line", "channel_access_token", "LINE_NOTIFY_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
     const lineGroupId = await getSettingOrEnv("line", "admin_group_id", "LINE_ADMIN_GROUP_ID", tenantId ?? undefined) || "";
 
     // 対象注文を取得
-    const { data: order, error: fetchError } = await withTenant(
+    const { data: order, error: fetchError } = await strictWithTenant(
       supabaseAdmin
         .from("orders")
         .select("id, patient_id, product_code, amount, status, payment_method, shipping_name, account_name")
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
       ...(action === "refund" ? { refunded_amount: order.amount } : {}),
     };
 
-    const { error: updateError } = await withTenant(
+    const { error: updateError } = await strictWithTenant(
       supabaseAdmin
         .from("orders")
         .update(updateData)

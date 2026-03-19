@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateWorkflowSchema } from "@/lib/validations/line-common";
 import { executeWorkflow } from "@/lib/workflow-engine";
@@ -17,11 +17,11 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await ctx.params;
 
   // ワークフロー本体 + ステップ取得
-  const { data: workflow, error } = await withTenant(
+  const { data: workflow, error } = await strictWithTenant(
     supabaseAdmin
       .from("workflows")
       .select("*")
@@ -62,7 +62,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await ctx.params;
 
   const parsed = await parseBody(req, updateWorkflowSchema);
@@ -70,7 +70,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   const { name, description, trigger_type, trigger_config, status, steps } = parsed.data;
 
   // 現在のワークフロー取得
-  const { data: existing } = await withTenant(
+  const { data: existing } = await strictWithTenant(
     supabaseAdmin.from("workflows").select("*").eq("id", id),
     tenantId,
   ).single();
@@ -106,7 +106,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   if (trigger_config !== undefined) updateData.trigger_config = trigger_config;
   if (status !== undefined) updateData.status = status;
 
-  const { data: updated, error: updateError } = await withTenant(
+  const { data: updated, error: updateError } = await strictWithTenant(
     supabaseAdmin.from("workflows").update(updateData).eq("id", id),
     tenantId,
   ).select().single();
@@ -161,11 +161,11 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await ctx.params;
 
   // アクティブなワークフローは削除不可
-  const { data: existing } = await withTenant(
+  const { data: existing } = await strictWithTenant(
     supabaseAdmin.from("workflows").select("status").eq("id", id),
     tenantId,
   ).single();
@@ -178,7 +178,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
   }
 
   // CASCADE で workflow_steps も削除される
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin.from("workflows").delete().eq("id", id),
     tenantId,
   );
@@ -198,7 +198,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await ctx.params;
 
   let body: Record<string, unknown> = {};

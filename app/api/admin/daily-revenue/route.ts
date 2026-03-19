@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
     // JSTで計算
     const jstOffset = 9 * 60 * 60 * 1000;
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const startISO = new Date(new Date(`${startDate}T00:00:00`).getTime() - jstOffset).toISOString();
     const endISO = new Date(new Date(`${endDate}T23:59:59`).getTime() - jstOffset + 1000).toISOString();
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
     // 4クエリを並列実行
     const [squareResult, bankResult, refundResult, previousOrdersResult] = await Promise.all([
       // カード決済（paid_atベース）
-      withTenant(
+      strictWithTenant(
         supabase
           .from("orders")
           .select("id, amount, paid_at, patient_id")
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
         tenantId
       ),
       // 銀行振込（created_atベース）
-      withTenant(
+      strictWithTenant(
         supabase
           .from("orders")
           .select("id, amount, created_at, patient_id")
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
         tenantId
       ),
       // 返金（refunded_atベース）
-      withTenant(
+      strictWithTenant(
         supabase
           .from("orders")
           .select("id, refunded_amount, amount, refunded_at")
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
         tenantId
       ),
       // 期間前に注文のある患者（再処方判定用）
-      withTenant(
+      strictWithTenant(
         supabase
           .from("orders")
           .select("patient_id")

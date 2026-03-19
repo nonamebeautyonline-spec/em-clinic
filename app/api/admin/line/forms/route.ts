@@ -3,7 +3,7 @@ import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { nanoid } from "nanoid";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createFormSchema } from "@/lib/validations/line-common";
 
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const folderId = searchParams.get("folder_id");
 
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
   if (folderId) query = query.eq("folder_id", parseInt(folderId));
 
-  const { data, error } = await withTenant(query, tenantId);
+  const { data, error } = await strictWithTenant(query, tenantId);
   if (error) return serverError(error.message);
   return NextResponse.json({ forms: data || [] });
 }
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const parsed = await parseBody(req, createFormSchema);
   if ("error" in parsed) return parsed.error;

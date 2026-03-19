@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { ehrTestConnectionSchema } from "@/lib/validations/ehr";
 import { createAdapter } from "@/lib/ehr/sync";
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   // リクエストボディのバリデーション
   const parsed = await parseBody(req, ehrTestConnectionSchema);

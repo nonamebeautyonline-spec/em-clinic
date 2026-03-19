@@ -75,7 +75,9 @@ vi.mock("@/lib/redis", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
+  resolveTenantIdOrThrow: vi.fn(() => "test-tenant"),
   withTenant: vi.fn((query: unknown) => query),
+  strictWithTenant: vi.fn((query: unknown) => query),
   tenantPayload: vi.fn((tenantId: string) => ({ tenant_id: tenantId })),
 }));
 

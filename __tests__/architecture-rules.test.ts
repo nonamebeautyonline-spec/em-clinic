@@ -117,28 +117,28 @@ describe("reorder-karte.ts: intakeテーブル不使用", () => {
 // マルチテナント: withTenant の一貫した使用
 // ===================================================================
 describe("テナント分離: supabaseAdmin直接クエリにwithTenant適用", () => {
-  it("intake/route.ts でwithTenantを使用している", () => {
+  it("intake/route.ts でstrictWithTenantを使用している", () => {
     const src = readFile("app/api/intake/route.ts");
-    expect(src).toContain("withTenant");
-    expect(src).toContain("resolveTenantId");
+    expect(src).toMatch(/withTenant|strictWithTenant/);
+    expect(src).toMatch(/resolveTenantId|resolveTenantIdOrThrow/);
   });
 
   it("checkout/route.ts でwithTenantを使用している", () => {
     const src = readFile("app/api/checkout/route.ts");
-    expect(src).toContain("withTenant");
-    expect(src).toContain("resolveTenantId");
+    expect(src).toMatch(/withTenant|strictWithTenant/);
+    expect(src).toMatch(/resolveTenantId|resolveTenantIdOrThrow/);
   });
 
-  it("reorder/apply/route.ts でwithTenantを使用している", () => {
+  it("reorder/apply/route.ts でstrictWithTenantを使用している", () => {
     const src = readFile("app/api/reorder/apply/route.ts");
-    expect(src).toContain("withTenant");
-    expect(src).toContain("resolveTenantId");
+    expect(src).toMatch(/withTenant|strictWithTenant/);
+    expect(src).toMatch(/resolveTenantId|resolveTenantIdOrThrow/);
   });
 
-  it("admin/reorders/approve でwithTenantを使用している", () => {
+  it("admin/reorders/approve でstrictWithTenantを使用している", () => {
     const src = readFile("app/api/admin/reorders/approve/route.ts");
-    expect(src).toContain("withTenant");
-    expect(src).toContain("resolveTenantId");
+    expect(src).toMatch(/withTenant|strictWithTenant/);
+    expect(src).toMatch(/resolveTenantId|resolveTenantIdOrThrow/);
   });
 });
 
@@ -159,6 +159,8 @@ describe("テナント分離: 全APIルートの withTenant 適用監査", () =>
     "app/api/cron/report-usage/route.ts",
     "app/api/cron/generate-invoices/route.ts",
     "app/api/cron/send-reports/route.ts",
+    "app/api/cron/square-token-refresh/route.ts",
+    "app/api/cron/webhook-cleanup/route.ts",
     // 署名付きURL認証API（テナントIDはドラフトDBから取得）
     "app/api/ai-reply/[draftId]/route.ts",
     "app/api/ai-reply/[draftId]/reject/route.ts",
@@ -196,8 +198,42 @@ describe("テナント分離: 全APIルートの withTenant 適用監査", () =>
 
       const src = fs.readFileSync(routePath, "utf-8");
       if (src.includes("supabaseAdmin")) {
-        const hasTenant = src.includes("withTenant") || src.includes("resolveTenantId") || src.includes("tenantPayload");
+        const hasTenant = src.includes("withTenant") || src.includes("strictWithTenant") || src.includes("resolveTenantId") || src.includes("resolveTenantIdOrThrow") || src.includes("tenantPayload");
         if (!hasTenant) {
+          violations.push(relativePath);
+        }
+      }
+    }
+
+    expect(violations).toEqual([]);
+  });
+});
+
+// ===================================================================
+// マルチテナント: 管理系APIではstrictWithTenantを使用
+// withTenant（null許容）ではなく strictWithTenant（必須）を使う
+// ===================================================================
+describe("テナント分離: 管理系APIではstrictWithTenantを使用", () => {
+  const STRICT_TENANT_DIRS = [
+    "app/api/admin",
+    "app/api/mypage",
+    "app/api/intake",
+    "app/api/reservations",
+    "app/api/reorder",
+  ];
+
+  it("withTenantをimportしているがstrictWithTenantをimportしていないファイルがない", () => {
+    const violations: string[] = [];
+
+    for (const dir of STRICT_TENANT_DIRS) {
+      const fullDir = path.resolve(process.cwd(), dir);
+      const routes = findAllRouteFiles(fullDir);
+
+      for (const routePath of routes) {
+        const src = fs.readFileSync(routePath, "utf-8");
+        const relativePath = path.relative(process.cwd(), routePath);
+        // withTenant をimportしているが strictWithTenant をimportしていない場合はNG
+        if (src.includes("withTenant") && !src.includes("strictWithTenant")) {
           violations.push(relativePath);
         }
       }

@@ -6,7 +6,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import Anthropic from "@anthropic-ai/sdk";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 
 export async function POST(req: NextRequest) {
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   // リクエストボディ解析
   let body: {
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 既存テンプレートを最新5件取得（コンテキストとして渡す）
-  const { data: recentTemplates } = await withTenant(
+  const { data: recentTemplates } = await strictWithTenant(
     supabaseAdmin
       .from("message_templates")
       .select("name, content")

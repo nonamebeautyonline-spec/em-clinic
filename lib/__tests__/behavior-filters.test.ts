@@ -26,6 +26,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   withTenant: <T>(query: T, _tenantId: string | null): T => query,
+  strictWithTenant: <T>(query: T, _tenantId: string | null): T => query,
 }));
 
 import {

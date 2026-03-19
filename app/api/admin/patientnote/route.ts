@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { patientNoteSchema } from "@/lib/validations/admin-operations";
 
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const parsed = await parseBody(req, patientNoteSchema);
     if ("error" in parsed) return parsed.error;
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       : "";
 
     if (intakeId) {
-      const { error } = await withTenant(
+      const { error } = await strictWithTenant(
         supabaseAdmin
           .from("intake")
           .update({ note: noteWithStamp, updated_at: now.toISOString() })
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, message: error.message }, { status: 500 });
       }
     } else {
-      const { data: latest } = await withTenant(
+      const { data: latest } = await strictWithTenant(
         supabaseAdmin
           .from("intake")
           .select("id")
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, message: "intake_not_found" }, { status: 404 });
       }
 
-      const { error } = await withTenant(
+      const { error } = await strictWithTenant(
         supabaseAdmin
           .from("intake")
           .update({ note: noteWithStamp, updated_at: now.toISOString() })

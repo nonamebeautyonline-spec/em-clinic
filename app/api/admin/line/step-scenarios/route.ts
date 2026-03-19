@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { stepScenarioSchema } from "@/lib/validations/line-common";
 
@@ -12,9 +12,9 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
-  const { data: scenarios, error } = await withTenant(
+  const { data: scenarios, error } = await strictWithTenant(
     supabaseAdmin.from("step_scenarios").select(`
       *,
       step_items(count),
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const parsed = await parseBody(req, stepScenarioSchema);
   if ("error" in parsed) return parsed.error;
@@ -111,7 +111,7 @@ export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const parsed = await parseBody(req, stepScenarioSchema);
   if ("error" in parsed) return parsed.error;
@@ -119,7 +119,7 @@ export async function PUT(req: NextRequest) {
 
   if (!id) return badRequest("IDは必須です");
 
-  const { data: scenario, error } = await withTenant(
+  const { data: scenario, error } = await strictWithTenant(
     supabaseAdmin.from("step_scenarios").update({
       name: typeof name === "string" ? name.trim() : "",
       folder_id: folder_id || null,
@@ -138,7 +138,7 @@ export async function PUT(req: NextRequest) {
 
   // ステップ: 全削除→再挿入（CASCADE で安全）
   if (Array.isArray(steps)) {
-    await withTenant(
+    await strictWithTenant(
       supabaseAdmin.from("step_items").delete().eq("scenario_id", id),
       tenantId
     );
@@ -178,13 +178,13 @@ export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return badRequest("IDは必須です");
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin.from("step_scenarios").delete().eq("id", parseInt(id)),
     tenantId
   );

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateTrackingCsvSchema } from "@/lib/validations/shipping";
 import { invalidateDashboardCache } from "@/lib/redis";
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const parsed = await parseBody(req, updateTrackingCsvSchema);
     if ("error" in parsed) return parsed.error;
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       const results = await Promise.allSettled(
         batch.map(async ({ paymentId, trackingNumber }) => {
           try {
-            const { data, error } = await withTenant(
+            const { data, error } = await strictWithTenant(
               supabase
                 .from("orders")
                 .update({
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
             }
 
             if (!data || data.length === 0) {
-              const { data: existing } = await withTenant(
+              const { data: existing } = await strictWithTenant(
                 supabase.from("orders").select("id, shipping_status").eq("id", paymentId),
                 tenantId
               );

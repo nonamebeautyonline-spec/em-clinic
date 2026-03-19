@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 // 初診→再診転換率API: 月別コホート分析を提供
 export async function GET(request: NextRequest) {
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(request);
+    const tenantId = resolveTenantIdOrThrow(request);
     const monthsBack = 12;
     const jstOffset = 9 * 60 * 60 * 1000;
     const now = new Date();
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const startDate = new Date(Date.UTC(currentYear, currentMonth - monthsBack, 1, 0, 0, 0) - jstOffset);
 
     // 全期間の注文データを取得（patient_id + 決済日）
-    const { data: allOrders } = await withTenant(
+    const { data: allOrders } = await strictWithTenant(
       supabaseAdmin.from("orders").select("patient_id, paid_at, created_at")
         .not("patient_id", "is", null)
         .gte("created_at", startDate.toISOString())
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     );
 
     // 全患者の初回注文を取得（初診月を特定するため）
-    const { data: firstOrders } = await withTenant(
+    const { data: firstOrders } = await strictWithTenant(
       supabaseAdmin.from("orders").select("patient_id, created_at")
         .not("patient_id", "is", null)
         .order("created_at", { ascending: true })
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     );
 
     // 再処方（reorders）データも取得（決済済みのみ）
-    const { data: allReorders } = await withTenant(
+    const { data: allReorders } = await strictWithTenant(
       supabaseAdmin.from("reorders").select("patient_id, paid_at, created_at")
         .not("patient_id", "is", null)
         .eq("status", "paid")

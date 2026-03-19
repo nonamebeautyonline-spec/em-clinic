@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const { searchParams } = new URL(req.url);
   const patientId = searchParams.get("patient_id");
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search")?.trim();
   const since = searchParams.get("since"); // ISO8601: この時刻より後の新着のみ
 
-  let query = withTenant(supabaseAdmin
+  let query = strictWithTenant(supabaseAdmin
     .from("message_log")
     .select("*", { count: "exact" }), tenantId)
     .order("sent_at", { ascending: false });

@@ -35,7 +35,9 @@ vi.mock("@/lib/supabase", () => ({
 vi.mock("@/lib/tenant", () => ({
   DEFAULT_TENANT_ID: "00000000-0000-0000-0000-000000000001",
   resolveTenantId: vi.fn().mockReturnValue("test-tenant"),
+  resolveTenantIdOrThrow: vi.fn(() => "test-tenant"),
   withTenant: vi.fn().mockImplementation((query: unknown) => query),
+  strictWithTenant: vi.fn((query: unknown) => query),
   tenantPayload: vi.fn().mockReturnValue({ tenant_id: "test-tenant" }),
 }));
 

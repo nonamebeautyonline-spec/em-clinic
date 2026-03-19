@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized, serverError } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   const isAuthed = await verifyAdminAuth(req);
   if (!isAuthed) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     const url = new URL(req.url);
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
       .order("started_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
-    query = withTenant(query, tenantId);
+    query = strictWithTenant(query, tenantId);
 
     if (cronName) {
       query = query.eq("cron_name", cronName);

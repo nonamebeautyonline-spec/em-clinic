@@ -69,6 +69,7 @@ vi.mock("@/lib/line-richmenu", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   withTenant: vi.fn((query: unknown) => query),
+  strictWithTenant: vi.fn((query: unknown) => query),
   tenantPayload: vi.fn((tenantId: string | null) => ({ tenant_id: tenantId })),
 }));
 

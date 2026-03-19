@@ -4,7 +4,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { enrollPatient } from "@/lib/step-enrollment";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { enrollStepSchema } from "@/lib/validations/line-management";
 
@@ -13,11 +13,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
   const scenarioId = parseInt(id);
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin.from("step_enrollments").select("*").eq("scenario_id", scenarioId).order("enrolled_at", { ascending: false }).limit(200),
     tenantId
   );
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const patientIds = [...new Set((data || []).map((e: { patient_id: string }) => e.patient_id))];
   const nameMap: Record<string, string> = {};
   if (patientIds.length > 0) {
-    const { data: pData } = await withTenant(
+    const { data: pData } = await strictWithTenant(
       supabaseAdmin.from("patients").select("patient_id, name").in("patient_id", patientIds),
       tenantId
     );
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
   const scenarioId = parseInt(id);
   const parsed = await parseBody(req, enrollStepSchema);
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   let enrolled = 0;
   for (const pid of patient_ids) {
     // LINE UID をpatientsテーブルから取得
-    const { data: patient } = await withTenant(
+    const { data: patient } = await strictWithTenant(
       supabaseAdmin.from("patients").select("line_id").eq("patient_id", pid),
       tenantId
     ).maybeSingle();
@@ -79,7 +79,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
   const scenarioId = parseInt(id);
   const { searchParams } = new URL(req.url);
@@ -87,7 +87,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   if (!patientId) return badRequest("patient_id は必須です");
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin.from("step_enrollments").update({
       status: "exited",
       exited_at: new Date().toISOString(),

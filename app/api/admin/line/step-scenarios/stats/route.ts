@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 // エンロールメントの型定義
 interface EnrollmentRow {
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const scenarioIdParam = searchParams.get("scenario_id");
 
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
  */
 async function getScenarioDetailStats(scenarioId: number, tenantId: string | null) {
   // シナリオ情報
-  const { data: scenario } = await withTenant(
+  const { data: scenario } = await strictWithTenant(
     supabaseAdmin
       .from("step_scenarios")
       .select("id, name, total_enrolled, total_completed, is_enabled, created_at")
@@ -97,7 +97,7 @@ async function getScenarioDetailStats(scenarioId: number, tenantId: string | nul
   }
 
   // 全 enrollment を取得（ステータス別カウント用）
-  const { data: enrollments } = await withTenant(
+  const { data: enrollments } = await strictWithTenant(
     supabaseAdmin
       .from("step_enrollments")
       .select("id, status, current_step_order, enrolled_at, completed_at, exited_at, exit_reason")
@@ -116,7 +116,7 @@ async function getScenarioDetailStats(scenarioId: number, tenantId: string | nul
   const exitRate = totalEnrolled > 0 ? Math.round((exitedCount / totalEnrolled) * 100) : 0;
 
   // ステップ一覧を取得
-  const { data: steps } = await withTenant(
+  const { data: steps } = await strictWithTenant(
     supabaseAdmin
       .from("step_items")
       .select("id, sort_order, step_type, delay_type, delay_value, content, template_id")
@@ -183,7 +183,7 @@ async function getScenarioDetailStats(scenarioId: number, tenantId: string | nul
  * 全シナリオのサマリー統計
  */
 async function getAllScenariosStats(tenantId: string | null) {
-  const { data: scenarios } = await withTenant(
+  const { data: scenarios } = await strictWithTenant(
     supabaseAdmin
       .from("step_scenarios")
       .select("id, name, total_enrolled, total_completed, is_enabled, created_at")
@@ -194,7 +194,7 @@ async function getAllScenariosStats(tenantId: string | null) {
   const allScenarios = scenarios || [];
 
   // 全 enrollment を取得してシナリオ別に集計
-  const { data: enrollments } = await withTenant(
+  const { data: enrollments } = await strictWithTenant(
     supabaseAdmin
       .from("step_enrollments")
       .select("scenario_id, status, enrolled_at"),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 interface SetupStatus {
   ok: boolean;
@@ -8,10 +8,12 @@ interface SetupStatus {
   completedCount: number;
   totalCount: number;
   steps: {
+    general: boolean;
     line: boolean;
     payment: boolean;
     products: boolean;
     schedule: boolean;
+    consultation: boolean;
     staff: boolean;
     richMenu: boolean;
   };
@@ -20,16 +22,22 @@ interface SetupStatus {
 // ステップ定義（ラベル・リンク・説明）
 const STEP_DEFINITIONS = [
   {
+    key: "general" as const,
+    label: "基本情報設定",
+    description: "クリニック名・住所・ロゴを登録",
+    link: "/admin/settings?section=general",
+  },
+  {
     key: "line" as const,
     label: "LINE連携設定",
     description: "LINE Messaging APIのチャネルアクセストークンを設定",
-    link: "/admin/settings",
+    link: "/admin/settings?section=line",
   },
   {
     key: "payment" as const,
     label: "決済設定",
     description: "Square/GMOなどの決済サービスを連携",
-    link: "/admin/settings",
+    link: "/admin/settings?section=payment",
   },
   {
     key: "products" as const,
@@ -44,10 +52,16 @@ const STEP_DEFINITIONS = [
     link: "/admin/schedule",
   },
   {
+    key: "consultation" as const,
+    label: "診察設定",
+    description: "オンライン/対面の診察モードを選択",
+    link: "/admin/settings?section=consultation",
+  },
+  {
     key: "staff" as const,
     label: "スタッフ追加",
     description: "チームメンバーを招待（2名以上）",
-    link: "/admin/settings",
+    link: "/admin/settings?section=account",
   },
   {
     key: "richMenu" as const,
@@ -56,6 +70,9 @@ const STEP_DEFINITIONS = [
     link: "/admin/rich-menus",
   },
 ];
+
+const STORAGE_KEY_DISMISSED = "onboarding_dismissed_at";
+const STORAGE_KEY_TOTAL = "onboarding_last_total";
 
 export default function OnboardingChecklist({
   onDismiss,
@@ -69,11 +86,43 @@ export default function OnboardingChecklist({
     fetch("/api/admin/setup-status", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data) setStatus(data);
+        if (data) {
+          setStatus(data);
+          // ステップ数が増えた場合はdismiss状態をリセット
+          if (typeof window !== "undefined") {
+            const lastTotal = localStorage.getItem(STORAGE_KEY_TOTAL);
+            if (lastTotal && Number(lastTotal) < data.totalCount) {
+              localStorage.removeItem(STORAGE_KEY_DISMISSED);
+            }
+            localStorage.setItem(STORAGE_KEY_TOTAL, String(data.totalCount));
+          }
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  // 未完了を先、完了を後にソート。最初の未完了に「推奨」表示
+  const sortedSteps = useMemo(() => {
+    if (!status) return STEP_DEFINITIONS;
+    return [...STEP_DEFINITIONS].sort((a, b) => {
+      const aDone = status.steps[a.key] ? 1 : 0;
+      const bDone = status.steps[b.key] ? 1 : 0;
+      return aDone - bDone;
+    });
+  }, [status]);
+
+  const firstIncompleteKey = useMemo(() => {
+    if (!status) return null;
+    return sortedSteps.find((s) => !status.steps[s.key])?.key ?? null;
+  }, [status, sortedSteps]);
+
+  const handleDismiss = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY_DISMISSED, new Date().toISOString());
+    }
+    onDismiss();
+  };
 
   if (loading) {
     return (
@@ -112,7 +161,7 @@ export default function OnboardingChecklist({
           </p>
         </div>
         <button
-          onClick={onDismiss}
+          onClick={handleDismiss}
           className="text-xs text-slate-400 hover:text-slate-600"
         >
           チェックリストを閉じる
@@ -129,15 +178,18 @@ export default function OnboardingChecklist({
 
       {/* ステップリスト */}
       <div className="space-y-3">
-        {STEP_DEFINITIONS.map((step) => {
+        {sortedSteps.map((step) => {
           const completed = status.steps[step.key];
+          const isRecommended = step.key === firstIncompleteKey;
           return (
             <div
               key={step.key}
               className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${
                 completed
                   ? "opacity-40"
-                  : "hover:bg-slate-50"
+                  : isRecommended
+                    ? "bg-blue-50 border border-blue-200"
+                    : "hover:bg-slate-50"
               }`}
             >
               {/* チェックアイコン */}
@@ -176,6 +228,11 @@ export default function OnboardingChecklist({
                   }`}
                 >
                   {step.label}
+                  {isRecommended && (
+                    <span className="ml-2 inline-block text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-normal">
+                      推奨
+                    </span>
+                  )}
                 </span>
                 <p className={`text-xs mt-0.5 ${
                   completed ? "text-slate-300" : "text-slate-500"

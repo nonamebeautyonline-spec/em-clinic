@@ -10,7 +10,9 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
+  resolveTenantIdOrThrow: vi.fn(() => "test-tenant"),
   withTenant: vi.fn((q: unknown) => q),
+  strictWithTenant: vi.fn((q: unknown) => q),
 }));
 
 const mockGetSettingOrEnv = vi.fn();
@@ -75,21 +77,25 @@ describe("セットアップステータスAPI 拡張テスト", () => {
     expect(json.ok).toBe(true);
     expect(json.setupComplete).toBe(false);
     expect(json.completedCount).toBe(0);
-    expect(json.totalCount).toBe(6);
+    expect(json.totalCount).toBe(8);
+    expect(json.steps).toHaveProperty("general");
     expect(json.steps).toHaveProperty("line");
     expect(json.steps).toHaveProperty("payment");
     expect(json.steps).toHaveProperty("products");
     expect(json.steps).toHaveProperty("schedule");
+    expect(json.steps).toHaveProperty("consultation");
     expect(json.steps).toHaveProperty("staff");
     expect(json.steps).toHaveProperty("richMenu");
   });
 
   it("LINE設定あり → steps.line=true", async () => {
-    // LINE token のみ値を返し、Square/GMO は undefined
+    // general clinic_name + LINE token のみ値を返し、Square/GMO は undefined
     mockGetSettingOrEnv
-      .mockResolvedValueOnce("test-token-xxx") // line channel_access_token
+      .mockResolvedValueOnce(undefined)         // general clinic_name
+      .mockResolvedValueOnce("test-token-xxx")  // line channel_access_token
       .mockResolvedValueOnce(undefined)         // square access_token
-      .mockResolvedValueOnce(undefined);        // gmo shop_id
+      .mockResolvedValueOnce(undefined)         // gmo shop_id
+      .mockResolvedValueOnce(undefined);        // consultation mode
     const req = createMockRequest("GET", "http://localhost/api/admin/setup-status");
     const res = await GET(req);
     const json = await res.json();
@@ -103,7 +109,7 @@ describe("セットアップステータスAPI 拡張テスト", () => {
     const req = createMockRequest("GET", "http://localhost/api/admin/setup-status");
     const res = await GET(req);
     const json = await res.json();
-    const expectedKeys = ["line", "payment", "products", "schedule", "staff", "richMenu"];
+    const expectedKeys = ["general", "line", "payment", "products", "schedule", "consultation", "staff", "richMenu"];
     for (const key of expectedKeys) {
       expect(json.steps).toHaveProperty(key);
       expect(typeof json.steps[key]).toBe("boolean");
@@ -114,7 +120,7 @@ describe("セットアップステータスAPI 拡張テスト", () => {
     const req = createMockRequest("GET", "http://localhost/api/admin/setup-status");
     const res = await GET(req);
     const json = await res.json();
-    expect(json.totalCount).toBe(6);
+    expect(json.totalCount).toBe(8);
   });
 });
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { resolveTargets } from "../route";
 import { parseBody } from "@/lib/validations/helpers";
 import { broadcastPreviewSchema } from "@/lib/validations/line-broadcast";
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, broadcastPreviewSchema);
   if ("error" in parsed) return parsed.error;
   const { filter_rules } = parsed.data;

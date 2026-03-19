@@ -4,7 +4,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
-import { withTenant, tenantPayload, resolveTenantId } from "@/lib/tenant";
+import { withTenant, strictWithTenant, tenantPayload, resolveTenantId, resolveTenantIdOrThrow } from "@/lib/tenant";
 
 function readFile(relativePath: string): string {
   return fs.readFileSync(path.resolve(process.cwd(), relativePath), "utf-8");
@@ -51,6 +51,8 @@ const TENANT_EXEMPT_ROUTES = new Set([
   "app/api/cron/usage-check/route.ts",
   // cron/audit-archive（全テナント横断の監査ログアーカイブCron）
   "app/api/cron/audit-archive/route.ts",
+  // cron/webhook-cleanup（全テナント横断のWebhookスタック検知・クリーンアップCron）
+  "app/api/cron/webhook-cleanup/route.ts",
   // Google Calendar OAuthコールバック（stateパラメータからtenantIdを取得し直接.eq()で使用）
   "app/api/admin/google-calendar/callback/route.ts",
   // ジャンクションテーブル操作（tenant_idカラムなし、親テーブル経由でテナント分離）
@@ -80,8 +82,8 @@ describe("テナント分離: admin APIルート", () => {
   it.each(dbRoutes)("%s がテナント対応している", (routePath) => {
     const src = readFile(routePath);
     const hasTenantSupport =
-      src.includes("resolveTenantId") ||
-      src.includes("withTenant") ||
+      (src.includes("resolveTenantId") || src.includes("resolveTenantIdOrThrow")) ||
+      (src.includes("withTenant") || src.includes("strictWithTenant")) ||
       src.includes("tenantPayload");
     expect(hasTenantSupport).toBe(true);
   });
@@ -115,8 +117,8 @@ describe("テナント分離: 患者向けAPIルート", () => {
   it.each(dbRoutes)("%s がテナント対応している", (routePath) => {
     const src = readFile(routePath);
     const hasTenantSupport =
-      src.includes("resolveTenantId") ||
-      src.includes("withTenant") ||
+      (src.includes("resolveTenantId") || src.includes("resolveTenantIdOrThrow")) ||
+      (src.includes("withTenant") || src.includes("strictWithTenant")) ||
       src.includes("tenantPayload") ||
       src.includes("getSettingOrEnv"); // テナント別設定取得
     expect(hasTenantSupport).toBe(true);
@@ -143,8 +145,8 @@ describe("テナント分離: cron APIルート", () => {
   it.each(dbRoutes)("%s がテナント対応またはテナント横断処理している", (routePath) => {
     const src = readFile(routePath);
     const hasTenantSupport =
-      src.includes("resolveTenantId") ||
-      src.includes("withTenant") ||
+      (src.includes("resolveTenantId") || src.includes("resolveTenantIdOrThrow")) ||
+      (src.includes("withTenant") || src.includes("strictWithTenant")) ||
       src.includes("tenantPayload") ||
       src.includes("tenant_id") || // テナント横断でも tenant_id を参照している
       src.includes('from("tenants")'); // tenantsテーブルから全テナント取得してループ
@@ -188,7 +190,7 @@ describe("テナント分離: withTenantの使用パターン", () => {
   // resolveTenantIdをインポートしているファイル
   const tenantRoutes = allRoutes.filter(f => {
     const src = readFile(f);
-    return src.includes("resolveTenantId");
+    return (src.includes("resolveTenantId") || src.includes("resolveTenantIdOrThrow"));
   });
 
   it("テナント対応ルートが50以上存在する", () => {
@@ -198,7 +200,7 @@ describe("テナント分離: withTenantの使用パターン", () => {
   it.each(tenantRoutes)("%s がresolveTenantIdを呼び出している", (routePath) => {
     const src = readFile(routePath);
     // import だけでなく、実際に呼び出していることを確認
-    expect(src).toMatch(/resolveTenantId\s*\(/);
+    expect(src).toMatch(/resolveTenantId(?:OrThrow)?\s*\(/);
   });
 });
 
@@ -246,9 +248,9 @@ describe("テナント分離: 主要テーブルのSELECT保護", () => {
       it.each(routesUsingTable)(`%s が ${table} アクセス時にテナント対応している`, (routePath) => {
         const src = readFile(routePath);
         const hasTenantSupport =
-          src.includes("withTenant") ||
+          (src.includes("withTenant") || src.includes("strictWithTenant")) ||
           src.includes("tenantPayload") ||
-          src.includes("resolveTenantId");
+          (src.includes("resolveTenantId") || src.includes("resolveTenantIdOrThrow"));
         expect(hasTenantSupport).toBe(true);
       });
     });
@@ -437,14 +439,14 @@ describe("テナント分離: resolveTenantId 関数の動作検証", () => {
 describe("テナント分離: ダッシュボードAPIの分離", () => {
   it("dashboard-stats-enhanced が resolveTenantId と withTenant を使用している", () => {
     const src = readFile("app/api/admin/dashboard-stats-enhanced/route.ts");
-    expect(src).toContain("resolveTenantId");
-    expect(src).toContain("withTenant");
+    expect(src).toMatch(/resolveTenantId|resolveTenantIdOrThrow/);
+    expect(src).toMatch(/withTenant|strictWithTenant/);
   });
 
   it("dashboard-stats-enhanced の全クエリが withTenant で囲まれている", () => {
     const src = readFile("app/api/admin/dashboard-stats-enhanced/route.ts");
     const fromCalls = src.match(/supabaseAdmin\s*\.\s*from\(/g) || [];
-    const withTenantCalls = src.match(/withTenant\s*\(/g) || [];
+    const withTenantCalls = src.match(/(?:strictW|w)ithTenant\s*\(/g) || [];
     // 全 from() が withTenant で囲まれている
     expect(withTenantCalls.length).toBeGreaterThanOrEqual(fromCalls.length);
   });
@@ -452,7 +454,7 @@ describe("テナント分離: ダッシュボードAPIの分離", () => {
   it("dashboard-sse がテナントIDを取得して使用している", () => {
     const src = readFile("app/api/admin/dashboard-sse/route.ts");
     expect(src).toContain("tenantId");
-    expect(src).toContain("withTenant");
+    expect(src).toMatch(/withTenant|strictWithTenant/);
   });
 });
 
@@ -462,7 +464,7 @@ describe("テナント分離: ダッシュボードAPIの分離", () => {
 describe("テナント分離: ダッシュボードレイアウトAPI", () => {
   it("dashboard-layout が resolveTenantId を使用している", () => {
     const src = readFile("app/api/admin/dashboard-layout/route.ts");
-    expect(src).toContain("resolveTenantId");
+    expect(src).toMatch(/resolveTenantId|resolveTenantIdOrThrow/);
   });
 
   it("dashboard-layout が tenant_settings 経由でテナント別保存している", () => {
@@ -515,8 +517,8 @@ describe("テナント分離: 禁止パターンの検出", () => {
 
     for (const f of allRoutes) {
       const src = readFile(f);
-      if (!src.includes("resolveTenantId")) continue;
-      if (src.match(/resolveTenantId\(\s*\)/)) {
+      if (!(src.includes("resolveTenantId") || src.includes("resolveTenantIdOrThrow"))) continue;
+      if (src.match(/resolveTenantId(?:OrThrow)?\(\s*\)/)) {
         violations.push(f);
       }
     }
@@ -542,14 +544,16 @@ describe("テナント分離: withTenant のインポート元検証", () => {
     for (const f of allRoutes) {
       if (LOCAL_DEFINITION_ALLOWED.has(f)) continue;
       const src = readFile(f);
-      if (!src.includes("withTenant")) continue;
+      if (!(src.includes("withTenant") || src.includes("strictWithTenant"))) continue;
 
       const hasProperImport =
         src.includes('from "@/lib/tenant"') ||
         src.includes("from '@/lib/tenant'");
       const hasLocalDefinition =
         src.includes("function withTenant") ||
-        src.includes("const withTenant");
+        src.includes("const withTenant") ||
+        src.includes("function strictWithTenant") ||
+        src.includes("const strictWithTenant");
 
       if (hasLocalDefinition && !hasProperImport) {
         violations.push(`${f}: withTenant をローカル定義（lib/tenant を使用すべき）`);

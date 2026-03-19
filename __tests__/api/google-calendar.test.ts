@@ -95,7 +95,9 @@ vi.mock("@/lib/admin-auth", () => ({
 // tenant モック
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn().mockReturnValue("test-tenant-id"),
+  resolveTenantIdOrThrow: vi.fn(() => "test-tenant-id"),
   withTenant: vi.fn((query) => query),
+  strictWithTenant: vi.fn((query: unknown) => query),
   tenantPayload: vi.fn((id) => ({ tenant_id: id })),
 }));
 

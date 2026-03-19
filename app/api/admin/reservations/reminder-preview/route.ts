@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { reminderPreviewSchema } from "@/lib/validations/admin-operations";
 
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const parsed = await parseBody(req, reminderPreviewSchema);
     if ("error" in parsed) return parsed.error;
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     console.log(`[ReminderPreview] Fetching reservations for date: ${date}`);
 
     // reservationsテーブルから予約データを直接取得（キャンセル除外）
-    const { data: resvData, error: resvError } = await withTenant(
+    const { data: resvData, error: resvError } = await strictWithTenant(
       supabaseAdmin
         .from("reservations")
         .select("reserve_id, patient_id, reserved_time, prescription_menu, status")
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     const patientIds = [...new Set((resvData || []).map((r: { patient_id: string }) => r.patient_id).filter(Boolean))];
     const pMap = new Map<string, { name: string; line_id: string; tel: string }>();
     if (patientIds.length > 0) {
-      const { data: pData } = await withTenant(
+      const { data: pData } = await strictWithTenant(
         supabaseAdmin
           .from("patients")
           .select("patient_id, name, line_id, tel")
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     const reserveIds = (resvData || []).map((r: { reserve_id: string }) => r.reserve_id).filter(Boolean);
     const intakeMap = new Map<string, { call_status: string; answerer_id: string }>();
     if (reserveIds.length > 0) {
-      const { data: intakeData } = await withTenant(
+      const { data: intakeData } = await strictWithTenant(
         supabaseAdmin
           .from("intake")
           .select("reserve_id, call_status, answerer_id")

@@ -2,16 +2,16 @@
 // 患者向け — 認証不要、テナント解決のみ
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import {
   DEFAULT_INTAKE_FIELDS,
   DEFAULT_INTAKE_SETTINGS,
 } from "@/lib/intake-form-defaults";
 
 export async function GET(req: NextRequest) {
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("intake_form_definitions")
       .select("fields, settings")

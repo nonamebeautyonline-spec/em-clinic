@@ -5,7 +5,7 @@ import { badRequest, forbidden, serverError, unauthorized } from "@/lib/api-erro
 import { cookies } from "next/headers";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { getSetting, getSettingOrEnv } from "@/lib/settings";
 import { getBusinessRules } from "@/lib/business-rules";
 import { extractDose, buildKarteNote } from "@/lib/reorder-karte";
@@ -199,7 +199,7 @@ export async function POST(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const tid = tenantId ?? undefined;
 
     // LINE通知用トークンを動的取得
@@ -212,7 +212,7 @@ export async function POST(req: NextRequest) {
 
     // ★ NG患者は再処方申請不可（statusがnullのレコードを除外）
     {
-      const { data: intakeRow } = await withTenant(
+      const { data: intakeRow } = await strictWithTenant(
         supabaseAdmin
           .from("intake")
           .select("status")
@@ -235,7 +235,7 @@ export async function POST(req: NextRequest) {
       const requiresReservation = (await getSetting("consultation", "reorder_requires_reservation", tid)) === "true";
       if (requiresReservation) {
         const today = new Date().toISOString().slice(0, 10);
-        const { data: pastReservation } = await withTenant(
+        const { data: pastReservation } = await strictWithTenant(
           supabaseAdmin
             .from("reservations")
             .select("reserve_id")
@@ -255,7 +255,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ★ 重複申請チェック: pending or confirmed の申請があれば拒否
-    const { data: existingReorder, error: checkError } = await withTenant(
+    const { data: existingReorder, error: checkError } = await strictWithTenant(
       supabaseAdmin
         .from("reorders")
         .select("id, status, product_code")
@@ -282,7 +282,7 @@ export async function POST(req: NextRequest) {
 
     // ★ 再処方間隔チェック
     if (rules.minReorderIntervalDays > 0) {
-      const { data: lastPaid } = await withTenant(
+      const { data: lastPaid } = await strictWithTenant(
         supabaseAdmin
           .from("reorders")
           .select("paid_at")
@@ -305,7 +305,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ★ DB: reorder_numberを生成（DBの最大値+1）
-    const { data: maxRow } = await withTenant(
+    const { data: maxRow } = await strictWithTenant(
       supabaseAdmin
         .from("reorders")
         .select("reorder_number"),
@@ -346,7 +346,7 @@ export async function POST(req: NextRequest) {
     if (rules.autoApproveSameDose) {
       const currentDose = extractDose(productCode);
       if (currentDose !== null) {
-        const { data: lastPaidReorder } = await withTenant(
+        const { data: lastPaidReorder } = await strictWithTenant(
           supabaseAdmin
             .from("reorders")
             .select("product_code")
@@ -377,7 +377,7 @@ export async function POST(req: NextRequest) {
     if (rules.notifyReorderApply) {
       (async () => {
         try {
-          const { data: patientData } = await withTenant(
+          const { data: patientData } = await strictWithTenant(
             supabaseAdmin
               .from("patients")
               .select("name")
@@ -386,7 +386,7 @@ export async function POST(req: NextRequest) {
           ).maybeSingle();
           const patientName = patientData?.name || patientId;
 
-          const { data: historyData } = await withTenant(
+          const { data: historyData } = await strictWithTenant(
             supabaseAdmin
               .from("orders")
               .select("product_code, shipping_date")
@@ -427,7 +427,7 @@ export async function POST(req: NextRequest) {
           if (currentDose === null) return;
 
           // 前回の決済済みreorderの用量を取得
-          const { data: prevPaid } = await withTenant(
+          const { data: prevPaid } = await strictWithTenant(
             supabaseAdmin
               .from("reorders")
               .select("product_code")
@@ -453,7 +453,7 @@ export async function POST(req: NextRequest) {
       if (productCode.includes("7.5mg")) {
         (async () => {
           try {
-            const { data: prev75Orders, error: prev75Error } = await withTenant(
+            const { data: prev75Orders, error: prev75Error } = await strictWithTenant(
               supabaseAdmin
                 .from("orders")
                 .select("id")

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { karteLockSchema } from "@/lib/validations/admin-operations";
 
@@ -19,11 +19,11 @@ export async function POST(req: NextRequest) {
     if ("error" in parsed) return parsed.error;
     const { intakeId, action } = parsed.data;
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     if (action === "unlock") {
       // ロック解除
-      const { error } = await withTenant(
+      const { error } = await strictWithTenant(
         supabaseAdmin
           .from("intake")
           .update({
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ロック
-    const { error } = await withTenant(
+    const { error } = await strictWithTenant(
       supabaseAdmin
         .from("intake")
         .update({

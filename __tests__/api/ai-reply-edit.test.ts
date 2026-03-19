@@ -26,6 +26,7 @@ vi.mock("@/lib/settings", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   withTenant: vi.fn((query) => query),
+  strictWithTenant: vi.fn((query: unknown) => query),
   tenantPayload: vi.fn((id) => ({ tenant_id: id })),
 }));
 

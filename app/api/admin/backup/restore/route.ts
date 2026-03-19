@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { unauthorized, serverError, notFound, badRequest } from "@/lib/api-error";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import {
   getBackupStatus,
   decryptBackupData,
@@ -13,7 +13,7 @@ import {
 export async function POST(request: NextRequest) {
   if (!(await verifyAdminAuth(request))) return unauthorized();
 
-  const tenantId = resolveTenantId(request);
+  const tenantId = resolveTenantIdOrThrow(request);
   if (!tenantId) return badRequest("テナントIDが必要です");
 
   try {

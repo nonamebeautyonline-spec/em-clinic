@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import {
   DEFAULT_INTAKE_FIELDS,
   DEFAULT_INTAKE_SETTINGS,
@@ -14,10 +14,10 @@ export async function POST(req: NextRequest) {
   if (!isAuthorized)
     return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   // アクティブなレコードを確認
-  const { data: existing } = await withTenant(
+  const { data: existing } = await strictWithTenant(
     supabaseAdmin.from("intake_form_definitions").select("id").eq("is_active", true),
     tenantId,
   ).maybeSingle();

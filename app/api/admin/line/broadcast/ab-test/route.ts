@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
 import { resolveTargets } from "../route";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { abTestSchema } from "@/lib/validations/line-broadcast";
 
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, abTestSchema);
   if ("error" in parsed) return parsed.error;
   const { name, filter_rules, message_a, message_b, split_ratio } = parsed.data as unknown as {
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
   const allIds = sendable.map(t => t.patient_id);
   const nextReservationMap = new Map<string, { date: string; time: string }>();
   if (allIds.length > 0) {
-    const { data: reservations } = await withTenant(
+    const { data: reservations } = await strictWithTenant(
       supabaseAdmin
         .from("reservations")
         .select("patient_id, reserved_date, reserved_time")
@@ -157,14 +157,14 @@ export async function POST(req: NextRequest) {
   // レコード更新
   const now = new Date().toISOString();
   await Promise.all([
-    withTenant(
+    strictWithTenant(
       supabaseAdmin.from("broadcasts").update({
         status: "sent", sent_at: now,
         sent_count: resultA.sent, failed_count: resultA.failed, no_uid_count: 0,
       }).eq("id", broadcastA.id),
       tenantId
     ),
-    withTenant(
+    strictWithTenant(
       supabaseAdmin.from("broadcasts").update({
         status: "sent", sent_at: now,
         sent_count: resultB.sent, failed_count: resultB.failed, no_uid_count: 0,

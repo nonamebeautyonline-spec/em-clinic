@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { executeUndoSchema } from "@/lib/validations/undo";
 import { getRecentUndoActions, executeUndo } from "@/lib/undo";
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     // クエリパラメータから件数上限を取得（デフォルト20件）
     const limitParam = req.nextUrl.searchParams.get("limit");
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     if ("error" in parsed) return parsed.error;
     const { undo_id } = parsed.data;
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const result = await executeUndo(undo_id, tenantId);
 

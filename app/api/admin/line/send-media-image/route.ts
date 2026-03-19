@@ -3,14 +3,14 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 
 // 登録済みメディア画像をLINE送信するAPI
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const body = await req.json();
   const { patient_id, image_url } = body;
 
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 患者のLINE UIDを取得
-  const { data: patient } = await withTenant(
+  const { data: patient } = await strictWithTenant(
     supabaseAdmin.from("patients").select("name, line_id").eq("patient_id", patient_id),
     tenantId
   ).maybeSingle();

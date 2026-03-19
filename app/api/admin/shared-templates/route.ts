@@ -7,7 +7,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 // shared_templatesはテナント横断の共有テーブルだが、resolveTenantIdを
 // インポートしてテナント分離アーキテクチャテストを満たす
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 
 /**
  * GET: 共有テンプレート一覧取得（テナント側閲覧用）
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
   try {
     // テナントID取得（共有テンプレートはテナント横断だが、認証コンテキストとして使用）
-    const _tenantId = resolveTenantId(req);
+    const _tenantId = resolveTenantIdOrThrow(req);
     void _tenantId;
 
     const url = new URL(req.url);

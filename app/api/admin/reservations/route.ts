@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 interface ReservationRow {
   id: string;
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     // クエリパラメータ取得: date=YYYY-MM-DD, month=YYYY-MM, from=YYYY-MM-DD, created_date=YYYY-MM-DD
     const searchParams = req.nextUrl.searchParams;
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       const startOfDay = `${createdDateParam}T00:00:00+09:00`;
       const endOfDay = `${createdDateParam}T23:59:59+09:00`;
 
-      const { data: createdReservations, error: createdError } = await withTenant(
+      const { data: createdReservations, error: createdError } = await strictWithTenant(
         supabaseAdmin
           .from("reservations")
           .select("*")
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
       const pIds = [...new Set((createdReservations || []).map((r: ReservationRow) => r.patient_id).filter(Boolean))];
       const pMap2 = new Map<string, { name: string; kana: string; sex: string; birthday: string }>();
       if (pIds.length > 0) {
-        const { data: pData } = await withTenant(
+        const { data: pData } = await strictWithTenant(
           supabaseAdmin.from("patients").select("patient_id, name, name_kana, sex, birthday").in("patient_id", pIds),
           tenantId
         );
@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
 
     // from指定がある場合は、その日以降の予約を全て取得
     if (fromParam) {
-      const { data: futureReservations, error: futureError } = await withTenant(
+      const { data: futureReservations, error: futureError } = await strictWithTenant(
         supabaseAdmin
           .from("reservations")
           .select("*")
@@ -137,7 +137,7 @@ export async function GET(req: NextRequest) {
       const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 
       // reservationsテーブルから月の予約を取得
-      const { data: monthReservations, error: monthError } = await withTenant(
+      const { data: monthReservations, error: monthError } = await strictWithTenant(
         supabaseAdmin
           .from("reservations")
           .select("*")
@@ -181,7 +181,7 @@ export async function GET(req: NextRequest) {
     }
 
     // reservationsテーブルから予約データを直接取得（キャンセル除外）
-    const { data: resvData, error: resvError } = await withTenant(
+    const { data: resvData, error: resvError } = await strictWithTenant(
       supabaseAdmin
         .from("reservations")
         .select("*")
@@ -201,7 +201,7 @@ export async function GET(req: NextRequest) {
     const patientIds = [...new Set((resvData || []).map((r: ReservationRow) => r.patient_id).filter(Boolean))];
     const pMap = new Map<string, { name: string; kana: string; sex: string; birthday: string; line_id: string; tel: string }>();
     if (patientIds.length > 0) {
-      const { data: pData } = await withTenant(
+      const { data: pData } = await strictWithTenant(
         supabaseAdmin
           .from("patients")
           .select("patient_id, name, name_kana, tel, sex, birthday, line_id")
@@ -217,7 +217,7 @@ export async function GET(req: NextRequest) {
     const reserveIds = (resvData || []).map((r: ReservationRow) => r.reserve_id).filter(Boolean);
     const intakeMap = new Map<string, { call_status: string; note: string; answerer_id: string; intake_status: string | null }>();
     if (reserveIds.length > 0) {
-      const { data: intakeData } = await withTenant(
+      const { data: intakeData } = await strictWithTenant(
         supabaseAdmin
           .from("intake")
           .select("reserve_id, call_status, note, answerer_id, status")
@@ -275,7 +275,7 @@ export async function PATCH(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     const body = await req.json();
@@ -286,7 +286,7 @@ export async function PATCH(req: NextRequest) {
       return badRequest("reserve_id and doctor_id required");
     }
 
-    const { error } = await withTenant(
+    const { error } = await strictWithTenant(
       supabaseAdmin
         .from("reservations")
         .update({ doctor_id: doctorId })

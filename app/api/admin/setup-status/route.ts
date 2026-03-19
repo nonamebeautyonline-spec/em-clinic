@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { supabaseAdmin } from "@/lib/supabase";
 
@@ -16,7 +16,7 @@ async function tableHasData(
     let query = supabaseAdmin
       .from(tableName)
       .select("id", { count: "exact", head: true });
-    query = withTenant(query, tenantId);
+    query = strictWithTenant(query, tenantId);
     const { count, error } = await query;
     if (error) return false;
     return (count || 0) >= minCount;
@@ -51,7 +51,16 @@ export async function GET(req: NextRequest) {
   if (!authed)
     return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
+
+  // 0. 基本情報（クリニック名）設定確認
+  const clinicName = await getSettingOrEnv(
+    "general",
+    "clinic_name",
+    "CLINIC_NAME",
+    tenantId ?? undefined,
+  );
+  const generalConfigured = !!clinicName;
 
   // 1. LINE Messaging API 設定確認
   const lineToken = await getSettingOrEnv(
@@ -90,11 +99,22 @@ export async function GET(req: NextRequest) {
   // 6. リッチメニュー設定: rich_menusテーブルにデータがあるか
   const richMenuConfigured = await tableHasData("rich_menus", tenantId);
 
+  // 7. 診察設定: 診察モードが設定されているか
+  const consultationMode = await getSettingOrEnv(
+    "consultation",
+    "mode",
+    "CONSULTATION_MODE",
+    tenantId ?? undefined,
+  );
+  const consultationConfigured = !!consultationMode;
+
   const steps = {
+    general: generalConfigured,
     line: lineConfigured,
     payment: paymentConfigured,
     products: productsRegistered,
     schedule: scheduleConfigured,
+    consultation: consultationConfigured,
     staff: staffAdded,
     richMenu: richMenuConfigured,
   };

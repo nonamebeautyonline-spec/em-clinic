@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
-import { withTenant, resolveTenantId } from "@/lib/tenant";
+import { strictWithTenant, resolveTenantIdOrThrow } from "@/lib/tenant";
 
 export async function GET(
   request: NextRequest,
@@ -14,13 +14,13 @@ export async function GET(
   try {
     const { id } = await params;
     const scenarioId = parseInt(id);
-    const tenantId = resolveTenantId(request);
+    const tenantId = resolveTenantIdOrThrow(request);
 
     const url = new URL(request.url);
     const enrollmentId = url.searchParams.get("enrollment_id");
     const limit = Math.min(parseInt(url.searchParams.get("limit") || "100"), 500);
 
-    let query = withTenant(
+    let query = strictWithTenant(
       supabaseAdmin
         .from("step_execution_logs")
         .select("*")

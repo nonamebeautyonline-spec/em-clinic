@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, badRequest, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
-import { withTenant, resolveTenantId } from "@/lib/tenant";
+import { strictWithTenant, resolveTenantIdOrThrow } from "@/lib/tenant";
 import { evaluateStepConditions, type ConditionRule } from "@/lib/step-enrollment";
 import { evaluateDisplayConditions, type DisplayConditions } from "@/lib/step-conditions";
 
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   if (!isAuthorized) return unauthorized();
 
   try {
-    const tenantId = resolveTenantId(request);
+    const tenantId = resolveTenantIdOrThrow(request);
     const body = await request.json();
     const { scenario_id, patient_id } = body;
 
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     if (!patient_id) return badRequest("patient_id は必須です");
 
     // 患者存在確認
-    const { data: patient } = await withTenant(
+    const { data: patient } = await strictWithTenant(
       supabaseAdmin
         .from("patients")
         .select("patient_id, name")
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     if (!patient) return badRequest("指定された患者が見つかりません");
 
     // シナリオのステップ一覧を取得
-    const { data: steps, error } = await withTenant(
+    const { data: steps, error } = await strictWithTenant(
       supabaseAdmin
         .from("step_items")
         .select("*")
@@ -321,7 +321,7 @@ async function buildSimpleContext(
   patientId: string,
   tenantId: string | null,
 ): Promise<import("@/lib/step-conditions").DisplayConditionContext> {
-  const { data: tagRows } = await withTenant(
+  const { data: tagRows } = await strictWithTenant(
     supabaseAdmin
       .from("patient_tags")
       .select("tag_definitions!inner(name)")

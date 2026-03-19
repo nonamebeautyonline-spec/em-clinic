@@ -6,7 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import {
   executeReservationActions,
 } from "@/lib/reservation-flex";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { pushMessage } from "@/lib/line-push";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
 import { validateBody } from "@/lib/validations/helpers";
@@ -50,7 +50,7 @@ async function getReservationSettings(tenantId: string | null): Promise<Reservat
   }
 
   try {
-    const { data, error } = await withTenant(
+    const { data, error } = await strictWithTenant(
       supabaseAdmin.from("reservation_settings").select("*"),
       tenantId
     ).maybeSingle();
@@ -123,7 +123,7 @@ async function isMonthEarlyOpen(targetMonth: string, tenantId: string | null): P
   }
 
   try {
-    const { data, error } = await withTenant(
+    const { data, error } = await strictWithTenant(
       supabaseAdmin
         .from("booking_open_settings")
         .select("is_open")
@@ -292,7 +292,7 @@ async function getBookedSlotsFromDB(
     query = query.eq("doctor_id", doctorId);
   }
 
-  const { data, error } = await withTenant(query, tenantId);
+  const { data, error } = await strictWithTenant(query, tenantId);
 
   if (error) {
     console.error("[getBookedSlotsFromDB] error:", error);
@@ -326,7 +326,7 @@ async function getScheduleFromDB(
   tenantId: string | null = null
 ): Promise<{ weekly_rules: WeeklyRule[]; overrides: Override[] }> {
   // 週間ルール取得
-  const { data: rulesData, error: rulesError } = await withTenant(
+  const { data: rulesData, error: rulesError } = await strictWithTenant(
     supabaseAdmin
       .from("doctor_weekly_rules")
       .select("*")
@@ -339,7 +339,7 @@ async function getScheduleFromDB(
   }
 
   // 日別例外取得
-  const { data: overridesData, error: overridesError } = await withTenant(
+  const { data: overridesData, error: overridesError } = await strictWithTenant(
     supabaseAdmin
       .from("doctor_date_overrides")
       .select("*")
@@ -510,7 +510,7 @@ export async function GET(req: NextRequest) {
   const start = searchParams.get("start");
   const end = searchParams.get("end");
   const date = searchParams.get("date");
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     const doctorId = searchParams.get("doctor_id") || "dr_default";
@@ -518,7 +518,7 @@ export async function GET(req: NextRequest) {
 
     // 予約枠一覧を返すモード（患者側用）
     if (searchParams.get("mode") === "slots") {
-      const { data: slotsData } = await withTenant(
+      const { data: slotsData } = await strictWithTenant(
         supabaseAdmin
           .from("reservation_slots")
           .select("id, title, description, duration_minutes")
@@ -531,7 +531,7 @@ export async function GET(req: NextRequest) {
 
     // コース一覧を返すモード（患者側用）
     if (searchParams.get("mode") === "courses") {
-      const { data: coursesData } = await withTenant(
+      const { data: coursesData } = await strictWithTenant(
         supabaseAdmin
           .from("reservation_courses")
           .select("id, title, description, duration_minutes")
@@ -544,7 +544,7 @@ export async function GET(req: NextRequest) {
 
     // 医師一覧を返すモード
     if (searchParams.get("mode") === "doctors") {
-      const { data: doctors } = await withTenant(
+      const { data: doctors } = await strictWithTenant(
         supabaseAdmin
           .from("doctors")
           .select("doctor_id, doctor_name, is_active, sort_order, color, specialties, photo_url, bio, display_in_booking")
@@ -673,7 +673,7 @@ export async function POST(req: NextRequest) {
       req.cookies.get("patient_id")?.value ||
       "";
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const type = body?.type as string | undefined;
 
     // bodyはログしない
@@ -715,7 +715,7 @@ export async function POST(req: NextRequest) {
 
       // ★★ GASと同じ1人1件制限：既存のアクティブな予約をチェック ★★
       // canceled / NG は再予約可能
-      const { data: existingReservations } = await withTenant(
+      const { data: existingReservations } = await strictWithTenant(
         supabaseAdmin
           .from("reservations")
           .select("reserve_id, reserved_date, reserved_time, status")
@@ -744,7 +744,7 @@ export async function POST(req: NextRequest) {
       // ★ intakeテーブルからステータス・問診回答を取得
       // ★★ 予約作成前にintakeレコードの存在 + 問診完了を必須チェック ★★
       const [intakeRes, patientRes] = await Promise.all([
-        withTenant(
+        strictWithTenant(
           supabaseAdmin
             .from("intake")
             .select("patient_id, status, answers")
@@ -754,7 +754,7 @@ export async function POST(req: NextRequest) {
           tenantId
         ),
         // ★ patient_name, line_id は patients テーブルから取得
-        withTenant(
+        strictWithTenant(
           supabaseAdmin
             .from("patients")
             .select("name, line_id")
@@ -789,7 +789,7 @@ export async function POST(req: NextRequest) {
       // ★ 前回NGの患者が再予約を取った場合、NGステータスをクリア
       if (intakeData.status === "NG") {
         console.log(`[Reservation] Resetting NG status for patient_id=${pid}`);
-        const { error: resetError } = await withTenant(
+        const { error: resetError } = await strictWithTenant(
           supabaseAdmin
             .from("intake")
             .update({ status: null })
@@ -836,7 +836,7 @@ export async function POST(req: NextRequest) {
         const updateFields: Record<string, unknown> = {};
         if (createSlotId) updateFields.slot_id = createSlotId;
         if (createCourseId) updateFields.course_id = createCourseId;
-        await withTenant(
+        await strictWithTenant(
           supabaseAdmin
             .from("reservations")
             .update(updateFields)
@@ -850,7 +850,7 @@ export async function POST(req: NextRequest) {
         try {
           const updateResult = await retrySupabaseWrite(async () => {
             // patient_idで最新1件を取得してid指定で更新
-            const { data: latestIntake, error: intakeSelectError } = await withTenant(
+            const { data: latestIntake, error: intakeSelectError } = await strictWithTenant(
               supabaseAdmin
                 .from("intake")
                 .select("id")
@@ -867,7 +867,7 @@ export async function POST(req: NextRequest) {
               console.warn(`[Reservation] intake not found for patient_id=${pid}, skipping reserve_id link`);
               return { data: null, error: null };
             }
-            const result = await withTenant(
+            const result = await strictWithTenant(
               supabaseAdmin
                 .from("intake")
                 .update({
@@ -947,7 +947,7 @@ export async function POST(req: NextRequest) {
       // ★ キャンセル期限チェック
       const cancelSettings = await getReservationSettings(tenantId);
       if (cancelSettings.cancel_deadline_hours > 0) {
-        const { data: checkResv } = await withTenant(
+        const { data: checkResv } = await strictWithTenant(
           supabaseAdmin
             .from("reservations")
             .select("reserved_date, reserved_time")
@@ -967,7 +967,7 @@ export async function POST(req: NextRequest) {
 
       // LINE通知用に予約情報と line_id を事前取得
       const [cancelResvInfo, cancelPatientInfo] = await Promise.all([
-        withTenant(
+        strictWithTenant(
           supabaseAdmin
             .from("reservations")
             .select("reserved_date, reserved_time, patient_name")
@@ -976,7 +976,7 @@ export async function POST(req: NextRequest) {
         ).maybeSingle(),
         // ★ line_id は patients テーブルから取得
         pid
-          ? withTenant(
+          ? strictWithTenant(
               supabaseAdmin
                 .from("patients")
                 .select("line_id")
@@ -990,7 +990,7 @@ export async function POST(req: NextRequest) {
       const [supabaseReservationResult, supabaseIntakeResult] = await Promise.allSettled([
         // 1. reservationsテーブルのstatusを"canceled"に更新（リトライあり）
         retrySupabaseWrite(async () => {
-          const result = await withTenant(
+          const result = await strictWithTenant(
             supabaseAdmin
               .from("reservations")
               .update({ status: "canceled" })
@@ -1006,7 +1006,7 @@ export async function POST(req: NextRequest) {
 
         // 2. intakeテーブルの reserve_id をクリア（日時は reservations が正）
         pid ? retrySupabaseWrite(async () => {
-          const result = await withTenant(
+          const result = await strictWithTenant(
             supabaseAdmin
               .from("intake")
               .update({
@@ -1097,7 +1097,7 @@ export async function POST(req: NextRequest) {
       // ★ 変更期限チェック
       const updateSettings = await getReservationSettings(tenantId);
       if (updateSettings.change_deadline_hours > 0) {
-        const { data: checkResv } = await withTenant(
+        const { data: checkResv } = await strictWithTenant(
           supabaseAdmin
             .from("reservations")
             .select("reserved_date, reserved_time")
@@ -1135,7 +1135,7 @@ export async function POST(req: NextRequest) {
       }
 
       // LINE通知用に変更前の日時を取得（RPCで上書きされる前に）
-      const { data: prevResvInfo } = await withTenant(
+      const { data: prevResvInfo } = await strictWithTenant(
         supabaseAdmin
           .from("reservations")
           .select("reserved_date, reserved_time")
@@ -1170,7 +1170,7 @@ export async function POST(req: NextRequest) {
 
       // ★ LINE通知用に line_id を patients テーブルから取得
       const { data: changePatientInfo } = pid
-        ? await withTenant(
+        ? await strictWithTenant(
             supabaseAdmin
               .from("patients")
               .select("line_id")

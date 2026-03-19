@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createCouponSchema } from "@/lib/validations/line-common";
 
@@ -12,9 +12,9 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
-  const { data: coupons, error } = await withTenant(
+  const { data: coupons, error } = await strictWithTenant(
     supabaseAdmin.from("coupons").select("*").order("created_at", { ascending: false }),
     tenantId
   );
@@ -24,11 +24,11 @@ export async function GET(req: NextRequest) {
   // 各クーポンの配布数・利用数を取得
   const enriched = await Promise.all(
     (coupons || []).map(async (c: { id: number; [key: string]: unknown }) => {
-      const { count: issuedCount } = await withTenant(
+      const { count: issuedCount } = await strictWithTenant(
         supabaseAdmin.from("coupon_issues").select("*", { count: "exact", head: true }).eq("coupon_id", c.id),
         tenantId
       );
-      const { count: usedCount } = await withTenant(
+      const { count: usedCount } = await strictWithTenant(
         supabaseAdmin.from("coupon_issues").select("*", { count: "exact", head: true }).eq("coupon_id", c.id).eq("status", "used"),
         tenantId
       );
@@ -44,14 +44,14 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const parsed = await parseBody(req, createCouponSchema);
   if ("error" in parsed) return parsed.error;
   const { name, code, discount_type, discount_value, min_purchase, max_uses, max_uses_per_patient, valid_from, valid_until, description } = parsed.data;
 
   // コード重複チェック
-  const { data: existing } = await withTenant(
+  const { data: existing } = await strictWithTenant(
     supabaseAdmin.from("coupons").select("id").eq("code", code.trim().toUpperCase()).limit(1),
     tenantId
   );
@@ -87,7 +87,7 @@ export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const parsed = await parseBody(req, createCouponSchema);
   if ("error" in parsed) return parsed.error;
@@ -100,7 +100,7 @@ export async function PUT(req: NextRequest) {
 
   if (!id) return badRequest("IDは必須です");
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin.from("coupons").update({
       name: name?.trim() || "",
       code: code?.trim().toUpperCase() || "",
@@ -127,12 +127,12 @@ export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return badRequest("IDは必須です");
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin.from("coupons").delete().eq("id", parseInt(id)),
     tenantId
   );

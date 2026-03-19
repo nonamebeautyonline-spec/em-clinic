@@ -5,17 +5,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { ALL_SEGMENTS, SEGMENT_LABELS, type SegmentType } from "@/lib/patient-segments";
 
 export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   // セグメントデータを患者情報と一緒に取得
-  const { data: segmentData, error } = await withTenant(
+  const { data: segmentData, error } = await strictWithTenant(
     supabaseAdmin
       .from("patient_segments")
       .select("patient_id, segment, rfm_score, calculated_at"),
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
 
   // 患者IDリストを取得して患者情報を一括取得
   const patientIds = segmentData.map((s: { patient_id: string }) => s.patient_id);
-  const { data: patients } = await withTenant(
+  const { data: patients } = await strictWithTenant(
     supabaseAdmin
       .from("patients")
       .select("patient_id, name, name_kana, tel, line_id, created_at")

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getSetting, setSetting } from "@/lib/settings";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { bankAccountsUpdateSchema } from "@/lib/validations/admin-operations";
 import { type BankAccount } from "@/lib/bank-account";
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req) ?? undefined;
+    const tenantId = resolveTenantIdOrThrow(req) ?? undefined;
 
     const accountsJson = await getSetting("payment", "bank_accounts", tenantId);
 
@@ -78,7 +78,7 @@ export async function PUT(req: NextRequest) {
       return badRequest("アクティブ口座IDが口座リストに存在しません");
     }
 
-    const tenantId = resolveTenantId(req) ?? undefined;
+    const tenantId = resolveTenantIdOrThrow(req) ?? undefined;
 
     await setSetting("payment", "bank_accounts", JSON.stringify(accounts), tenantId);
     await setSetting("payment", "active_bank_account_id", activeId, tenantId);

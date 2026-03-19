@@ -23,6 +23,19 @@ export function resolveTenantId(request?: Request | { headers?: Headers }): stri
   return null;
 }
 
+export class TenantRequiredError extends Error {
+  constructor() {
+    super("テナントIDが指定されていません");
+    this.name = "TenantRequiredError";
+  }
+}
+
+export function resolveTenantIdOrThrow(request?: Request | { headers?: Headers }): string {
+  const tenantId = resolveTenantId(request);
+  if (!tenantId) throw new TenantRequiredError();
+  return tenantId;
+}
+
 /**
  * クエリにテナントフィルターを追加
  * - tenantId が非null: .eq("tenant_id", tenantId)

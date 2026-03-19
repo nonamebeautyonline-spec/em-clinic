@@ -24,14 +24,21 @@ function getOrCreateChain(table: string) {
   return tableChains[table];
 }
 
+// RPC モック
+const mockRpc = vi.fn();
+
+vi.mock("@/lib/supabase", () => ({
+  supabaseAdmin: {
+    from: vi.fn((table: string) => getOrCreateChain(table)),
+    rpc: (...args: unknown[]) => mockRpc(...args),
+  },
+}));
+
 vi.mock("@supabase/supabase-js", () => ({
   createClient: vi.fn(() => ({
     from: vi.fn((table: string) => getOrCreateChain(table)),
+    rpc: (...args: unknown[]) => mockRpc(...args),
   })),
-}));
-
-vi.mock("@/lib/supabase", () => ({
-  supabaseAdmin: { from: vi.fn((table: string) => getOrCreateChain(table)) },
 }));
 
 const mockVerifyAdminAuth = vi.fn();
@@ -41,6 +48,8 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
+  resolveTenantIdOrThrow: vi.fn(() => "test-tenant"),
+  strictWithTenant: vi.fn((q: unknown) => q),
   withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
@@ -57,6 +66,8 @@ describe("ダッシュボード統計 API - GET", () => {
     vi.clearAllMocks();
     tableChains = {};
     mockVerifyAdminAuth.mockResolvedValue(true);
+    // デフォルトRPCモック
+    mockRpc.mockResolvedValue({ data: [{ total_count: 0, first_order_count: 0, reorder_count: 0, total_patients: 0, repeat_patients: 0, repeat_rate: 0 }], error: null });
   });
 
   it("認証なし → 401", async () => {
@@ -81,6 +92,17 @@ describe("ダッシュボード統計 API - GET", () => {
     const intChain = getOrCreateChain("intake");
     intChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null, count: 0 }));
 
+    // RPCモック: 配送統計・リピート率ともに0
+    mockRpc.mockImplementation((name: string) => {
+      if (name === "get_today_shipping_stats") {
+        return Promise.resolve({ data: [{ total_count: 0, first_order_count: 0, reorder_count: 0 }], error: null });
+      }
+      if (name === "get_monthly_repeat_rate") {
+        return Promise.resolve({ data: [{ total_patients: 0, repeat_patients: 0, repeat_rate: 0 }], error: null });
+      }
+      return Promise.resolve({ data: [], error: null });
+    });
+
     const req = createMockRequest("GET", "http://localhost/api/admin/dashboard-stats");
     const res = await GET(req);
     expect(res.status).toBe(200);
@@ -88,6 +110,8 @@ describe("ダッシュボード統計 API - GET", () => {
 
     expect(json.todayReservations).toBe(0);
     expect(json.todayShipping.total).toBe(0);
+    expect(json.todayShipping.first).toBe(0);
+    expect(json.todayShipping.reorder).toBe(0);
     expect(json.todayRevenue.total).toBe(0);
     expect(json.repeatRate).toBe(0);
     expect(json.monthlyStats.totalPatients).toBe(0);
@@ -100,29 +124,24 @@ describe("ダッシュボード統計 API - GET", () => {
     const resChain = getOrCreateChain("reservations");
     resChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null, count: 2 }));
 
-    // orders: 多数のクエリに対応
+    // orders: 売上クエリ用（fetchAll）
     const ordChain = getOrCreateChain("orders");
-    let ordCallCount = 0;
-    ordChain.then = vi.fn((resolve: (val: unknown) => unknown) => {
-      ordCallCount++;
-      // fetchAll は range を使う。最初のバッチで返してから空で終了
-      // 配送データ（1回目の fetchAll）
-      if (ordCallCount === 1) {
-        return resolve({
-          data: [
-            { product_code: "MJL_2.5mg_1m", patient_id: "p1" },
-            { product_code: "MJL_5mg_1m", patient_id: "p2" },
-          ],
-          error: null,
-        });
-      }
-      // 以降の呼び出しは空データまたはcount=0で返す
-      return resolve({ data: [], error: null, count: 0 });
-    });
+    ordChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null, count: 0 }));
 
     // intake
     const intChain = getOrCreateChain("intake");
     intChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null, count: 10 }));
+
+    // RPCモック: 配送3件（新規1、リピート2）、リピート率40%
+    mockRpc.mockImplementation((name: string) => {
+      if (name === "get_today_shipping_stats") {
+        return Promise.resolve({ data: [{ total_count: 3, first_order_count: 1, reorder_count: 2 }], error: null });
+      }
+      if (name === "get_monthly_repeat_rate") {
+        return Promise.resolve({ data: [{ total_patients: 5, repeat_patients: 2, repeat_rate: 40 }], error: null });
+      }
+      return Promise.resolve({ data: [], error: null });
+    });
 
     const req = createMockRequest("GET", "http://localhost/api/admin/dashboard-stats");
     const res = await GET(req);
@@ -130,8 +149,44 @@ describe("ダッシュボード統計 API - GET", () => {
     const json = await res.json();
 
     expect(json.todayReservations).toBe(2);
-    expect(json.todayShipping.total).toBe(2);
+    expect(json.todayShipping.total).toBe(3);
+    expect(json.todayShipping.first).toBe(1);
+    expect(json.todayShipping.reorder).toBe(2);
+    expect(json.repeatRate).toBe(40);
     // monthlyStats
     expect(json.monthlyStats.totalPatients).toBe(10);
+  });
+
+  it("RPC呼び出しパラメータが正しいこと", async () => {
+    // 基本チェーンセットアップ
+    const resChain = getOrCreateChain("reservations");
+    resChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null, count: 0 }));
+    const ordChain = getOrCreateChain("orders");
+    ordChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null, count: 0 }));
+    const intChain = getOrCreateChain("intake");
+    intChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null, count: 0 }));
+
+    mockRpc.mockImplementation((name: string) => {
+      if (name === "get_today_shipping_stats") {
+        return Promise.resolve({ data: [{ total_count: 0, first_order_count: 0, reorder_count: 0 }], error: null });
+      }
+      if (name === "get_monthly_repeat_rate") {
+        return Promise.resolve({ data: [{ total_patients: 0, repeat_patients: 0, repeat_rate: 0 }], error: null });
+      }
+      return Promise.resolve({ data: [], error: null });
+    });
+
+    const req = createMockRequest("GET", "http://localhost/api/admin/dashboard-stats");
+    await GET(req);
+
+    // get_today_shipping_stats が呼ばれたことを確認
+    expect(mockRpc).toHaveBeenCalledWith("get_today_shipping_stats", expect.objectContaining({
+      p_tenant_id: "test-tenant",
+    }));
+
+    // get_monthly_repeat_rate が呼ばれたことを確認
+    expect(mockRpc).toHaveBeenCalledWith("get_monthly_repeat_rate", expect.objectContaining({
+      p_tenant_id: "test-tenant",
+    }));
   });
 });

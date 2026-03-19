@@ -3,7 +3,7 @@ import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { patientFieldsUpdateSchema } from "@/lib/validations/admin-operations";
 import { validateFieldValue, isValidFieldType, type FieldType } from "@/lib/custom-field-types";
@@ -13,10 +13,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("friend_field_values")
       .select("*, friend_field_definitions(*)")
@@ -33,7 +33,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
   const parsed = await parseBody(req, patientFieldsUpdateSchema);
   if ("error" in parsed) return parsed.error;
@@ -41,7 +41,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   // フィールド定義を取得してバリデーション
   const fieldIds = values.map((v: { field_id: number }) => v.field_id);
-  const { data: fieldDefs } = await withTenant(
+  const { data: fieldDefs } = await strictWithTenant(
     supabaseAdmin
       .from("friend_field_definitions")
       .select("id, field_type, options")
@@ -79,7 +79,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     updated_at: new Date().toISOString(),
   }));
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin
       .from("friend_field_values")
       .upsert(upserts, { onConflict: "patient_id,field_id" }),

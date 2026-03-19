@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { vitalCreateSchema } from "@/lib/validations/vitals";
 import { unauthorized, badRequest, serverError } from "@/lib/api-error";
@@ -15,14 +15,14 @@ export async function GET(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const patientId = new URL(req.url).searchParams.get("patient_id");
 
     if (!patientId) {
       return badRequest("patient_id は必須です");
     }
 
-    const { data, error } = await withTenant(
+    const { data, error } = await strictWithTenant(
       supabaseAdmin
         .from("patient_vitals")
         .select("*")
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const parsed = await parseBody(req, vitalCreateSchema);
     if ("error" in parsed) return parsed.error;

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateAbTestSchema } from "@/lib/validations/line-broadcast";
 import { determineWinner, type VariantStats } from "@/lib/ab-test-stats";
@@ -17,10 +17,10 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await ctx.params;
 
-  const { data: test, error } = await withTenant(
+  const { data: test, error } = await strictWithTenant(
     supabaseAdmin
       .from("ab_tests")
       .select("*, ab_test_variants(*)")
@@ -59,7 +59,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await ctx.params;
   const parsed = await parseBody(req, updateAbTestSchema);
   if ("error" in parsed) return parsed.error;
@@ -67,7 +67,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   const { status, winner_variant_id, variants, ...updateFields } = parsed.data;
 
   // 現在のテスト取得
-  const { data: existing } = await withTenant(
+  const { data: existing } = await strictWithTenant(
     supabaseAdmin.from("ab_tests").select("*").eq("id", id),
     tenantId,
   ).single();
@@ -128,7 +128,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
     }
   }
 
-  const { data: updated, error: updateError } = await withTenant(
+  const { data: updated, error: updateError } = await strictWithTenant(
     supabaseAdmin.from("ab_tests").update(updateData).eq("id", id),
     tenantId,
   ).select().single();
@@ -160,7 +160,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   }
 
   // 更新後のテスト全体を取得して返す
-  const { data: result } = await withTenant(
+  const { data: result } = await strictWithTenant(
     supabaseAdmin.from("ab_tests").select("*, ab_test_variants(*)").eq("id", id),
     tenantId,
   ).single();
@@ -175,11 +175,11 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await ctx.params;
 
   // 実行中のテストは削除不可
-  const { data: existing } = await withTenant(
+  const { data: existing } = await strictWithTenant(
     supabaseAdmin.from("ab_tests").select("status").eq("id", id),
     tenantId,
   ).single();
@@ -192,7 +192,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
   }
 
   // CASCADE で ab_test_variants も削除される
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin.from("ab_tests").delete().eq("id", id),
     tenantId,
   );

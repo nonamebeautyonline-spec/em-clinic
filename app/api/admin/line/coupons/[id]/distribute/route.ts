@@ -4,7 +4,7 @@ import { notFound, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { resolveTargets } from "@/app/api/admin/line/broadcast/route";
 import { parseBody } from "@/lib/validations/helpers";
 import { distributeCouponSchema } from "@/lib/validations/line-management";
@@ -16,14 +16,14 @@ export async function POST(
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id: couponId } = await params;
   const parsed = await parseBody(req, distributeCouponSchema);
   if ("error" in parsed) return parsed.error;
   const { filter_rules, message } = parsed.data;
 
   // クーポン取得
-  const { data: coupon, error: couponErr } = await withTenant(
+  const { data: coupon, error: couponErr } = await strictWithTenant(
     supabaseAdmin.from("coupons").select("*").eq("id", parseInt(couponId)).single(),
     tenantId
   );
@@ -45,7 +45,7 @@ export async function POST(
 
   // 既に配布済みの患者を一括取得
   const targetIds = withLineId.map(t => t.patient_id);
-  const { data: existingIssues } = await withTenant(
+  const { data: existingIssues } = await strictWithTenant(
     supabaseAdmin.from("coupon_issues")
       .select("patient_id")
       .eq("coupon_id", coupon.id)

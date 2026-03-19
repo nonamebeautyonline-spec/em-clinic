@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unauthorized, serverError } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getSetting } from "@/lib/settings";
 import { createAdapter } from "@/lib/ehr/sync";
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     // 1. EHRプロバイダー設定を取得

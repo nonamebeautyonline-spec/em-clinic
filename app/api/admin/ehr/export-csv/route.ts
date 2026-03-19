@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
 import { parseBody } from "@/lib/validations/helpers";
 import { ehrCsvExportSchema } from "@/lib/validations/ehr";
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   // リクエストボディのバリデーション
   const parsed = await parseBody(req, ehrCsvExportSchema);
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     if (type === "patient") {
       // 患者データ取得
       let query = supabaseAdmin.from("patients").select("*");
-      query = withTenant(query, tenantId);
+      query = strictWithTenant(query, tenantId);
 
       // patient_ids が指定されている場合はフィルタ
       if (patient_ids && patient_ids.length > 0) {
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
         .not("note", "is", null)
         .order("created_at", { ascending: false });
 
-      query = withTenant(query, tenantId);
+      query = strictWithTenant(query, tenantId);
 
       // patient_ids が指定されている場合はフィルタ
       if (patient_ids && patient_ids.length > 0) {

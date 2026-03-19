@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized, badRequest } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { slotCourseLinksSchema } from "@/lib/validations/reservation-settings";
 
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
   if (!id) return badRequest("idは必須です");
 

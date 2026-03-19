@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateFollowupRuleSchema } from "@/lib/validations/followup";
 
@@ -23,7 +23,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
     return badRequest("無効なIDです");
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { data, error: parseError } = await parseBody(req, updateFollowupRuleSchema);
   if (parseError) return parseError;
 
@@ -35,7 +35,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", ruleId);
-  query = withTenant(query, tenantId);
+  query = strictWithTenant(query, tenantId);
 
   const { error } = await query;
   if (error) {
@@ -59,14 +59,14 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
     return badRequest("無効なIDです");
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   // テナントフィルタ付きで削除
   let query = supabaseAdmin
     .from("followup_rules")
     .delete()
     .eq("id", ruleId);
-  query = withTenant(query, tenantId);
+  query = strictWithTenant(query, tenantId);
 
   const { error } = await query;
   if (error) {

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized, badRequest, notFound } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 // PATCH /api/admin/line/broadcast/[id]/resume
 // paused → scheduled に遷移
@@ -15,10 +15,10 @@ export async function PATCH(
   if (!isAuthorized) return unauthorized();
 
   const { id } = await params;
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   // 対象ブロードキャストを取得
-  const { data: broadcast, error: fetchError } = await withTenant(
+  const { data: broadcast, error: fetchError } = await strictWithTenant(
     supabaseAdmin
       .from("broadcasts")
       .select("id, status")
@@ -36,7 +36,7 @@ export async function PATCH(
   }
 
   // ステータスを scheduled に戻す
-  const { error: updateError } = await withTenant(
+  const { error: updateError } = await strictWithTenant(
     supabaseAdmin
       .from("broadcasts")
       .update({

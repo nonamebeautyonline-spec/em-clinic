@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized, serverError } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { createClient } from "@supabase/supabase-js";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -17,11 +17,11 @@ export async function GET(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // 未確認の銀行振込注文のみ取得（confirmedは確認済みなので除外）
-    const { data: bankOrders, error } = await withTenant(
+    const { data: bankOrders, error } = await strictWithTenant(
       supabase
         .from("orders")
         .select("id, patient_id, amount, account_name, shipping_name, product_code, created_at, status")
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
     }
 
     // bank_statementsで既に紐づけ済みの注文IDを取得
-    const { data: linkedStatements } = await withTenant(
+    const { data: linkedStatements } = await strictWithTenant(
       supabase
         .from("bank_statements")
         .select("matched_order_id")

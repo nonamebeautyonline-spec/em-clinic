@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateAiReplySettingsSchema } from "@/lib/validations/line-management";
 import { DEFAULT_BUSINESS_HOURS, type BusinessHoursConfig } from "@/lib/business-hours";
@@ -16,9 +16,9 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin.from("ai_reply_settings").select("*").maybeSingle(),
     tenantId
   );
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
   // 本日のAI返信使用数を取得
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
-  const { count: todayUsage } = await withTenant(
+  const { count: todayUsage } = await strictWithTenant(
     supabaseAdmin
       .from("ai_reply_drafts")
       .select("id", { count: "exact", head: true })
@@ -79,7 +79,7 @@ export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, updateAiReplySettingsSchema);
   if ("error" in parsed) return parsed.error;
   const {
@@ -96,7 +96,7 @@ export async function PUT(req: NextRequest) {
   } = parsed.data;
 
   // 既存設定を確認
-  const { data: existing } = await withTenant(
+  const { data: existing } = await strictWithTenant(
     supabaseAdmin.from("ai_reply_settings").select("id").maybeSingle(),
     tenantId
   );

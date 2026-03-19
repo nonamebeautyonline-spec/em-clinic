@@ -3,13 +3,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from") || "";
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   if (from) query = query.gte("paid_at", from);
   if (to) query = query.lte("paid_at", to + "T23:59:59");
 
-  const { data } = await withTenant(query, tenantId);
+  const { data } = await strictWithTenant(query, tenantId);
   if (!data || data.length === 0) {
     return new NextResponse("データがありません", { status: 404 });
   }

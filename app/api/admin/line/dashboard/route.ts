@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 
 // Supabaseクエリ結果用の型定義
@@ -114,7 +114,7 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const lineToken = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
   const period = Number(req.nextUrl.searchParams.get("period")) || 7;
   const validPeriod = [7, 30, 90].includes(period) ? period : 7;
@@ -150,7 +150,7 @@ export async function GET(req: NextRequest) {
   const now = new Date();
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01T00:00:00`;
   const [{ count: monthlySent }, quotaData, consumptionData] = await Promise.all([
-    withTenant(
+    strictWithTenant(
       supabaseAdmin
         .from("message_log")
         .select("id", { count: "exact", head: true })
@@ -173,7 +173,7 @@ export async function GET(req: NextRequest) {
   ]);
 
   // 3. 最新送信メッセージ10件
-  const { data: recentMsgs } = await withTenant(
+  const { data: recentMsgs } = await strictWithTenant(
     supabaseAdmin
       .from("message_log")
       .select("id, patient_id, message_type, content, status, sent_at")
@@ -187,7 +187,7 @@ export async function GET(req: NextRequest) {
   let nameMap = new Map<string, string>();
   if (patientIds.length > 0) {
     const { data: patientRows } = await fetchAll<PatientNameRow>(() =>
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("patients")
           .select("patient_id, name")
@@ -212,7 +212,7 @@ export async function GET(req: NextRequest) {
   periodStart.setDate(periodStart.getDate() - validPeriod);
   const periodStartStr = periodStart.toISOString().slice(0, 10);
 
-  const { data: chartRows } = await withTenant(
+  const { data: chartRows } = await strictWithTenant(
     supabaseAdmin
       .from("line_daily_stats")
       .select("stat_date, followers, targeted_reaches, blocks, messages_sent, total_clicks, unique_clicks")
@@ -252,7 +252,7 @@ export async function GET(req: NextRequest) {
   if (estimateDates.length > 0) {
     const oldest = estimateDates[estimateDates.length - 1];
     // JST日付の開始 = UTC 15:00前日（例: 2/26 JST → 2/25T15:00:00Z）
-    const { data: followEvents } = await withTenant(
+    const { data: followEvents } = await strictWithTenant(
       supabaseAdmin
         .from("message_log")
         .select("sent_at, event_type")
@@ -334,7 +334,7 @@ export async function GET(req: NextRequest) {
   };
 
   // 5. 配信別統計（直近20件のbroadcast）
-  const { data: broadcastRows } = await withTenant(
+  const { data: broadcastRows } = await strictWithTenant(
     supabaseAdmin
       .from("broadcasts")
       .select("id, name, status, total_targets, sent_count, failed_count, no_uid_count, sent_at, created_at")
@@ -348,7 +348,7 @@ export async function GET(req: NextRequest) {
   const broadcastIds = (broadcastRows || []).map((b: BroadcastRow) => b.id);
   let broadcastClickMap = new Map<number, { total: number; unique: number }>();
   if (broadcastIds.length > 0) {
-    const { data: clickLinks } = await withTenant(
+    const { data: clickLinks } = await strictWithTenant(
       supabaseAdmin
         .from("click_tracking_links")
         .select("id, broadcast_id")
@@ -361,7 +361,7 @@ export async function GET(req: NextRequest) {
       for (const l of clickLinks) linkToBroadcast.set(l.id, l.broadcast_id);
 
       const { data: clickEvts } = await fetchAll<ClickEventRow>(() =>
-        withTenant(
+        strictWithTenant(
           supabaseAdmin
             .from("click_tracking_events")
             .select("link_id, ip_address")

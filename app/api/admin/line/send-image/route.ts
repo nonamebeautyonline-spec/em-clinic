@@ -3,7 +3,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 
 const BUCKET = "line-images";
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 患者の LINE UID を patients テーブルから取得
-  const { data: patient } = await withTenant(
+  const { data: patient } = await strictWithTenant(
     supabaseAdmin.from("patients").select("name, line_id").eq("patient_id", patientId),
     tenantId
   ).maybeSingle();

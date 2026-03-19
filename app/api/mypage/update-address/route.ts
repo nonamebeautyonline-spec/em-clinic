@@ -4,13 +4,13 @@ import { badRequest, forbidden, notFound, serverError, unauthorized } from "@/li
 import { cookies } from "next/headers";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateAddressSchema } from "@/lib/validations/patient";
 
 export async function POST(req: NextRequest) {
   try {
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const cookieStore = await cookies();
     const patientId =
       cookieStore.get("__Host-patient_id")?.value ||
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const postalCode = `${postalDigits.slice(0, 3)}-${postalDigits.slice(3)}`;
 
     // 注文を取得して権限チェック
-    const { data: order, error: fetchError } = await withTenant(supabaseAdmin
+    const { data: order, error: fetchError } = await strictWithTenant(supabaseAdmin
       .from("orders")
       .select("id, patient_id, shipping_status, tracking_number, shipping_list_created_at")
       .eq("id", orderId), tenantId)
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     if (shippingName) {
       updateData.shipping_name = shippingName;
     }
-    const { error: updateError } = await withTenant(supabaseAdmin
+    const { error: updateError } = await strictWithTenant(supabaseAdmin
       .from("orders")
       .update(updateData)
       .eq("id", orderId), tenantId);

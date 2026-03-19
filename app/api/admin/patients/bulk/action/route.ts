@@ -3,7 +3,7 @@ import { notFound, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { bulkActionSchema } from "@/lib/validations/admin-operations";
 
@@ -21,13 +21,13 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, bulkActionSchema);
   if ("error" in parsed) return parsed.error;
   const { patient_ids, action_id } = parsed.data;
 
   // アクション取得
-  const { data: action } = await withTenant(
+  const { data: action } = await strictWithTenant(
     supabaseAdmin
       .from("actions")
       .select("*")
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   const templateIds = steps.filter(s => s.type === "send_template" && s.template_id).map(s => s.template_id!);
   const templateMap = new Map<number, string>();
   if (templateIds.length > 0) {
-    const { data: tmpls } = await withTenant(
+    const { data: tmpls } = await strictWithTenant(
       supabaseAdmin
         .from("message_templates")
         .select("id, content")
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
   const intakeMap = new Map<string, { line_id: string | null; patient_name: string }>();
   for (let i = 0; i < patient_ids.length; i += DB_BATCH_SIZE) {
     const batch = patient_ids.slice(i, i + DB_BATCH_SIZE);
-    const { data: pData } = await withTenant(
+    const { data: pData } = await strictWithTenant(
       supabaseAdmin
         .from("patients")
         .select("patient_id, line_id, name")
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
   const tagIds = steps.filter(s => (s.type === "tag_add" || s.type === "tag_remove") && s.tag_id).map(s => s.tag_id!);
   const tagNameMap = new Map<number, string>();
   if (tagIds.length > 0) {
-    const { data: tagDefs } = await withTenant(
+    const { data: tagDefs } = await strictWithTenant(
       supabaseAdmin.from("tag_definitions").select("id, name").in("id", tagIds),
       tenantId
     );
@@ -180,7 +180,7 @@ export async function POST(req: NextRequest) {
 
           case "tag_add": {
             if (!step.tag_id) break;
-            const { error } = await withTenant(
+            const { error } = await strictWithTenant(
               supabaseAdmin
                 .from("patient_tags")
                 .upsert({ ...tenantPayload(tenantId), patient_id: pid, tag_id: step.tag_id, assigned_by: "action" }, { onConflict: "patient_id,tag_id" }),
@@ -192,7 +192,7 @@ export async function POST(req: NextRequest) {
 
           case "tag_remove": {
             if (!step.tag_id) break;
-            const { error } = await withTenant(
+            const { error } = await strictWithTenant(
               supabaseAdmin
                 .from("patient_tags")
                 .delete()
@@ -206,7 +206,7 @@ export async function POST(req: NextRequest) {
 
           case "mark_change": {
             if (!step.mark) break;
-            const { error } = await withTenant(
+            const { error } = await strictWithTenant(
               supabaseAdmin
                 .from("patient_marks")
                 .upsert({

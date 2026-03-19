@@ -4,7 +4,7 @@ import { badRequest, serverError } from "@/lib/api-error";
 import { cookies } from "next/headers";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
 import { reorderCancelSchema } from "@/lib/validations/reorder-cancel";
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const lineToken = await getSettingOrEnv("line", "channel_access_token", "LINE_NOTIFY_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
     const lineGroupId = await getSettingOrEnv("line", "admin_group_id", "LINE_ADMIN_GROUP_ID", tenantId ?? undefined) || "";
 
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     let targetReorder: { id: number; reorder_number: number; status: string; product_code: string } | null = null;
 
     try {
-      const { data, error } = await withTenant(
+      const { data, error } = await strictWithTenant(
         supabaseAdmin
           .from("reorders")
           .select("id, reorder_number, status, product_code")
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     // ★ DB先行でキャンセル
     if (targetReorder) {
       try {
-        const { error: dbError } = await withTenant(
+        const { error: dbError } = await strictWithTenant(
           supabaseAdmin
             .from("reorders")
             .update({ status: "canceled" })

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getSetting, setSetting, getSettingOrEnv } from "@/lib/settings";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { squareAccountsUpdateSchema } from "@/lib/validations/admin-operations";
 import { type SquareAccount } from "@/lib/square-account";
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req) ?? undefined;
+    const tenantId = resolveTenantIdOrThrow(req) ?? undefined;
     const accountsJson = await getSetting("square", "accounts", tenantId);
 
     if (accountsJson) {
@@ -85,7 +85,7 @@ export async function PUT(req: NextRequest) {
       return badRequest("アクティブアカウントIDがアカウントリストに存在しません");
     }
 
-    const tenantId = resolveTenantId(req) ?? undefined;
+    const tenantId = resolveTenantIdOrThrow(req) ?? undefined;
 
     await setSetting("square", "accounts", JSON.stringify(accounts), tenantId);
     await setSetting("square", "active_account_id", activeId, tenantId);

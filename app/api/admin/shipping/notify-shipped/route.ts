@@ -4,7 +4,7 @@ import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { buildShippingFlex, sendShippingNotification } from "@/lib/shipping-flex";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 
 export const maxDuration = 60;
@@ -14,7 +14,7 @@ async function getTodayShippedPatients(tenantId: string | null) {
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-  const { data: orders, error } = await withTenant(
+  const { data: orders, error } = await strictWithTenant(
     supabaseAdmin.from("orders").select("patient_id, tracking_number, carrier").eq("shipping_date", today).not("tracking_number", "is", null),
     tenantId
   );
@@ -26,7 +26,7 @@ async function getTodayShippedPatients(tenantId: string | null) {
   const uniquePids = [...new Set(orders.map(o => o.patient_id))];
 
   // patients から patient_name, line_id を取得
-  const { data: pData } = await withTenant(
+  const { data: pData } = await strictWithTenant(
     supabaseAdmin.from("patients").select("patient_id, name, line_id").in("patient_id", uniquePids),
     tenantId
   );
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     const patients = await getTodayShippedPatients(tenantId);
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     const patients = await getTodayShippedPatients(tenantId);
@@ -97,14 +97,14 @@ export async function POST(req: NextRequest) {
     let menuSwitched = 0;
 
     // 「処方すみ」マーク定義を取得
-    const { data: markDef } = await withTenant(
+    const { data: markDef } = await strictWithTenant(
       supabaseAdmin.from("mark_definitions").select("value").eq("label", "処方ずみ"),
       tenantId
     ).maybeSingle();
     const rxMarkValue = markDef?.value || null;
 
     // 「処方後」リッチメニューを取得
-    const { data: rxMenu } = await withTenant(
+    const { data: rxMenu } = await strictWithTenant(
       supabaseAdmin.from("rich_menus").select("line_rich_menu_id").eq("name", "処方後").not("line_rich_menu_id", "is", null),
       tenantId
     ).maybeSingle();
@@ -145,12 +145,12 @@ export async function POST(req: NextRequest) {
           if (rxMarkValue) {
             sideEffects.push((async () => {
               try {
-                const { data: current } = await withTenant(
+                const { data: current } = await strictWithTenant(
                   supabaseAdmin.from("patient_marks").select("mark").eq("patient_id", p.patient_id),
                   tenantId
                 ).maybeSingle();
                 if (!current || current.mark !== rxMarkValue) {
-                  await withTenant(
+                  await strictWithTenant(
                     supabaseAdmin
                       .from("patient_marks")
                       .upsert({

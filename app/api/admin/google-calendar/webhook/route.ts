@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { withTenant } from "@/lib/tenant";
+import { strictWithTenant } from "@/lib/tenant";
 import { processGcalChanges } from "@/lib/google-calendar-sync";
 
 export const runtime = "nodejs";

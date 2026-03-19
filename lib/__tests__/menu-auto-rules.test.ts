@@ -293,6 +293,7 @@ vi.mock("@/lib/settings", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   withTenant: vi.fn((query: unknown) => query),
+  strictWithTenant: vi.fn((query: unknown) => query),
 }));
 
 vi.mock("@/lib/behavior-filters", () => ({

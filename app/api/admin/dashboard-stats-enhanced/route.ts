@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { jwtVerify } from "jose";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 // Supabaseクエリ結果用の型定義
 interface PatientIdRow { patient_id: string }
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     const customStart = searchParams.get("start");
     const customEnd = searchParams.get("end");
 
-    const tenantId = resolveTenantId(request);
+    const tenantId = resolveTenantIdOrThrow(request);
 
     // 日付範囲を計算
     const { startISO, endISO, startDate: reservationStartDate, endDate: reservationEndDate, prevStartISO, prevEndISO } = calculateDateRange(range, customStart, customEnd);
@@ -88,47 +88,47 @@ export async function GET(request: NextRequest) {
       noAnswerResult,
     ] = await Promise.all([
       // 1. 予約総数
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("reservations").select("*", { count: "exact", head: true })
           .gte("reserved_date", reservationStartDate).lt("reserved_date", reservationEndDate),
         tenantId
       ),
       // 2. 診察完了（OK）
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("reservations").select("patient_id")
           .gte("reserved_date", reservationStartDate).lt("reserved_date", reservationEndDate)
           .eq("status", "OK").limit(10000),
         tenantId
       ),
       // 3. 診察完了（NG）
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("reservations").select("patient_id")
           .gte("reserved_date", reservationStartDate).lt("reserved_date", reservationEndDate)
           .eq("status", "NG").limit(10000),
         tenantId
       ),
       // 4. キャンセル数
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("reservations").select("*", { count: "exact", head: true })
           .gte("reserved_date", reservationStartDate).lt("reserved_date", reservationEndDate)
           .eq("status", "canceled"),
         tenantId
       ),
       // 5. 配送総数
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("orders").select("*", { count: "exact", head: true })
           .gte("shipping_date", shippingStartDate).lt("shipping_date", shippingEndDate),
         tenantId
       ),
       // 6. 配送注文データ
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("orders").select("patient_id, created_at")
           .gte("shipping_date", shippingStartDate).lt("shipping_date", shippingEndDate)
           .limit(10000),
         tenantId
       ),
       // 7. カード決済注文
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("orders").select("amount, patient_id, created_at, paid_at, product_code")
           .eq("payment_method", "credit_card")
           .gte("paid_at", startISO).lt("paid_at", endISO)
@@ -136,7 +136,7 @@ export async function GET(request: NextRequest) {
         tenantId
       ),
       // 8. 銀行振込注文
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("orders").select("amount, product_code, patient_id, created_at")
           .eq("payment_method", "bank_transfer")
           .in("status", ["pending_confirmation", "confirmed"])
@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
         tenantId
       ),
       // 9. 返金データ
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("orders").select("amount, refunded_amount")
           .eq("refund_status", "COMPLETED")
           .gte("refunded_at", startISO).lt("refunded_at", endISO)
@@ -153,26 +153,26 @@ export async function GET(request: NextRequest) {
         tenantId
       ),
       // 10. 総患者数
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("intake").select("*", { count: "exact", head: true }),
         tenantId
       ),
       // 11. 銀行振込（入金待ち）
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("orders").select("*", { count: "exact", head: true })
           .eq("payment_method", "bank_transfer").eq("status", "pending_confirmation")
           .gte("created_at", startISO).lt("created_at", endISO),
         tenantId
       ),
       // 12. 銀行振込（確認済み）
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("orders").select("*", { count: "exact", head: true })
           .eq("payment_method", "bank_transfer").eq("status", "confirmed")
           .gte("created_at", startISO).lt("created_at", endISO),
         tenantId
       ),
       // 13. 診察完了患者ID（KPI用）
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("intake").select("patient_id")
           .in("status", ["OK", "NG"])
           .gte("created_at", startISO).lt("created_at", endISO)
@@ -180,34 +180,34 @@ export async function GET(request: NextRequest) {
         tenantId
       ),
       // 14. 問診患者ID（KPI用 + 新規患者数兼用）
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("intake").select("patient_id")
           .gte("created_at", startISO).lt("created_at", endISO)
           .limit(10000),
         tenantId
       ),
       // 15. LINE登録者（line_daily_statsの最新フォロワー数）
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("line_daily_stats").select("followers")
           .order("stat_date", { ascending: false })
           .limit(1),
         tenantId
       ),
       // 16. アクティブ予約数
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("reservations").select("*", { count: "exact", head: true })
           .gte("reserved_date", reservationStartDate).lt("reserved_date", reservationEndDate)
           .neq("status", "canceled"),
         tenantId
       ),
       // 17. 本日作成予約数
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("reservations").select("*", { count: "exact", head: true })
           .gte("created_at", startISO).lt("created_at", endISO),
         tenantId
       ),
       // 18. 前期間のカード決済患者（リピート率計算用）
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("orders").select("patient_id")
           .eq("payment_method", "credit_card")
           .not("paid_at", "is", null)
@@ -216,7 +216,7 @@ export async function GET(request: NextRequest) {
         tenantId
       ),
       // 19. 前期間の銀行振込患者（リピート率計算用）
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("orders").select("patient_id")
           .eq("payment_method", "bank_transfer")
           .in("status", ["pending_confirmation", "confirmed"])
@@ -225,7 +225,7 @@ export async function GET(request: NextRequest) {
         tenantId
       ),
       // 20. 不通（call_status = no_answer / no_answer_sent、診察済みを除く）
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("reservations").select("patient_id")
           .gte("reserved_date", reservationStartDate).lt("reserved_date", reservationEndDate)
           .in("call_status", ["no_answer", "no_answer_sent"])
@@ -305,7 +305,7 @@ export async function GET(request: NextRequest) {
     ] = await Promise.all([
       // 配送: 過去に注文がある患者を特定（shipping_date基準で期間前の注文を検索）
       shippingPatientIds.length > 0
-        ? withTenant(
+        ? strictWithTenant(
             supabaseAdmin.from("orders").select("patient_id, shipping_date")
               .in("patient_id", shippingPatientIds)
               .not("shipping_date", "is", null)
@@ -315,7 +315,7 @@ export async function GET(request: NextRequest) {
         : Promise.resolve({ data: [] }),
       // 決済: 過去に注文がある患者を特定（paid_at基準で期間前の決済を検索）
       paidPatientIds.length > 0
-        ? withTenant(
+        ? strictWithTenant(
             supabaseAdmin.from("orders").select("patient_id")
               .in("patient_id", paidPatientIds)
               .not("paid_at", "is", null)
@@ -325,7 +325,7 @@ export async function GET(request: NextRequest) {
         : Promise.resolve({ data: [] }),
       // KPI: 診察完了患者のうち決済した患者
       consultedPatientIds.length > 0
-        ? withTenant(
+        ? strictWithTenant(
             supabaseAdmin.from("orders").select("patient_id")
               .in("patient_id", consultedPatientIds)
               .not("paid_at", "is", null)
@@ -335,7 +335,7 @@ export async function GET(request: NextRequest) {
         : Promise.resolve({ data: [] }),
       // KPI: 問診患者のうち予約した患者
       intakePatientIds.length > 0
-        ? withTenant(
+        ? strictWithTenant(
             supabaseAdmin.from("reservations").select("patient_id")
               .in("patient_id", intakePatientIds)
               .gte("reserved_date", reservationStartDate).lt("reserved_date", reservationEndDate).limit(100000),

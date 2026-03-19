@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     // クエリパラメータ: include_all=true で全件取得、デフォルトはpendingのみ
     const searchParams = req.nextUrl.searchParams;
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       query = query.eq("status", "pending");
     }
 
-    const { data: reordersData, error: reordersError } = await withTenant(query, tenantId);
+    const { data: reordersData, error: reordersError } = await strictWithTenant(query, tenantId);
 
     if (reordersError) {
       console.error("Reorders fetch error:", reordersError);
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
     // patientsテーブルから患者名を取得
     let patientInfoMap: Record<string, { name: string; lstep_uid: string }> = {};
     if (patientIds.length > 0) {
-      const { data: pData } = await withTenant(
+      const { data: pData } = await strictWithTenant(
         supabaseAdmin
           .from("patients")
           .select("patient_id, name")
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
       );
 
       // intakeからanswerer_id（Lステップ用）を取得
-      const { data: intakeData } = await withTenant(
+      const { data: intakeData } = await strictWithTenant(
         supabaseAdmin
           .from("intake")
           .select("patient_id, answerer_id")

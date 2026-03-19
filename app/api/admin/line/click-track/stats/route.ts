@@ -3,19 +3,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const linkId = searchParams.get("link_id");
 
   if (linkId) {
     // 特定リンクのクリック詳細
-    const { data: events } = await withTenant(
+    const { data: events } = await strictWithTenant(
       supabaseAdmin
         .from("click_tracking_events")
         .select("id, clicked_at, user_agent, ip_address")
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   }
 
   // 全リンクの概要統計
-  const { data: links } = await withTenant(
+  const { data: links } = await strictWithTenant(
     supabaseAdmin
       .from("click_tracking_links")
       .select(`

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyWebhookSignature } from "@/lib/stripe";
 import { checkIdempotency } from "@/lib/idempotency";
 import { processStripeEvent } from "@/lib/webhook-handlers/stripe";
+import { notifyWebhookFailure } from "@/lib/notifications/webhook-failure";
 
 export const runtime = "nodejs";
 
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error(`[stripe-webhook] イベント処理エラー (${event.type}):`, err);
     await idem.markFailed(err instanceof Error ? err.message : "unknown error");
+    notifyWebhookFailure("stripe", event.id, err).catch(() => {});
     return NextResponse.json({ error: "処理エラー" }, { status: 500 });
   }
 }

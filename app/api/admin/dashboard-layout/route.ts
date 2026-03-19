@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getSetting, setSetting } from "@/lib/settings";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 
 // ウィジェットID一覧（デフォルト順）
 export const WIDGET_DEFINITIONS = [
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(request) || undefined;
+  const tenantId = resolveTenantIdOrThrow(request) || undefined;
   const scope = new URL(request.url).searchParams.get("scope");
 
   // enhanced ダッシュボードのウィジェット設定
@@ -94,7 +94,7 @@ export async function PUT(request: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(request) || undefined;
+  const tenantId = resolveTenantIdOrThrow(request) || undefined;
   const scope = new URL(request.url).searchParams.get("scope");
 
   // enhanced ダッシュボードのウィジェット設定

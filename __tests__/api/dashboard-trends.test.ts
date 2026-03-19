@@ -46,7 +46,9 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
+  resolveTenantIdOrThrow: vi.fn(() => "test-tenant"),
   withTenant: vi.fn((q: unknown) => q),
+  strictWithTenant: vi.fn((q: unknown) => q),
 }));
 
 import { NextRequest } from "next/server";
@@ -174,9 +176,9 @@ describe("売上トレンドAPI - GET", () => {
   });
 
   it("Supabaseエラー時は500を返す", async () => {
-    // withTenantがエラーをスローするケースをシミュレート
-    const { withTenant } = await import("@/lib/tenant");
-    (withTenant as Mock).mockRejectedValueOnce(new Error("DB接続エラー"));
+    // strictWithTenantがエラーをスローするケースをシミュレート
+    const { strictWithTenant } = await import("@/lib/tenant");
+    (strictWithTenant as Mock).mockRejectedValueOnce(new Error("DB接続エラー"));
 
     const req = createNextRequest("http://localhost/api/admin/dashboard-trends");
     const res = await GET(req);

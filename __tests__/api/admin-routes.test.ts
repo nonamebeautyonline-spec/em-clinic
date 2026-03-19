@@ -94,7 +94,7 @@ describe("admin/patients/bulk/send: テンプレート一括送信ルート", ()
   it("テナント対応している", () => {
     if (!fileExists(file)) return;
     const src = readFile(file);
-    const hasTenant = src.includes("withTenant") || src.includes("resolveTenantId") || src.includes("tenantPayload");
+    const hasTenant = src.includes("withTenant") || src.includes("strictWithTenant") || src.includes("resolveTenantId") || src.includes("resolveTenantIdOrThrow") || src.includes("tenantPayload");
     expect(hasTenant).toBe(true);
   });
 
@@ -203,7 +203,8 @@ describe("admin配下全ルート: 認証チェック", () => {
 
   // 認証不要なルート（ログイン・パスワードリセット・セッションチェック等）
   // google-calendar/callback: OAuth2コールバック（Googleからのリダイレクトで管理者セッションなし、stateで識別）
-  const AUTH_EXEMPT = ["login", "logout", "csrf-token", "password-reset", "session", "update-order-address", "tenant-info", "dashboard-sse", "google-calendar/callback", "google-calendar/webhook"];
+  // square-oauth/callback: Square OAuthコールバック（Squareからのリダイレクトで管理者セッションなし、stateで識別）
+  const AUTH_EXEMPT = ["login", "logout", "csrf-token", "password-reset", "session", "update-order-address", "tenant-info", "dashboard-sse", "google-calendar/callback", "google-calendar/webhook", "square-oauth/callback"];
 
   it("全 admin ルートが verifyAdminAuth を呼んでいる（除外ルート以外）", () => {
     const violations: string[] = [];
@@ -265,7 +266,7 @@ describe("admin配下全ルート: テナント分離", () => {
 
       const src = fs.readFileSync(path.resolve(process.cwd(), route), "utf-8");
       if (src.includes("supabaseAdmin")) {
-        const hasTenant = src.includes("withTenant") || src.includes("resolveTenantId") || src.includes("tenantPayload");
+        const hasTenant = src.includes("withTenant") || src.includes("strictWithTenant") || src.includes("resolveTenantId") || src.includes("resolveTenantIdOrThrow") || src.includes("tenantPayload");
         if (!hasTenant) {
           violations.push(route);
         }
@@ -297,7 +298,7 @@ describe("決済webhook: テナント対応", () => {
     it(`${name} はテナント対応している`, () => {
       if (!fileExists(file)) return;
       const src = readFile(file);
-      const hasTenant = src.includes("withTenant") || src.includes("resolveTenantId") || src.includes("tenantPayload");
+      const hasTenant = src.includes("withTenant") || src.includes("strictWithTenant") || src.includes("resolveTenantId") || src.includes("resolveTenantIdOrThrow") || src.includes("tenantPayload");
       expect(hasTenant).toBe(true);
     });
   }
@@ -350,7 +351,7 @@ describe("bank-transfer/shipping: 重要ルール確認", () => {
   it("テナント対応している", () => {
     if (!fileExists(file)) return;
     const src = readFile(file);
-    const hasTenant = src.includes("withTenant") || src.includes("resolveTenantId") || src.includes("tenantPayload");
+    const hasTenant = src.includes("withTenant") || src.includes("strictWithTenant") || src.includes("resolveTenantId") || src.includes("resolveTenantIdOrThrow") || src.includes("tenantPayload");
     expect(hasTenant).toBe(true);
   });
 });
@@ -377,7 +378,7 @@ describe("配送関連ルート: 基本要件", () => {
     for (const route of shippingRoutes) {
       const src = fs.readFileSync(path.resolve(process.cwd(), route), "utf-8");
       if (src.includes("supabaseAdmin")) {
-        const hasTenant = src.includes("withTenant") || src.includes("resolveTenantId") || src.includes("tenantPayload");
+        const hasTenant = src.includes("withTenant") || src.includes("strictWithTenant") || src.includes("resolveTenantId") || src.includes("resolveTenantIdOrThrow") || src.includes("tenantPayload");
         if (!hasTenant) {
           violations.push(route);
         }
@@ -438,7 +439,7 @@ describe("患者管理bulk操作: 基本要件", () => {
     for (const route of bulkRoutes) {
       const src = fs.readFileSync(path.resolve(process.cwd(), route), "utf-8");
       if (src.includes("supabaseAdmin")) {
-        const hasTenant = src.includes("withTenant") || src.includes("resolveTenantId") || src.includes("tenantPayload");
+        const hasTenant = src.includes("withTenant") || src.includes("strictWithTenant") || src.includes("resolveTenantId") || src.includes("resolveTenantIdOrThrow") || src.includes("tenantPayload");
         if (!hasTenant) {
           violations.push(route);
         }
@@ -454,7 +455,9 @@ describe("患者管理bulk操作: 基本要件", () => {
 describe("Cron: テナント対応", () => {
   const cronRoutes = findRouteFiles("app/api/cron");
   // テナント横断チェックのためテナント対応不要なcronルート
-  const CRON_TENANT_EXEMPT = ["health-report", "usage-check", "audit-archive", "usage-alert", "report-usage", "generate-invoices", "send-reports"];
+  // square-token-refresh: 全テナントをループして各テナントのトークンを更新（テナント横断処理）
+  // webhook-cleanup: 全テナントのスタックイベント検知+クリーンアップ（テナント横断処理）
+  const CRON_TENANT_EXEMPT = ["health-report", "usage-check", "audit-archive", "usage-alert", "report-usage", "generate-invoices", "send-reports", "square-token-refresh", "webhook-cleanup"];
 
   it("supabaseAdminを使うcronルートはテナント対応している", () => {
     const violations: string[] = [];
@@ -462,7 +465,7 @@ describe("Cron: テナント対応", () => {
       if (CRON_TENANT_EXEMPT.some((e) => route.includes(e))) continue;
       const src = fs.readFileSync(path.resolve(process.cwd(), route), "utf-8");
       if (src.includes("supabaseAdmin")) {
-        const hasTenant = src.includes("withTenant") || src.includes("resolveTenantId") || src.includes("tenantPayload");
+        const hasTenant = src.includes("withTenant") || src.includes("strictWithTenant") || src.includes("resolveTenantId") || src.includes("resolveTenantIdOrThrow") || src.includes("tenantPayload");
         if (!hasTenant) {
           violations.push(route);
         }

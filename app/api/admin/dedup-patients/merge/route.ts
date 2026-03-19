@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { mergePatients } from "@/lib/patient-dedup";
 import { parseBody } from "@/lib/validations/helpers";
 import { mergePatientSchema } from "@/lib/validations/dedup";
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     return badRequest("同じ患者IDは統合できません");
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     const result = await mergePatients(keep_id, remove_id, tenantId);

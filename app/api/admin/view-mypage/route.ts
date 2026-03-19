@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -123,7 +123,7 @@ async function getPatientInfoFromSupabase(
 ): Promise<{ id: string; displayName: string; lineId: string; hasIntake: boolean; intakeStatus: string | null }> {
   try {
     // patientsテーブルからname, line_idを取得
-    const { data: patient } = await withTenant(
+    const { data: patient } = await strictWithTenant(
       supabaseAdmin
         .from("patients")
         .select("patient_id, name, line_id")
@@ -133,7 +133,7 @@ async function getPatientInfoFromSupabase(
     );
 
     // intakeから status, answers を取得（問診本体、answers が null の空レコードを除外）
-    const { data: intakeRows } = await withTenant(
+    const { data: intakeRows } = await strictWithTenant(
       supabaseAdmin
         .from("intake")
         .select("patient_id, status, answers")
@@ -165,7 +165,7 @@ async function getNextReservationFromSupabase(
   tenantId: string | null
 ): Promise<{ id: string; datetime: string; title: string; status: string } | null> {
   try {
-    const { data: resvRows, error } = await withTenant(
+    const { data: resvRows, error } = await strictWithTenant(
       supabaseAdmin
         .from("reservations")
         .select("reserve_id, reserved_date, reserved_time, status")
@@ -203,7 +203,7 @@ async function getConsultationHistoryFromSupabase(
 ): Promise<ConsultationHistory[]> {
   try {
     // intakeからstatus=OKのレコードを取得（note, reserve_id, updated_at）
-    const { data: intakeData, error } = await withTenant(
+    const { data: intakeData, error } = await strictWithTenant(
       supabaseAdmin
         .from("intake")
         .select("reserve_id, status, note, updated_at")
@@ -219,7 +219,7 @@ async function getConsultationHistoryFromSupabase(
     const reserveIds = (intakeData || []).map(r => r.reserve_id).filter(Boolean);
     const resvMap = new Map<string, { reserved_date: string; prescription_menu: string }>();
     if (reserveIds.length > 0) {
-      const { data: resvData } = await withTenant(
+      const { data: resvData } = await strictWithTenant(
         supabaseAdmin
           .from("reservations")
           .select("reserve_id, reserved_date, prescription_menu")
@@ -256,7 +256,7 @@ async function getConsultationHistoryFromSupabase(
 
 async function getOrdersFromSupabase(patientId: string, tenantId: string | null): Promise<OrderForMyPage[]> {
   try {
-    const { data, error } = await withTenant(
+    const { data, error } = await strictWithTenant(
       supabaseAdmin
         .from("orders")
         .select("*")
@@ -310,7 +310,7 @@ async function getReordersFromSupabase(patientId: string, tenantId: string | nul
   months: number | undefined;
 }[]> {
   try {
-    const { data, error } = await withTenant(
+    const { data, error } = await strictWithTenant(
       supabaseAdmin
         .from("reorders")
         .select("id, status, created_at, product_code")
@@ -353,7 +353,7 @@ export async function GET(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patient_id");

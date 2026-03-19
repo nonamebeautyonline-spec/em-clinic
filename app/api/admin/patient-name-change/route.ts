@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { patientNameChangeSchema } from "@/lib/validations/admin-operations";
 
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const parsed = await parseBody(req, patientNameChangeSchema);
     if ("error" in parsed) return parsed.error;
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     const results: Record<string, string> = {};
 
     // 1. 現在の answerers データ取得（変更前の記録用）
-    const { data: currentAnswerer } = await withTenant(
+    const { data: currentAnswerer } = await strictWithTenant(
       supabaseAdmin
         .from("patients")
         .select("name, name_kana, birthday")
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       if (newBirthday) {
         updateData.birthday = newBirthday;
       }
-      const { error: answererErr } = await withTenant(
+      const { error: answererErr } = await strictWithTenant(
         supabaseAdmin
           .from("patients")
           .update(updateData)
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
 
     // 3. intake.answers JSONB の氏名・カナキーを全レコード更新
     //    Supabase JS は jsonb_set 非対応のため、fetch→merge→update by id
-    const { data: intakeRows } = await withTenant(
+    const { data: intakeRows } = await strictWithTenant(
       supabaseAdmin
         .from("intake")
         .select("id, answers")
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
         updatedAnswers["birth"] = newBirthday;
       }
 
-      const { error } = await withTenant(
+      const { error } = await strictWithTenant(
         supabaseAdmin
           .from("intake")
           .update({ answers: updatedAnswers })
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
       : `ok (${answersUpdated} rows)`;
 
     // 5. reservations.patient_name を全レコード更新
-    const { error: reservErr, count: reservCount } = await withTenant(
+    const { error: reservErr, count: reservCount } = await strictWithTenant(
       supabaseAdmin
         .from("reservations")
         .update({ patient_name: newName })

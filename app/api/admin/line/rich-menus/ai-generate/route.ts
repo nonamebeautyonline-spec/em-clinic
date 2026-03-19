@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { aiRichMenuGenerateSchema } from "@/lib/validations/line-common";
 import { generateRichMenuImage } from "@/lib/ai-richmenu-generator";
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const parsed = await parseBody(req, aiRichMenuGenerateSchema);
   if ("error" in parsed) return parsed.error;

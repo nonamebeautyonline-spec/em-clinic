@@ -3,7 +3,7 @@ import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { createLineRichMenu, uploadRichMenuImage, deleteLineRichMenu, setDefaultRichMenu, bulkLinkRichMenu } from "@/lib/line-richmenu";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateRichMenuSchema } from "@/lib/validations/line-management";
 import { getSettingOrEnv } from "@/lib/settings";
@@ -21,7 +21,7 @@ async function getTargetLineUserIds(menuName: string, tenantId: string | null): 
     const lineIds: string[] = [];
     let from = 0;
     while (true) {
-      const { data } = await withTenant(
+      const { data } = await strictWithTenant(
         supabaseAdmin.from("orders").select("patient_id").range(from, from + PAGE - 1),
         tenantId
       );
@@ -29,7 +29,7 @@ async function getTargetLineUserIds(menuName: string, tenantId: string | null): 
 
       const patientIds = Array.from(new Set(data.map(d => d.patient_id)));
       // patients テーブルから line_id を取得（intake の冗長カラムを使わない）
-      const { data: pts } = await withTenant(
+      const { data: pts } = await strictWithTenant(
         supabaseAdmin.from("patients").select("line_id").in("patient_id", patientIds).not("line_id", "is", null),
         tenantId
       );
@@ -46,14 +46,14 @@ async function getTargetLineUserIds(menuName: string, tenantId: string | null): 
     let from = 0;
     while (true) {
       // patients テーブルから line_id を取得（intake の冗長カラムを使わない）
-      const { data: pts } = await withTenant(
+      const { data: pts } = await strictWithTenant(
         supabaseAdmin.from("patients").select("patient_id, line_id").not("line_id", "is", null).range(from, from + PAGE - 1),
         tenantId
       );
       if (!pts || pts.length === 0) break;
 
       const patientIds = pts.map(p => p.patient_id);
-      const { data: orders } = await withTenant(
+      const { data: orders } = await strictWithTenant(
         supabaseAdmin.from("orders").select("patient_id").in("patient_id", patientIds),
         tenantId
       );
@@ -83,7 +83,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const { id } = await params;
     const parsed = await parseBody(req, updateRichMenuSchema);
     if ("error" in parsed) return parsed.error;
@@ -91,7 +91,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const tag = `[RichMenu:${id}]`;
 
     // 1. 既存メニューを取得
-    const { data: existing } = await withTenant(
+    const { data: existing } = await strictWithTenant(
       supabaseAdmin.from("rich_menus").select("line_rich_menu_id").eq("id", Number(id)),
       tenantId
     ).single();
@@ -99,7 +99,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const oldLineMenuId = existing?.line_rich_menu_id || null;
 
     // 2. DB更新
-    const { data, error } = await withTenant(
+    const { data, error } = await strictWithTenant(
       supabaseAdmin.from("rich_menus").update({ ...body, updated_at: new Date().toISOString() }).eq("id", Number(id)).select(),
       tenantId
     ).single();
@@ -138,7 +138,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Step 3: DB更新（line_rich_menu_id）
     console.log(`${tag} Step3: Updating DB`);
-    const { error: dbErr } = await withTenant(
+    const { error: dbErr } = await strictWithTenant(
       supabaseAdmin.from("rich_menus").update({ line_rich_menu_id: lineRichMenuId, is_active: true }).eq("id", data.id),
       tenantId
     );
@@ -184,10 +184,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const { id } = await params;
 
-    const { data: existing } = await withTenant(
+    const { data: existing } = await strictWithTenant(
       supabaseAdmin.from("rich_menus").select("line_rich_menu_id").eq("id", Number(id)),
       tenantId
     ).single();
@@ -196,7 +196,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       await deleteLineRichMenu(existing.line_rich_menu_id, tenantId ?? undefined);
     }
 
-    const { error } = await withTenant(
+    const { error } = await strictWithTenant(
       supabaseAdmin.from("rich_menus").delete().eq("id", Number(id)),
       tenantId
     );

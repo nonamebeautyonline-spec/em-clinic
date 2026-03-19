@@ -5,6 +5,7 @@ import { resolveTenantId } from "@/lib/tenant";
 import { checkIdempotency } from "@/lib/idempotency";
 import { getSettingOrEnv } from "@/lib/settings";
 import { processGmoEvent } from "@/lib/webhook-handlers/gmo";
+import { notifyWebhookFailure } from "@/lib/notifications/webhook-failure";
 
 export const runtime = "nodejs";
 
@@ -49,8 +50,11 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  let idem: Awaited<ReturnType<typeof checkIdempotency>> | null = null;
+  let tenantId: string | null = null;
+
   try {
-    const tenantId = resolveTenantId(req);
+    tenantId = resolveTenantId(req);
     const tid = tenantId ?? undefined;
     const bodyText = await req.text();
     const params = new URLSearchParams(bodyText);
@@ -84,7 +88,7 @@ export async function POST(req: Request) {
 
     // 冪等チェック
     const idempotencyKey = `${accessId || orderId}_${status}`;
-    const idem = await checkIdempotency("gmo", idempotencyKey, tenantId, { orderId, status, amount, patientId, productCode, reorderId, productName: clientField2 });
+    idem = await checkIdempotency("gmo", idempotencyKey, tenantId, { orderId, status, amount, patientId, productCode, reorderId, productName: clientField2 });
     if (idem.duplicate) {
       return new NextResponse("ok", { status: 200 });
     }
@@ -107,6 +111,8 @@ export async function POST(req: Request) {
   } catch (err) {
     const e = err instanceof Error ? err : null;
     console.error("[gmo/webhook] handler error:", e?.stack || e?.message || err);
+    await idem?.markFailed(e?.message || "unknown error");
+    notifyWebhookFailure("gmo", "unknown", err, tenantId ?? undefined).catch(() => {});
     return new NextResponse("ok", { status: 200 });
   }
 }

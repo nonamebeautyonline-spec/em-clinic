@@ -19,6 +19,7 @@ vi.mock("@/lib/line-push", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn().mockReturnValue(null),
+  resolveTenantIdOrThrow: vi.fn(() => null),
 }));
 
 const mockFetch = vi.fn().mockResolvedValue({ ok: true });

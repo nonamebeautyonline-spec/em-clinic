@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized, badRequest, notFound, serverError, conflict } from "@/lib/api-error";
 import { verifyAdminAuth, getAdminUserId } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import bcrypt from "bcryptjs";
 import { parseBody } from "@/lib/validations/helpers";
 import { accountPasswordChangeSchema, accountEmailChangeSchema } from "@/lib/validations/admin-operations";
@@ -24,7 +24,7 @@ export async function PUT(req: NextRequest) {
     return unauthorized("ユーザー情報を取得できません");
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     const parsed = await parseBody(req, accountPasswordChangeSchema);
@@ -32,7 +32,7 @@ export async function PUT(req: NextRequest) {
     const { currentPassword, newPassword } = parsed.data;
 
     // 現在のパスワードハッシュを取得
-    const { data: user, error: fetchError } = await withTenant(
+    const { data: user, error: fetchError } = await strictWithTenant(
       supabaseAdmin.from("admin_users").select("password_hash"), tenantId
     ).eq("id", userId).single();
 
@@ -54,7 +54,7 @@ export async function PUT(req: NextRequest) {
 
     // 新しいパスワードをハッシュ化して更新
     const newHash = await bcrypt.hash(newPassword, 10);
-    const { error: updateError } = await withTenant(
+    const { error: updateError } = await strictWithTenant(
       supabaseAdmin.from("admin_users").update({
         password_hash: newHash,
         password_changed_at: new Date().toISOString(),
@@ -90,7 +90,7 @@ export async function PATCH(req: NextRequest) {
     return unauthorized("ユーザー情報を取得できません");
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     const parsed = await parseBody(req, accountEmailChangeSchema);
@@ -98,7 +98,7 @@ export async function PATCH(req: NextRequest) {
     const { newEmail, password } = parsed.data;
 
     // パスワード検証
-    const { data: user, error: fetchError } = await withTenant(
+    const { data: user, error: fetchError } = await strictWithTenant(
       supabaseAdmin.from("admin_users").select("password_hash, tenant_id"), tenantId
     ).eq("id", userId).single();
 
@@ -112,7 +112,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     // 同じテナント内でメールアドレスの重複チェック
-    const { data: existing } = await withTenant(
+    const { data: existing } = await strictWithTenant(
       supabaseAdmin.from("admin_users").select("id"), tenantId
     ).eq("email", newEmail).neq("id", userId).maybeSingle();
     if (existing) {
@@ -120,7 +120,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     // メールアドレス更新
-    const { error: updateError } = await withTenant(
+    const { error: updateError } = await strictWithTenant(
       supabaseAdmin.from("admin_users").update({ email: newEmail }), tenantId
     ).eq("id", userId);
 

@@ -32,6 +32,7 @@ vi.mock("jose", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: (...args: unknown[]) => mockResolveTenantId(...args),
+  resolveTenantIdOrThrow: (...args: unknown[]) => mockResolveTenantId(...args),
 }));
 
 import { logAudit } from "@/lib/audit";

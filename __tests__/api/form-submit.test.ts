@@ -8,7 +8,9 @@ vi.mock("@/lib/line-push", () => ({ pushMessage: mockPushMessage }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
+  resolveTenantIdOrThrow: vi.fn(() => null),
   withTenant: vi.fn((query) => query),
+  strictWithTenant: vi.fn((query: unknown) => query),
   tenantPayload: vi.fn(() => ({})),
 }));
 

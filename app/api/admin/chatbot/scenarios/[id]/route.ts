@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -13,9 +13,9 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
   if (!isAuthorized) return unauthorized();
 
   const { id } = await ctx.params;
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("chatbot_scenarios")
       .select("*")
@@ -35,7 +35,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   if (!isAuthorized) return unauthorized();
 
   const { id } = await ctx.params;
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   let body: Record<string, unknown>;
   try {
@@ -50,7 +50,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   if (body.trigger_keyword !== undefined) update.trigger_keyword = body.trigger_keyword || null;
   if (body.is_active !== undefined) update.is_active = body.is_active;
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("chatbot_scenarios")
       .update(update)
@@ -68,9 +68,9 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
   if (!isAuthorized) return unauthorized();
 
   const { id } = await ctx.params;
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin
       .from("chatbot_scenarios")
       .delete()

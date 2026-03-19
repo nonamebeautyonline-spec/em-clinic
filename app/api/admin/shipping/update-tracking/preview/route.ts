@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 interface TrackingUpdate {
   paymentId: string;
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const formData = await req.formData();
     const file = formData.get("file") as File;
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
 
     // 全payment_idに対応する注文情報を一括取得
     if (paymentIds.length > 0) {
-      const { data: orders, error: ordersError } = await withTenant(
+      const { data: orders, error: ordersError } = await strictWithTenant(
         supabaseAdmin.from("orders").select("id, patient_id").in("id", paymentIds),
         tenantId
       );
@@ -129,12 +129,12 @@ export async function POST(req: NextRequest) {
       // patientsテーブルから患者名を取得、intakeからLステップIDを取得
       let patientInfoMap: Record<string, { patient_name: string; lstep_id: string }> = {};
       if (patientIds.length > 0) {
-        const { data: pData } = await withTenant(
+        const { data: pData } = await strictWithTenant(
           supabaseAdmin.from("patients").select("patient_id, name").in("patient_id", patientIds),
           tenantId
         );
 
-        const { data: intakeData } = await withTenant(
+        const { data: intakeData } = await strictWithTenant(
           supabaseAdmin.from("intake").select("patient_id, answerer_id").in("patient_id", patientIds).not("answerer_id", "is", null),
           tenantId
         );

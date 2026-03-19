@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { getSetting, setSetting } from "@/lib/settings";
 import { fetchSquareLocations } from "@/lib/square-oauth";
 import type { SquareAccount } from "@/lib/square-account";
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req) ?? undefined;
+    const tenantId = resolveTenantIdOrThrow(req) ?? undefined;
     const accountId = req.nextUrl.searchParams.get("account_id");
     if (!accountId) return badRequest("account_id は必須です");
 
@@ -47,7 +47,7 @@ export async function PUT(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req) ?? undefined;
+    const tenantId = resolveTenantIdOrThrow(req) ?? undefined;
     const body = await req.json();
     const { accountId, locationId } = body;
 

@@ -4,7 +4,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { formatProductCode, formatPaymentMethod, formatReorderStatus, formatDateJST } from "@/lib/patient-utils";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const { searchParams } = new URL(req.url);
     const query = searchParams.get("q")?.trim() || "";
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
       const normalizedQuery = query.replace(/[\s　]/g, "").toLowerCase();
       const searchPattern = `%${query.replace(/[\s　]/g, "%")}%`;
 
-      const { data: candidates } = await withTenant(
+      const { data: candidates } = await strictWithTenant(
         supabaseAdmin
           .from("patients")
           .select("patient_id, name")
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
       }
     } else if (searchType === "answerer_id") {
       // answerer_id検索: LステップIDで検索
-      const { data: foundIntake } = await withTenant(
+      const { data: foundIntake } = await strictWithTenant(
         supabaseAdmin
           .from("intake")
           .select("patient_id, answerer_id")
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
     } else if (searchType === "tracking") {
       // 追跡番号検索: ordersテーブルからpatient_idを取得
       const normalizedTracking = query.replace(/-/g, "");
-      let orderData = (await withTenant(
+      let orderData = (await strictWithTenant(
         supabaseAdmin
           .from("orders")
           .select("patient_id")
@@ -98,7 +98,7 @@ export async function GET(req: NextRequest) {
         tenantId
       )).data;
       if (!orderData && normalizedTracking !== query) {
-        orderData = (await withTenant(
+        orderData = (await strictWithTenant(
           supabaseAdmin
             .from("orders")
             .select("patient_id")
@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
       }
     } else {
       // ID検索: intakeからpatient_id部分一致
-      const { data: foundIntake } = await withTenant(
+      const { data: foundIntake } = await strictWithTenant(
         supabaseAdmin
           .from("intake")
           .select("patient_id")
@@ -130,7 +130,7 @@ export async function GET(req: NextRequest) {
         patientId = foundIntake.patient_id;
       } else {
         // ordersテーブルでも検索
-        const { data: orderData } = await withTenant(
+        const { data: orderData } = await strictWithTenant(
           supabaseAdmin
             .from("orders")
             .select("patient_id")
@@ -156,7 +156,7 @@ export async function GET(req: NextRequest) {
 
     // answerer_idをintakeから取得（まだ取得していない場合）
     if (!intakeAnswererId) {
-      const { data: ansIdRow } = await withTenant(
+      const { data: ansIdRow } = await strictWithTenant(
         supabaseAdmin
           .from("intake")
           .select("answerer_id")
@@ -172,7 +172,7 @@ export async function GET(req: NextRequest) {
 
     // 7テーブル並列取得（逐次→並列で高速化）
     const [answererRes, allOrdersRes, reordersRes, pendingResvRes, latestResvRes, bankRes, intakeRecordRes] = await Promise.all([
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("patients")
           .select("name, name_kana, sex, birthday, line_id, tel")
@@ -180,7 +180,7 @@ export async function GET(req: NextRequest) {
           .maybeSingle(),
         tenantId
       ),
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("orders")
           .select("id, product_code, amount, payment_method, shipping_date, tracking_number, created_at, postal_code, address, phone, email, refund_status")
@@ -189,7 +189,7 @@ export async function GET(req: NextRequest) {
           .limit(10),
         tenantId
       ),
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("reorders")
           .select("id, reorder_number, product_code, status, created_at, approved_at")
@@ -199,7 +199,7 @@ export async function GET(req: NextRequest) {
         tenantId
       ),
       // 次回予約（未診察）をreservationsから取得
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("reservations")
           .select("reserved_date, reserved_time, status")
@@ -214,7 +214,7 @@ export async function GET(req: NextRequest) {
         tenantId
       ),
       // 最新予約をreservationsから取得（キャンセル済みは除外）
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("reservations")
           .select("reserved_date, reserved_time, status")
@@ -228,7 +228,7 @@ export async function GET(req: NextRequest) {
           .maybeSingle(),
         tenantId
       ),
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("orders")
           .select("id, product_code, created_at")
@@ -240,7 +240,7 @@ export async function GET(req: NextRequest) {
           .maybeSingle(),
         tenantId
       ),
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("intake")
           .select("answers, created_at")
@@ -265,7 +265,7 @@ export async function GET(req: NextRequest) {
     }
 
     // prescription_menuを最新reservationから取得
-    const { data: latestResvForMenu } = await withTenant(
+    const { data: latestResvForMenu } = await strictWithTenant(
       supabaseAdmin
         .from("reservations")
         .select("prescription_menu")

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized, serverError } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { createClient } from "@supabase/supabase-js";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { searchParams } = new URL(req.url);
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     const filter = searchParams.get("filter") || "all"; // all, reconciled, unreconciled
 
     // 利用可能な月一覧を取得
-    const { data: monthsData } = await withTenant(
+    const { data: monthsData } = await strictWithTenant(
       supabase
         .from("bank_statements")
         .select("month")
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     if (filter === "reconciled") countQuery = countQuery.eq("reconciled", true);
     if (filter === "unreconciled") countQuery = countQuery.eq("reconciled", false);
 
-    const { count } = await withTenant(countQuery, tenantId);
+    const { count } = await strictWithTenant(countQuery, tenantId);
 
     // 明細取得
     let dataQuery = supabase
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
     if (filter === "reconciled") dataQuery = dataQuery.eq("reconciled", true);
     if (filter === "unreconciled") dataQuery = dataQuery.eq("reconciled", false);
 
-    const { data: statements, error } = await withTenant(
+    const { data: statements, error } = await strictWithTenant(
       dataQuery
         .order("transaction_date", { ascending: false })
         .order("id", { ascending: false })

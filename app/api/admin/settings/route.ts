@@ -4,7 +4,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getSetting, setSetting, getSettingsBulk, type SettingCategory } from "@/lib/settings";
 import { maskValue } from "@/lib/crypto";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { settingsUpdateSchema } from "@/lib/validations/admin-operations";
 
@@ -126,7 +126,7 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const category = searchParams.get("category") as SettingCategory | null;
 
@@ -178,7 +178,7 @@ export async function PUT(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, settingsUpdateSchema);
   if ("error" in parsed) return parsed.error;
   const { category, key, value } = parsed.data as { category: SettingCategory; key: string; value: string };

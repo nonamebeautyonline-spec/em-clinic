@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createClickTrackSchema } from "@/lib/validations/line-management";
 import { getSettingOrEnv } from "@/lib/settings";
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const broadcastId = searchParams.get("broadcast_id");
 
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     query = query.eq("broadcast_id", Number(broadcastId));
   }
 
-  const { data, error } = await withTenant(query.limit(100), tenantId);
+  const { data, error } = await strictWithTenant(query.limit(100), tenantId);
   if (error) return serverError(error.message);
 
   // クリック数を整形
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, createClickTrackSchema);
   if ("error" in parsed) return parsed.error;
   const { original_url, label, broadcast_id } = parsed.data;

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -99,13 +99,13 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Reconcile] Parsed ${transfers.length} transfers from CSV`);
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     // Supabase接続
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // pending_confirmationの注文を取得
-    const { data: pendingOrders, error: fetchError } = await withTenant(
+    const { data: pendingOrders, error: fetchError } = await strictWithTenant(
       supabase
         .from("orders")
         .select("id, patient_id, product_code, amount")
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
     console.log(`[Reconcile] Found ${pendingOrders.length} pending orders`);
 
     // ★ ordersから振込名義人（account_name）を取得
-    const { data: pendingOrdersWithNames, error: fetchNamesError } = await withTenant(
+    const { data: pendingOrdersWithNames, error: fetchNamesError } = await strictWithTenant(
       supabase
         .from("orders")
         .select("id, patient_id, product_code, amount, account_name, shipping_name")
@@ -211,7 +211,7 @@ export async function POST(req: NextRequest) {
 
       // payment_idを採番（bt_XXX形式）
       // bt_pending_XXX を除外し、bt_1, bt_2, ... のみを対象
-      const { data: allBtOrders } = await withTenant(
+      const { data: allBtOrders } = await strictWithTenant(
         supabase
           .from("orders")
           .select("id")
@@ -237,7 +237,7 @@ export async function POST(req: NextRequest) {
 
       // 更新
       const now = new Date().toISOString();
-      const { error: updateError } = await withTenant(
+      const { error: updateError } = await strictWithTenant(
         supabase
           .from("orders")
           .update({

@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 interface SupabasePaginatedQuery {
   range(from: number, to: number): PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>;
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     const { searchParams } = new URL(req.url);
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
 
     if (fromDate && toDate) {
       const { data: reservationsData } = await fetchAll(() =>
-        withTenant(
+        strictWithTenant(
           supabaseAdmin
             .from("reservations")
             .select("reserve_id, reserved_date, reserved_time, prescription_menu, patient_id, status")
@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
       for (let i = 0; i < validReserveIds.length; i += 500) {
         const batch = validReserveIds.slice(i, i + 500);
         const { data, error } = await fetchAll(() =>
-          withTenant(
+          strictWithTenant(
             supabaseAdmin
               .from("intake")
               .select("id, patient_id, reserve_id, answerer_id, status, note, answers, created_at, call_status, call_status_updated_at")
@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
     } else {
       // 日付指定なし: 全件取得
       const { data, error } = await fetchAll(() =>
-        withTenant(
+        strictWithTenant(
           supabaseAdmin
             .from("intake")
             .select("id, patient_id, reserve_id, answerer_id, status, note, answers, created_at, call_status, call_status_updated_at")
@@ -143,7 +143,7 @@ export async function GET(req: NextRequest) {
         for (let i = 0; i < reserveIds.length; i += 500) {
           const batch = reserveIds.slice(i, i + 500);
           const { data: resData } = await fetchAll(() =>
-            withTenant(
+            strictWithTenant(
               supabaseAdmin
                 .from("reservations")
                 .select("reserve_id, reserved_date, reserved_time, prescription_menu, status")
@@ -165,7 +165,7 @@ export async function GET(req: NextRequest) {
       for (let i = 0; i < patientIds.length; i += 500) {
         const batch = patientIds.slice(i, i + 500);
         const { data: pData } = await fetchAll(() =>
-          withTenant(
+          strictWithTenant(
             supabaseAdmin
               .from("patients")
               .select("patient_id, name, line_id, tel")

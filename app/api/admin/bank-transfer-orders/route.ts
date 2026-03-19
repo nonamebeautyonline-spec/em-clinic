@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,10 +17,10 @@ export async function GET(request: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(request);
+    const tenantId = resolveTenantIdOrThrow(request);
 
     // 銀行振込注文一覧を取得（ordersテーブルからpayment_method='bank_transfer'を抽出）
-    const { data: orders, error } = await withTenant(
+    const { data: orders, error } = await strictWithTenant(
       supabase
         .from("orders")
         .select("*")

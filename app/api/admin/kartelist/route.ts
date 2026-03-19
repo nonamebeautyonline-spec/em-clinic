@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const page = Math.max(1, Number(req.nextUrl.searchParams.get("page") || "1"));
     const limit = Math.min(200, Math.max(1, Number(req.nextUrl.searchParams.get("limit") || "100")));
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
       const normalizedQuery = q.replace(/[\s　]/g, "").toLowerCase();
 
       // answerers.name で検索
-      const { data: answererHits } = await withTenant(
+      const { data: answererHits } = await strictWithTenant(
         supabaseAdmin
           .from("patients")
           .select("patient_id, name")
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
         .filter(Boolean);
 
       // patient_id 直接検索
-      const { data: pidHits } = await withTenant(
+      const { data: pidHits } = await strictWithTenant(
         supabaseAdmin
           .from("intake")
           .select("patient_id")
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
     }
     if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
       // その日の予約患者を表示（reservationsからpatient_idを取得）
-      const { data: dateResvCount } = await withTenant(
+      const { data: dateResvCount } = await strictWithTenant(
         supabaseAdmin
           .from("reservations")
           .select("patient_id")
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ ok: true, items: [], total: 0, page, limit });
       }
     }
-    const { count } = await withTenant(countQuery, tenantId);
+    const { count } = await strictWithTenant(countQuery, tenantId);
     const total = count || 0;
 
     // ページネーション取得
@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
     }
     if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
       // 日付フィルタはreservationsテーブルの予約に基づくため、対象patient_idを先に取得
-      const { data: dateResv } = await withTenant(
+      const { data: dateResv } = await strictWithTenant(
         supabaseAdmin
           .from("reservations")
           .select("patient_id")
@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
       }
       dataQuery = dataQuery.in("patient_id", datePids);
     }
-    const { data: intakes, error: dataError } = await withTenant(dataQuery, tenantId);
+    const { data: intakes, error: dataError } = await strictWithTenant(dataQuery, tenantId);
 
     if (dataError) {
       return NextResponse.json({ ok: false, message: dataError.message }, { status: 500 });
@@ -126,7 +126,7 @@ export async function GET(req: NextRequest) {
     const answererMap = new Map<string, { name: string; tel: string; sex: string; birthday: string }>();
 
     if (patientIds.length > 0) {
-      const { data: answerers } = await withTenant(
+      const { data: answerers } = await strictWithTenant(
         supabaseAdmin
           .from("patients")
           .select("patient_id, name, tel, sex, birthday")
@@ -148,7 +148,7 @@ export async function GET(req: NextRequest) {
     const reserveIds = (intakes || []).map(i => i.reserve_id).filter(Boolean);
     const resvMap = new Map<string, { reserved_date: string; reserved_time: string; prescription_menu: string }>();
     if (reserveIds.length > 0) {
-      const { data: resvData } = await withTenant(
+      const { data: resvData } = await strictWithTenant(
         supabaseAdmin
           .from("reservations")
           .select("reserve_id, reserved_date, reserved_time, prescription_menu")

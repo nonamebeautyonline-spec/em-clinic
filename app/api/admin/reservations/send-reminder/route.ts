@@ -4,7 +4,7 @@ import { badRequest, conflict, serverError, unauthorized } from "@/lib/api-error
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { formatReservationTime, buildReminderMessage } from "@/lib/auto-reminder";
 import { parseBody } from "@/lib/validations/helpers";
 import { sendReminderSchema } from "@/lib/validations/admin-operations";
@@ -13,7 +13,7 @@ import { checkIdempotency } from "@/lib/idempotency";
 // 対象患者を取得（共通）
 async function getTargetPatients(date: string, tenantId: string | null) {
   // reservationsテーブルから有効な予約を直接取得（キャンセル除外）
-  const { data: reservationsData, error: resvError } = await withTenant(
+  const { data: reservationsData, error: resvError } = await strictWithTenant(
     supabaseAdmin
       .from("reservations")
       .select("reserve_id, patient_id, reserved_time")
@@ -29,7 +29,7 @@ async function getTargetPatients(date: string, tenantId: string | null) {
   const patientIds = [...new Set((reservationsData || []).map((r: { patient_id: string }) => r.patient_id).filter(Boolean))];
   const pMap = new Map<string, { name: string; line_id: string }>();
   if (patientIds.length > 0) {
-    const { data: pData } = await withTenant(
+    const { data: pData } = await strictWithTenant(
       supabaseAdmin
         .from("patients")
         .select("patient_id, name, line_id")
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const { searchParams } = new URL(req.url);
   const date = searchParams.get("date");
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const parsed = await parseBody(req, sendReminderSchema);
     if ("error" in parsed) return parsed.error;
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
         sendTargets = [testInTargets];
       } else {
         // 予約に含まれていなくても patients から LINE ID を取得して送信
-        const { data: testPatient } = await withTenant(
+        const { data: testPatient } = await strictWithTenant(
           supabaseAdmin
             .from("patients")
             .select("patient_id, name, line_id")

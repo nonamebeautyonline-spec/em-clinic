@@ -59,8 +59,15 @@ vi.mock("@/lib/redis", () => ({
 // tenant モック
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
+  resolveTenantIdOrThrow: vi.fn(() => "test-tenant"),
   withTenant: vi.fn((_query: unknown) => {
     // withTenant は query をそのまま返す（テナントフィルタ追加のシミュレーション）
+    return {
+      data: mockSupabaseSelect(),
+      error: null,
+    };
+  }),
+  strictWithTenant: vi.fn((_query: unknown) => {
     return {
       data: mockSupabaseSelect(),
       error: null,

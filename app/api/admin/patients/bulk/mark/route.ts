@@ -3,7 +3,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { evaluateMenuRulesForMany } from "@/lib/menu-auto-rules";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { bulkMarkSchema } from "@/lib/validations/line-common";
 
@@ -12,13 +12,13 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, bulkMarkSchema);
   if ("error" in parsed) return parsed.error;
   const { patient_ids, mark } = parsed.data;
 
   // mark_definitions で存在確認
-  const { data: markDef } = await withTenant(
+  const { data: markDef } = await strictWithTenant(
     supabaseAdmin
       .from("mark_definitions")
       .select("value")
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       updated_at: now,
       updated_by: "admin",
     }));
-    const { error } = await withTenant(
+    const { error } = await strictWithTenant(
       supabaseAdmin
         .from("patient_marks")
         .upsert(rows, { onConflict: "patient_id" }),

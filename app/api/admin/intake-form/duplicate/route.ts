@@ -3,17 +3,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized, notFound } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized)
     return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   // アクティブなテンプレートを取得
-  const { data: active, error: fetchError } = await withTenant(
+  const { data: active, error: fetchError } = await strictWithTenant(
     supabaseAdmin
       .from("intake_form_definitions")
       .select("id, name, fields, settings")

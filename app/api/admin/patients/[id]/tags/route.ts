@@ -3,7 +3,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { patientTagAddSchema } from "@/lib/validations/admin-operations";
 
@@ -12,10 +12,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("patient_tags")
       .select("*, tag_definitions(*)")
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
   const parsed = await parseBody(req, patientTagAddSchema);
   if ("error" in parsed) return parsed.error;
@@ -53,14 +53,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
   const { searchParams } = new URL(req.url);
   const tagId = searchParams.get("tag_id");
 
   if (!tagId) return badRequest("tag_id required");
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin
       .from("patient_tags")
       .delete()

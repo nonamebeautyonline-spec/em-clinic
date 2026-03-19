@@ -9,9 +9,19 @@ vi.mock("@/lib/admin-auth", () => ({
   verifyAdminAuth: vi.fn(),
 }));
 
-vi.mock("@/lib/tenant", () => ({
-  resolveTenantId: vi.fn(),
-}));
+vi.mock("@/lib/tenant", () => {
+  class TenantRequiredError extends Error {
+    constructor() {
+      super("テナントIDが指定されていません");
+      this.name = "TenantRequiredError";
+    }
+  }
+  return {
+    resolveTenantId: vi.fn(),
+    resolveTenantIdOrThrow: vi.fn(() => "test-tenant"),
+    TenantRequiredError,
+  };
+});
 
 // 再帰的にチェーン可能なモック（最終呼び出しはResolvedValueを返す）
 function chainMock(): Record<string, ReturnType<typeof vi.fn>> {
@@ -42,10 +52,10 @@ vi.mock("@/lib/plan-config", () => ({
 }));
 
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 
 const mockAuth = verifyAdminAuth as ReturnType<typeof vi.fn>;
-const mockTenant = resolveTenantId as ReturnType<typeof vi.fn>;
+const mockTenantOrThrow = resolveTenantIdOrThrow as ReturnType<typeof vi.fn>;
 
 describe("GET /api/admin/billing/summary", () => {
   beforeEach(() => {
@@ -60,18 +70,17 @@ describe("GET /api/admin/billing/summary", () => {
     expect(res.status).toBe(401);
   });
 
-  it("テナント不明の場合400を返す", async () => {
+  it("テナント不明の場合TenantRequiredErrorをスローする", async () => {
     mockAuth.mockResolvedValue(true);
-    mockTenant.mockReturnValue(null);
+    mockTenantOrThrow.mockImplementation(() => { throw new Error("テナントIDが指定されていません"); });
     const { GET } = await import("@/app/api/admin/billing/summary/route");
     const req = new NextRequest("http://localhost/api/admin/billing/summary");
-    const res = await GET(req);
-    expect(res.status).toBe(400);
+    await expect(GET(req)).rejects.toThrow("テナントIDが指定されていません");
   });
 
   it("認証済み+テナント指定時はエラーにならない（200 or 500）", async () => {
     mockAuth.mockResolvedValue(true);
-    mockTenant.mockReturnValue("tenant-1");
+    mockTenantOrThrow.mockReturnValue("tenant-1");
     const { GET } = await import("@/app/api/admin/billing/summary/route");
     const req = new NextRequest("http://localhost/api/admin/billing/summary");
     const res = await GET(req);
@@ -93,18 +102,17 @@ describe("GET /api/admin/billing/invoices", () => {
     expect(res.status).toBe(401);
   });
 
-  it("テナント不明の場合400を返す", async () => {
+  it("テナント不明の場合TenantRequiredErrorをスローする", async () => {
     mockAuth.mockResolvedValue(true);
-    mockTenant.mockReturnValue(null);
+    mockTenantOrThrow.mockImplementation(() => { throw new Error("テナントIDが指定されていません"); });
     const { GET } = await import("@/app/api/admin/billing/invoices/route");
     const req = new NextRequest("http://localhost/api/admin/billing/invoices");
-    const res = await GET(req);
-    expect(res.status).toBe(400);
+    await expect(GET(req)).rejects.toThrow("テナントIDが指定されていません");
   });
 
   it("認証済み+テナント指定時はエラーにならない（200 or 500）", async () => {
     mockAuth.mockResolvedValue(true);
-    mockTenant.mockReturnValue("tenant-1");
+    mockTenantOrThrow.mockReturnValue("tenant-1");
     const { GET } = await import("@/app/api/admin/billing/invoices/route");
     const req = new NextRequest("http://localhost/api/admin/billing/invoices?page=2&limit=5");
     const res = await GET(req);
@@ -125,18 +133,17 @@ describe("GET /api/admin/billing/receipt/[invoiceId]", () => {
     expect(res.status).toBe(401);
   });
 
-  it("テナント不明の場合400を返す", async () => {
+  it("テナント不明の場合TenantRequiredErrorをスローする", async () => {
     mockAuth.mockResolvedValue(true);
-    mockTenant.mockReturnValue(null);
+    mockTenantOrThrow.mockImplementation(() => { throw new Error("テナントIDが指定されていません"); });
     const { GET } = await import("@/app/api/admin/billing/receipt/[invoiceId]/route");
     const req = new NextRequest("http://localhost/api/admin/billing/receipt/inv-1");
-    const res = await GET(req, { params: Promise.resolve({ invoiceId: "inv-1" }) });
-    expect(res.status).toBe(400);
+    await expect(GET(req, { params: Promise.resolve({ invoiceId: "inv-1" }) })).rejects.toThrow("テナントIDが指定されていません");
   });
 
   it("認証済み+テナント指定時はエラーにならない（404 or 500）", async () => {
     mockAuth.mockResolvedValue(true);
-    mockTenant.mockReturnValue("tenant-1");
+    mockTenantOrThrow.mockReturnValue("tenant-1");
     const { GET } = await import("@/app/api/admin/billing/receipt/[invoiceId]/route");
     const req = new NextRequest("http://localhost/api/admin/billing/receipt/inv-nonexist");
     const res = await GET(req, { params: Promise.resolve({ invoiceId: "inv-nonexist" }) });

@@ -3,7 +3,7 @@ import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { evaluateMenuRulesForMany } from "@/lib/menu-auto-rules";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { bulkTagSchema } from "@/lib/validations/line-common";
 
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, bulkTagSchema);
   if ("error" in parsed) return parsed.error;
   const { patient_ids, tag_id, action } = parsed.data;
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   } else {
     for (let i = 0; i < patient_ids.length; i += BATCH_SIZE) {
       const batch = patient_ids.slice(i, i + BATCH_SIZE);
-      const { error } = await withTenant(
+      const { error } = await strictWithTenant(
         supabaseAdmin
           .from("patient_tags")
           .delete()

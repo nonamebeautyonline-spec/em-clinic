@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 /* ---------- GET: キーワードごとの統計データ ---------- */
 export async function GET(req: NextRequest) {
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
 
   // 期間フィルタ（オプション: days パラメータで直近N日間を指定）
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
   try {
     // 1. キーワードルール一覧（trigger_count, last_triggered_at を含む）
-    const { data: rules, error: rulesErr } = await withTenant(
+    const { data: rules, error: rulesErr } = await strictWithTenant(
       supabaseAdmin
         .from("keyword_auto_replies")
         .select("id, name, keyword, match_type, is_enabled, trigger_count, last_triggered_at")
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
 
     // 2. message_log から keyword_reply_id ごとの集計（指定期間）
     //    keyword_reply_id カラムが存在する場合のみ有効
-    const { data: logStats, error: logErr } = await withTenant(
+    const { data: logStats, error: logErr } = await strictWithTenant(
       supabaseAdmin
         .from("message_log")
         .select("keyword_reply_id, sent_at")

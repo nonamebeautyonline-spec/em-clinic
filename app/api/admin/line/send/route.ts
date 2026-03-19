@@ -3,7 +3,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { lineSendSchema } from "@/lib/validations/line-broadcast";
 import { handleImplicitAiFeedback } from "@/lib/ai-reply";
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const parsed = await parseBody(req, lineSendSchema);
   if ("error" in parsed) return parsed.error;
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 患者の LINE UID・名前を patients テーブルから取得
-  const { data: patient } = await withTenant(
+  const { data: patient } = await strictWithTenant(
     supabaseAdmin.from("patients").select("name, line_id").eq("patient_id", patient_id),
     tenantId
   ).maybeSingle();
@@ -193,7 +193,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 次回予約を取得（キャンセル済み除外、本日以降で最も近いもの）
-  const { data: nextReservation } = await withTenant(
+  const { data: nextReservation } = await strictWithTenant(
     supabaseAdmin.from("reservations").select("reserved_date, reserved_time").eq("patient_id", patient_id).neq("status", "canceled").gte("reserved_date", new Date().toISOString().split("T")[0]).order("reserved_date", { ascending: true }).order("reserved_time", { ascending: true }).limit(1),
     tenantId
   ).maybeSingle();

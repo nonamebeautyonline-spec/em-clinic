@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createFolderSchema, updateFolderSchema } from "@/lib/validations/line-management";
 
@@ -11,9 +11,9 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("media_folders")
       .select("*, media_files(count)")
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, createFolderSchema);
   if ("error" in parsed) return parsed.error;
   const { name } = parsed.data;
@@ -59,12 +59,12 @@ export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, updateFolderSchema);
   if ("error" in parsed) return parsed.error;
   const { id, name } = parsed.data;
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("media_folders")
       .update({ name: name.trim() })
@@ -82,13 +82,13 @@ export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return badRequest("IDは必須です");
 
   // 未分類フォルダを取得
-  const { data: defaultFolder } = await withTenant(
+  const { data: defaultFolder } = await strictWithTenant(
     supabaseAdmin
       .from("media_folders")
       .select("id")
@@ -102,7 +102,7 @@ export async function DELETE(req: NextRequest) {
 
   // フォルダ内のファイルを未分類に移動
   if (defaultFolder) {
-    await withTenant(
+    await strictWithTenant(
       supabaseAdmin
         .from("media_files")
         .update({ folder_id: defaultFolder.id })
@@ -110,7 +110,7 @@ export async function DELETE(req: NextRequest) {
       tenantId
     );
   } else {
-    await withTenant(
+    await strictWithTenant(
       supabaseAdmin
         .from("media_files")
         .update({ folder_id: null })
@@ -119,7 +119,7 @@ export async function DELETE(req: NextRequest) {
     );
   }
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin
       .from("media_folders")
       .delete()

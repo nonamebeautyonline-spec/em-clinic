@@ -2,14 +2,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
 // POST: キャンセル待ち登録
 export async function POST(req: NextRequest) {
   try {
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const body = await req.json();
 
     const { patient_id, target_date, target_time, slot_id, line_uid } = body;
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
 // GET: キャンセル待ち一覧取得
 export async function GET(req: NextRequest) {
   try {
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patient_id");
 
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
       return badRequest("patient_id は必須です");
     }
 
-    const { data, error } = await withTenant(
+    const { data, error } = await strictWithTenant(
       supabaseAdmin
         .from("reservation_waitlist")
         .select("*")
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
 // DELETE: キャンセル待ちキャンセル
 export async function DELETE(req: NextRequest) {
   try {
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const { searchParams } = new URL(req.url);
     const waitlistId = searchParams.get("id");
 
@@ -99,7 +99,7 @@ export async function DELETE(req: NextRequest) {
       return badRequest("id は必須です");
     }
 
-    const { error } = await withTenant(
+    const { error } = await strictWithTenant(
       supabaseAdmin
         .from("reservation_waitlist")
         .update({ status: "cancelled" })

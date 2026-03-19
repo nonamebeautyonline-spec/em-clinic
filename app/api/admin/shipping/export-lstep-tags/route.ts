@@ -3,7 +3,7 @@ import { notFound, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import * as iconv from "iconv-lite";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     // 今日の日付（YYYY-MM-DD）
     const today = new Date().toISOString().split("T")[0];
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     console.log(`[ExportLstepTags] Fetching orders with shipping_date = ${today}`);
 
     // 本日発送（追跡番号付与）された注文を取得
-    const { data: orders, error: ordersError } = await withTenant(
+    const { data: orders, error: ordersError } = await strictWithTenant(
       supabase.from("orders").select("id, patient_id").eq("shipping_date", today).not("tracking_number", "is", null),
       tenantId
     );
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     const patientIds = Array.from(new Set(orders.map((o) => o.patient_id)));
 
     // intakeテーブルからLステップID（answerer_id）を取得
-    const { data: patients, error: patientsError } = await withTenant(
+    const { data: patients, error: patientsError } = await strictWithTenant(
       supabase.from("intake").select("patient_id, answerer_id").in("patient_id", patientIds),
       tenantId
     );

@@ -4,7 +4,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { logAudit } from "@/lib/audit";
 import { parseBody } from "@/lib/validations/helpers";
 import { deletePatientDataSchema } from "@/lib/validations/admin-operations";
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const parsed = await parseBody(req, deletePatientDataSchema);
     if ("error" in parsed) return parsed.error;
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     // 1. 予約をキャンセル（status = "canceled"）
     if (delete_reservation !== false) {
-      const { data: reservations, error: fetchError } = await withTenant(
+      const { data: reservations, error: fetchError } = await strictWithTenant(
         supabaseAdmin
           .from("reservations")
           .select("id, reserve_id, reserved_date, reserved_time, status")
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       if (fetchError) {
         results.errors.push(`予約取得エラー: ${fetchError.message}`);
       } else if (reservations && reservations.length > 0) {
-        const { error: cancelError } = await withTenant(
+        const { error: cancelError } = await strictWithTenant(
           supabaseAdmin
             .from("reservations")
             .update({ status: "canceled" })
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     // 2. 問診データを削除
     if (delete_intake) {
-      const { error: intakeError } = await withTenant(
+      const { error: intakeError } = await strictWithTenant(
         supabaseAdmin
           .from("intake")
           .delete()
@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const { searchParams } = new URL(req.url);
     const patient_id = searchParams.get("patient_id");
@@ -117,7 +117,7 @@ export async function GET(req: NextRequest) {
 
     // 予約情報・患者名・問診情報を並列取得
     const [{ data: reservations }, { data: patient }, { data: intakeData }] = await Promise.all([
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("reservations")
           .select("id, reserve_id, reserved_date, reserved_time, status, patient_name")
@@ -125,14 +125,14 @@ export async function GET(req: NextRequest) {
           .order("reserved_date", { ascending: false }),
         tenantId
       ),
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("patients")
           .select("name")
           .eq("patient_id", patient_id),
         tenantId
       ).maybeSingle(),
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("intake")
           .select("id, reserve_id, created_at")

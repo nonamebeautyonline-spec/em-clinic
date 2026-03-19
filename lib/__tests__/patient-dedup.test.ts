@@ -45,7 +45,9 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
+  resolveTenantIdOrThrow: vi.fn(() => null),
   withTenant: vi.fn((q: SupabaseChain) => q),
+  strictWithTenant: vi.fn((q: SupabaseChain) => q),
   tenantPayload: vi.fn(() => ({})),
 }));
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 // LTV分析API: 患者あたり累計売上・セグメント別LTVを提供
 export async function GET(request: NextRequest) {
@@ -12,18 +12,18 @@ export async function GET(request: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(request);
+    const tenantId = resolveTenantIdOrThrow(request);
 
     // 全注文データ（patient_id + 金額）と セグメントデータを並列取得
     const [ordersResult, segmentsResult] = await Promise.all([
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("orders").select("patient_id, amount, created_at")
           .not("patient_id", "is", null)
           .not("amount", "is", null)
           .limit(100000),
         tenantId,
       ),
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("patient_segments").select("patient_id, segment")
           .limit(100000),
         tenantId,

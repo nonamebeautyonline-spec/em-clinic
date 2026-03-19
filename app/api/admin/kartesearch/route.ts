@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const q = (req.nextUrl.searchParams.get("q") || "").trim();
     const searchType = req.nextUrl.searchParams.get("type") || "name";
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     let patientIds: string[] = [];
 
     if (searchType === "pid") {
-      const { data } = await withTenant(
+      const { data } = await strictWithTenant(
         supabaseAdmin
           .from("intake")
           .select("patient_id")
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
       const normalizedQuery = q.replace(/[\s　]/g, "").toLowerCase();
       const searchPattern = `%${q.replace(/[\s　]/g, "%")}%`;
 
-      const { data: answererHits } = await withTenant(
+      const { data: answererHits } = await strictWithTenant(
         supabaseAdmin
           .from("patients")
           .select("patient_id, name")
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
     }
 
     // answerers から基本情報
-    const { data: answererData } = await withTenant(
+    const { data: answererData } = await strictWithTenant(
       supabaseAdmin
         .from("patients")
         .select("patient_id, name, tel, sex, birthday")
@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
     }
 
     // intake から最終問診日と件数
-    const { data: intakeData } = await withTenant(
+    const { data: intakeData } = await strictWithTenant(
       supabaseAdmin
         .from("intake")
         .select("patient_id, created_at")

@@ -56,6 +56,7 @@ vi.mock("@/lib/tenant", () => ({
     tenant_id: tenantId || "00000000-0000-0000-0000-000000000001",
   }),
   resolveTenantId: () => "test-tenant-id",
+  resolveTenantIdOrThrow: () => "test-tenant-id",
   DEFAULT_TENANT_ID: "00000000-0000-0000-0000-000000000001",
 }));
 

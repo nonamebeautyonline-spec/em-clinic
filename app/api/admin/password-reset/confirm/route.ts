@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { adminPasswordResetConfirmSchema } from "@/lib/validations/admin-operations";
 import { checkPasswordHistory, savePasswordHistory } from "@/lib/password-policy";
@@ -16,7 +16,7 @@ const supabase = createClient(
 
 // トークン検証（GET）
 export async function GET(req: NextRequest) {
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const token = searchParams.get("token");
 
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   }
 
   // トークン検証
-  const { data: resetToken, error } = await withTenant(
+  const { data: resetToken, error } = await strictWithTenant(
     supabase
       .from("password_reset_tokens")
       .select(`
@@ -76,10 +76,10 @@ export async function POST(req: NextRequest) {
     if ("error" in parsed) return parsed.error;
     const { token, password } = parsed.data;
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     // トークン検証
-    const { data: resetToken, error: tokenError } = await withTenant(
+    const { data: resetToken, error: tokenError } = await strictWithTenant(
       supabase
         .from("password_reset_tokens")
         .select("id, admin_user_id, expires_at, used_at")
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
     const passwordHash = await bcrypt.hash(password, 12);
 
     // パスワード更新 + password_changed_at 更新
-    const { error: updateError } = await withTenant(
+    const { error: updateError } = await strictWithTenant(
       supabase
         .from("admin_users")
         .update({
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
     await savePasswordHistory(resetToken.admin_user_id, passwordHash);
 
     // トークンを使用済みにする
-    await withTenant(
+    await strictWithTenant(
       supabase
         .from("password_reset_tokens")
         .update({ used_at: new Date().toISOString() })

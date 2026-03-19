@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     // 今日の0時〜23:59:59の範囲
     const today = new Date();
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     console.log(`[TodayShipped] Fetching orders with shipping_list_created_at between ${todayStart} and ${tomorrowStart}`);
 
     // 本日shipping_list_created_atが設定された注文を取得
-    const { data: orders, error: ordersError } = await withTenant(
+    const { data: orders, error: ordersError } = await strictWithTenant(
       supabaseAdmin.from("orders").select("id, patient_id, tracking_number").gte("shipping_list_created_at", todayStart).lt("shipping_list_created_at", tomorrowStart).order("shipping_list_created_at", { ascending: true }),
       tenantId
     );
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
     const patientIds = Array.from(new Set(orders.map((o: { patient_id: string }) => o.patient_id)));
 
     // patientsテーブルから患者名を取得
-    const { data: pData } = await withTenant(
+    const { data: pData } = await strictWithTenant(
       supabaseAdmin.from("patients").select("patient_id, name").in("patient_id", patientIds),
       tenantId
     );

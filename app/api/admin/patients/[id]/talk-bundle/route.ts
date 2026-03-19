@@ -4,7 +4,7 @@ import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { formatProductCode, formatPaymentMethod, formatReorderStatus, formatDateJST } from "@/lib/patient-utils";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -14,56 +14,56 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id: patientId } = await params;
 
   // 全クエリを並列実行（サーバー側で統合）
   const [messagesRes, tagsRes, markRes, fieldsRes, answererRes, allOrdersRes, reordersRes, latestResvRes, bankRes, intakeRecordRes, ansIdRes, latestResvForMenuRes] = await Promise.all([
     // メッセージログ（最新25件）
-    withTenant(supabaseAdmin
+    strictWithTenant(supabaseAdmin
       .from("message_log")
       .select("*")
       .eq("patient_id", patientId)
       .order("sent_at", { ascending: false })
       .limit(MSG_BATCH), tenantId),
     // タグ
-    withTenant(supabaseAdmin
+    strictWithTenant(supabaseAdmin
       .from("patient_tags")
       .select("*, tag_definitions(*)")
       .eq("patient_id", patientId), tenantId),
     // マーク
-    withTenant(supabaseAdmin
+    strictWithTenant(supabaseAdmin
       .from("patient_marks")
       .select("*")
       .eq("patient_id", patientId)
       .maybeSingle(), tenantId),
     // 友だち情報欄
-    withTenant(supabaseAdmin
+    strictWithTenant(supabaseAdmin
       .from("friend_field_values")
       .select("*, friend_field_definitions(*)")
       .eq("patient_id", patientId), tenantId),
     // 患者基本情報
-    withTenant(supabaseAdmin
+    strictWithTenant(supabaseAdmin
       .from("patients")
       .select("name, name_kana, sex, birthday, line_id, tel")
       .eq("patient_id", patientId)
       .maybeSingle(), tenantId),
     // 決済履歴
-    withTenant(supabaseAdmin
+    strictWithTenant(supabaseAdmin
       .from("orders")
       .select("id, product_code, amount, payment_method, shipping_date, tracking_number, created_at, postal_code, address, phone, email, status, refund_status")
       .eq("patient_id", patientId)
       .order("created_at", { ascending: false })
       .limit(10), tenantId),
     // 再処方
-    withTenant(supabaseAdmin
+    strictWithTenant(supabaseAdmin
       .from("reorders")
       .select("id, reorder_number, product_code, status, created_at, approved_at")
       .eq("patient_id", patientId)
       .order("created_at", { ascending: false })
       .limit(5), tenantId),
     // 最新予約（キャンセル除外）
-    withTenant(supabaseAdmin
+    strictWithTenant(supabaseAdmin
       .from("reservations")
       .select("reserve_id, reserved_date, reserved_time")
       .eq("patient_id", patientId)
@@ -75,7 +75,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       .limit(1)
       .maybeSingle(), tenantId),
     // 銀行振込待ち
-    withTenant(supabaseAdmin
+    strictWithTenant(supabaseAdmin
       .from("orders")
       .select("id, product_code, created_at")
       .eq("patient_id", patientId)
@@ -85,7 +85,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       .limit(1)
       .maybeSingle(), tenantId),
     // 問診
-    withTenant(supabaseAdmin
+    strictWithTenant(supabaseAdmin
       .from("intake")
       .select("answers, created_at, status, reserve_id")
       .eq("patient_id", patientId)
@@ -93,7 +93,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       .limit(1)
       .maybeSingle(), tenantId),
     // answerer_id取得（初期Promise.allに統合）
-    withTenant(supabaseAdmin
+    strictWithTenant(supabaseAdmin
       .from("intake")
       .select("answerer_id")
       .eq("patient_id", patientId)
@@ -102,7 +102,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       .limit(1)
       .maybeSingle(), tenantId),
     // prescription_menu取得（初期Promise.allに統合）
-    withTenant(supabaseAdmin
+    strictWithTenant(supabaseAdmin
       .from("reservations")
       .select("prescription_menu")
       .eq("patient_id", patientId)
@@ -166,7 +166,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // 診察済み判定: 最新予約に紐づくintakeのstatusを参照（最新intakeが空レコードの場合の誤判定を防止）
     let st = intakeRecord?.status || null;
     if (!st && nextReservation.reserve_id) {
-      const resvIntake = await withTenant(supabaseAdmin
+      const resvIntake = await strictWithTenant(supabaseAdmin
         .from("intake")
         .select("status")
         .eq("patient_id", patientId)

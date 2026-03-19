@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { bookingOpenSchema } from "@/lib/validations/admin-operations";
 
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const searchParams = req.nextUrl.searchParams;
   const month = searchParams.get("month"); // YYYY-MM
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { data, error } = await withTenant(
+    const { data, error } = await strictWithTenant(
       supabaseAdmin
         .from("booking_open_settings")
         .select("*")
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     const parsed = await parseBody(req, bookingOpenSchema);
@@ -109,7 +109,7 @@ export async function DELETE(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const searchParams = req.nextUrl.searchParams;
   const month = searchParams.get("month");
@@ -119,7 +119,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   try {
-    const { error } = await withTenant(
+    const { error } = await strictWithTenant(
       supabaseAdmin
         .from("booking_open_settings")
         .delete()

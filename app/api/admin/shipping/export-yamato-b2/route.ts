@@ -3,7 +3,7 @@ import { notFound, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { generateYamatoB2Csv } from "@/utils/yamato-b2-formatter";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { exportYamatoB2Schema } from "@/lib/validations/shipping";
 import { getYamatoConfig } from "@/lib/shipping/config";
@@ -21,14 +21,14 @@ export async function POST(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const parsed = await parseBody(req, exportYamatoB2Schema);
     if ("error" in parsed) return parsed.error;
     const { order_ids: orderIds } = parsed.data;
 
     // ordersテーブルから注文情報を取得
-    const { data: orders, error: ordersError } = await withTenant(
+    const { data: orders, error: ordersError } = await strictWithTenant(
       supabase.from("orders").select("id, patient_id").in("id", orderIds),
       tenantId
     );
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     const patientIds = [...new Set(orders.map((o) => o.patient_id))];
 
     // 患者情報を取得（patientsテーブルから）
-    const { data: patients, error: patientsError } = await withTenant(
+    const { data: patients, error: patientsError } = await strictWithTenant(
       supabase.from("patients").select("patient_id, name, tel").in("patient_id", patientIds),
       tenantId
     );

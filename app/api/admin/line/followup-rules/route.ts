@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createFollowupRuleSchema } from "@/lib/validations/followup";
 
@@ -15,13 +15,13 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   let query = supabaseAdmin
     .from("followup_rules")
     .select("*")
     .order("delay_days", { ascending: true });
-  query = withTenant(query, tenantId);
+  query = strictWithTenant(query, tenantId);
 
   const { data: rules, error } = await query;
   if (error) {
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { data, error: parseError } = await parseBody(req, createFollowupRuleSchema);
   if (parseError) return parseError;
 

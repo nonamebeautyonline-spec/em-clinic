@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
 import { bulkMenuSchema } from "@/lib/validations/admin-operations";
@@ -15,13 +15,13 @@ export async function POST(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const parsed = await parseBody(req, bulkMenuSchema);
     if ("error" in parsed) return parsed.error;
     const { patient_ids, rich_menu_id } = parsed.data;
 
     // リッチメニューのLINE側IDを取得
-    const { data: menu } = await withTenant(
+    const { data: menu } = await strictWithTenant(
       supabaseAdmin
         .from("rich_menus")
         .select("id, name, line_rich_menu_id")
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     const BATCH_SIZE = 200;
     for (let i = 0; i < patient_ids.length; i += BATCH_SIZE) {
       const batch = patient_ids.slice(i, i + BATCH_SIZE);
-      const { data: pData } = await withTenant(
+      const { data: pData } = await strictWithTenant(
         supabaseAdmin
           .from("patients")
           .select("patient_id, line_id")

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized, tooManyRequests } from "@/lib/api-error";
 import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     // 患者情報・intake・予約・注文・再処方・ポイント台帳を並列取得
     const [
@@ -39,15 +39,15 @@ export async function GET(req: NextRequest) {
       reordersRes,
       pointLedgerRes,
     ] = await Promise.all([
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("patients").select("*").eq("patient_id", patientId),
         tenantId
       ),
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("intake").select("*").eq("patient_id", patientId),
         tenantId
       ),
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("reservations")
           .select("*")
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
           .order("reserved_date", { ascending: false }),
         tenantId
       ),
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("orders")
           .select("*")
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
           .order("created_at", { ascending: false }),
         tenantId
       ),
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("reorders")
           .select("*")
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
           .order("created_at", { ascending: false }),
         tenantId
       ),
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("point_ledger")
           .select("*")

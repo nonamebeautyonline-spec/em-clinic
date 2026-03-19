@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import {
   listEvents,
   insertEvent,
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     if (!tenantId) {
       return badRequest("テナントIDが取得できません");
     }
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 医師情報とGoogle連携トークンを取得
-    const { data: doctor, error: doctorError } = await withTenant(
+    const { data: doctor, error: doctorError } = await strictWithTenant(
       supabaseAdmin
         .from("doctors")
         .select("doctor_id, doctor_name, google_calendar_id, google_access_token, google_refresh_token, google_token_expires_at")
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
     let overridesCreated = 0;
     for (const [date, summaries] of externalEventsByDate) {
       // 既にGoogleカレンダー由来のoverrideがある場合は更新、なければ挿入
-      const { data: existing } = await withTenant(
+      const { data: existing } = await strictWithTenant(
         supabaseAdmin
           .from("doctor_date_overrides")
           .select("id")
@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
           .eq("id", existing[0].id);
       } else {
         // 新規にoverrideを挿入（type: "gcal_block" で外部予定を識別）
-        await withTenant(
+        await strictWithTenant(
           supabaseAdmin
             .from("doctor_date_overrides")
             .insert({
@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
     // =============================================
     // 2. em-clinic → Google: 予約をGoogleカレンダーに追加
     // =============================================
-    const { data: reservations } = await withTenant(
+    const { data: reservations } = await strictWithTenant(
       supabaseAdmin
         .from("reservations")
         .select("reserve_id, patient_name, reserved_date, reserved_time, status, prescription_menu")

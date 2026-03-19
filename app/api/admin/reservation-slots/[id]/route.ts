@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized, badRequest } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { reservationSlotSchema } from "@/lib/validations/reservation-settings";
 
@@ -17,13 +17,13 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const { id } = await params;
   if (!id) return badRequest("idは必須です");
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     const parsed = await parseBody(req, reservationSlotSchema.partial());
     if ("error" in parsed) return parsed.error;
 
-    const { data, error } = await withTenant(
+    const { data, error } = await strictWithTenant(
       supabaseAdmin
         .from("reservation_slots")
         .update({
@@ -54,10 +54,10 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   const { id } = await params;
   if (!id) return badRequest("idは必須です");
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
-    const { error } = await withTenant(
+    const { error } = await strictWithTenant(
       supabaseAdmin
         .from("reservation_slots")
         .update({ is_active: false, updated_at: new Date().toISOString() })

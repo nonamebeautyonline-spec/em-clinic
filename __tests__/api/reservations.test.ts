@@ -47,7 +47,9 @@ vi.mock("@/lib/reservation-flex", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
+  resolveTenantIdOrThrow: vi.fn(() => null),
   withTenant: vi.fn((query: unknown) => query),
+  strictWithTenant: vi.fn((query: unknown) => query),
 }));
 
 vi.mock("@/lib/menu-auto-rules", () => ({
@@ -2787,9 +2789,9 @@ describe("DB内部ヘルパー — エラーパス", () => {
   // 60. POST例外スロー → server_error (500)
   // ============================================
   it("POST内部で例外スロー → server_error (500)", async () => {
-    // resolveTenantIdがスローする
-    const { resolveTenantId } = await import("@/lib/tenant");
-    vi.mocked(resolveTenantId).mockImplementation(() => {
+    // resolveTenantIdOrThrowがスローする
+    const { resolveTenantIdOrThrow } = await import("@/lib/tenant");
+    vi.mocked(resolveTenantIdOrThrow).mockImplementation(() => {
       throw new Error("unexpected error");
     });
 

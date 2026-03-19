@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -13,10 +13,10 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
-    const { data, error, count } = await withTenant(
+    const { data, error, count } = await strictWithTenant(
       supabaseAdmin
         .from("ai_reply_examples")
         .select("id, question, answer, source, used_count, created_at", { count: "exact" })
@@ -42,13 +42,13 @@ export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     const { id } = await req.json();
     if (!id) return badRequest("IDが必要です");
 
-    const { error } = await withTenant(
+    const { error } = await strictWithTenant(
       supabaseAdmin.from("ai_reply_examples").delete().eq("id", id),
       tenantId
     );

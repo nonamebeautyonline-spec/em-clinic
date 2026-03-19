@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { mergePatientSchema } from "@/lib/validations/admin-operations";
 
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const parsed = await parseBody(req, mergePatientSchema);
     if ("error" in parsed) return parsed.error;
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     if (deleteNewIntake) {
       console.log(`[merge-patients] Deleting new patient data: ${newPatientId}`);
 
-      const { error: delIntakeErr } = await withTenant(supabaseAdmin
+      const { error: delIntakeErr } = await strictWithTenant(supabaseAdmin
         .from("intake")
         .delete()
         .eq("patient_id", newPatientId), tenantId);
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
         console.error("[merge-patients] Delete new intake failed:", delIntakeErr.message);
       }
 
-      const { error: delReservationsErr } = await withTenant(supabaseAdmin
+      const { error: delReservationsErr } = await strictWithTenant(supabaseAdmin
         .from("reservations")
         .delete()
         .eq("patient_id", newPatientId), tenantId);
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       }
 
       // answerers も削除（統合元のデータで上書きするため）
-      const { error: delAnswererErr } = await withTenant(supabaseAdmin
+      const { error: delAnswererErr } = await strictWithTenant(supabaseAdmin
         .from("patients")
         .delete()
         .eq("patient_id", newPatientId), tenantId);
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     const results: Record<string, string> = {};
 
     for (const table of MERGE_TABLES) {
-      const { error, count } = await withTenant(supabaseAdmin
+      const { error, count } = await strictWithTenant(supabaseAdmin
         .from(table)
         .update({ patient_id: newPatientId })
         .eq("patient_id", oldPatientId), tenantId);
@@ -88,14 +88,14 @@ export async function POST(req: NextRequest) {
     }
 
     // ★ answerers統合: 統合元のline_id・個人情報を統合先に引き継ぎ
-    const { data: oldAnswerer } = await withTenant(supabaseAdmin
+    const { data: oldAnswerer } = await strictWithTenant(supabaseAdmin
       .from("patients")
       .select("line_id, name, name_kana, tel, sex, birthday")
       .eq("patient_id", oldPatientId), tenantId)
       .maybeSingle();
 
     if (oldAnswerer) {
-      const { data: newAnswerer } = await withTenant(supabaseAdmin
+      const { data: newAnswerer } = await strictWithTenant(supabaseAdmin
         .from("patients")
         .select("line_id, name, name_kana, tel, sex, birthday")
         .eq("patient_id", newPatientId), tenantId)
@@ -111,14 +111,14 @@ export async function POST(req: NextRequest) {
           sex: newAnswerer.sex || oldAnswerer.sex || null,
           birthday: newAnswerer.birthday || oldAnswerer.birthday || null,
         };
-        await withTenant(supabaseAdmin
+        await strictWithTenant(supabaseAdmin
           .from("patients")
           .update(merged)
           .eq("patient_id", newPatientId), tenantId);
         console.log(`[merge-patients] answerers merged into ${newPatientId}`);
       } else {
         // 統合先にanswerersがない場合: 統合元をそのまま移行
-        await withTenant(supabaseAdmin
+        await strictWithTenant(supabaseAdmin
           .from("patients")
           .update({ patient_id: newPatientId })
           .eq("patient_id", oldPatientId), tenantId);
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
       }
 
       // 統合元のanswererを削除（重複防止）
-      await withTenant(supabaseAdmin
+      await strictWithTenant(supabaseAdmin
         .from("patients")
         .delete()
         .eq("patient_id", oldPatientId), tenantId);

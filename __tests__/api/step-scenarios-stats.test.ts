@@ -8,7 +8,9 @@ vi.mock("@/lib/admin-auth", () => ({ verifyAdminAuth: (...a: unknown[]) => mockV
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
+  resolveTenantIdOrThrow: vi.fn(() => "test-tenant"),
   withTenant: vi.fn((query: unknown) => query),
+  strictWithTenant: vi.fn((query: unknown) => query),
 }));
 
 // Supabaseチェーンモック

@@ -3,13 +3,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from") || new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
   const to = searchParams.get("to") || new Date().toISOString().slice(0, 10);
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     visitsQuery = visitsQuery.eq("source_id", Number(sourceId));
   }
 
-  const { data: visits, error } = await withTenant(visitsQuery, tenantId);
+  const { data: visits, error } = await strictWithTenant(visitsQuery, tenantId);
   if (error) return serverError(error.message);
 
   const allVisits = visits || [];
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
   const sourceIds = Object.keys(sourceMap).map(Number);
   let sourceNames: Record<number, string> = {};
   if (sourceIds.length > 0) {
-    const { data: sources } = await withTenant(
+    const { data: sources } = await strictWithTenant(
       supabaseAdmin.from("tracking_sources").select("id, name").in("id", sourceIds),
       tenantId
     );

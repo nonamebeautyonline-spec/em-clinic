@@ -4,7 +4,7 @@ import { after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { createLineRichMenu, uploadRichMenuImage, setDefaultRichMenu } from "@/lib/line-richmenu";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createRichMenuSchema } from "@/lib/validations/line-common";
 import { getSettingOrEnv } from "@/lib/settings";
@@ -15,10 +15,10 @@ export async function GET(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const simple = req.nextUrl.searchParams.get("simple") === "true";
 
-    const { data, error } = await withTenant(
+    const { data, error } = await strictWithTenant(
       supabaseAdmin.from("rich_menus").select("*").order("created_at", { ascending: false }),
       tenantId
     );
@@ -34,12 +34,12 @@ export async function GET(req: NextRequest) {
     // メニューごとの表示人数を計算
     // 1. LINE連携済み患者数2種（並列）
     const [registeredRes, allLineRes] = await Promise.all([
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("patients").select("patient_id", { count: "exact", head: true })
           .not("line_id", "is", null).not("patient_id", "like", "LINE_%"),
         tenantId
       ),
-      withTenant(
+      strictWithTenant(
         supabaseAdmin.from("patients").select("patient_id", { count: "exact", head: true })
           .not("line_id", "is", null),
         tenantId
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
     const orderPids = new Set<string>();
     let offset = 0;
     while (true) {
-      const { data: orders } = await withTenant(
+      const { data: orders } = await strictWithTenant(
         supabaseAdmin.from("orders").select("patient_id").range(offset, offset + 4999),
         tenantId
       );
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
       }
       const chunkResults = await Promise.all(
         chunks.map(chunk =>
-          withTenant(
+          strictWithTenant(
             supabaseAdmin.from("patients").select("patient_id", { count: "exact", head: true })
               .in("patient_id", chunk).not("line_id", "is", null),
             tenantId
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const parsed = await parseBody(req, createRichMenuSchema);
     if ("error" in parsed) return parsed.error;
@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
             return;
           }
 
-          await withTenant(
+          await strictWithTenant(
             supabaseAdmin.from("rich_menus").update({ line_rich_menu_id: lineRichMenuId, is_active: true }).eq("id", data.id),
             tenantId
           );

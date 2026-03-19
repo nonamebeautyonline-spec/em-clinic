@@ -18,13 +18,13 @@ describe("patientbundle: テナント対応", () => {
     expect(src).toContain("resolveTenantId");
   });
 
-  it("withTenant をインポートしている", () => {
-    expect(src).toContain("withTenant");
+  it("strictWithTenant をインポートしている", () => {
+    expect(src).toMatch(/withTenant|strictWithTenant/);
   });
 
-  it("全クエリに withTenant が適用されている", () => {
+  it("全クエリに strictWithTenant が適用されている", () => {
     // 5テーブル並列取得（patients, intake, reservations, orders, reorders）
-    const withTenantCount = (src.match(/withTenant\(/g) || []).length;
+    const withTenantCount = (src.match(/(?:strictW|w)ithTenant\(/g) || []).length;
     expect(withTenantCount).toBeGreaterThanOrEqual(5);
   });
 });

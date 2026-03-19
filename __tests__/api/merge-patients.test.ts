@@ -18,7 +18,9 @@ interface SelectCall { table: string; eq: [string, string] }
 // withTenant はクエリをそのまま返す（テナントフィルタ無効化）
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn().mockReturnValue(null),
+  resolveTenantIdOrThrow: vi.fn(() => null),
   withTenant: vi.fn(<T>(query: T) => query),
+  strictWithTenant: vi.fn((q: unknown) => q),
 }));
 
 let mockAuthorized = true;

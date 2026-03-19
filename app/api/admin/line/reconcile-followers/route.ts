@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const lineToken = await getSettingOrEnv(
     "line", "channel_access_token",
     "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN",
@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
   console.log(`[reconcile-followers] LINE フォロワー数: ${followerIds.length}`);
 
   // Step 2: DB上の全 line_id を取得
-  const { data: existingPatients } = await withTenant(
+  const { data: existingPatients } = await strictWithTenant(
     supabaseAdmin
       .from("patients")
       .select("line_id, patient_id"),

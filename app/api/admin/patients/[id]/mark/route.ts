@@ -3,7 +3,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { patientMarkUpdateSchema } from "@/lib/validations/admin-operations";
 
@@ -12,10 +12,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
 
-  const { data } = await withTenant(
+  const { data } = await strictWithTenant(
     supabaseAdmin
       .from("patient_marks")
       .select("*")
@@ -32,7 +32,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
   const parsed = await parseBody(req, patientMarkUpdateSchema);
   if ("error" in parsed) return parsed.error;
@@ -40,7 +40,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   // "none" は常に許可、それ以外は mark_definitions テーブルで検証
   if (mark !== "none") {
-    const { data: markDef } = await withTenant(
+    const { data: markDef } = await strictWithTenant(
       supabaseAdmin
         .from("mark_definitions")
         .select("id")
@@ -51,7 +51,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!markDef) return badRequest("Invalid mark");
   }
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin
       .from("patient_marks")
       .upsert({

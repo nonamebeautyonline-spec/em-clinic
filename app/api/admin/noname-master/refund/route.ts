@@ -4,7 +4,7 @@ import { badRequest, forbidden, notFound, serverError, unauthorized } from "@/li
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { logAudit } from "@/lib/audit";
 import { parseBody } from "@/lib/validations/helpers";
@@ -49,10 +49,10 @@ export async function POST(req: NextRequest) {
       return forbidden("管理者トークンが正しくありません");
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     // 4. 対象注文を取得
-    const { data: order, error: fetchError } = await withTenant(
+    const { data: order, error: fetchError } = await strictWithTenant(
       supabaseAdmin
         .from("orders")
         .select("id, patient_id, product_code, amount, status, payment_method, shipping_name, refund_status")
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
       }
 
       // DB更新: COMPLETED（Squareが処理済み）
-      const { error: updateError } = await withTenant(
+      const { error: updateError } = await strictWithTenant(
         supabaseAdmin
           .from("orders")
           .update({
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
       }
     } else if (order.payment_method === "bank_transfer") {
       // 銀行振込: DB更新のみ（手動返金待ち）
-      const { error: updateError } = await withTenant(
+      const { error: updateError } = await strictWithTenant(
         supabaseAdmin
           .from("orders")
           .update({

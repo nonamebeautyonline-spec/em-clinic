@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
 import { grantPoints } from "@/lib/points";
 
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     const url = new URL(req.url);
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
     // 各患者の最新残高を取得（DISTINCT ON で最新レコードのみ）
     // Supabase JSクライアントではDISTINCT ONが使えないので、全患者のledgerを取得して集約
-    const { data, error } = await withTenant(
+    const { data, error } = await strictWithTenant(
       supabaseAdmin
         .from("point_ledger")
         .select("patient_id, balance_after, created_at"),
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     const body = await req.json();

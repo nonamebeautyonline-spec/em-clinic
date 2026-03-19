@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth, getAdminUserId } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { karteConfirmSchema } from "@/lib/validations/admin-operations";
 import { recordKarteChange } from "@/lib/karte-history";
@@ -20,11 +20,11 @@ export async function POST(req: NextRequest) {
     if ("error" in parsed) return parsed.error;
     const { intakeId } = parsed.data;
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const adminUserId = await getAdminUserId(req);
 
     // 現在のカルテを取得
-    const { data: intake } = await withTenant(
+    const { data: intake } = await strictWithTenant(
       supabaseAdmin
         .from("intake")
         .select("id, note, karte_status")
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 確定
-    const { error: updateErr } = await withTenant(
+    const { error: updateErr } = await strictWithTenant(
       supabaseAdmin
         .from("intake")
         .update({

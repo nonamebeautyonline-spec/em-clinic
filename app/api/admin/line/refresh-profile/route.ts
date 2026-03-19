@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
 import { refreshProfileSchema } from "@/lib/validations/line-management";
@@ -14,14 +14,14 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const LINE_ACCESS_TOKEN = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
   const parsed = await parseBody(req, refreshProfileSchema);
   if ("error" in parsed) return parsed.error;
   const { patient_id } = parsed.data;
 
   // patient_id から line_id を patients テーブルから取得
-  const { data: patientRow } = await withTenant(
+  const { data: patientRow } = await strictWithTenant(
     supabaseAdmin
       .from("patients")
       .select("line_id")
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
   const pictureUrl = profile.pictureUrl || null;
 
   // DBに保存（patients テーブルに保存）
-  await withTenant(
+  await strictWithTenant(
     supabaseAdmin
       .from("patients")
       .update({ line_display_name: displayName, line_picture_url: pictureUrl })

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 // ---------- 型定義 ----------
 interface CouponRow {
@@ -62,14 +62,14 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from");
   const to = searchParams.get("to");
 
   try {
     // 1. 全クーポン取得
-    const { data: coupons, error: cErr } = await withTenant(
+    const { data: coupons, error: cErr } = await strictWithTenant(
       supabaseAdmin.from("coupons").select("id, name, code, discount_type, discount_value"),
       tenantId,
     );
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
       .select("coupon_id, status, used_at, issued_at, order_id");
     if (from) q = q.gte("issued_at", `${from}T00:00:00+09:00`);
     if (to) q = q.lte("issued_at", `${to}T23:59:59+09:00`);
-    const { data: issues, error: iErr } = await withTenant(q, tenantId);
+    const { data: issues, error: iErr } = await strictWithTenant(q, tenantId);
     if (iErr) return serverError(iErr.message);
     const issueList = (issues || []) as IssueRow[];
 
@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
       const BATCH = 50;
       for (let i = 0; i < usedOrderIds.length; i += BATCH) {
         const batch = usedOrderIds.slice(i, i + BATCH);
-        const { data: orders } = await withTenant(
+        const { data: orders } = await strictWithTenant(
           supabaseAdmin.from("orders").select("id, amount").in("id", batch),
           tenantId,
         );

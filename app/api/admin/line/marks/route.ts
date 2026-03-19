@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createMarkSchema } from "@/lib/validations/line-common";
 
@@ -11,10 +11,10 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const simple = req.nextUrl.searchParams.get("simple") === "true";
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("mark_definitions")
       .select("*")
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
   let assignedTotal = 0;
   for (const m of data || []) {
     if (m.value === "none") continue;
-    const { count } = await withTenant(
+    const { count } = await strictWithTenant(
       supabaseAdmin
         .from("patient_marks")
         .select("*", { count: "exact", head: true })
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
   }
 
   // 未対応（none）= 全患者 - マーク付き患者数
-  const { count: totalPatients } = await withTenant(
+  const { count: totalPatients } = await strictWithTenant(
     supabaseAdmin
       .from("intake")
       .select("patient_id", { count: "exact", head: true })
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const parsed = await parseBody(req, createMarkSchema);
   if ("error" in parsed) return parsed.error;
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
   const value = `custom_${Date.now()}`;
 
   // 最大sort_orderを取得
-  const { data: maxRow } = await withTenant(
+  const { data: maxRow } = await strictWithTenant(
     supabaseAdmin
       .from("mark_definitions")
       .select("sort_order")

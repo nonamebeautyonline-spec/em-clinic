@@ -4,7 +4,7 @@ import { notFound, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { resolveTargets } from "@/app/api/admin/line/broadcast/route";
 import { parseBody } from "@/lib/validations/helpers";
 import { distributeNpsSchema } from "@/lib/validations/line-management";
@@ -17,14 +17,14 @@ export async function POST(
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id: surveyId } = await params;
   const parsed = await parseBody(req, distributeNpsSchema);
   if ("error" in parsed) return parsed.error;
   const { filter_rules, message } = parsed.data;
 
   // 調査取得
-  const { data: survey } = await withTenant(
+  const { data: survey } = await strictWithTenant(
     supabaseAdmin.from("nps_surveys").select("*").eq("id", parseInt(surveyId)).single(),
     tenantId
   );

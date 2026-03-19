@@ -39,7 +39,9 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant-id"),
+  resolveTenantIdOrThrow: vi.fn(() => "test-tenant-id"),
   withTenant: vi.fn(<T>(q: T) => q),
+  strictWithTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn((tid: string | null) => ({ tenant_id: tid || "00000000-0000-0000-0000-000000000001" })),
 }));
 

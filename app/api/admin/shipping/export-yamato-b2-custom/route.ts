@@ -4,7 +4,7 @@ import { generateYamatoB2Csv } from "@/utils/yamato-b2-formatter";
 import { createClient } from "@supabase/supabase-js";
 import { jwtVerify } from "jose";
 
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { exportYamatoB2CustomSchema } from "@/lib/validations/shipping";
 import { getYamatoConfig } from "@/lib/shipping/config";
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const parsed = await parseBody(req, exportYamatoB2CustomSchema);
     if ("error" in parsed) return parsed.error;
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`[ExportYamatoB2Custom] Marking ${allPaymentIds.length} orders as list_created`);
 
-    const { data: updatedOrders, error: updateError } = await withTenant(
+    const { data: updatedOrders, error: updateError } = await strictWithTenant(
       supabase.from("orders").update({
         shipping_list_created_at: now,
         updated_at: now,

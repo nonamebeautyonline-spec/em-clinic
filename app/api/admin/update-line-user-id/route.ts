@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateLineUserIdSchema } from "@/lib/validations/admin-operations";
 
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const parsed = await parseBody(req, updateLineUserIdSchema);
     if ("error" in parsed) return parsed.error;
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     // ★ patients テーブルの line_id を更新（intake の line_id は不要）
     const updateValue = lineUserId === "" ? null : lineUserId;
 
-    const { error: patientsError } = await withTenant(
+    const { error: patientsError } = await strictWithTenant(
       supabaseAdmin
         .from("patients")
         .update({ line_id: updateValue })

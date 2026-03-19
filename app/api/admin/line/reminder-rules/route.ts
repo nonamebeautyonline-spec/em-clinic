@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { reminderRuleSchema } from "@/lib/validations/line-common";
 
@@ -12,9 +12,9 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("reminder_rules")
       .select("*")
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   const rules = data || [];
   const enriched = [];
   for (const rule of rules) {
-    const { count } = await withTenant(
+    const { count } = await strictWithTenant(
       supabaseAdmin
         .from("reminder_sent_log")
         .select("*", { count: "exact", head: true })
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const parsed = await parseBody(req, reminderRuleSchema);
   if ("error" in parsed) return parsed.error;
@@ -93,7 +93,7 @@ export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const parsed = await parseBody(req, reminderRuleSchema);
   if ("error" in parsed) return parsed.error;
@@ -104,7 +104,7 @@ export async function PUT(req: NextRequest) {
 
   if (!id) return badRequest("IDは必須です");
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("reminder_rules")
       .update({
@@ -133,13 +133,13 @@ export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
 
   if (!id) return badRequest("IDは必須です");
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin.from("reminder_rules").delete().eq("id", parseInt(id)),
     tenantId
   );

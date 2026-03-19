@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createMarkSchema } from "@/lib/validations/line-common";
 
@@ -25,11 +25,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
 
   // mark_definitions から value を取得
-  const { data: markDef } = await withTenant(
+  const { data: markDef } = await strictWithTenant(
     supabaseAdmin
       .from("mark_definitions")
       .select("value")
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   // このマークが付いた患者IDを取得
   const { data: pmRows, error } = await fetchAll(() =>
-    withTenant(
+    strictWithTenant(
       supabaseAdmin
         .from("patient_marks")
         .select("patient_id")
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const patientRows: { patient_id: string; name: string | null; line_id: string | null }[] = [];
   for (let i = 0; i < patientIds.length; i += BATCH_SIZE) {
     const batch = patientIds.slice(i, i + BATCH_SIZE);
-    const { data } = await withTenant(
+    const { data } = await strictWithTenant(
       supabaseAdmin
         .from("patients")
         .select("patient_id, name, line_id")
@@ -92,14 +92,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
 
   const parsed = await parseBody(req, createMarkSchema);
   if ("error" in parsed) return parsed.error;
   const { label, color, icon } = parsed.data;
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("mark_definitions")
       .update({ label, color, icon })
@@ -116,11 +116,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const { id } = await params;
 
   // "none" は削除不可
-  const { data: mark } = await withTenant(
+  const { data: mark } = await strictWithTenant(
     supabaseAdmin
       .from("mark_definitions")
       .select("value")
@@ -132,7 +132,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return badRequest("「なし」は削除できません");
   }
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin
       .from("mark_definitions")
       .delete()

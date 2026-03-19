@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { IntakeFormUpdateSchema } from "@/lib/validations/intake-form";
 import {
@@ -17,9 +17,9 @@ export async function GET(req: NextRequest) {
   if (!isAuthorized)
     return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("intake_form_definitions")
       .select("id, name, fields, settings, is_active, created_at, updated_at")
@@ -53,21 +53,21 @@ export async function PUT(req: NextRequest) {
   if (!isAuthorized)
     return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, IntakeFormUpdateSchema);
   if (parsed.error) return parsed.error;
 
   const { name, fields, settings } = parsed.data;
 
   // アクティブなレコードを確認
-  const { data: existing } = await withTenant(
+  const { data: existing } = await strictWithTenant(
     supabaseAdmin.from("intake_form_definitions").select("id").eq("is_active", true),
     tenantId,
   ).maybeSingle();
 
   if (existing) {
     // UPDATE
-    const { error } = await withTenant(
+    const { error } = await strictWithTenant(
       supabaseAdmin
         .from("intake_form_definitions")
         .update({

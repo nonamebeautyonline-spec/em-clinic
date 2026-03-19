@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { randomBytes } from "crypto";
 import { sendWelcomeEmail } from "@/lib/email";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { generateUsername } from "@/lib/username";
 import { parseBody } from "@/lib/validations/helpers";
 import { createAdminUserSchema } from "@/lib/validations/admin-operations";
@@ -26,9 +26,9 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
-  const { data: users, error } = await withTenant(
+  const { data: users, error } = await strictWithTenant(
     supabase
       .from("admin_users")
       .select("id, email, name, username, is_active, created_at, updated_at")
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   try {
     const parsed = await parseBody(req, createAdminUserSchema);
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     const { email, name } = parsed.data;
 
     // メールアドレス重複チェック
-    const { data: existing } = await withTenant(
+    const { data: existing } = await strictWithTenant(
       supabase
         .from("admin_users")
         .select("id")
@@ -150,7 +150,7 @@ export async function DELETE(req: NextRequest) {
     return unauthorized();
   }
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get("id");
@@ -159,7 +159,7 @@ export async function DELETE(req: NextRequest) {
     return badRequest("id が必要です");
   }
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabase
       .from("admin_users")
       .delete()

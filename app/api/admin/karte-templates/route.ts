@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { karteTemplateCreateSchema, karteTemplateUpdateSchema } from "@/lib/validations/admin-operations";
 
@@ -15,9 +15,9 @@ export async function GET(req: NextRequest) {
   if (!isAuthorized)
     return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("karte_templates")
       .select("*")
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   if (!isAuthorized)
     return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const parsed = await parseBody(req, karteTemplateCreateSchema);
   if ("error" in parsed) return parsed.error;
@@ -86,7 +86,7 @@ export async function PUT(req: NextRequest) {
   if (!isAuthorized)
     return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const parsed = await parseBody(req, karteTemplateUpdateSchema);
   if ("error" in parsed) return parsed.error;
@@ -94,7 +94,7 @@ export async function PUT(req: NextRequest) {
 
   // body 変更時は更新前のバージョンを保存
   if (body.body !== undefined) {
-    const { data: current } = await withTenant(
+    const { data: current } = await strictWithTenant(
       supabaseAdmin
         .from("karte_templates")
         .select("id, name, category, body, current_version")
@@ -125,14 +125,14 @@ export async function PUT(req: NextRequest) {
 
   // body 変更時はバージョンインクリメント
   if (body.body !== undefined) {
-    const { data: cur } = await withTenant(
+    const { data: cur } = await strictWithTenant(
       supabaseAdmin.from("karte_templates").select("current_version").eq("id", body.id),
       tenantId,
     ).single();
     updates.current_version = (cur?.current_version || 1) + 1;
   }
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("karte_templates")
       .update(updates)
@@ -153,14 +153,14 @@ export async function DELETE(req: NextRequest) {
   if (!isAuthorized)
     return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   const id = new URL(req.url).searchParams.get("id");
   if (!id) {
     return badRequest("id は必須です");
   }
 
-  const { error } = await withTenant(
+  const { error } = await strictWithTenant(
     supabaseAdmin
       .from("karte_templates")
       .update({ is_active: false, updated_at: new Date().toISOString() })

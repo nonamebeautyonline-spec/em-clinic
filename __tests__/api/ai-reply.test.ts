@@ -27,6 +27,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   withTenant: (query: unknown) => query,
+  strictWithTenant: (query: unknown) => query,
   tenantPayload: (tid: string | null) => ({ tenant_id: tid || null }),
 }));
 

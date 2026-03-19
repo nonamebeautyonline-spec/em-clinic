@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized, serverError } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return unauthorized();
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
     const { searchParams } = new URL(req.url);
 
     const status = searchParams.get("status"); // 'failed', 'completed', 'processing'
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 100);
 
-    let query = withTenant(
+    let query = strictWithTenant(
       supabaseAdmin
         .from("webhook_events")
         .select("id, tenant_id, event_source, event_id, status, error_message, retry_count, last_retried_at, created_at, completed_at", { count: "exact" }),
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     if (error) return serverError(error.message);
 
     // 統計情報も返す
-    const { data: stats } = await withTenant(
+    const { data: stats } = await strictWithTenant(
       supabaseAdmin
         .from("webhook_events")
         .select("status"),

@@ -3,7 +3,7 @@ import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getProductNamesMap } from "@/lib/products";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     // ★ 商品名マップをDBから取得
     const PRODUCT_NAMES = await getProductNamesMap(tenantId ?? undefined);
@@ -36,8 +36,8 @@ export async function GET(req: NextRequest) {
     const cutoffTimeISO = cutoffTime.toISOString();
 
     // ベースクエリを構築（テナントフィルター付き）
-    let countQuery = withTenant(supabaseAdmin.from("orders").select("*", { count: "exact", head: true }), tenantId);
-    let dataQuery = withTenant(
+    let countQuery = strictWithTenant(supabaseAdmin.from("orders").select("*", { count: "exact", head: true }), tenantId);
+    let dataQuery = strictWithTenant(
       supabaseAdmin
         .from("orders")
         .select("id, patient_id, product_code, amount, payment_method, status, paid_at, shipping_date, tracking_number, shipping_name, postal_code, address, phone, created_at, refund_status, refunded_at, refunded_amount"),
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
     // 患者名をpatientsテーブルから取得
     const patientNameMap: Record<string, string> = {};
     if (patientIds.length > 0) {
-      const { data: pData } = await withTenant(
+      const { data: pData } = await strictWithTenant(
         supabaseAdmin
           .from("patients")
           .select("patient_id, name")
@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
     // 購入回数を計算（各患者の注文数）- バッチ処理で高速化
     const purchaseCountMap: Record<string, number> = {};
     if (patientIds.length > 0) {
-      const { data: allOrders } = await withTenant(
+      const { data: allOrders } = await strictWithTenant(
         supabaseAdmin
           .from("orders")
           .select("patient_id")

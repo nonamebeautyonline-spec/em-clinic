@@ -36,6 +36,7 @@ vi.mock("@/lib/admin-auth", () => ({
 // テナントモック
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "tenant-test-1"),
+  resolveTenantIdOrThrow: vi.fn(() => "tenant-test-1"),
 }));
 
 // EHR sync モック

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { notFound, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { recreateLabelSchema } from "@/lib/validations/shipping";
 
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     const parsed = await parseBody(req, recreateLabelSchema);
     if ("error" in parsed) return parsed.error;
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     // - tracking_number を NULL
     // - shipping_date を NULL
     // - shipping_list_created_at を NULL（pending画面でチェック可能に戻す）
-    const { data, error } = await withTenant(
+    const { data, error } = await strictWithTenant(
       supabase
         .from("orders")
         .update({

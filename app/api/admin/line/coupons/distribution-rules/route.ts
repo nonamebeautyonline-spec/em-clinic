@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 
 // 有効なトリガータイプ
 const VALID_TRIGGER_TYPES = ["birthday", "first_purchase_days", "nth_visit", "tag_added"] as const;
@@ -18,9 +18,9 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
-  const { data: rules, error } = await withTenant(
+  const { data: rules, error } = await strictWithTenant(
     supabaseAdmin
       .from("coupon_distribution_rules")
       .select("*, coupons(id, name, code, discount_type, discount_value)")
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
 
   let body: Record<string, unknown>;
   try {
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
   }
 
   // クーポン存在チェック
-  const { data: coupon } = await withTenant(
+  const { data: coupon } = await strictWithTenant(
     supabaseAdmin.from("coupons").select("id").eq("id", coupon_id).single(),
     tenantId
   );

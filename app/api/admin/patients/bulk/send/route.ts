@@ -3,7 +3,7 @@ import { notFound, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { bulkSendSchema } from "@/lib/validations/line-common";
 
@@ -12,13 +12,13 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return unauthorized();
 
-  const tenantId = resolveTenantId(req);
+  const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, bulkSendSchema);
   if ("error" in parsed) return parsed.error;
   const { patient_ids, template_id } = parsed.data;
 
   // テンプレート取得
-  const { data: tmpl } = await withTenant(
+  const { data: tmpl } = await strictWithTenant(
     supabaseAdmin
       .from("message_templates")
       .select("id, name, content")
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   const intakeMap = new Map<string, { line_id: string; patient_name: string }>();
   for (let i = 0; i < patient_ids.length; i += DB_BATCH_SIZE) {
     const batch = patient_ids.slice(i, i + DB_BATCH_SIZE);
-    const { data: pData } = await withTenant(
+    const { data: pData } = await strictWithTenant(
       supabaseAdmin
         .from("patients")
         .select("patient_id, line_id, name")

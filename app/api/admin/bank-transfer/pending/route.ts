@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
       return unauthorized();
     }
 
-    const tenantId = resolveTenantId(req);
+    const tenantId = resolveTenantIdOrThrow(req);
 
     // statusフィルター: pending_confirmation / confirmed / all
     const { searchParams } = new URL(req.url);
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
       query = query.eq("status", statusFilter);
     }
 
-    const { data: orders, error } = await withTenant(query, tenantId);
+    const { data: orders, error } = await strictWithTenant(query, tenantId);
 
     if (error) {
       console.error("Supabase pending orders error:", error);
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
     // 患者名を取得（patientsテーブルから）
     const patientNameMap: Record<string, string> = {};
     if (patientIds.length > 0) {
-      const { data: patients } = await withTenant(
+      const { data: patients } = await strictWithTenant(
         supabase
           .from("patients")
           .select("patient_id, name")
