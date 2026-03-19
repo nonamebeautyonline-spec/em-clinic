@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { resolveTenantId } from "@/lib/tenant";
-import { getSettingOrEnv } from "@/lib/settings";
+import { getActiveSquareAccount } from "@/lib/square-account";
 import { checkIdempotency } from "@/lib/idempotency";
 import { processSquareEvent, type SquareEvent } from "@/lib/webhook-handlers/square";
 
@@ -24,9 +24,10 @@ export async function POST(req: Request) {
   const tid = tenantId ?? undefined;
 
   // Square設定を動的取得
-  const signatureKey = (await getSettingOrEnv("square", "webhook_signature_key", "SQUARE_WEBHOOK_SIGNATURE_KEY", tid)) || "";
-  const squareToken = (await getSettingOrEnv("square", "access_token", "SQUARE_ACCESS_TOKEN", tid)) || "";
-  const squareEnv = (await getSettingOrEnv("square", "env", "SQUARE_ENV", tid)) || "production";
+  const sqConfig = await getActiveSquareAccount(tid);
+  const signatureKey = sqConfig?.webhookSignatureKey || "";
+  const squareToken = sqConfig?.accessToken || "";
+  const squareEnv = sqConfig?.env || "production";
 
   // 署名検証
   const signatureHeader = req.headers.get("x-square-hmacsha1-signature");

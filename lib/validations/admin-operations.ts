@@ -636,6 +636,28 @@ export const bulkMenuSchema = z
   })
   .passthrough();
 
+/** Squareアカウント一括更新 PUT /api/admin/square-accounts */
+export const squareAccountsUpdateSchema = z
+  .object({
+    accounts: z
+      .array(
+        z.object({
+          id: z.string().min(1, "アカウントIDは必須です"),
+          name: z.string().min(1, "アカウント名は必須です"),
+          access_token: z.string().min(1, "Access Tokenは必須です"),
+          application_id: z.string().optional().default(""),
+          location_id: z.string().min(1, "Location IDは必須です"),
+          webhook_signature_key: z.string().optional().default(""),
+          env: z.string().optional().default("production"),
+          three_ds_enabled: z.boolean().optional().default(false),
+        }).passthrough()
+      )
+      .min(1, "アカウントは1件以上必要です")
+      .max(10, "アカウントは10件以下にしてください"),
+    activeId: z.string().min(1, "アクティブアカウントIDは必須です"),
+  })
+  .passthrough();
+
 /** 口座情報一括更新 PUT /api/admin/bank-accounts */
 export const bankAccountsUpdateSchema = z
   .object({

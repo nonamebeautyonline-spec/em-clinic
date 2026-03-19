@@ -98,8 +98,8 @@ vi.mock("@/lib/reorder-karte", () => ({
   createReorderPaymentKarte: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("@/lib/settings", () => ({
-  getSettingOrEnv: vi.fn().mockResolvedValue(""),
+vi.mock("@/lib/square-account", () => ({
+  getActiveSquareAccount: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/idempotency", () => ({
@@ -117,7 +117,7 @@ vi.stubGlobal("fetch", vi.fn());
 import { GET, POST } from "@/app/api/square/webhook/route";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { createReorderPaymentKarte } from "@/lib/reorder-karte";
-import { getSettingOrEnv } from "@/lib/settings";
+import { getActiveSquareAccount } from "@/lib/square-account";
 
 // --- ヘルパー ---
 function createWebhookRequest(body: unknown, headers: Record<string, string> = {}) {
@@ -149,7 +149,7 @@ describe("Square Webhook API", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (globalThis as unknown as TestGlobal).__testTableChains = {};
-    vi.mocked(getSettingOrEnv).mockResolvedValue("");
+    vi.mocked(getActiveSquareAccount).mockResolvedValue(undefined);
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
       status: 200,
@@ -171,11 +171,14 @@ describe("Square Webhook API", () => {
   // --- 署名検証テスト ---
   describe("署名検証", () => {
     it("署名キーがあり不正な署名の場合は401を返す", async () => {
-      vi.mocked(getSettingOrEnv).mockImplementation(async (_cat, key) => {
-        if (key === "webhook_signature_key") return "test-secret-key";
-        if (key === "access_token") return "sq-token";
-        if (key === "env") return "sandbox";
-        return "";
+      vi.mocked(getActiveSquareAccount).mockResolvedValue({
+        accessToken: "sq-token",
+        applicationId: "",
+        locationId: "",
+        webhookSignatureKey: "test-secret-key",
+        env: "sandbox",
+        threeDsEnabled: false,
+        baseUrl: "https://connect.squareupsandbox.com",
       });
 
       // SQUARE_WEBHOOK_NOTIFICATION_URL を設定
@@ -193,7 +196,7 @@ describe("Square Webhook API", () => {
     });
 
     it("署名キーがなければ検証スキップ（段階導入）", async () => {
-      vi.mocked(getSettingOrEnv).mockResolvedValue("");
+      vi.mocked(getActiveSquareAccount).mockResolvedValue(undefined);
 
       const body = { type: "unknown.event", data: {} };
       const req = createWebhookRequest(body);
@@ -204,9 +207,14 @@ describe("Square Webhook API", () => {
     });
 
     it("署名キーあり＆署名ヘッダなしの場合は401を返す", async () => {
-      vi.mocked(getSettingOrEnv).mockImplementation(async (_cat, key) => {
-        if (key === "webhook_signature_key") return "test-secret-key";
-        return "";
+      vi.mocked(getActiveSquareAccount).mockResolvedValue({
+        accessToken: "",
+        applicationId: "",
+        locationId: "",
+        webhookSignatureKey: "test-secret-key",
+        env: "production",
+        threeDsEnabled: false,
+        baseUrl: "https://connect.squareup.com",
       });
 
       const body = { type: "unknown.event", data: {} };
@@ -221,11 +229,14 @@ describe("Square Webhook API", () => {
       const notificationUrl = "http://localhost:3000/api/square/webhook";
       process.env.SQUARE_WEBHOOK_NOTIFICATION_URL = notificationUrl;
 
-      vi.mocked(getSettingOrEnv).mockImplementation(async (_cat, key) => {
-        if (key === "webhook_signature_key") return signatureKey;
-        if (key === "access_token") return "sq-token";
-        if (key === "env") return "sandbox";
-        return "";
+      vi.mocked(getActiveSquareAccount).mockResolvedValue({
+        accessToken: "sq-token",
+        applicationId: "",
+        locationId: "",
+        webhookSignatureKey: signatureKey,
+        env: "sandbox",
+        threeDsEnabled: false,
+        baseUrl: "https://connect.squareupsandbox.com",
       });
 
       const body = { type: "unknown.event", data: {} };

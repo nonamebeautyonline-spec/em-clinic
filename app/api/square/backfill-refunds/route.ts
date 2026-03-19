@@ -3,7 +3,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
-import { getSettingOrEnv } from "@/lib/settings";
+import { getActiveSquareAccount } from "@/lib/square-account";
 import { badRequest, serverError } from "@/lib/api-error";
 
 export const runtime = "nodejs";
@@ -36,8 +36,9 @@ export async function GET(req: Request) {
     const tenantId = resolveTenantId(req);
     const tid = tenantId ?? undefined;
 
-    const squareToken = (await getSettingOrEnv("square", "access_token", "SQUARE_ACCESS_TOKEN", tid)) || "";
-    const squareEnv = (await getSettingOrEnv("square", "env", "SQUARE_ENV", tid)) || "production";
+    const sqConfig = await getActiveSquareAccount(tid);
+    const squareToken = sqConfig?.accessToken || "";
+    const squareEnv = sqConfig?.env || "production";
 
     if (!squareToken) {
       return serverError("SQUARE_ACCESS_TOKEN not set");

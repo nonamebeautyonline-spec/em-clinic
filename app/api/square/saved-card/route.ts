@@ -1,7 +1,7 @@
 // app/api/square/saved-card/route.ts — 保存済みカード情報取得
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { getSettingOrEnv } from "@/lib/settings";
+import { getActiveSquareAccount } from "@/lib/square-account";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { getCardDetails } from "@/lib/payment/square-inline";
 
@@ -32,12 +32,9 @@ export async function GET(req: NextRequest) {
   }
 
   // Square Cards API でカード詳細を取得（有効性確認）
-  const accessToken = await getSettingOrEnv("square", "access_token", "SQUARE_ACCESS_TOKEN", tid);
-  const env = (await getSettingOrEnv("square", "env", "SQUARE_ENV", tid)) || "production";
-  const baseUrl =
-    env === "sandbox"
-      ? "https://connect.squareupsandbox.com"
-      : "https://connect.squareup.com";
+  const sqConfig = await getActiveSquareAccount(tid);
+  const accessToken = sqConfig?.accessToken;
+  const baseUrl = sqConfig?.baseUrl || "https://connect.squareup.com";
 
   if (!accessToken) {
     return NextResponse.json({ hasCard: false });

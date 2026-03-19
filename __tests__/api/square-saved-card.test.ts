@@ -32,8 +32,8 @@ vi.mock("@/lib/tenant", () => ({
   withTenant: vi.fn((q: unknown) => q),
 }));
 
-vi.mock("@/lib/settings", () => ({
-  getSettingOrEnv: vi.fn(),
+vi.mock("@/lib/square-account", () => ({
+  getActiveSquareAccount: vi.fn(),
 }));
 
 vi.mock("@/lib/payment/square-inline", () => ({
@@ -41,7 +41,7 @@ vi.mock("@/lib/payment/square-inline", () => ({
 }));
 
 import { GET } from "@/app/api/square/saved-card/route";
-import { getSettingOrEnv } from "@/lib/settings";
+import { getActiveSquareAccount } from "@/lib/square-account";
 import { getCardDetails } from "@/lib/payment/square-inline";
 
 function setTableChain(table: string, chain: Record<string, unknown>) {
@@ -60,10 +60,14 @@ describe("GET /api/square/saved-card", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (globalThis as Record<string, unknown>).__testTableChains = {};
-    vi.mocked(getSettingOrEnv).mockImplementation(async (_cat, key) => {
-      if (key === "access_token") return "sq-test-token";
-      if (key === "env") return "sandbox";
-      return "";
+    vi.mocked(getActiveSquareAccount).mockResolvedValue({
+      accessToken: "sq-test-token",
+      applicationId: "",
+      locationId: "",
+      webhookSignatureKey: "",
+      env: "sandbox",
+      threeDsEnabled: false,
+      baseUrl: "https://connect.squareupsandbox.com",
     });
   });
 
@@ -151,7 +155,7 @@ describe("GET /api/square/saved-card", () => {
     });
     setTableChain("patients", pChain);
 
-    vi.mocked(getSettingOrEnv).mockResolvedValue(undefined);
+    vi.mocked(getActiveSquareAccount).mockResolvedValue(undefined);
 
     const res = await GET(createRequest({ patient_id: "PID_001" }));
     const body = await res.json();

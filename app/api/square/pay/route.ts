@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, conflict, forbidden, serverError, tooManyRequests } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
-import { getSettingOrEnv } from "@/lib/settings";
+import { getActiveSquareAccount } from "@/lib/square-account";
 import { getProductByCode } from "@/lib/products";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { normalizeJPPhone } from "@/lib/phone";
@@ -98,18 +98,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Square設定取得
-    const accessToken = await getSettingOrEnv("square", "access_token", "SQUARE_ACCESS_TOKEN", tid);
-    const locationId = await getSettingOrEnv("square", "location_id", "SQUARE_LOCATION_ID", tid);
-    const env = (await getSettingOrEnv("square", "env", "SQUARE_ENV", tid)) || "production";
+    const sqConfig = await getActiveSquareAccount(tid);
+    const accessToken = sqConfig?.accessToken;
+    const locationId = sqConfig?.locationId;
 
     if (!accessToken || !locationId) {
       return serverError("Square設定が不足しています");
     }
 
-    const baseUrl =
-      env === "sandbox"
-        ? "https://connect.squareupsandbox.com"
-        : "https://connect.squareup.com";
+    const baseUrl = sqConfig.baseUrl;
 
     // payment_note（既存webhook互換）
     const noteParts: string[] = [`PID:${patientId}`];

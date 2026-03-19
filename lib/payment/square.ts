@@ -1,6 +1,6 @@
 // lib/payment/square.ts — Square 決済プロバイダー実装
 import crypto from "crypto";
-import { getSettingOrEnv } from "@/lib/settings";
+import { getActiveSquareAccount } from "@/lib/square-account";
 import type {
   PaymentProvider,
   CheckoutParams,
@@ -13,17 +13,14 @@ export class SquarePaymentProvider implements PaymentProvider {
   name = "square";
 
   private async getConfig() {
-    const accessToken = await getSettingOrEnv("square", "access_token", "SQUARE_ACCESS_TOKEN");
-    const locationId = await getSettingOrEnv("square", "location_id", "SQUARE_LOCATION_ID");
-    const env = await getSettingOrEnv("square", "env", "SQUARE_ENV") || "production";
-    const webhookSignatureKey = await getSettingOrEnv("square", "webhook_signature_key", "SQUARE_WEBHOOK_SIGNATURE_KEY");
-
-    const baseUrl =
-      env === "sandbox"
-        ? "https://connect.squareupsandbox.com"
-        : "https://connect.squareup.com";
-
-    return { accessToken, locationId, env, webhookSignatureKey, baseUrl };
+    const config = await getActiveSquareAccount();
+    return {
+      accessToken: config?.accessToken,
+      locationId: config?.locationId,
+      env: config?.env || "production",
+      webhookSignatureKey: config?.webhookSignatureKey,
+      baseUrl: config?.baseUrl || "https://connect.squareup.com",
+    };
   }
 
   async createCheckoutLink(params: CheckoutParams): Promise<CheckoutResult> {

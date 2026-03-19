@@ -4,12 +4,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import crypto from "crypto";
 
 // --- モック ---
-vi.mock("@/lib/settings", () => ({
-  getSettingOrEnv: vi.fn(),
+vi.mock("@/lib/square-account", () => ({
+  getActiveSquareAccount: vi.fn(),
 }));
 
-import { getSettingOrEnv } from "@/lib/settings";
-const mockGetSettingOrEnv = vi.mocked(getSettingOrEnv);
+import { getActiveSquareAccount } from "@/lib/square-account";
+const mockGetActiveSquareAccount = vi.mocked(getActiveSquareAccount);
 
 // fetchモック
 const mockFetch = vi.fn();
@@ -19,16 +19,21 @@ import { SquarePaymentProvider } from "@/lib/payment/square";
 
 // --- ヘルパー ---
 function defaultConfig(overrides: Record<string, string | undefined> = {}) {
-  const config: Record<string, string | undefined> = {
-    access_token: "sq-test-token",
-    location_id: "LOC123",
-    env: "sandbox",
-    webhook_signature_key: "whsec_test_key",
-    ...overrides,
-  };
-  mockGetSettingOrEnv.mockImplementation(
-    async (_cat: string, key: string) => config[key],
-  );
+  const hasAccessToken = !("access_token" in overrides) || !!overrides.access_token;
+  if (!hasAccessToken) {
+    mockGetActiveSquareAccount.mockResolvedValue(undefined);
+    return;
+  }
+  const env = overrides.env || "sandbox";
+  mockGetActiveSquareAccount.mockResolvedValue({
+    accessToken: overrides.access_token ?? "sq-test-token",
+    locationId: "location_id" in overrides ? (overrides.location_id || "") : "LOC123",
+    env,
+    webhookSignatureKey: "webhook_signature_key" in overrides ? (overrides.webhook_signature_key || "") : "whsec_test_key",
+    applicationId: "",
+    threeDsEnabled: false,
+    baseUrl: env === "sandbox" ? "https://connect.squareupsandbox.com" : "https://connect.squareup.com",
+  });
 }
 
 function defaultCheckoutParams() {

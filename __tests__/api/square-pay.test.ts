@@ -34,8 +34,8 @@ vi.mock("@/lib/tenant", () => ({
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
-vi.mock("@/lib/settings", () => ({
-  getSettingOrEnv: vi.fn(),
+vi.mock("@/lib/square-account", () => ({
+  getActiveSquareAccount: vi.fn(),
 }));
 
 vi.mock("@/lib/products", () => ({
@@ -72,7 +72,7 @@ vi.mock("@/lib/validations/helpers", () => ({
 
 // --- ルートインポート ---
 import { POST } from "@/app/api/square/pay/route";
-import { getSettingOrEnv } from "@/lib/settings";
+import { getActiveSquareAccount } from "@/lib/square-account";
 import { getProductByCode } from "@/lib/products";
 import { parseBody } from "@/lib/validations/helpers";
 import { createSquarePayment, ensureSquareCustomer, saveCardOnFile, markReorderPaid } from "@/lib/payment/square-inline";
@@ -121,11 +121,14 @@ describe("POST /api/square/pay", () => {
     // デフォルトモック設定
     vi.mocked(checkRateLimit).mockResolvedValue({ limited: false, remaining: 5 });
     vi.mocked(parseBody).mockResolvedValue({ data: validBody });
-    vi.mocked(getSettingOrEnv).mockImplementation(async (_cat, key) => {
-      if (key === "access_token") return "sq-test-token";
-      if (key === "location_id") return "LOC_123";
-      if (key === "env") return "sandbox";
-      return "";
+    vi.mocked(getActiveSquareAccount).mockResolvedValue({
+      accessToken: "sq-test-token",
+      applicationId: "",
+      locationId: "LOC_123",
+      webhookSignatureKey: "",
+      env: "sandbox",
+      threeDsEnabled: false,
+      baseUrl: "https://connect.squareupsandbox.com",
     });
     vi.mocked(getProductByCode).mockResolvedValue({
       code: "MJL_2.5mg_1m",
@@ -274,7 +277,7 @@ describe("POST /api/square/pay", () => {
   });
 
   it("Square設定不足で 500 エラー", async () => {
-    vi.mocked(getSettingOrEnv).mockResolvedValue(undefined);
+    vi.mocked(getActiveSquareAccount).mockResolvedValue(undefined);
 
     const res = await POST(createRequest());
     const body = await res.json();

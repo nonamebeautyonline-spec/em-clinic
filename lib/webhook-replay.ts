@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { processSquareEvent } from "@/lib/webhook-handlers/square";
 import { processGmoEvent } from "@/lib/webhook-handlers/gmo";
 import { processStripeEvent } from "@/lib/webhook-handlers/stripe";
-import { getSettingOrEnv } from "@/lib/settings";
+import { getActiveSquareAccount } from "@/lib/square-account";
 import type Stripe from "stripe";
 
 interface WebhookEvent {
@@ -66,8 +66,9 @@ export async function replayWebhookEvent(eventId: number, tenantId: string | nul
     switch (we.event_source) {
       case "square": {
         const tid = we.tenant_id ?? undefined;
-        const squareToken = (await getSettingOrEnv("square", "access_token", "SQUARE_ACCESS_TOKEN", tid)) || "";
-        const squareEnv = (await getSettingOrEnv("square", "env", "SQUARE_ENV", tid)) || "production";
+        const sqConfig = await getActiveSquareAccount(tid);
+        const squareToken = sqConfig?.accessToken || "";
+        const squareEnv = sqConfig?.env || "production";
         await processSquareEvent({
           event: replayPayload as Parameters<typeof processSquareEvent>[0]["event"],
           tenantId: we.tenant_id,

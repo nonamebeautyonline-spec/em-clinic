@@ -6,6 +6,7 @@ import useSWR, { mutate } from "swr";
 import type { SettingsMap, CategoryKey } from "../page";
 import { SettingRow, SourceBadge } from "../page";
 import { BANK_ACCOUNT_FIELDS, type BankAccount } from "@/lib/bank-account";
+import { SQUARE_ACCOUNT_FIELDS, emptySquareAccount, type SquareAccount } from "@/lib/square-account";
 
 const PROVIDER_OPTIONS: { value: string; label: string; description: string; category: CategoryKey }[] = [
   { value: "square", label: "Square", description: "クレジットカード決済（Payment Links API）", category: "square" },
@@ -224,6 +225,31 @@ export default function PaymentSection({ settings, onSaved }: Props) {
   const [savingThreeDs, setSavingThreeDs] = useState(false);
   const [editing, setEditing] = useState(false);
 
+  // Squareアカウント管理
+  const [sqAccounts, setSqAccounts] = useState<SquareAccount[]>([]);
+  const [activeSqId, setActiveSqId] = useState<string>("");
+  const [savedSqAccounts, setSavedSqAccounts] = useState<SquareAccount[]>([]);
+  const [savedActiveSqId, setSavedActiveSqId] = useState<string>("");
+  const [savingSq, setSavingSq] = useState(false);
+  const [showSqConfirm, setShowSqConfirm] = useState(false);
+  const [editingSqAccount, setEditingSqAccount] = useState<SquareAccount | null>(null);
+  const [isAddSqMode, setIsAddSqMode] = useState(false);
+
+  // Squareアカウント取得（SWR）
+  const SQ_KEY = "/api/admin/square-accounts";
+  const { data: sqData, isLoading: sqLoading } = useSWR<{ accounts: SquareAccount[]; activeId: string }>(SQ_KEY);
+  const [sqInitialized, setSqInitialized] = useState(false);
+
+  useEffect(() => {
+    if (sqData && !sqInitialized) {
+      setSqAccounts(sqData.accounts || []);
+      setActiveSqId(sqData.activeId || "");
+      setSavedSqAccounts(JSON.parse(JSON.stringify(sqData.accounts || [])));
+      setSavedActiveSqId(sqData.activeId || "");
+      setSqInitialized(true);
+    }
+  }, [sqData, sqInitialized]);
+
   // 口座情報（複数口座対応）
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [activeId, setActiveId] = useState<string>("");
@@ -333,6 +359,72 @@ export default function PaymentSection({ settings, onSaved }: Props) {
       setSavingThreeDs(false);
     }
   };
+
+  // Squareアカウント操作
+  const handleSaveSqAccounts = async () => {
+    setSavingSq(true);
+    try {
+      const res = await fetch("/api/admin/square-accounts", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accounts: sqAccounts, activeId: activeSqId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data.message || data.error) || "Squareアカウントの保存に失敗しました");
+      }
+      setSavedSqAccounts(JSON.parse(JSON.stringify(sqAccounts)));
+      setSavedActiveSqId(activeSqId);
+      setShowSqConfirm(false);
+      mutate(SQ_KEY);
+      onSaved("Squareアカウントを保存しました", "success");
+    } catch (err) {
+      onSaved((err instanceof Error ? err.message : null) || "Squareアカウントの保存に失敗しました", "error");
+    } finally {
+      setSavingSq(false);
+    }
+  };
+
+  const handleAddSqAccount = () => {
+    setEditingSqAccount(emptySquareAccount());
+    setIsAddSqMode(true);
+  };
+
+  const handleEditSqAccount = (acc: SquareAccount) => {
+    setEditingSqAccount({ ...acc });
+    setIsAddSqMode(false);
+  };
+
+  const handleDeleteSqAccount = (id: string) => {
+    const updated = sqAccounts.filter((a) => a.id !== id);
+    setSqAccounts(updated);
+    if (activeSqId === id && updated.length > 0) {
+      setActiveSqId(updated[0].id);
+    }
+  };
+
+  const handleSaveSqEdit = () => {
+    if (!editingSqAccount) return;
+    if (isAddSqMode) {
+      setSqAccounts((prev) => [...prev, editingSqAccount]);
+      if (sqAccounts.length === 0) {
+        setActiveSqId(editingSqAccount.id);
+      }
+    } else {
+      setSqAccounts((prev) => prev.map((a) => (a.id === editingSqAccount.id ? editingSqAccount : a)));
+    }
+    setEditingSqAccount(null);
+  };
+
+  const sqHasChanges =
+    JSON.stringify(sqAccounts) !== JSON.stringify(savedSqAccounts) ||
+    activeSqId !== savedActiveSqId;
+
+  function maskToken(token: string): string {
+    if (!token || token.length <= 8) return token ? "****" : "";
+    return "****" + token.slice(-4);
+  }
 
   const handleSaveCheckoutMode = async () => {
     setSavingMode(true);
@@ -546,31 +638,26 @@ export default function PaymentSection({ settings, onSaved }: Props) {
                 </p>
               </div>
 
-              {/* 3Dセキュア設定 */}
+              {/* 3Dセキュア設定 — アカウント管理で制御 */}
               <div className="mt-3 rounded-lg border border-gray-200 p-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-medium text-gray-900">3Dセキュア認証（SCA）</p>
                     <p className="text-[10px] text-gray-500 mt-0.5">
-                      カード発行会社による本人認証を有効にします。デビットカードの決済成功率が向上します
+                      下の「Square API設定」セクションでアカウントごとに設定できます
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={threeDsEnabled}
-                    disabled={savingThreeDs}
-                    onClick={() => handleSaveThreeDs(!threeDsEnabled)}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out disabled:opacity-50 ${
-                      threeDsEnabled ? "bg-blue-600" : "bg-gray-200"
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        threeDsEnabled ? "translate-x-4" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
+                  {(() => {
+                    const activeAcc = sqAccounts.find((a) => a.id === activeSqId);
+                    const enabled = activeAcc?.three_ds_enabled ?? false;
+                    return (
+                      <span className={`px-2 py-0.5 text-[10px] font-medium rounded ${
+                        enabled ? "text-blue-700 bg-blue-100" : "text-gray-500 bg-gray-100"
+                      }`}>
+                        {enabled ? "有効" : "無効"}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
             </>
@@ -578,8 +665,112 @@ export default function PaymentSection({ settings, onSaved }: Props) {
         </div>
       )}
 
-      {/* 選択中プロバイダーのAPI Key設定 */}
-      {selected && providerSettings.length > 0 && (
+      {/* Square アカウント管理（カード形式） */}
+      {selected === "square" && (
+        <div className={`border-t border-gray-200 ${!editing ? "pointer-events-none opacity-60" : ""}`}>
+          <div className="px-5 py-3 bg-gray-50">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              Square API設定
+            </p>
+            <p className="text-[10px] text-gray-400 mt-0.5">アカウント情報をまとめて管理。「使用中」のアカウントが決済に使用されます</p>
+          </div>
+
+          {/* 設定手順ガイド */}
+          <PaymentSetupGuide
+            provider="square"
+            defaultOpen={sqAccounts.length === 0}
+          />
+
+          <div className="px-5 py-4">
+            {sqLoading ? (
+              <p className="text-xs text-gray-400 py-4">読み込み中...</p>
+            ) : (
+              <>
+                <div className="space-y-3">
+                  {sqAccounts.map((acc) => {
+                    const isActive = acc.id === activeSqId;
+                    return (
+                      <div
+                        key={acc.id}
+                        className={`rounded-lg border-2 p-3 ${
+                          isActive ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm font-medium text-gray-900 truncate">{acc.name || "未命名"}</span>
+                              {isActive && (
+                                <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 bg-blue-100 rounded">
+                                  使用中
+                                </span>
+                              )}
+                              <span className={`shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded ${
+                                acc.env === "sandbox" ? "text-amber-700 bg-amber-100" : "text-green-700 bg-green-100"
+                              }`}>
+                                {acc.env === "sandbox" ? "Sandbox" : "Production"}
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-500 space-y-0.5">
+                              <p>Token: {maskToken(acc.access_token)} / Location: {acc.location_id || "未設定"}</p>
+                              {acc.application_id && <p>App ID: {acc.application_id}</p>}
+                              {acc.three_ds_enabled && <p className="text-blue-600">3Dセキュア有効</p>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {!isActive && (
+                              <button
+                                onClick={() => setActiveSqId(acc.id)}
+                                className="px-2 py-1 text-[10px] font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
+                              >
+                                使用する
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleEditSqAccount(acc)}
+                              className="px-2 py-1 text-[10px] font-medium text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+                            >
+                              編集
+                            </button>
+                            {sqAccounts.length > 1 && (
+                              <button
+                                onClick={() => handleDeleteSqAccount(acc.id)}
+                                className="px-2 py-1 text-[10px] font-medium text-red-600 bg-red-50 rounded hover:bg-red-100 transition-colors"
+                              >
+                                削除
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-3 flex items-center gap-3">
+                  <button
+                    onClick={handleAddSqAccount}
+                    className="px-3 py-2 text-xs font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    + アカウントを追加
+                  </button>
+                  {sqHasChanges && (
+                    <button
+                      onClick={() => setShowSqConfirm(true)}
+                      className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      変更を保存
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* GMO等その他プロバイダーのAPI Key設定（従来形式） */}
+      {selected && selected !== "square" && providerSettings.length > 0 && (
         <div className={`border-t border-gray-200 ${!editing ? "pointer-events-none opacity-60" : ""}`}>
           <div className="px-5 py-3 bg-gray-50">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
@@ -587,7 +778,6 @@ export default function PaymentSection({ settings, onSaved }: Props) {
             </p>
           </div>
 
-          {/* 設定手順ガイド */}
           <PaymentSetupGuide
             provider={selected}
             defaultOpen={providerSettings.every((i) => i.source === "未設定")}
@@ -604,7 +794,7 @@ export default function PaymentSection({ settings, onSaved }: Props) {
         </div>
       )}
 
-      {selected && providerSettings.length === 0 && (
+      {selected && selected !== "square" && providerSettings.length === 0 && (
         <div className={`px-5 py-6 text-center text-gray-400 text-sm border-t border-gray-200 ${!editing ? "pointer-events-none opacity-60" : ""}`}>
           {selectedOption?.label} のAPI設定キーはまだ登録されていません。
           <br />
@@ -734,6 +924,168 @@ export default function PaymentSection({ settings, onSaved }: Props) {
           </>
         )}
       </div>
+
+      {/* Squareアカウント編集モーダル */}
+      {editingSqAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setEditingSqAccount(null)}>
+          <div className="bg-white rounded-xl shadow-xl mx-4 max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h3 className="text-sm font-bold text-gray-800">
+                {isAddSqMode ? "Squareアカウントを追加" : "Squareアカウントを編集"}
+              </h3>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              {SQUARE_ACCOUNT_FIELDS.map((def) => (
+                <div key={def.key}>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">{def.label}</label>
+                  <input
+                    type={def.secret ? "password" : "text"}
+                    value={editingSqAccount[def.key] || ""}
+                    onChange={(e) =>
+                      setEditingSqAccount((prev) =>
+                        prev ? { ...prev, [def.key]: e.target.value } : prev
+                      )
+                    }
+                    placeholder={def.placeholder}
+                    autoComplete="off"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              ))}
+              {/* 3Dセキュア */}
+              <div className="flex items-center justify-between pt-2">
+                <div>
+                  <p className="text-xs font-medium text-gray-700">3Dセキュア認証（SCA）</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">アプリ内決済時の本人認証</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={editingSqAccount.three_ds_enabled}
+                  onClick={() =>
+                    setEditingSqAccount((prev) =>
+                      prev ? { ...prev, three_ds_enabled: !prev.three_ds_enabled } : prev
+                    )
+                  }
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                    editingSqAccount.three_ds_enabled ? "bg-blue-600" : "bg-gray-200"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      editingSqAccount.three_ds_enabled ? "translate-x-4" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+            <div className="px-5 py-4 border-t border-gray-100 flex gap-3 justify-end">
+              <button
+                onClick={() => setEditingSqAccount(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleSaveSqEdit}
+                disabled={!editingSqAccount.name || !editingSqAccount.access_token || !editingSqAccount.location_id}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {isAddSqMode ? "追加する" : "更新する"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Squareアカウント変更確認モーダル */}
+      {showSqConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowSqConfirm(false)}>
+          <div className="bg-white rounded-xl shadow-xl mx-4 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h3 className="text-sm font-bold text-gray-800">Squareアカウントの変更確認</h3>
+              <p className="text-xs text-gray-500 mt-0.5">以下の内容で保存します。変更箇所をご確認ください。</p>
+            </div>
+            <div className="px-5 py-4 space-y-3 max-h-[60vh] overflow-y-auto">
+              {/* アクティブアカウントの変更 */}
+              {activeSqId !== savedActiveSqId && (
+                <div className="rounded-lg p-3 bg-yellow-50 border border-yellow-200">
+                  <div className="text-xs font-medium text-yellow-800 mb-1">使用アカウントの変更</div>
+                  <div className="text-sm text-yellow-900">
+                    {(() => {
+                      const oldAcc = savedSqAccounts.find((a) => a.id === savedActiveSqId);
+                      const newAcc = sqAccounts.find((a) => a.id === activeSqId);
+                      return (
+                        <>
+                          <span className="line-through text-gray-400">{oldAcc?.name || "なし"}</span>
+                          {" → "}
+                          <span className="font-medium">{newAcc?.name || "なし"}</span>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* 各アカウントの状態 */}
+              {sqAccounts.map((acc) => {
+                const savedAcc = savedSqAccounts.find((a) => a.id === acc.id);
+                const isNew = !savedAcc;
+                const isChanged = savedAcc && JSON.stringify(acc) !== JSON.stringify(savedAcc);
+                const isActive = acc.id === activeSqId;
+                return (
+                  <div
+                    key={acc.id}
+                    className={`rounded-lg p-3 ${
+                      isNew ? "bg-green-50 border border-green-200" : isChanged ? "bg-blue-50 border border-blue-200" : "bg-gray-50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-medium text-gray-700">{acc.name}</span>
+                      {isActive && <span className="text-[10px] text-blue-600 font-bold">使用中</span>}
+                      {isNew && <span className="text-[10px] text-green-600 font-bold">新規追加</span>}
+                      {isChanged && <span className="text-[10px] text-blue-600 font-bold">変更あり</span>}
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      {acc.env} / Token: {maskToken(acc.access_token)} / Location: {acc.location_id || "未設定"}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* 削除されたアカウント */}
+              {savedSqAccounts
+                .filter((sa) => !sqAccounts.some((a) => a.id === sa.id))
+                .map((deleted) => (
+                  <div key={deleted.id} className="rounded-lg p-3 bg-red-50 border border-red-200">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-medium text-gray-700 line-through">{deleted.name}</span>
+                      <span className="text-[10px] text-red-600 font-bold">削除</span>
+                    </div>
+                    <div className="text-xs text-gray-400 line-through">
+                      {deleted.env} / Token: {maskToken(deleted.access_token)}
+                    </div>
+                  </div>
+                ))}
+            </div>
+            <div className="px-5 py-4 border-t border-gray-100 flex gap-3 justify-end">
+              <button
+                onClick={() => setShowSqConfirm(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleSaveSqAccounts}
+                disabled={savingSq}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {savingSq ? "保存中..." : "保存する"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 口座編集モーダル */}
       {editingAccount && (
