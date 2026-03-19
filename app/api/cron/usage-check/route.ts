@@ -7,6 +7,7 @@ import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { acquireLock } from "@/lib/distributed-lock";
 import { checkAndSendUsageAlerts } from "@/lib/usage-alerts";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,10 @@ export async function GET(req: NextRequest) {
       errors,
       checkedAt: new Date().toISOString(),
     });
+  } catch (e) {
+    console.error("[usage-check] エラー:", e);
+    notifyCronFailure("usage-check", e).catch(() => {});
+    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
   } finally {
     await lock.release();
   }

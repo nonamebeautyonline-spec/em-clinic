@@ -7,6 +7,7 @@ import { acquireLock } from "@/lib/distributed-lock";
 import { getSetting } from "@/lib/settings";
 import { generateWeeklyReport, generateMonthlyReport } from "@/lib/report-generator";
 import { sendEmail } from "@/lib/email";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 
 export async function GET(req: NextRequest) {
   // Vercel Cron認証
@@ -141,6 +142,10 @@ export async function GET(req: NextRequest) {
 
     console.log(`[send-reports] 完了: sent=${sent}, skipped=${skipped}, failed=${failed}`);
     return NextResponse.json({ ok: true, sent, skipped, failed });
+  } catch (e) {
+    console.error("[send-reports] エラー:", e);
+    notifyCronFailure("send-reports", e).catch(() => {});
+    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
   } finally {
     await lock.release();
   }

@@ -68,9 +68,16 @@ function createChain(table: string) {
   return chain;
 }
 
+// RPC結果制御
+let mockRpcResults: Record<string, unknown> = {};
+
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
     from: vi.fn((table: string) => createChain(table)),
+    rpc: vi.fn((funcName: string) => {
+      const result = mockRpcResults[funcName] || { data: [], error: null };
+      return Promise.resolve(result);
+    }),
   },
 }));
 
@@ -122,6 +129,7 @@ describe("line-analytics API", () => {
     mockAuthorized = true;
     mockLineToken = "test-line-token";
     mockResultsByTable = {};
+    mockRpcResults = {};
     mockFetchResponses = [];
     setupMockFetch();
   });
@@ -325,7 +333,11 @@ describe("line-analytics API", () => {
     };
     mockResultsByTable["click_tracking_links"] = { data: [] };
     mockResultsByTable["click_tracking_events"] = { data: [] };
-    mockResultsByTable["orders"] = { data: [], count: 0 };
+    // RPC: broadcast_cvr_stats の結果（配信ID=1のorder_count=0）
+    mockRpcResults["broadcast_cvr_stats"] = {
+      data: [{ broadcast_id: 1, order_count: 0 }],
+      error: null,
+    };
 
     for (let i = 0; i < 7; i++) {
       mockFetchResponses.push({ ok: false, data: {} });

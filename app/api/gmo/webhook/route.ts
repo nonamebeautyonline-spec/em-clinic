@@ -1,7 +1,8 @@
 // app/api/gmo/webhook/route.ts — GMO PG 結果通知エンドポイント
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantId, DEFAULT_TENANT_ID } from "@/lib/tenant";
+import { resolveWebhookTenant } from "@/lib/webhook-tenant-resolver";
 import { checkIdempotency } from "@/lib/idempotency";
 import { getSettingOrEnv } from "@/lib/settings";
 import { processGmoEvent } from "@/lib/webhook-handlers/gmo";
@@ -55,9 +56,21 @@ export async function POST(req: Request) {
 
   try {
     tenantId = resolveTenantId(req);
-    const tid = tenantId ?? undefined;
     const bodyText = await req.text();
     const params = new URLSearchParams(bodyText);
+
+    // テナント逆引き: ShopIDからテナントを特定
+    if (!tenantId) {
+      const shopId = params.get("ShopID") || "";
+      if (shopId) {
+        tenantId = await resolveWebhookTenant("gmo", "shop_id", shopId);
+      }
+    }
+    if (!tenantId) {
+      console.warn("[gmo/webhook] テナントID解決失敗 — DEFAULT_TENANT_IDにフォールバック");
+      tenantId = DEFAULT_TENANT_ID;
+    }
+    const tid = tenantId ?? undefined;
 
     // 署名検証
     const shopPass = (await getSettingOrEnv("gmo", "shop_pass", "GMO_SHOP_PASS", tid)) || "";

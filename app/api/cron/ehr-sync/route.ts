@@ -9,6 +9,7 @@ import { getSetting } from "@/lib/settings";
 import { withTenant } from "@/lib/tenant";
 import { createAdapter, pushPatient, pullPatient, pushKarte, pullKarte } from "@/lib/ehr/sync";
 import type { SyncResult } from "@/lib/ehr/types";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 
 /** 同期間隔の種類 */
 type SyncInterval = "hourly" | "every6h" | "daily";
@@ -178,6 +179,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (e) {
     console.error("[ehr-sync] エラー:", e);
+    notifyCronFailure("ehr-sync", e).catch(() => {});
     return serverError(e instanceof Error ? e.message : "EHR同期中にエラーが発生しました");
   } finally {
     await lock.release();

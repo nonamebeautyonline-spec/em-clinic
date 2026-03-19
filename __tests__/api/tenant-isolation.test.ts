@@ -437,18 +437,11 @@ describe("テナント分離: resolveTenantId 関数の動作検証", () => {
 // テナント分離ルール14: ダッシュボードAPIの分離検証
 // ===================================================================
 describe("テナント分離: ダッシュボードAPIの分離", () => {
-  it("dashboard-stats-enhanced が resolveTenantId と withTenant を使用している", () => {
+  it("dashboard-stats-enhanced が resolveTenantIdOrThrow を使用し、RPCでテナント分離している", () => {
     const src = readFile("app/api/admin/dashboard-stats-enhanced/route.ts");
-    expect(src).toMatch(/resolveTenantId|resolveTenantIdOrThrow/);
-    expect(src).toMatch(/withTenant|strictWithTenant/);
-  });
-
-  it("dashboard-stats-enhanced の全クエリが withTenant で囲まれている", () => {
-    const src = readFile("app/api/admin/dashboard-stats-enhanced/route.ts");
-    const fromCalls = src.match(/supabaseAdmin\s*\.\s*from\(/g) || [];
-    const withTenantCalls = src.match(/(?:strictW|w)ithTenant\s*\(/g) || [];
-    // 全 from() が withTenant で囲まれている
-    expect(withTenantCalls.length).toBeGreaterThanOrEqual(fromCalls.length);
+    expect(src).toMatch(/resolveTenantIdOrThrow/);
+    // RPC化後はwithTenantではなくRPCパラメータでテナントIDを渡す
+    expect(src).toMatch(/\.rpc\s*\(/);
   });
 
   it("dashboard-sse がテナントIDを取得して使用している", () => {

@@ -9,6 +9,7 @@ import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { acquireLock } from "@/lib/distributed-lock";
 import { notifyWebhookFailure } from "@/lib/notifications/webhook-failure";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 
 export const dynamic = "force-dynamic";
 
@@ -94,6 +95,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[webhook-cleanup] エラー:", err);
+    notifyCronFailure("webhook-cleanup", err).catch(() => {});
     return serverError(err instanceof Error ? err.message : undefined);
   } finally {
     await lock.release();

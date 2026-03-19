@@ -1,33 +1,14 @@
 // __tests__/api/daily-revenue.test.ts
-// 日別売上データ取得API テスト
+// 日別売上データ取得API テスト（RPC版）
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// --- Supabase チェーンモック ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: Record<string, unknown> = {};
-  ["insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
-    "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
-    "ilike", "or", "count", "csv"].forEach(m => {
-    chain[m] = vi.fn().mockReturnValue(chain);
-  });
-  chain.then = vi.fn((resolve: (v: unknown) => unknown) => resolve(defaultResolve));
-  return chain;
-}
-
-let tableChains: Record<string, Record<string, unknown>> = {};
-function getOrCreateChain(table: string) {
-  if (!tableChains[table]) tableChains[table] = createChain();
-  return tableChains[table];
-}
-
-vi.mock("@supabase/supabase-js", () => ({
-  createClient: vi.fn(() => ({
-    from: vi.fn((table: string) => getOrCreateChain(table)),
-  })),
-}));
+// --- supabaseAdmin モック ---
+const mockRpc = vi.fn();
 
 vi.mock("@/lib/supabase", () => ({
-  supabaseAdmin: { from: vi.fn((table: string) => getOrCreateChain(table)) },
+  supabaseAdmin: {
+    rpc: (...args: unknown[]) => mockRpc(...args),
+  },
 }));
 
 const mockVerifyAdminAuth = vi.fn();
@@ -50,10 +31,22 @@ function createMockRequest(method: string, url: string) {
 
 import { GET } from "@/app/api/admin/daily-revenue/route";
 
+// 2月28日分の空データを生成するヘルパー
+function emptyFeb2026Data() {
+  const days = [];
+  for (let d = 1; d <= 28; d++) {
+    days.push({
+      date: `2026-02-${String(d).padStart(2, "0")}`,
+      square: 0, bank: 0, refund: 0, total: 0,
+      squareCount: 0, bankCount: 0, firstCount: 0, reorderCount: 0,
+    });
+  }
+  return days;
+}
+
 describe("日別売上 API - GET", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    tableChains = {};
     mockVerifyAdminAuth.mockResolvedValue(true);
   });
 
@@ -81,9 +74,17 @@ describe("日別売上 API - GET", () => {
   });
 
   it("データなし → 全日が0値で返る", async () => {
-    const chain = getOrCreateChain("orders");
-    // Promise.all で3回呼ばれる（カード、銀行振込、返金）
-    chain.then = vi.fn((resolve: (v: unknown) => unknown) => resolve({ data: [], error: null }));
+    const emptyData = emptyFeb2026Data();
+    mockRpc.mockResolvedValue({
+      data: {
+        data: emptyData,
+        summary: {
+          totalSquare: 0, totalBank: 0, totalRefund: 0, totalNet: 0,
+          totalSquareCount: 0, totalBankCount: 0, totalCount: 0, avgOrderValue: 0,
+        },
+      },
+      error: null,
+    });
 
     const req = createMockRequest("GET", "http://localhost/api/admin/daily-revenue?year_month=2026-02");
     const res = await GET(req);
@@ -101,37 +102,27 @@ describe("日別売上 API - GET", () => {
   });
 
   it("カード決済+銀行振込+返金の正常集計", async () => {
-    const chain = getOrCreateChain("orders");
-    let callCount = 0;
-    chain.then = vi.fn((resolve: (v: unknown) => unknown) => {
-      callCount++;
-      if (callCount === 1) {
-        // カード決済（paid_at を JST 2/15 にする）
-        // JSTの2/15は UTCでは2/14 15:00
-        return resolve({
-          data: [
-            { id: "1", amount: 30000, paid_at: "2026-02-14T15:00:00.000Z" },
-            { id: "2", amount: 50000, paid_at: "2026-02-14T15:00:00.000Z" },
-          ],
-          error: null,
-        });
-      }
-      if (callCount === 2) {
-        // 銀行振込（created_at を JST 2/15 にする）
-        return resolve({
-          data: [
-            { id: "3", amount: 40000, created_at: "2026-02-14T15:00:00.000Z" },
-          ],
-          error: null,
-        });
-      }
-      // 返金（refunded_at を JST 2/15 にする）
-      return resolve({
-        data: [
-          { id: "4", refunded_amount: 10000, amount: 30000, refunded_at: "2026-02-14T15:00:00.000Z" },
-        ],
-        error: null,
-      });
+    const data = emptyFeb2026Data();
+    // 2/15のデータを設定
+    const feb15 = data.find(d => d.date === "2026-02-15")!;
+    feb15.square = 80000;
+    feb15.bank = 40000;
+    feb15.refund = 10000;
+    feb15.total = 110000;
+    feb15.squareCount = 2;
+    feb15.bankCount = 1;
+    feb15.firstCount = 3;
+    feb15.reorderCount = 0;
+
+    mockRpc.mockResolvedValue({
+      data: {
+        data,
+        summary: {
+          totalSquare: 80000, totalBank: 40000, totalRefund: 10000, totalNet: 110000,
+          totalSquareCount: 2, totalBankCount: 1, totalCount: 3, avgOrderValue: 40000,
+        },
+      },
+      error: null,
     });
 
     const req = createMockRequest("GET", "http://localhost/api/admin/daily-revenue?year_month=2026-02");
@@ -140,13 +131,12 @@ describe("日別売上 API - GET", () => {
     const json = await res.json();
 
     // 2/15のデータを確認
-    const feb15 = json.data.find((d: Record<string, unknown>) => d.date === "2026-02-15");
-    expect(feb15).toBeDefined();
-    expect(feb15.square).toBe(80000); // 30000 + 50000
-    expect(feb15.bank).toBe(40000);
-    expect(feb15.refund).toBe(10000); // refunded_amount優先
-    // 純売上: 80000 + 40000 - 10000 = 110000
-    expect(feb15.total).toBe(110000);
+    const feb15Result = json.data.find((d: Record<string, unknown>) => d.date === "2026-02-15");
+    expect(feb15Result).toBeDefined();
+    expect(feb15Result.square).toBe(80000);
+    expect(feb15Result.bank).toBe(40000);
+    expect(feb15Result.refund).toBe(10000);
+    expect(feb15Result.total).toBe(110000);
 
     // サマリー
     expect(json.summary.totalSquare).toBe(80000);
@@ -156,20 +146,63 @@ describe("日別売上 API - GET", () => {
     expect(json.summary.totalSquareCount).toBe(2);
     expect(json.summary.totalBankCount).toBe(1);
     expect(json.summary.totalCount).toBe(3);
-    // 平均注文額: (80000+40000) / 3 = 40000
     expect(json.summary.avgOrderValue).toBe(40000);
   });
 
   it("日付の昇順でソートされる", async () => {
-    const chain = getOrCreateChain("orders");
-    chain.then = vi.fn((resolve: (v: unknown) => unknown) => resolve({ data: [], error: null }));
+    const days = [];
+    for (let d = 1; d <= 31; d++) {
+      days.push({
+        date: `2026-01-${String(d).padStart(2, "0")}`,
+        square: 0, bank: 0, refund: 0, total: 0,
+        squareCount: 0, bankCount: 0, firstCount: 0, reorderCount: 0,
+      });
+    }
+    mockRpc.mockResolvedValue({
+      data: {
+        data: days,
+        summary: {
+          totalSquare: 0, totalBank: 0, totalRefund: 0, totalNet: 0,
+          totalSquareCount: 0, totalBankCount: 0, totalCount: 0, avgOrderValue: 0,
+        },
+      },
+      error: null,
+    });
 
     const req = createMockRequest("GET", "http://localhost/api/admin/daily-revenue?year_month=2026-01");
     const res = await GET(req);
     const json = await res.json();
-    // 2026年1月は31日
     expect(json.data).toHaveLength(31);
     expect(json.data[0].date).toBe("2026-01-01");
     expect(json.data[30].date).toBe("2026-01-31");
+  });
+
+  it("RPCエラー → 500", async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: "function not found", code: "42883" },
+    });
+
+    const req = createMockRequest("GET", "http://localhost/api/admin/daily-revenue?year_month=2026-02");
+    const res = await GET(req);
+    expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.error).toBe("server_error");
+  });
+
+  it("RPCに正しいパラメータが渡される", async () => {
+    mockRpc.mockResolvedValue({
+      data: { data: [], summary: {} },
+      error: null,
+    });
+
+    const req = createMockRequest("GET", "http://localhost/api/admin/daily-revenue?year_month=2026-03");
+    await GET(req);
+
+    expect(mockRpc).toHaveBeenCalledWith("daily_revenue_summary", {
+      p_tenant_id: "test-tenant",
+      p_start_date: "2026-03-01",
+      p_end_date: "2026-03-31",
+    });
   });
 });

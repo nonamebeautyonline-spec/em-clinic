@@ -1,39 +1,33 @@
 // __tests__/api/dashboard-stats-enhanced.test.ts
-// ダッシュボード拡張統計API（558行）のテスト
+// ダッシュボード拡張統計API（RPC版）のテスト
 // 対象: app/api/admin/dashboard-stats-enhanced/route.ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// --- チェーン生成ヘルパー ---
-function createChain(defaultResolve = { data: [], error: null, count: 0 }) {
-  const chain: Record<string, unknown> = {};
-  [
-    "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
-    "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
-    "ilike", "or", "count", "csv",
-  ].forEach(m => {
-    chain[m] = vi.fn().mockReturnValue(chain);
-  });
-  chain.then = vi.fn((resolve: (value: unknown) => unknown) => resolve(defaultResolve));
-  return chain;
+// デフォルトのRPCレスポンス（空データ）
+function createEmptyRpcResponse() {
+  return {
+    reservations: { total: 0, completed: 0, cancelled: 0, cancelRate: 0, consultationCompletionRate: 0 },
+    shipping: { total: 0, first: 0, reorder: 0 },
+    revenue: { square: 0, bankTransfer: 0, gross: 0, refunded: 0, refundCount: 0, total: 0, avgOrderAmount: 0, totalOrders: 0, reorderOrders: 0 },
+    products: [],
+    patients: { total: 0, active: 0, new: 0, repeatRate: 0, repeatPatients: 0, totalOrderPatients: 0, prevPeriodPatients: 0 },
+    bankTransfer: { pending: 0, confirmed: 0 },
+    kpi: { paymentRateAfterConsultation: 0, reservationRateAfterIntake: 0, consultationCompletionRate: 0, lineRegisteredCount: 0, todayActiveReservations: 0, todayActiveOK: 0, todayActiveNG: 0, todayNoAnswer: 0, todayNewReservations: 0, todayPaidCount: 0 },
+    squareOrders: [],
+    btOrders: [],
+    prevPaidPatientIds: [],
+  };
 }
 
-// テーブルごとにチェーンを分ける（17並列クエリに対応）
-const reservationsChain = createChain({ data: [], error: null, count: 0 });
-const ordersChain = createChain({ data: [], error: null, count: 0 });
-const intakeChain = createChain({ data: [], error: null, count: 0 });
-const patientsChain = createChain({ data: [], error: null, count: 0 });
+let mockRpcResponse = createEmptyRpcResponse();
+let mockRpcError: { message: string } | null = null;
 
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
-    from: vi.fn((table: string) => {
-      switch (table) {
-        case "reservations": return reservationsChain;
-        case "orders": return ordersChain;
-        case "intake": return intakeChain;
-        case "patients": return patientsChain;
-        default: return createChain();
-      }
-    }),
+    rpc: vi.fn(() => ({
+      data: mockRpcResponse,
+      error: mockRpcError,
+    })),
   },
 }));
 
@@ -78,19 +72,8 @@ import { GET } from "@/app/api/admin/dashboard-stats-enhanced/route";
 describe("ダッシュボード拡張統計API (dashboard-stats-enhanced/route.ts)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
-    // 全チェーンの then をリセット（デフォルト: 空データ）
-    [reservationsChain, ordersChain, intakeChain, patientsChain].forEach(chain => {
-      chain.then = vi.fn((resolve: (value: unknown) => unknown) => resolve({ data: [], error: null, count: 0 }));
-      // 全メソッドを再モック
-      [
-        "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
-        "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
-        "ilike", "or", "count", "csv",
-      ].forEach(m => {
-        chain[m] = vi.fn().mockReturnValue(chain);
-      });
-    });
+    mockRpcResponse = createEmptyRpcResponse();
+    mockRpcError = null;
   });
 
   // === 認証テスト ===
@@ -286,11 +269,10 @@ describe("ダッシュボード拡張統計API (dashboard-stats-enhanced/route.t
   // === データありの場合の集計テスト ===
   describe("データありの集計", () => {
     it("売上集計が正しく計算される", async () => {
-      // ordersチェーンを上書き: カード決済と銀行振込の注文がある場合
-      ordersChain.then = vi.fn((resolve: (value: unknown) => unknown) => {
-        // デフォルトでは空データを返す（各並列クエリに対応するため簡略化）
-        return resolve({ data: [], error: null, count: 0 });
-      });
+      mockRpcResponse = {
+        ...createEmptyRpcResponse(),
+        revenue: { square: 10000, bankTransfer: 5000, gross: 15000, refunded: 1000, refundCount: 1, total: 14000, avgOrderAmount: 7500, totalOrders: 2, reorderOrders: 0 },
+      };
 
       const req = createMockRequest(
         "http://localhost/api/admin/dashboard-stats-enhanced",
@@ -299,7 +281,8 @@ describe("ダッシュボード拡張統計API (dashboard-stats-enhanced/route.t
       const res = await GET(req);
       expect(res.status).toBe(200);
       const json = await res.json();
-      // DB空なので0だが、集計ロジックがエラーなく動作することを確認
+      expect(json.revenue.total).toBe(14000);
+      expect(json.revenue.avgOrderAmount).toBe(7500);
       expect(typeof json.revenue.total).toBe("number");
       expect(typeof json.revenue.avgOrderAmount).toBe("number");
     });
@@ -313,6 +296,21 @@ describe("ダッシュボード拡張統計API (dashboard-stats-enhanced/route.t
       const json = await res.json();
       expect(Array.isArray(json.products)).toBe(true);
       expect(json.products.length).toBe(0);
+    });
+
+    it("商品名がマッピングされる", async () => {
+      mockRpcResponse = {
+        ...createEmptyRpcResponse(),
+        products: [{ code: "MJL_2.5mg_1m", name: "MJL_2.5mg_1m", count: 3, revenue: 30000 }],
+      };
+
+      const req = createMockRequest(
+        "http://localhost/api/admin/dashboard-stats-enhanced",
+        { cookie: "valid-token" },
+      );
+      const res = await GET(req);
+      const json = await res.json();
+      expect(json.products[0].name).toBe("マンジャロ 2.5mg 1ヶ月");
     });
 
     it("patientsセクションの数値型が正しい", async () => {
@@ -329,6 +327,48 @@ describe("ダッシュボード拡張統計API (dashboard-stats-enhanced/route.t
       expect(typeof json.patients.repeatPatients).toBe("number");
       expect(typeof json.patients.totalOrderPatients).toBe("number");
     });
+
+    it("日別集計が正しく計算される", async () => {
+      mockRpcResponse = {
+        ...createEmptyRpcResponse(),
+        squareOrders: [
+          { amount: 10000, patient_id: "p1", product_code: "MJL_2.5mg_1m", paid_at: "2026-03-19T10:00:00.000Z" },
+          { amount: 20000, patient_id: "p2", product_code: "MJL_5mg_1m", paid_at: "2026-03-19T12:00:00.000Z" },
+        ],
+        btOrders: [
+          { amount: 15000, patient_id: "p3", product_code: "MJL_2.5mg_2m", created_at: "2026-03-19T08:00:00.000Z" },
+        ],
+        prevPaidPatientIds: ["p1"],
+      };
+
+      const req = createMockRequest(
+        "http://localhost/api/admin/dashboard-stats-enhanced",
+        { cookie: "valid-token" },
+      );
+      const res = await GET(req);
+      const json = await res.json();
+      expect(json.dailyOrders.length).toBeGreaterThan(0);
+      expect(json.dailyBreakdown.length).toBeGreaterThan(0);
+      // p1はprevPaidPatientIdsにあるのでreorder
+      const day = json.dailyOrders[0];
+      expect(day).toHaveProperty("date");
+      expect(day).toHaveProperty("first");
+      expect(day).toHaveProperty("reorder");
+    });
+  });
+
+  // === RPC エラー ===
+  describe("RPCエラー", () => {
+    it("RPC関数がエラーを返した場合 → 500", async () => {
+      mockRpcError = { message: "RPC function failed" };
+
+      const req = createMockRequest(
+        "http://localhost/api/admin/dashboard-stats-enhanced",
+        { cookie: "valid-token" },
+      );
+      const res = await GET(req);
+      expect(res.status).toBe(500);
+    });
   });
 
   // === JWT検証失敗 ===
@@ -343,6 +383,31 @@ describe("ダッシュボード拡張統計API (dashboard-stats-enhanced/route.t
       );
       const res = await GET(req);
       expect(res.status).toBe(401);
+    });
+  });
+
+  // === RPC呼び出しの検証 ===
+  describe("RPC呼び出し", () => {
+    it("正しいパラメータでRPC関数が呼ばれる", async () => {
+      const { supabaseAdmin } = await import("@/lib/supabase");
+
+      const req = createMockRequest(
+        "http://localhost/api/admin/dashboard-stats-enhanced?range=today",
+        { cookie: "valid-token" },
+      );
+      await GET(req);
+
+      expect(supabaseAdmin.rpc).toHaveBeenCalledWith("dashboard_enhanced_stats", expect.objectContaining({
+        p_tenant_id: "test-tenant",
+        p_start_iso: expect.any(String),
+        p_end_iso: expect.any(String),
+        p_prev_start_iso: expect.any(String),
+        p_prev_end_iso: expect.any(String),
+        p_reservation_start_date: expect.any(String),
+        p_reservation_end_date: expect.any(String),
+        p_shipping_start_date: expect.any(String),
+        p_shipping_end_date: expect.any(String),
+      }));
     });
   });
 });

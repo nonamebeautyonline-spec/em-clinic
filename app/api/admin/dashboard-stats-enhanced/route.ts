@@ -2,12 +2,64 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { jwtVerify } from "jose";
-import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
 
-// Supabaseクエリ結果用の型定義
-interface PatientIdRow { patient_id: string }
-interface OrderAmountRow { amount: number; product_code: string; patient_id: string; created_at: string; paid_at?: string }
-interface RefundRow { amount: number; refunded_amount: number }
+// RPC結果の型定義
+interface RpcResult {
+  reservations: {
+    total: number;
+    completed: number;
+    cancelled: number;
+    cancelRate: number;
+    consultationCompletionRate: number;
+  };
+  shipping: {
+    total: number;
+    first: number;
+    reorder: number;
+  };
+  revenue: {
+    square: number;
+    bankTransfer: number;
+    gross: number;
+    refunded: number;
+    refundCount: number;
+    total: number;
+    avgOrderAmount: number;
+    totalOrders: number;
+    reorderOrders: number;
+  };
+  products: { code: string; name: string; count: number; revenue: number }[];
+  patients: {
+    total: number;
+    active: number;
+    new: number;
+    repeatRate: number;
+    repeatPatients: number;
+    totalOrderPatients: number;
+    prevPeriodPatients: number;
+  };
+  bankTransfer: {
+    pending: number;
+    confirmed: number;
+  };
+  kpi: {
+    paymentRateAfterConsultation: number;
+    reservationRateAfterIntake: number;
+    consultationCompletionRate: number;
+    lineRegisteredCount: number;
+    todayActiveReservations: number;
+    todayActiveOK: number;
+    todayActiveNG: number;
+    todayNoAnswer: number;
+    todayNewReservations: number;
+    todayPaidCount: number;
+  };
+  // 日別集計用の生データ（RPC関数から返される）
+  squareOrders: { amount: number; patient_id: string; product_code: string; paid_at: string }[];
+  btOrders: { amount: number; patient_id: string; product_code: string; created_at: string }[];
+  prevPaidPatientIds: string[];
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
 
@@ -63,340 +115,32 @@ export async function GET(request: NextRequest) {
     const shippingEndDate = new Date(endDateObj.getTime() + jstOffset).toISOString().split("T")[0];
 
     // ────────────────────────────────────────────────────────────
-    // バッチ1: 独立した全クエリを並列実行（逐次→並列で大幅高速化）
+    // RPC関数で全クエリを一括実行
     // ────────────────────────────────────────────────────────────
-    const [
-      totalReservationsResult,
-      completedOKResult,
-      completedNGResult,
-      cancelledResult,
-      shippingTotalResult,
-      shippingOrdersResult,
-      squareOrdersResult,
-      bankTransferResult,
-      refundedResult,
-      totalPatientsResult,
-      pendingBTResult,
-      confirmedBTResult,
-      consultedIdsResult,
-      intakeIdsResult,
-      lineIdResult,
-      todayActiveResult,
-      todayNewReservationsResult,
-      prevPeriodSquareResult,
-      prevPeriodBTResult,
-      noAnswerResult,
-    ] = await Promise.all([
-      // 1. 予約総数
-      strictWithTenant(
-        supabaseAdmin.from("reservations").select("*", { count: "exact", head: true })
-          .gte("reserved_date", reservationStartDate).lt("reserved_date", reservationEndDate),
-        tenantId
-      ),
-      // 2. 診察完了（OK）
-      strictWithTenant(
-        supabaseAdmin.from("reservations").select("patient_id")
-          .gte("reserved_date", reservationStartDate).lt("reserved_date", reservationEndDate)
-          .eq("status", "OK").limit(10000),
-        tenantId
-      ),
-      // 3. 診察完了（NG）
-      strictWithTenant(
-        supabaseAdmin.from("reservations").select("patient_id")
-          .gte("reserved_date", reservationStartDate).lt("reserved_date", reservationEndDate)
-          .eq("status", "NG").limit(10000),
-        tenantId
-      ),
-      // 4. キャンセル数
-      strictWithTenant(
-        supabaseAdmin.from("reservations").select("*", { count: "exact", head: true })
-          .gte("reserved_date", reservationStartDate).lt("reserved_date", reservationEndDate)
-          .eq("status", "canceled"),
-        tenantId
-      ),
-      // 5. 配送総数
-      strictWithTenant(
-        supabaseAdmin.from("orders").select("*", { count: "exact", head: true })
-          .gte("shipping_date", shippingStartDate).lt("shipping_date", shippingEndDate),
-        tenantId
-      ),
-      // 6. 配送注文データ
-      strictWithTenant(
-        supabaseAdmin.from("orders").select("patient_id, created_at")
-          .gte("shipping_date", shippingStartDate).lt("shipping_date", shippingEndDate)
-          .limit(10000),
-        tenantId
-      ),
-      // 7. カード決済注文
-      strictWithTenant(
-        supabaseAdmin.from("orders").select("amount, patient_id, created_at, paid_at, product_code")
-          .eq("payment_method", "credit_card")
-          .gte("paid_at", startISO).lt("paid_at", endISO)
-          .limit(10000),
-        tenantId
-      ),
-      // 8. 銀行振込注文
-      strictWithTenant(
-        supabaseAdmin.from("orders").select("amount, product_code, patient_id, created_at")
-          .eq("payment_method", "bank_transfer")
-          .in("status", ["pending_confirmation", "confirmed"])
-          .gte("created_at", startISO).lt("created_at", endISO)
-          .limit(10000),
-        tenantId
-      ),
-      // 9. 返金データ
-      strictWithTenant(
-        supabaseAdmin.from("orders").select("amount, refunded_amount")
-          .eq("refund_status", "COMPLETED")
-          .gte("refunded_at", startISO).lt("refunded_at", endISO)
-          .limit(10000),
-        tenantId
-      ),
-      // 10. 総患者数
-      strictWithTenant(
-        supabaseAdmin.from("intake").select("*", { count: "exact", head: true }),
-        tenantId
-      ),
-      // 11. 銀行振込（入金待ち）
-      strictWithTenant(
-        supabaseAdmin.from("orders").select("*", { count: "exact", head: true })
-          .eq("payment_method", "bank_transfer").eq("status", "pending_confirmation")
-          .gte("created_at", startISO).lt("created_at", endISO),
-        tenantId
-      ),
-      // 12. 銀行振込（確認済み）
-      strictWithTenant(
-        supabaseAdmin.from("orders").select("*", { count: "exact", head: true })
-          .eq("payment_method", "bank_transfer").eq("status", "confirmed")
-          .gte("created_at", startISO).lt("created_at", endISO),
-        tenantId
-      ),
-      // 13. 診察完了患者ID（KPI用）
-      strictWithTenant(
-        supabaseAdmin.from("intake").select("patient_id")
-          .in("status", ["OK", "NG"])
-          .gte("created_at", startISO).lt("created_at", endISO)
-          .limit(10000),
-        tenantId
-      ),
-      // 14. 問診患者ID（KPI用 + 新規患者数兼用）
-      strictWithTenant(
-        supabaseAdmin.from("intake").select("patient_id")
-          .gte("created_at", startISO).lt("created_at", endISO)
-          .limit(10000),
-        tenantId
-      ),
-      // 15. LINE登録者（line_daily_statsの最新フォロワー数）
-      strictWithTenant(
-        supabaseAdmin.from("line_daily_stats").select("followers")
-          .order("stat_date", { ascending: false })
-          .limit(1),
-        tenantId
-      ),
-      // 16. アクティブ予約数
-      strictWithTenant(
-        supabaseAdmin.from("reservations").select("*", { count: "exact", head: true })
-          .gte("reserved_date", reservationStartDate).lt("reserved_date", reservationEndDate)
-          .neq("status", "canceled"),
-        tenantId
-      ),
-      // 17. 本日作成予約数
-      strictWithTenant(
-        supabaseAdmin.from("reservations").select("*", { count: "exact", head: true })
-          .gte("created_at", startISO).lt("created_at", endISO),
-        tenantId
-      ),
-      // 18. 前期間のカード決済患者（リピート率計算用）
-      strictWithTenant(
-        supabaseAdmin.from("orders").select("patient_id")
-          .eq("payment_method", "credit_card")
-          .not("paid_at", "is", null)
-          .gte("paid_at", prevStartISO).lt("paid_at", prevEndISO)
-          .limit(50000),
-        tenantId
-      ),
-      // 19. 前期間の銀行振込患者（リピート率計算用）
-      strictWithTenant(
-        supabaseAdmin.from("orders").select("patient_id")
-          .eq("payment_method", "bank_transfer")
-          .in("status", ["pending_confirmation", "confirmed"])
-          .gte("created_at", prevStartISO).lt("created_at", prevEndISO)
-          .limit(50000),
-        tenantId
-      ),
-      // 20. 不通（call_status = no_answer / no_answer_sent、診察済みを除く）
-      strictWithTenant(
-        supabaseAdmin.from("reservations").select("patient_id")
-          .gte("reserved_date", reservationStartDate).lt("reserved_date", reservationEndDate)
-          .in("call_status", ["no_answer", "no_answer_sent"])
-          .not("status", "in", '("OK","NG","canceled")'),
-        tenantId
-      ),
-    ]);
+    const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc("dashboard_enhanced_stats", {
+      p_tenant_id: tenantId,
+      p_start_iso: startISO,
+      p_end_iso: endISO,
+      p_prev_start_iso: prevStartISO,
+      p_prev_end_iso: prevEndISO,
+      p_reservation_start_date: reservationStartDate,
+      p_reservation_end_date: reservationEndDate,
+      p_shipping_start_date: shippingStartDate,
+      p_shipping_end_date: shippingEndDate,
+    });
 
-    // バッチ1の結果を展開
-    const totalReservations = totalReservationsResult.count ?? 0;
-    const cancelledReservations = cancelledResult.count ?? 0;
-    const shippingTotal = shippingTotalResult.count ?? 0;
-    const totalPatients = totalPatientsResult.count ?? 0;
-    const pendingBankTransfer = pendingBTResult.count ?? 0;
-    const confirmedBankTransfer = confirmedBTResult.count ?? 0;
-    const todayActiveReservations = todayActiveResult.count ?? 0;
-    const todayNewReservations = todayNewReservationsResult.count ?? 0;
-
-    const allSquareOrders = squareOrdersResult.data || [];
-    const allBankTransferOrders = bankTransferResult.data || [];
-    const allRefundedOrders = refundedResult.data || [];
-    const shippingOrders = shippingOrdersResult.data || [];
-
-    // 前期間の顧客ID（リピート率計算用）
-    const prevPeriodPatientIds = [...new Set([
-      ...(prevPeriodSquareResult.data || []).map((o: PatientIdRow) => o.patient_id),
-      ...(prevPeriodBTResult.data || []).map((o: PatientIdRow) => o.patient_id),
-    ].filter((id): id is string => !!id))];
-
-    // 診察完了患者数
-    const completedOKCount = completedOKResult.data?.length ?? 0;
-    const completedNGCount = completedNGResult.data?.length ?? 0;
-    const noAnswerCount = noAnswerResult.data?.length ?? 0;
-    const allCompletedPatientIds = [
-      ...(completedOKResult.data?.map((r: PatientIdRow) => r.patient_id) || []),
-      ...(completedNGResult.data?.map((r: PatientIdRow) => r.patient_id) || []),
-    ];
-    const completedReservations = new Set(allCompletedPatientIds.filter((id: string | null) => id)).size;
-
-    const cancelRate = totalReservations > 0
-      ? Math.round((cancelledReservations / totalReservations) * 100) : 0;
-
-    // 新規患者数 = intakeIdsResult のレコード数（重複クエリ排除）
-    const newPatients = intakeIdsResult.data?.length ?? 0;
-
-    // LINE登録者数（line_daily_statsの最新フォロワー数）
-    const lineRegisteredCount = (lineIdResult.data as { followers: number }[] | null)?.[0]?.followers ?? 0;
-
-    // 売上集計
-    const squareRevenue = allSquareOrders.reduce((sum: number, o: OrderAmountRow) => sum + (o.amount || 0), 0);
-    const bankTransferRevenue = allBankTransferOrders.reduce((sum: number, o: OrderAmountRow) => sum + (o.amount || 0), 0);
-    const grossRevenue = squareRevenue + bankTransferRevenue;
-    const orderCount = allSquareOrders.length + allBankTransferOrders.length;
-    const totalRefunded = allRefundedOrders.reduce((sum: number, o: RefundRow) => sum + (o.refunded_amount ?? o.amount ?? 0), 0);
-    const totalRevenue = grossRevenue - totalRefunded;
-    const avgOrderAmount = orderCount > 0 ? Math.round(grossRevenue / orderCount) : 0;
-
-    // 全決済注文の結合
-    const allPaidOrders = [
-      ...allSquareOrders.map((o: OrderAmountRow) => ({ patient_id: o.patient_id || null, created_at: o.created_at || null, paid_at: o.paid_at || null })),
-      ...allBankTransferOrders.map((o: OrderAmountRow) => ({ patient_id: o.patient_id || null, created_at: o.created_at || null, paid_at: null as string | null })),
-    ];
-
-    // ────────────────────────────────────────────────────────────
-    // バッチ2: バッチ1の結果に依存するクエリを並列実行
-    // ────────────────────────────────────────────────────────────
-    const shippingPatientIds = [...new Set(shippingOrders.map((o: PatientIdRow) => o.patient_id).filter((id: string | null) => id))];
-    const paidPatientIds = [...new Set(allPaidOrders.map(o => o.patient_id).filter((id): id is string => !!id))];
-    const consultedPatientIds = [...new Set((consultedIdsResult.data || []).map((i: PatientIdRow) => i.patient_id).filter((id: string | null) => id))];
-    const intakePatientIds = [...new Set((intakeIdsResult.data || []).map((i: PatientIdRow) => i.patient_id).filter((id: string | null) => id))];
-
-    const [
-      prevShippingResult,
-      prevPaidResult,
-      paidForConsultedResult,
-      reservedForIntakeResult,
-    ] = await Promise.all([
-      // 配送: 過去に注文がある患者を特定（shipping_date基準で期間前の注文を検索）
-      shippingPatientIds.length > 0
-        ? strictWithTenant(
-            supabaseAdmin.from("orders").select("patient_id, shipping_date")
-              .in("patient_id", shippingPatientIds)
-              .not("shipping_date", "is", null)
-              .lt("shipping_date", shippingStartDate).limit(100000),
-            tenantId
-          )
-        : Promise.resolve({ data: [] }),
-      // 決済: 過去に注文がある患者を特定（paid_at基準で期間前の決済を検索）
-      paidPatientIds.length > 0
-        ? strictWithTenant(
-            supabaseAdmin.from("orders").select("patient_id")
-              .in("patient_id", paidPatientIds)
-              .not("paid_at", "is", null)
-              .lt("paid_at", startISO).limit(100000),
-            tenantId
-          )
-        : Promise.resolve({ data: [] }),
-      // KPI: 診察完了患者のうち決済した患者
-      consultedPatientIds.length > 0
-        ? strictWithTenant(
-            supabaseAdmin.from("orders").select("patient_id")
-              .in("patient_id", consultedPatientIds)
-              .not("paid_at", "is", null)
-              .gte("paid_at", startISO).lt("paid_at", endISO).limit(100000),
-            tenantId
-          )
-        : Promise.resolve({ data: [] }),
-      // KPI: 問診患者のうち予約した患者
-      intakePatientIds.length > 0
-        ? strictWithTenant(
-            supabaseAdmin.from("reservations").select("patient_id")
-              .in("patient_id", intakePatientIds)
-              .gte("reserved_date", reservationStartDate).lt("reserved_date", reservationEndDate).limit(100000),
-            tenantId
-          )
-        : Promise.resolve({ data: [] }),
-    ]);
-
-    // 配送: 新規/再処方の判定（patient_idがnullの注文は除外）
-    let shippingFirst = 0;
-    let shippingReorder = 0;
-    if (shippingOrders.length > 0) {
-      const prevShippingSet = new Set((prevShippingResult.data || []).map((o: PatientIdRow) => o.patient_id));
-      for (const order of shippingOrders) {
-        if (!order.patient_id) continue;
-        if (prevShippingSet.has(order.patient_id)) shippingReorder++;
-        else shippingFirst++;
-      }
+    if (rpcError) {
+      console.error("[dashboard-stats-enhanced] RPC error:", rpcError);
+      return serverError(rpcError.message);
     }
 
-    // リピート率（リテンション型: 前期間顧客のうち当期間も注文した割合）
-    const currentPeriodPatientSet = new Set(paidPatientIds);
-    const repeatPatientCount = prevPeriodPatientIds.filter(id => currentPeriodPatientSet.has(id)).length;
-    const repeatRate = prevPeriodPatientIds.length > 0
-      ? Math.round((repeatPatientCount / prevPeriodPatientIds.length) * 100) : 0;
-
-    // 再処方注文数（当期間の注文のうち過去にも注文歴がある患者の注文）
-    let reorderOrderCount = 0;
-    const totalUniquePatients = paidPatientIds.length;
-    const previousPatientSet = new Set((prevPaidResult.data || []).map((o: PatientIdRow) => o.patient_id));
-
-    for (const order of allPaidOrders) {
-      if (order.patient_id && previousPatientSet.has(order.patient_id)) reorderOrderCount++;
-    }
-
-    // アクティブ患者
-    const activePatients = new Set(allPaidOrders.map(o => o.patient_id).filter(id => id)).size;
-
-    // KPI: 診療後の決済率
-    const paidPatientCount = new Set((paidForConsultedResult.data || []).map((o: PatientIdRow) => o.patient_id)).size;
-    const consultedCount = consultedPatientIds.length;
-    const paymentRateAfterConsultation = consultedCount > 0
-      ? Math.round((paidPatientCount / consultedCount) * 100) : 0;
-
-    // KPI: 問診後の予約率
-    const reservedPatientCount = new Set((reservedForIntakeResult.data || []).map((r: PatientIdRow) => r.patient_id)).size;
-    const intakeCount = intakePatientIds.length;
-    const reservationRateAfterIntake = intakeCount > 0
-      ? Math.round((reservedPatientCount / intakeCount) * 100) : 0;
-
-    // KPI: 予約後の受診率
-    const nonCancelledReservations = totalReservations - cancelledReservations;
-    const consultationCompletionRate = nonCancelledReservations > 0
-      ? Math.round((completedReservations / nonCancelledReservations) * 100) : 0;
-
-    // 今日決済した人数
-    const todayPaidCount = new Set(allPaidOrders.map(o => o.patient_id).filter(id => id)).size;
+    const stats = rpcData as RpcResult;
 
     // ────────────────────────────────────────────────────────────
     // クライアントサイド集計（メモリ内計算、DBアクセスなし）
     // ────────────────────────────────────────────────────────────
+
+    // 商品名マッピング（RPC関数はproduct_codeをnameに入れるため上書き）
     const productNames: Record<string, string> = {
       "MJL_2.5mg_1m": "マンジャロ 2.5mg 1ヶ月",
       "MJL_2.5mg_2m": "マンジャロ 2.5mg 2ヶ月",
@@ -408,19 +152,16 @@ export async function GET(request: NextRequest) {
       "MJL_7.5mg_2m": "マンジャロ 7.5mg 2ヶ月",
       "MJL_7.5mg_3m": "マンジャロ 7.5mg 3ヶ月",
     };
+    const products = (stats.products || []).map(p => ({
+      ...p,
+      name: productNames[p.code] || p.code,
+    }));
 
-    const productSales: Record<string, { code: string; name: string; count: number; revenue: number }> = {};
-    for (const order of [...allSquareOrders, ...allBankTransferOrders]) {
-      const code = order.product_code;
-      if (!productSales[code]) {
-        productSales[code] = { code, name: productNames[code] || code, count: 0, revenue: 0 };
-      }
-      productSales[code].count++;
-      productSales[code].revenue += order.amount || 0;
-    }
-    const products = Object.values(productSales).sort((a, b) => b.revenue - a.revenue);
+    // 日別集計（RPC関数から返された生注文データを使用）
+    const allSquareOrders = stats.squareOrders || [];
+    const allBankTransferOrders = stats.btOrders || [];
+    const prevPaidPatientIds = new Set(stats.prevPaidPatientIds || []);
 
-    // 日別新規/再処方データ + 日別売上内訳（dailyBreakdown）
     const jstOffsetMs = 9 * 60 * 60 * 1000;
     const dailyMap = new Map<string, { first: number; reorder: number; square: number; bankTransfer: number; firstOrders: number; reorders: number }>();
     const ensureDay = (dateStr: string) => {
@@ -435,7 +176,7 @@ export async function GET(request: NextRequest) {
       const day = ensureDay(dateStr);
       day.square += order.amount || 0;
       if (!order.patient_id) continue;
-      if (previousPatientSet.has(order.patient_id)) {
+      if (prevPaidPatientIds.has(order.patient_id)) {
         day.reorder++;
         day.reorders++;
       } else {
@@ -451,7 +192,7 @@ export async function GET(request: NextRequest) {
       const day = ensureDay(dateStr);
       day.bankTransfer += order.amount || 0;
       if (!order.patient_id) continue;
-      if (previousPatientSet.has(order.patient_id)) {
+      if (prevPaidPatientIds.has(order.patient_id)) {
         day.reorder++;
         day.reorders++;
       } else {
@@ -470,55 +211,13 @@ export async function GET(request: NextRequest) {
     }));
 
     return NextResponse.json({
-      reservations: {
-        total: totalReservations,
-        completed: completedReservations,
-        cancelled: cancelledReservations,
-        cancelRate,
-        consultationCompletionRate,
-      },
-      shipping: {
-        total: shippingTotal,
-        first: shippingFirst,
-        reorder: shippingReorder,
-      },
-      revenue: {
-        square: squareRevenue,
-        bankTransfer: bankTransferRevenue,
-        gross: grossRevenue,
-        refunded: totalRefunded,
-        refundCount: allRefundedOrders.length,
-        total: totalRevenue,
-        avgOrderAmount,
-        totalOrders: orderCount,
-        reorderOrders: reorderOrderCount,
-      },
+      reservations: stats.reservations,
+      shipping: stats.shipping,
+      revenue: stats.revenue,
       products,
-      patients: {
-        total: totalPatients,
-        active: activePatients,
-        new: newPatients,
-        repeatRate,
-        repeatPatients: repeatPatientCount,
-        totalOrderPatients: totalUniquePatients,
-        prevPeriodPatients: prevPeriodPatientIds.length,
-      },
-      bankTransfer: {
-        pending: pendingBankTransfer,
-        confirmed: confirmedBankTransfer,
-      },
-      kpi: {
-        paymentRateAfterConsultation,
-        reservationRateAfterIntake,
-        consultationCompletionRate,
-        lineRegisteredCount,
-        todayActiveReservations,
-        todayActiveOK: completedOKCount,
-        todayActiveNG: completedNGCount,
-        todayNoAnswer: noAnswerCount,
-        todayNewReservations,
-        todayPaidCount,
-      },
+      patients: stats.patients,
+      bankTransfer: stats.bankTransfer,
+      kpi: stats.kpi,
       dailyOrders,
       dailyBreakdown,
     });
@@ -554,19 +253,21 @@ function calculateDateRange(
       prevStart = new Date(Date.UTC(year, month, date - 2, 0, 0, 0) - jstOffset);
       break;
 
-    case "this_week":
+    case "this_week": {
       const dayOfWeek = jstNow.getUTCDay();
       start = new Date(Date.UTC(year, month, date - dayOfWeek, 0, 0, 0) - jstOffset);
       end = new Date(Date.UTC(year, month, date + 1, 0, 0, 0) - jstOffset);
       prevStart = new Date(Date.UTC(year, month, date - dayOfWeek - 7, 0, 0, 0) - jstOffset);
       break;
+    }
 
-    case "last_week":
+    case "last_week": {
       const lastWeekDay = jstNow.getUTCDay();
       start = new Date(Date.UTC(year, month, date - lastWeekDay - 7, 0, 0, 0) - jstOffset);
       end = new Date(Date.UTC(year, month, date - lastWeekDay, 0, 0, 0) - jstOffset);
       prevStart = new Date(Date.UTC(year, month, date - lastWeekDay - 14, 0, 0, 0) - jstOffset);
       break;
+    }
 
     case "this_month":
       start = new Date(Date.UTC(year, month, 1, 0, 0, 0) - jstOffset);

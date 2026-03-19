@@ -8,6 +8,7 @@ import { invalidateDashboardCache, invalidateFriendsListCache } from "@/lib/redi
 import { pushMessage } from "@/lib/line-push";
 import { checkFollowTriggerScenarios, checkKeywordTriggerScenarios, exitAllStepEnrollments } from "@/lib/step-enrollment";
 import { resolveTenantId, withTenant, tenantPayload, DEFAULT_TENANT_ID } from "@/lib/tenant";
+import { resolveLineTenantBySignature } from "@/lib/webhook-tenant-resolver";
 import { MERGE_TABLES } from "@/lib/merge-tables";
 import { getSettingOrEnv } from "@/lib/settings";
 import { scheduleAiReply, sendAiReply, processAiReply, clearAiReplyDebounce } from "@/lib/ai-reply";
@@ -1623,10 +1624,11 @@ export async function POST(req: NextRequest) {
 
     // ---- tenantId解決 ----
     // LINE webhookはLINEプラットフォームからの直接リクエストのためsubdomain解決不可。
-    // channel_secret → tenant のマッピングで特定するのが理想だが、
-    // 現状シングルテナント運用のためDEFAULT_TENANT_IDにフォールバック。
-    // マルチテナント化時は channel_secret ベースのテナント解決に置換すること。
-    const resolvedTenantId = resolveTenantId(req);
+    // channel_secret ベースで署名検証→テナント逆引きする。
+    let resolvedTenantId = resolveTenantId(req);
+    if (!resolvedTenantId) {
+      resolvedTenantId = await resolveLineTenantBySignature(rawBody, signature);
+    }
     if (!resolvedTenantId) {
       console.warn("[line/webhook] テナントID解決失敗 — DEFAULT_TENANT_IDにフォールバック");
     }

@@ -595,6 +595,27 @@ describe("SWR移行ルール", () => {
 });
 
 // ===================================================================
+// Cronジョブ障害検知: 全cronルートに notifyCronFailure を強制
+// 失敗時にSlack/LINE通知が飛ばないと障害に気づけない
+// ===================================================================
+describe("Cronジョブ障害検知: 全cronルートに notifyCronFailure 必須", () => {
+  it("app/api/cron/ 配下の全 route.ts が notifyCronFailure をインポートしている", () => {
+    const cronDir = path.resolve(process.cwd(), "app/api/cron");
+    const routes = findAllRouteFiles(cronDir);
+    const violations: string[] = [];
+
+    for (const routePath of routes) {
+      const src = fs.readFileSync(routePath, "utf-8");
+      if (!src.includes("notifyCronFailure")) {
+        violations.push(path.relative(process.cwd(), routePath));
+      }
+    }
+
+    expect(violations).toEqual([]);
+  });
+});
+
+// ===================================================================
 // 事故: Vercel fire-and-forget で予約通知29件がfetch failed（2026-03-13）
 // APIルートでレスポンス返却前にasync処理をawaitしないと
 // Vercelサーバーレス環境でコンテキスト破棄→fetch failedになる
@@ -611,5 +632,116 @@ describe("reservations/route.ts: fire-and-forget禁止", () => {
   it("evaluateMenuRulesはawaitで呼び出している", () => {
     const fireAndForget = src.match(/evaluateMenuRules\s*\([^)]*\)\s*\.catch/g) || [];
     expect(fireAndForget).toHaveLength(0);
+  });
+});
+
+// ===================================================================
+// 分割コンポーネントの責務境界
+// Phase Eで分割した4つの巨大ファイルが再肥大化しないよう、
+// ファイル種別ごとの責務ルールをテストで強制する
+// ===================================================================
+describe("分割コンポーネントの責務境界", () => {
+  // --- ルール1: page/エントリーポイントは構成のみ（supabaseAdmin禁止） ---
+  describe("page/エントリーポイントはsupabaseAdminを直接使わない", () => {
+    const entryPoints = [
+      "app/admin/dashboard/page.tsx",
+      "app/doctor/page.tsx",
+      "app/admin/line/talk/_components/TalkClient.tsx",
+      "app/mypage/PatientDashboardInner.tsx",
+    ];
+
+    for (const file of entryPoints) {
+      it(`${file} は supabaseAdmin をimportしていない`, () => {
+        const src = readFile(file);
+        expect(src).not.toMatch(/import\s+.*supabaseAdmin/);
+      });
+    }
+  });
+
+  // --- ルール2: hooks (use*.ts) は supabaseAdmin を使わない ---
+  describe("hooks は supabaseAdmin を使わない", () => {
+    const hookDirs = [
+      "app/admin/line/talk/_components/talk",
+      "app/mypage/_components/dashboard",
+      "app/admin/dashboard/hooks",
+      "app/doctor/_components",
+    ];
+
+    for (const dir of hookDirs) {
+      const absDir = path.resolve(process.cwd(), dir);
+      if (!fs.existsSync(absDir)) continue;
+      const hooks = fs.readdirSync(absDir).filter((f: string) => /^use.*\.ts$/.test(f));
+      for (const hook of hooks) {
+        it(`${dir}/${hook} は supabaseAdmin をimportしていない`, () => {
+          const src = readFile(`${dir}/${hook}`);
+          expect(src).not.toMatch(/import\s+.*supabaseAdmin/);
+        });
+      }
+    }
+  });
+
+  // --- ルール3: Context は fetch/DB操作しない ---
+  describe("Context は fetch/DB操作しない", () => {
+    const contextFiles = [
+      "app/admin/line/talk/_components/talk/TalkContext.tsx",
+      "app/mypage/_components/dashboard/DashboardContext.tsx",
+    ];
+
+    for (const file of contextFiles) {
+      it(`${file} は fetch() を含まない`, () => {
+        const src = readFile(file);
+        // fetch( の呼び出しを検出（type定義やコメント内は除外しない厳密チェック）
+        expect(src).not.toMatch(/\bfetch\s*\(/);
+      });
+
+      it(`${file} は supabaseAdmin を使わない`, () => {
+        const src = readFile(file);
+        expect(src).not.toMatch(/import\s+.*supabaseAdmin/);
+      });
+    }
+  });
+
+  // --- ルール4: types.ts はランタイムimportしない ---
+  describe("types.ts はランタイムimportしない", () => {
+    const typeFiles = [
+      "app/admin/line/talk/_components/talk/types.ts",
+      "app/mypage/_components/dashboard/types.ts",
+      "app/doctor/_components/types.ts",
+    ];
+
+    for (const file of typeFiles) {
+      it(`${file} は "use client" を含まない`, () => {
+        const src = readFile(file);
+        expect(src).not.toContain('"use client"');
+      });
+
+      it(`${file} は type-only import のみ使用している`, () => {
+        const src = readFile(file);
+        // import文のうち `import type` でないものを検出
+        // ただし空行やコメントは除外
+        const nonTypeImports = src
+          .split("\n")
+          .filter((line: string) => /^\s*import\s/.test(line) && !/^\s*import\s+type\s/.test(line));
+        expect(nonTypeImports).toHaveLength(0);
+      });
+    }
+  });
+
+  // --- ルール5: 分割済みエントリーポイントの行数制限 ---
+  describe("分割済みエントリーポイントの行数上限", () => {
+    const limits: [string, number][] = [
+      ["app/admin/dashboard/page.tsx", 400],
+      ["app/doctor/page.tsx", 250],
+      ["app/admin/line/talk/_components/TalkClient.tsx", 400],
+      ["app/mypage/PatientDashboardInner.tsx", 400],
+    ];
+
+    for (const [file, maxLines] of limits) {
+      it(`${file} は ${maxLines}行以下`, () => {
+        const src = readFile(file);
+        const lineCount = src.split("\n").length;
+        expect(lineCount).toBeLessThanOrEqual(maxLines);
+      });
+    }
   });
 });

@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { pushMessage } from "@/lib/line-push";
 import { tenantPayload } from "@/lib/tenant";
 import { acquireLock } from "@/lib/distributed-lock";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 
 // トリガー設定の型
 interface TriggerConfig {
@@ -135,6 +136,10 @@ export async function GET(req: NextRequest) {
       distributed: totalDistributed,
       skipped: totalSkipped,
     });
+  } catch (e) {
+    console.error("[distribute-coupons] エラー:", e);
+    notifyCronFailure("distribute-coupons", e).catch(() => {});
+    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
   } finally {
     await lock.release();
   }

@@ -7,6 +7,7 @@ import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { redis } from "@/lib/redis";
 import { getSettingOrEnv } from "@/lib/settings";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
 
+  try {
   const issues: string[] = [];
 
   // 1. Supabase 接続チェック
@@ -119,4 +121,9 @@ export async function GET(req: NextRequest) {
     issues,
     checkedAt: new Date().toISOString(),
   });
+  } catch (e) {
+    console.error("[health-report] エラー:", e);
+    notifyCronFailure("health-report", e).catch(() => {});
+    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
+  }
 }

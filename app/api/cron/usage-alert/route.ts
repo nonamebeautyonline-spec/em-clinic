@@ -9,6 +9,7 @@ import { acquireLock } from "@/lib/distributed-lock";
 import { checkQuota, ALERT_THRESHOLDS } from "@/lib/usage-quota";
 import { sendEmail } from "@/lib/email";
 import { redis } from "@/lib/redis";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 
 export const dynamic = "force-dynamic";
 
@@ -220,6 +221,10 @@ export async function GET(req: NextRequest) {
       errors,
       checkedAt: new Date().toISOString(),
     });
+  } catch (e) {
+    console.error("[usage-alert] エラー:", e);
+    notifyCronFailure("usage-alert", e).catch(() => {});
+    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
   } finally {
     await lock.release();
   }

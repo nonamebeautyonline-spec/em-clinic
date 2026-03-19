@@ -5,6 +5,7 @@ import { verifyWebhookSignature } from "@/lib/stripe";
 import { checkIdempotency } from "@/lib/idempotency";
 import { processStripeEvent } from "@/lib/webhook-handlers/stripe";
 import { notifyWebhookFailure } from "@/lib/notifications/webhook-failure";
+import { DEFAULT_TENANT_ID } from "@/lib/tenant";
 
 export const runtime = "nodejs";
 
@@ -21,8 +22,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "署名検証失敗" }, { status: 400 });
   }
 
+  // テナント解決: Stripeは現状platform_settingsで管理されておりテナント分離未実施
+  // 将来tenant_settingsに移行した際はresolveWebhookTenantで逆引きする
+  const tenantId = DEFAULT_TENANT_ID;
+
   // 冪等性チェック
-  const idem = await checkIdempotency("stripe", event.id, null, {
+  const idem = await checkIdempotency("stripe", event.id, tenantId, {
     type: event.type,
     data: event.data?.object,
   });
@@ -38,7 +43,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error(`[stripe-webhook] イベント処理エラー (${event.type}):`, err);
     await idem.markFailed(err instanceof Error ? err.message : "unknown error");
-    notifyWebhookFailure("stripe", event.id, err).catch(() => {});
+    notifyWebhookFailure("stripe", event.id, err, tenantId).catch(() => {});
     return NextResponse.json({ error: "処理エラー" }, { status: 500 });
   }
 }

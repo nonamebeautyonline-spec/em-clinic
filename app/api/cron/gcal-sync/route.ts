@@ -8,6 +8,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant } from "@/lib/tenant";
 import { acquireLock } from "@/lib/distributed-lock";
 import { processGcalChanges, setupWatchChannel } from "@/lib/google-calendar-sync";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -92,6 +93,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[cron:gcal-sync] 致命的エラー:", err);
+    notifyCronFailure("gcal-sync", err).catch(() => {});
     return serverError((err as Error).message);
   } finally {
     await lock.release();

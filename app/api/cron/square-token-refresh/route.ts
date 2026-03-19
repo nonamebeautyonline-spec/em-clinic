@@ -6,6 +6,7 @@ import { acquireLock } from "@/lib/distributed-lock";
 import { refreshSquareToken } from "@/lib/square-oauth";
 import { getSetting, setSetting } from "@/lib/settings";
 import type { SquareAccount } from "@/lib/square-account";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -84,6 +85,10 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ refreshed: refreshedCount, errors: errorCount });
+  } catch (e) {
+    console.error("[square-token-refresh] エラー:", e);
+    notifyCronFailure("square-token-refresh", e).catch(() => {});
+    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
   } finally {
     await lock.release();
   }

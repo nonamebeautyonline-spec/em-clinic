@@ -220,32 +220,26 @@ export async function GET(req: NextRequest) {
   }
 
   // --- 4. CVR算出（配信 → 決済の転換率） ---
-  // 各配信の送信日から7日間の決済数を照合して推定CVR算出
+  // RPC一括取得: 各配信の送信日から7日間(168時間)の決済数を照合
   const broadcastCvrMap = new Map<number, { orders: number; cvr: number }>();
 
   if (broadcastIds.length > 0) {
+    const { data: cvrRows } = await supabaseAdmin.rpc("broadcast_cvr_stats", {
+      p_tenant_id: tenantId,
+      p_broadcast_ids: broadcastIds,
+      p_window_hours: 168, // 7日間
+    });
+
+    const orderCountMap = new Map<number, number>();
+    for (const row of cvrRows || []) {
+      orderCountMap.set(row.broadcast_id, Number(row.order_count));
+    }
+
     for (const b of broadcastRows || []) {
-      const sentDate = b.sent_at || b.created_at;
-      if (!sentDate) continue;
-
-      const sentStart = new Date(sentDate);
-      // 配信後7日間を転換期間として計算
-      const sentEnd = new Date(sentStart.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-      const { count: orderCount } = await strictWithTenant(
-        supabaseAdmin
-          .from("orders")
-          .select("id", { count: "exact", head: true })
-          .gte("paid_at", sentStart.toISOString())
-          .lte("paid_at", sentEnd.toISOString()),
-        tenantId
-      );
-
       const clicks = broadcastClickMap.get(b.id);
       const uniqueClicks = clicks?.unique || 0;
-      const orders = orderCount || 0;
+      const orders = orderCountMap.get(b.id) || 0;
       const cvr = uniqueClicks > 0 ? Number(((orders / uniqueClicks) * 100).toFixed(1)) : 0;
-
       broadcastCvrMap.set(b.id, { orders, cvr });
     }
   }

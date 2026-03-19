@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantId, DEFAULT_TENANT_ID } from "@/lib/tenant";
+import { resolveSquareTenantBySignatureKey } from "@/lib/webhook-tenant-resolver";
 import { getActiveSquareAccount } from "@/lib/square-account-server";
 import { checkIdempotency } from "@/lib/idempotency";
 import { processSquareEvent, type SquareEvent } from "@/lib/webhook-handlers/square";
@@ -21,7 +22,21 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const bodyText = await req.text();
-  const tenantId = resolveTenantId(req);
+  let tenantId = resolveTenantId(req);
+
+  // 署名検証に使うURL
+  const signatureHeader = req.headers.get("x-square-hmacsha256-signature");
+  const notificationUrl = process.env.SQUARE_WEBHOOK_NOTIFICATION_URL;
+  const verifyUrl = (notificationUrl || req.url.split("?")[0]).trim();
+
+  // テナント逆引き: webhook_signature_keyで署名検証→テナント特定
+  if (!tenantId && signatureHeader) {
+    tenantId = await resolveSquareTenantBySignatureKey(bodyText, signatureHeader, verifyUrl);
+  }
+  if (!tenantId) {
+    console.warn("[square/webhook] テナントID解決失敗 — DEFAULT_TENANT_IDにフォールバック");
+    tenantId = DEFAULT_TENANT_ID;
+  }
   const tid = tenantId ?? undefined;
 
   // Square設定を動的取得
@@ -29,11 +44,6 @@ export async function POST(req: Request) {
   const signatureKey = sqConfig?.webhookSignatureKey || "";
   const squareToken = sqConfig?.accessToken || "";
   const squareEnv = sqConfig?.env || "production";
-
-  // 署名検証
-  const signatureHeader = req.headers.get("x-square-hmacsha256-signature");
-  const notificationUrl = process.env.SQUARE_WEBHOOK_NOTIFICATION_URL;
-  const verifyUrl = (notificationUrl || req.url.split("?")[0]).trim();
 
   if (signatureKey && !signatureHeader) {
     console.error("Square signature header missing; rejecting", {
