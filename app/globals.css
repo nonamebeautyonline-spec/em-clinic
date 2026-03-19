@@ -95,14 +95,14 @@ body {
   margin-bottom: 1.25rem;
 }
 
-.prose-article a {
+.prose-article a:not([class]) {
   color: #2563eb;
   text-decoration: none;
   border-bottom: 1px solid #2563eb;
   transition: all 0.2s ease;
 }
 
-.prose-article a:hover {
+.prose-article a:not([class]):hover {
   color: #1d4ed8;
   background-color: rgba(37, 99, 235, 0.05);
 }
