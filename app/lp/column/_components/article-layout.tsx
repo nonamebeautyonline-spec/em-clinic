@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { ReactNode } from "react";
-import { articles } from "../articles";
+import { articles, getArticleTags } from "../articles";
 import ArticleThumbnail from "./article-thumbnail";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -125,6 +125,15 @@ function ShareButtons({ title, slug }: { title: string; slug: string }) {
         aria-label="Xでシェア"
       >
         <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+      </a>
+      <a
+        href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-400 transition hover:border-[#1877F2] hover:bg-[#1877F2] hover:text-white"
+        aria-label="Facebookでシェア"
+      >
+        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>
       </a>
       <a
         href={`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}`}
@@ -370,9 +379,22 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
               {children}
             </div>
 
-            {/* シェア + 著者 */}
+            {/* タグ + シェア + 著者 */}
             <div className="mt-16 space-y-6">
-              <div className="flex items-center justify-between border-t border-gray-200 pt-6">
+              {/* タグ */}
+              <div className="border-t border-gray-200 pt-6">
+                <div className="flex flex-wrap gap-2">
+                  {getArticleTags(self).map((tag) => (
+                    <span
+                      key={tag}
+                      className="inline-block rounded-md bg-gray-100 px-3 py-1.5 text-[12px] font-medium text-gray-600 transition hover:bg-blue-50 hover:text-blue-600"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
                 <p className="text-[12px] font-bold text-gray-400">この記事をシェア</p>
                 <ShareButtons title={self.title} slug={slug} />
               </div>

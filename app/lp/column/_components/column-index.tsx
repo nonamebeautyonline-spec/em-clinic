@@ -153,48 +153,44 @@ export default function ColumnIndex() {
         <div className="flex gap-10">
           {/* ─── メインカラム ─── */}
           <main className="min-w-0 flex-1">
-            <div className="grid gap-8 sm:grid-cols-2">
+            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((a) => (
                 <Link
                   key={a.slug}
                   href={`/lp/column/${a.slug}`}
-                  className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-100/50 hover:ring-blue-200/80"
+                  className="group overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:ring-blue-200/80"
                 >
                   {/* サムネイル */}
                   <div className="overflow-hidden">
-                    <div className="transition-transform duration-300 group-hover:scale-[1.02]">
+                    <div className="transition-transform duration-300 group-hover:scale-[1.03]">
                       <ArticleThumbnail slug={a.slug} title={a.title} category={a.category} size="card" hideTitle />
                     </div>
                   </div>
 
                   {/* テキスト */}
-                  <div className="px-6 py-5">
-                    {/* カテゴリ + 日付 */}
-                    <div className="flex flex-wrap items-center gap-3">
-                      <CategoryPill category={a.category} />
-                      <span className="flex items-center gap-1 text-[12px] text-gray-400">
-                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                        {formatDate(a.date)}
-                      </span>
-                      <span className="flex items-center gap-1 text-[12px] text-gray-300">
-                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                        {a.readTime}
-                      </span>
-                    </div>
+                  <div className="px-5 py-4">
+                    {/* カテゴリ */}
+                    <CategoryPill category={a.category} />
 
                     {/* タイトル */}
                     <h3 className="mt-2.5 text-[15px] font-bold leading-snug text-gray-900 line-clamp-2 group-hover:text-blue-700 transition-colors">
                       {a.title}
                     </h3>
 
-                    {/* 説明文 */}
-                    <p className="mt-2 text-[13px] leading-relaxed text-gray-500 line-clamp-2">{a.description}</p>
+                    {/* 説明文（3行まで） */}
+                    <p className="mt-2 text-[13px] leading-relaxed text-gray-500 line-clamp-3">{a.description}</p>
 
-                    {/* 続きを読む */}
-                    <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-blue-600 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                      続きを読む
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    </span>
+                    {/* メタ情報 */}
+                    <div className="mt-3 flex items-center gap-3 text-[12px] text-gray-400">
+                      <span className="flex items-center gap-1">
+                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        {formatDate(a.date)}
+                      </span>
+                      <span className="flex items-center gap-1 text-gray-300">
+                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                        {a.readTime}
+                      </span>
+                    </div>
                   </div>
                 </Link>
               ))}

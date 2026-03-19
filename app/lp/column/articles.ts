@@ -8,6 +8,22 @@ export interface Article {
   updatedDate?: string;
   category: string;
   readTime: string;
+  tags?: string[];
+}
+
+/* カテゴリ→タグの自動マッピング（個別タグ未設定時のフォールバック） */
+const categoryTagMap: Record<string, string[]> = {
+  活用事例: ["LINE公式アカウント", "クリニックDX", "導入事例"],
+  ツール比較: ["ツール比較", "LINE配信ツール", "クリニックDX"],
+  ガイド: ["LINE公式アカウント", "クリニックDX", "業務効率化"],
+  業務改善: ["業務効率化", "クリニックDX", "予約管理"],
+  マーケティング: ["LINE配信", "セグメント配信", "患者フォロー"],
+  比較: ["ツール比較", "LINE公式アカウント", "クリニックDX"],
+};
+
+/** 記事のタグを取得（個別指定 > カテゴリ自動） */
+export function getArticleTags(article: Article): string[] {
+  return article.tags || categoryTagMap[article.category] || ["LINE公式アカウント", "クリニックDX"];
 }
 
 export const articles: Article[] = [
