@@ -186,7 +186,7 @@ describe("Square Webhook API", () => {
 
       const body = { type: "payment.created", data: {} };
       const req = createWebhookRequest(body, {
-        "x-square-hmacsha1-signature": "invalid-signature",
+        "x-square-hmacsha256-signature": "invalid-signature",
       });
 
       const res = await POST(req);
@@ -242,10 +242,10 @@ describe("Square Webhook API", () => {
       const body = { type: "unknown.event", data: {} };
       const bodyStr = JSON.stringify(body);
       const payload = notificationUrl + bodyStr;
-      const signature = crypto.createHmac("sha1", signatureKey).update(payload, "utf8").digest("base64");
+      const signature = crypto.createHmac("sha256", signatureKey).update(payload, "utf8").digest("base64");
 
       const req = createWebhookRequest(body, {
-        "x-square-hmacsha1-signature": signature,
+        "x-square-hmacsha256-signature": signature,
       });
 
       const res = await POST(req);

@@ -31,15 +31,6 @@ export class SquarePaymentProvider implements PaymentProvider {
   async createCheckoutLink(params: CheckoutParams): Promise<CheckoutResult> {
     const config = await this.getConfig();
 
-    console.log("[square] createCheckoutLink config:", {
-      tenantId: this.tenantId,
-      hasAccessToken: !!config.accessToken,
-      tokenPrefix: config.accessToken?.slice(0, 10),
-      locationId: config.locationId,
-      env: config.env,
-      baseUrl: config.baseUrl,
-    });
-
     if (!config.accessToken || !config.locationId) {
       throw new Error("Square設定が不足しています（access_token または location_id）");
     }

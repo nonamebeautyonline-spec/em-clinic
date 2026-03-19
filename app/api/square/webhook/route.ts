@@ -30,7 +30,7 @@ export async function POST(req: Request) {
   const squareEnv = sqConfig?.env || "production";
 
   // 署名検証
-  const signatureHeader = req.headers.get("x-square-hmacsha1-signature");
+  const signatureHeader = req.headers.get("x-square-hmacsha256-signature");
   const notificationUrl = process.env.SQUARE_WEBHOOK_NOTIFICATION_URL;
   const verifyUrl = (notificationUrl || req.url.split("?")[0]).trim();
 
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     return new NextResponse("unauthorized", { status: 401 });
   } else if (signatureKey) {
     const payload = verifyUrl + bodyText;
-    const expected = crypto.createHmac("sha1", signatureKey).update(payload, "utf8").digest("base64");
+    const expected = crypto.createHmac("sha256", signatureKey).update(payload, "utf8").digest("base64");
     const ok = timingSafeEqual(expected, signatureHeader || "");
     if (!ok) {
       console.error("Square signature mismatch", {
