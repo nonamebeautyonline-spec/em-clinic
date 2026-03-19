@@ -248,15 +248,17 @@ export async function processSquareEvent(params: SquareHandlerParams): Promise<v
     const finalPhone = normalizeJPPhone(shipPhone || phone);
     const finalEmail = (email || "").trim();
 
+    let existingOrder: Record<string, unknown> | null = null;
     if (patientId) {
       try {
-        const { data: existingOrder } = await withTenant(
+        const { data: _existing } = await withTenant(
           supabaseAdmin
             .from("orders")
             .select("id, tracking_number, shipping_date, shipping_status")
             .eq("id", paymentId),
           tenantId,
         ).maybeSingle();
+        existingOrder = _existing;
 
         if (existingOrder) {
           const { error } = await withTenant(
@@ -312,8 +314,10 @@ export async function processSquareEvent(params: SquareHandlerParams): Promise<v
       }
     }
 
-    // 決済完了サンクスFlex送信（配送情報取得後）
-    if (patientId) {
+    // 決済完了サンクスFlex送信
+    // inline決済（/api/square/pay）で既に注文INSERT済みの場合はそちらで通知済みなのでスキップ
+    // hosted checkout（Payment Links）からの決済のみwebhookで通知を送る
+    if (patientId && !existingOrder) {
       try {
         const rules = await getBusinessRules(tenantId ?? undefined);
         if (rules.notifyReorderPaid) {
