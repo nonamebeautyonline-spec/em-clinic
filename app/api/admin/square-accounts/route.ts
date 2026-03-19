@@ -68,7 +68,18 @@ export async function PUT(req: NextRequest) {
     const parsed = await parseBody(req, squareAccountsUpdateSchema);
     if ("error" in parsed) return parsed.error;
 
-    const { accounts, activeId } = parsed.data;
+    const { accounts: rawAccounts, activeId } = parsed.data;
+
+    // 入力値のスペース混入を防止
+    const accounts = rawAccounts.map((a: SquareAccount) => ({
+      ...a,
+      access_token: a.access_token.trim(),
+      application_id: a.application_id.trim(),
+      location_id: a.location_id.trim(),
+      webhook_signature_key: a.webhook_signature_key.trim(),
+      env: a.env.trim(),
+      name: a.name.trim(),
+    }));
 
     if (!accounts.some((a: SquareAccount) => a.id === activeId)) {
       return badRequest("アクティブアカウントIDがアカウントリストに存在しません");
