@@ -38,7 +38,7 @@ export default function ReordersPage() {
   const [lineNotifyResult, setLineNotifyResult] = useState<{ id: string; status: "sent" | "no_uid" | "failed" } | null>(null);
 
   const swrKey = `/api/admin/reorders?include_all=${filter === "all" ? "true" : "false"}`;
-  const { data, error, isLoading: loading } = useSWR<{ reorders: Reorder[] }>(swrKey);
+  const { data, error, isLoading: loading, isValidating } = useSWR<{ reorders: Reorder[] }>(swrKey);
 
   const reorders = data?.reorders || [];
 
@@ -152,7 +152,16 @@ export default function ReordersPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow">
+      <div className="bg-white rounded-lg shadow relative">
+        {/* キャッシュ表示中は操作不可オーバーレイ */}
+        {isValidating && !loading && (
+          <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-lg">
+            <div className="flex items-center gap-2 text-slate-500 text-sm">
+              <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+              最新情報を取得中...
+            </div>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-50 border-b border-slate-200">
@@ -250,14 +259,14 @@ export default function ReordersPage() {
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleApprove(reorder.id)}
-                            disabled={processing === reorder.id}
+                            disabled={processing === reorder.id || isValidating}
                             className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
                           >
                             {processing === reorder.id ? "処理中..." : "許可"}
                           </button>
                           <button
                             onClick={() => handleReject(reorder.id)}
-                            disabled={processing === reorder.id}
+                            disabled={processing === reorder.id || isValidating}
                             className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
                           >
                             {processing === reorder.id ? "処理中..." : "却下"}
