@@ -9,6 +9,11 @@ export interface SquareAccount {
   webhook_signature_key: string;
   env: string;
   three_ds_enabled: boolean;
+  // OAuth関連
+  oauth_connected?: boolean;
+  refresh_token?: string;
+  token_expires_at?: string;
+  merchant_id?: string;
 }
 
 export const SQUARE_ACCOUNT_FIELDS = [
@@ -30,6 +35,7 @@ export function emptySquareAccount(): SquareAccount {
     webhook_signature_key: "",
     env: "production",
     three_ds_enabled: false,
+    oauth_connected: false,
   };
 }
 

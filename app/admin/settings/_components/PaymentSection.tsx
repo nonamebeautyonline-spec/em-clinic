@@ -386,6 +386,114 @@ export default function PaymentSection({ settings, onSaved }: Props) {
     }
   };
 
+  const [connectingSqOAuth, setConnectingSqOAuth] = useState(false);
+  const [revokingSqId, setRevokingSqId] = useState<string | null>(null);
+  const [showLocationSelect, setShowLocationSelect] = useState<string | null>(null);
+  const [sqLocations, setSqLocations] = useState<{ id: string; name: string }[]>([]);
+
+  // URLクエリパラメータからOAuth結果を検知
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const oauthResult = params.get("square_oauth");
+    const oauthError = params.get("square_oauth_error");
+    const selectAccountId = params.get("sq_account_id");
+
+    if (oauthResult === "success") {
+      onSaved("Squareアカウントを接続しました", "success");
+      mutate(SQ_KEY);
+      // URLからクエリパラメータを削除
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (oauthResult === "select_location" && selectAccountId) {
+      // Location選択が必要
+      mutate(SQ_KEY);
+      handleLoadLocations(selectAccountId);
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (oauthError) {
+      const errorMessages: Record<string, string> = {
+        auth_denied: "Square認可がキャンセルされました",
+        invalid_state: "認証情報が無効です。もう一度お試しください",
+        missing_params: "パラメータが不足しています",
+        server_error: "接続中にエラーが発生しました",
+      };
+      onSaved(errorMessages[oauthError] || "Square接続エラー", "error");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleConnectSquareOAuth = async () => {
+    setConnectingSqOAuth(true);
+    try {
+      const res = await fetch("/api/admin/square-oauth/auth");
+      const data = await res.json();
+      if (data.ok && data.authUrl) {
+        window.location.href = data.authUrl;
+      } else {
+        onSaved("OAuth URL取得に失敗しました", "error");
+        setConnectingSqOAuth(false);
+      }
+    } catch {
+      onSaved("OAuth接続エラー", "error");
+      setConnectingSqOAuth(false);
+    }
+  };
+
+  const handleRevokeSqOAuth = async (accountId: string) => {
+    if (!confirm("このSquareアカウントの接続を解除しますか？")) return;
+    setRevokingSqId(accountId);
+    try {
+      const res = await fetch("/api/admin/square-oauth/revoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId }),
+      });
+      if (res.ok) {
+        onSaved("Squareアカウントの接続を解除しました", "success");
+        mutate(SQ_KEY);
+        setSqInitialized(false);
+      } else {
+        onSaved("接続解除に失敗しました", "error");
+      }
+    } catch {
+      onSaved("接続解除エラー", "error");
+    } finally {
+      setRevokingSqId(null);
+    }
+  };
+
+  const handleLoadLocations = async (accountId: string) => {
+    try {
+      const res = await fetch(`/api/admin/square-oauth/locations?account_id=${accountId}`);
+      const data = await res.json();
+      if (data.locations) {
+        setSqLocations(data.locations);
+        setShowLocationSelect(accountId);
+      }
+    } catch {
+      onSaved("ロケーション取得に失敗しました", "error");
+    }
+  };
+
+  const handleSelectLocation = async (accountId: string, locationId: string) => {
+    try {
+      const res = await fetch("/api/admin/square-oauth/locations", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId, locationId }),
+      });
+      if (res.ok) {
+        onSaved("ロケーションを設定しました", "success");
+        setShowLocationSelect(null);
+        mutate(SQ_KEY);
+        setSqInitialized(false);
+      } else {
+        onSaved("ロケーション設定に失敗しました", "error");
+      }
+    } catch {
+      onSaved("ロケーション設定エラー", "error");
+    }
+  };
+
   const handleAddSqAccount = () => {
     setEditingSqAccount(emptySquareAccount());
     setIsAddSqMode(true);
@@ -705,6 +813,11 @@ export default function PaymentSection({ settings, onSaved }: Props) {
                                   使用中
                                 </span>
                               )}
+                              {acc.oauth_connected && (
+                                <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-bold text-purple-700 bg-purple-100 rounded">
+                                  OAuth
+                                </span>
+                              )}
                               <span className={`shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded ${
                                 acc.env === "sandbox" ? "text-amber-700 bg-amber-100" : "text-green-700 bg-green-100"
                               }`}>
@@ -712,9 +825,25 @@ export default function PaymentSection({ settings, onSaved }: Props) {
                               </span>
                             </div>
                             <div className="text-xs text-gray-500 space-y-0.5">
-                              <p>Token: {maskToken(acc.access_token)} / Location: {acc.location_id || "未設定"}</p>
+                              <p>Token: {maskToken(acc.access_token)} / Location: {acc.location_id || <span className="text-amber-600 font-medium">未設定</span>}</p>
                               {acc.application_id && <p>App ID: {acc.application_id}</p>}
                               {acc.three_ds_enabled && <p className="text-blue-600">3Dセキュア有効</p>}
+                              {acc.oauth_connected && acc.token_expires_at && (
+                                <p className="text-gray-400">
+                                  トークン期限: {new Date(acc.token_expires_at).toLocaleDateString("ja-JP")}
+                                  {new Date(acc.token_expires_at).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000 && (
+                                    <span className="text-amber-600 font-medium ml-1">（更新予定）</span>
+                                  )}
+                                </p>
+                              )}
+                              {acc.oauth_connected && !acc.location_id && (
+                                <button
+                                  onClick={() => handleLoadLocations(acc.id)}
+                                  className="text-blue-600 hover:underline font-medium"
+                                >
+                                  ロケーションを選択
+                                </button>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
@@ -726,13 +855,23 @@ export default function PaymentSection({ settings, onSaved }: Props) {
                                 使用する
                               </button>
                             )}
-                            <button
-                              onClick={() => handleEditSqAccount(acc)}
-                              className="px-2 py-1 text-[10px] font-medium text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
-                            >
-                              編集
-                            </button>
-                            {sqAccounts.length > 1 && (
+                            {!acc.oauth_connected && (
+                              <button
+                                onClick={() => handleEditSqAccount(acc)}
+                                className="px-2 py-1 text-[10px] font-medium text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+                              >
+                                編集
+                              </button>
+                            )}
+                            {acc.oauth_connected ? (
+                              <button
+                                onClick={() => handleRevokeSqOAuth(acc.id)}
+                                disabled={revokingSqId === acc.id}
+                                className="px-2 py-1 text-[10px] font-medium text-red-600 bg-red-50 rounded hover:bg-red-100 transition-colors disabled:opacity-50"
+                              >
+                                {revokingSqId === acc.id ? "切断中..." : "切断"}
+                              </button>
+                            ) : sqAccounts.length > 1 && (
                               <button
                                 onClick={() => handleDeleteSqAccount(acc.id)}
                                 className="px-2 py-1 text-[10px] font-medium text-red-600 bg-red-50 rounded hover:bg-red-100 transition-colors"
@@ -747,12 +886,19 @@ export default function PaymentSection({ settings, onSaved }: Props) {
                   })}
                 </div>
 
-                <div className="mt-3 flex items-center gap-3">
+                <div className="mt-3 flex items-center gap-3 flex-wrap">
+                  <button
+                    onClick={handleConnectSquareOAuth}
+                    disabled={connectingSqOAuth}
+                    className="px-4 py-2 text-xs font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
+                  >
+                    {connectingSqOAuth ? "接続中..." : "Squareアカウントを接続"}
+                  </button>
                   <button
                     onClick={handleAddSqAccount}
                     className="px-3 py-2 text-xs font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    + アカウントを追加
+                    + 手動で追加
                   </button>
                   {sqHasChanges && (
                     <button
@@ -992,6 +1138,40 @@ export default function PaymentSection({ settings, onSaved }: Props) {
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
                 {isAddSqMode ? "追加する" : "更新する"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Location選択モーダル */}
+      {showLocationSelect && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowLocationSelect(null)}>
+          <div className="bg-white rounded-xl shadow-xl mx-4 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h3 className="text-sm font-bold text-gray-800">ロケーションを選択</h3>
+              <p className="text-xs text-gray-500 mt-0.5">決済に使用するSquareロケーションを選択してください</p>
+            </div>
+            <div className="px-5 py-4 space-y-2 max-h-64 overflow-y-auto">
+              {sqLocations.length === 0 ? (
+                <p className="text-xs text-gray-400 py-4 text-center">アクティブなロケーションがありません</p>
+              ) : sqLocations.map((loc) => (
+                <button
+                  key={loc.id}
+                  onClick={() => handleSelectLocation(showLocationSelect, loc.id)}
+                  className="w-full text-left px-3 py-2 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                >
+                  <p className="text-sm font-medium text-gray-800">{loc.name}</p>
+                  <p className="text-xs text-gray-400">{loc.id}</p>
+                </button>
+              ))}
+            </div>
+            <div className="px-5 py-3 border-t border-gray-100 flex justify-end">
+              <button
+                onClick={() => setShowLocationSelect(null)}
+                className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800"
+              >
+                キャンセル
               </button>
             </div>
           </div>

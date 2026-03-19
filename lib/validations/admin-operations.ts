@@ -650,6 +650,10 @@ export const squareAccountsUpdateSchema = z
           webhook_signature_key: z.string().optional().default(""),
           env: z.string().optional().default("production"),
           three_ds_enabled: z.boolean().optional().default(false),
+          oauth_connected: z.boolean().optional().default(false),
+          refresh_token: z.string().optional().default(""),
+          token_expires_at: z.string().optional().default(""),
+          merchant_id: z.string().optional().default(""),
         }).passthrough()
       )
       .min(1, "アカウントは1件以上必要です")

@@ -1,6 +1,37 @@
 // lib/square-account-server.ts — Squareアカウントのサーバー専用ロジック
-import { getSetting, getSettingOrEnv } from "@/lib/settings";
+import { getSetting, getSettingOrEnv, setSetting } from "@/lib/settings";
 import type { SquareAccount, SquareConfig } from "@/lib/square-account";
+
+/**
+ * OAuthアカウントのトークンが期限切れに近い場合にリフレッシュを試行
+ * Cronが間に合わなかった場合のセーフティネット
+ */
+async function tryRefreshIfNeeded(
+  active: SquareAccount,
+  accounts: SquareAccount[],
+  tenantId?: string,
+): Promise<void> {
+  if (!active.oauth_connected || !active.refresh_token || !active.token_expires_at) return;
+
+  const expiresAt = new Date(active.token_expires_at);
+  const now = new Date();
+  // 期限切れ or 3日以内ならリフレッシュ
+  if (expiresAt.getTime() - now.getTime() > 3 * 24 * 60 * 60 * 1000) return;
+
+  try {
+    const { refreshSquareToken } = await import("@/lib/square-oauth");
+    const tokenResponse = await refreshSquareToken(active.refresh_token);
+    active.access_token = tokenResponse.access_token;
+    active.token_expires_at = tokenResponse.expires_at;
+    if (tokenResponse.refresh_token) {
+      active.refresh_token = tokenResponse.refresh_token;
+    }
+    await setSetting("square", "accounts", JSON.stringify(accounts), tenantId);
+    console.log(`[square-account] トークン自動リフレッシュ成功: account=${active.id}`);
+  } catch (e) {
+    console.error(`[square-account] トークン自動リフレッシュ失敗: account=${active.id}`, e);
+  }
+}
 
 /**
  * アクティブなSquareアカウントの設定を取得する
@@ -15,6 +46,9 @@ export async function getActiveSquareAccount(tenantId?: string): Promise<SquareC
       const activeId = await getSetting("square", "active_account_id", tenantId);
       const active = (activeId ? accounts.find((a) => a.id === activeId) : null) || accounts[0];
       if (active) {
+        // OAuthトークンの期限チェック＆自動リフレッシュ
+        await tryRefreshIfNeeded(active, accounts, tenantId);
+
         const env = active.env || "production";
         return {
           accessToken: active.access_token,
