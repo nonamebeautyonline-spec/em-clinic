@@ -3,7 +3,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
-import { getActiveSquareAccount } from "@/lib/square-account";
+import { getActiveSquareAccount } from "@/lib/square-account-server";
 import { badRequest, serverError } from "@/lib/api-error";
 
 export const runtime = "nodejs";

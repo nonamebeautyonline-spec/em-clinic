@@ -34,7 +34,7 @@ vi.mock("@/lib/tenant", () => ({
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
-vi.mock("@/lib/square-account", () => ({
+vi.mock("@/lib/square-account-server", () => ({
   getActiveSquareAccount: vi.fn(),
 }));
 
@@ -72,7 +72,7 @@ vi.mock("@/lib/validations/helpers", () => ({
 
 // --- ルートインポート ---
 import { POST } from "@/app/api/square/pay/route";
-import { getActiveSquareAccount } from "@/lib/square-account";
+import { getActiveSquareAccount } from "@/lib/square-account-server";
 import { getProductByCode } from "@/lib/products";
 import { parseBody } from "@/lib/validations/helpers";
 import { createSquarePayment, ensureSquareCustomer, saveCardOnFile, markReorderPaid } from "@/lib/payment/square-inline";

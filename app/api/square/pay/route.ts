@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, conflict, forbidden, serverError, tooManyRequests } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
-import { getActiveSquareAccount } from "@/lib/square-account";
+import { getActiveSquareAccount } from "@/lib/square-account-server";
 import { getProductByCode } from "@/lib/products";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { normalizeJPPhone } from "@/lib/phone";

@@ -4,11 +4,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import crypto from "crypto";
 
 // --- モック ---
-vi.mock("@/lib/square-account", () => ({
+vi.mock("@/lib/square-account-server", () => ({
   getActiveSquareAccount: vi.fn(),
 }));
 
-import { getActiveSquareAccount } from "@/lib/square-account";
+import { getActiveSquareAccount } from "@/lib/square-account-server";
 const mockGetActiveSquareAccount = vi.mocked(getActiveSquareAccount);
 
 // fetchモック

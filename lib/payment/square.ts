@@ -1,6 +1,6 @@
 // lib/payment/square.ts — Square 決済プロバイダー実装
 import crypto from "crypto";
-import { getActiveSquareAccount } from "@/lib/square-account";
+import { getActiveSquareAccount } from "@/lib/square-account-server";
 import type {
   PaymentProvider,
   CheckoutParams,

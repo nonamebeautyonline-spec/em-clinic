@@ -1,7 +1,7 @@
 // app/api/square/saved-card/route.ts — 保存済みカード情報取得
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { getActiveSquareAccount } from "@/lib/square-account";
+import { getActiveSquareAccount } from "@/lib/square-account-server";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { getCardDetails } from "@/lib/payment/square-inline";
 

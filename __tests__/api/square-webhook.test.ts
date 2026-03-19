@@ -98,7 +98,7 @@ vi.mock("@/lib/reorder-karte", () => ({
   createReorderPaymentKarte: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("@/lib/square-account", () => ({
+vi.mock("@/lib/square-account-server", () => ({
   getActiveSquareAccount: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -117,7 +117,7 @@ vi.stubGlobal("fetch", vi.fn());
 import { GET, POST } from "@/app/api/square/webhook/route";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { createReorderPaymentKarte } from "@/lib/reorder-karte";
-import { getActiveSquareAccount } from "@/lib/square-account";
+import { getActiveSquareAccount } from "@/lib/square-account-server";
 
 // --- ヘルパー ---
 function createWebhookRequest(body: unknown, headers: Record<string, string> = {}) {

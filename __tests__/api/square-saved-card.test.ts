@@ -32,7 +32,7 @@ vi.mock("@/lib/tenant", () => ({
   withTenant: vi.fn((q: unknown) => q),
 }));
 
-vi.mock("@/lib/square-account", () => ({
+vi.mock("@/lib/square-account-server", () => ({
   getActiveSquareAccount: vi.fn(),
 }));
 
@@ -41,7 +41,7 @@ vi.mock("@/lib/payment/square-inline", () => ({
 }));
 
 import { GET } from "@/app/api/square/saved-card/route";
-import { getActiveSquareAccount } from "@/lib/square-account";
+import { getActiveSquareAccount } from "@/lib/square-account-server";
 import { getCardDetails } from "@/lib/payment/square-inline";
 
 function setTableChain(table: string, chain: Record<string, unknown>) {

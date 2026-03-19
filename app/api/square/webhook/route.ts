@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { resolveTenantId } from "@/lib/tenant";
-import { getActiveSquareAccount } from "@/lib/square-account";
+import { getActiveSquareAccount } from "@/lib/square-account-server";
 import { checkIdempotency } from "@/lib/idempotency";
 import { processSquareEvent, type SquareEvent } from "@/lib/webhook-handlers/square";
 

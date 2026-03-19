@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { processSquareEvent } from "@/lib/webhook-handlers/square";
 import { processGmoEvent } from "@/lib/webhook-handlers/gmo";
 import { processStripeEvent } from "@/lib/webhook-handlers/stripe";
-import { getActiveSquareAccount } from "@/lib/square-account";
+import { getActiveSquareAccount } from "@/lib/square-account-server";
 import type Stripe from "stripe";
 
 interface WebhookEvent {
