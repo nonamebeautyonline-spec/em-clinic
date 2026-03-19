@@ -1621,10 +1621,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "invalid signature" }, { status: 401 });
     }
 
-    // ---- tenantId解決後に各種設定を動的取得 ----
-    // LINE webhookは外部からのリクエストのため、subdomain解決に失敗する可能性あり
-    // シングルテナント運用中はデフォルトテナントIDにフォールバック
-    const tenantId = resolveTenantId(req) ?? DEFAULT_TENANT_ID;
+    // ---- tenantId解決 ----
+    // LINE webhookはLINEプラットフォームからの直接リクエストのためsubdomain解決不可。
+    // channel_secret → tenant のマッピングで特定するのが理想だが、
+    // 現状シングルテナント運用のためDEFAULT_TENANT_IDにフォールバック。
+    // マルチテナント化時は channel_secret ベースのテナント解決に置換すること。
+    const resolvedTenantId = resolveTenantId(req);
+    if (!resolvedTenantId) {
+      console.warn("[line/webhook] テナントID解決失敗 — DEFAULT_TENANT_IDにフォールバック");
+    }
+    const tenantId = resolvedTenantId ?? DEFAULT_TENANT_ID;
     const tid = tenantId ?? undefined;
 
     const messagingSecret = await getSettingOrEnv("line", "channel_secret", "LINE_MESSAGING_API_CHANNEL_SECRET", tid);

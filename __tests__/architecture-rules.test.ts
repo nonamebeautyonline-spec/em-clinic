@@ -530,7 +530,7 @@ describe("SWR移行ルール", () => {
   // （検索デバウンス、heartbeat、edit session polling等）
   const SWR_PARTIAL_PAGES = [
     "app/admin/karte/page.tsx",
-    "app/admin/line/talk/_components/TalkClient.tsx",
+    "app/admin/line/talk/_components/talk/useTalkState.ts",
     "app/admin/layout.tsx",
     // 段階4: 複雑ページ（部分移行）
     "app/admin/doctor/page.tsx",
