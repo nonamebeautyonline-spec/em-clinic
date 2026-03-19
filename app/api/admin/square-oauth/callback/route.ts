@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
       id: `sq_oauth_${Date.now()}`,
       name: businessName,
       access_token,
-      application_id: getSquareApplicationId(),
+      application_id: await getSquareApplicationId(),
       location_id: locations.length === 1 ? locations[0].id : "",
       webhook_signature_key: "",
       env: "production",

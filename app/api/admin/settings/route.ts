@@ -19,6 +19,9 @@ const SETTING_DEFINITIONS: Record<SettingCategory, SettingDef[]> = {
     { key: "webhook_signature_key", label: "Webhook Signature Key", envFallback: "SQUARE_WEBHOOK_SIGNATURE_KEY" },
     { key: "env", label: "環境 (sandbox / production)", envFallback: "SQUARE_ENV", sensitive: false },
     { key: "3ds_enabled", label: "3Dセキュア (true / false)", sensitive: false },
+    { key: "oauth_client_id", label: "OAuth Client ID (プラットフォーム)", envFallback: "SQUARE_OAUTH_CLIENT_ID" },
+    { key: "oauth_client_secret", label: "OAuth Client Secret (プラットフォーム)", envFallback: "SQUARE_OAUTH_CLIENT_SECRET" },
+    { key: "oauth_redirect_uri", label: "OAuth Redirect URI (プラットフォーム)", envFallback: "SQUARE_OAUTH_REDIRECT_URI", sensitive: false },
   ],
   gmo: [
     { key: "shop_id", label: "ショップID", envFallback: "GMO_SHOP_ID" },

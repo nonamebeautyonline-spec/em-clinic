@@ -1,17 +1,19 @@
 // lib/__tests__/square-oauth.test.ts — Square OAuthライブラリのテスト
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// 環境変数セットアップ
-const ORIG_ENV = { ...process.env };
-
-beforeEach(() => {
-  process.env.SQUARE_OAUTH_CLIENT_ID = "sq0idp-test-client-id";
-  process.env.SQUARE_OAUTH_CLIENT_SECRET = "sq0csp-test-client-secret";
-  process.env.SQUARE_OAUTH_REDIRECT_URI = "https://l-ope.jp/api/admin/square-oauth/callback";
-});
+// getSettingOrEnvをモックして環境変数の代わりにDB値を返す
+vi.mock("@/lib/settings", () => ({
+  getSettingOrEnv: vi.fn(async (_cat: string, key: string) => {
+    const map: Record<string, string> = {
+      oauth_client_id: "sq0idp-test-client-id",
+      oauth_client_secret: "sq0csp-test-client-secret",
+      oauth_redirect_uri: "https://l-ope.jp/api/admin/square-oauth/callback",
+    };
+    return map[key] ?? undefined;
+  }),
+}));
 
 afterEach(() => {
-  process.env = { ...ORIG_ENV };
   vi.restoreAllMocks();
 });
 
@@ -19,7 +21,7 @@ describe("Square OAuth ライブラリ", () => {
   describe("getSquareAuthUrl", () => {
     it("正しい認可URLを生成する", async () => {
       const { getSquareAuthUrl } = await import("@/lib/square-oauth");
-      const url = getSquareAuthUrl("test-tenant-id");
+      const url = await getSquareAuthUrl("test-tenant-id");
 
       expect(url).toContain("https://connect.squareup.com/oauth2/authorize");
       expect(url).toContain("client_id=sq0idp-test-client-id");
@@ -149,7 +151,7 @@ describe("Square OAuth ライブラリ", () => {
   describe("getSquareApplicationId", () => {
     it("クライアントIDを返す", async () => {
       const { getSquareApplicationId } = await import("@/lib/square-oauth");
-      expect(getSquareApplicationId()).toBe("sq0idp-test-client-id");
+      expect(await getSquareApplicationId()).toBe("sq0idp-test-client-id");
     });
   });
 });

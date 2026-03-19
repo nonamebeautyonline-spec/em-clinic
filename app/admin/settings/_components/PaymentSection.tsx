@@ -915,6 +915,28 @@ export default function PaymentSection({ settings, onSaved }: Props) {
         </div>
       )}
 
+      {/* Square OAuthプラットフォーム設定 */}
+      {selected === "square" && editing && (() => {
+        const oauthKeys = ["oauth_client_id", "oauth_client_secret", "oauth_redirect_uri"];
+        const oauthSettings = providerSettings.filter((s) => oauthKeys.includes(s.key));
+        if (oauthSettings.length === 0) return null;
+        return (
+          <div className="border-t border-gray-200">
+            <div className="px-5 py-3 bg-gray-50">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                Square OAuthプラットフォーム設定
+              </p>
+              <p className="text-[10px] text-gray-400 mt-0.5">
+                Square Developer Dashboardのアプリ情報（全テナント共通）
+              </p>
+            </div>
+            {oauthSettings.map((item) => (
+              <SettingRow key={item.key} item={item} category="square" onSaved={onSaved} />
+            ))}
+          </div>
+        );
+      })()}
+
       {/* GMO等その他プロバイダーのAPI Key設定（従来形式） */}
       {selected && selected !== "square" && providerSettings.length > 0 && (
         <div className={`border-t border-gray-200 ${!editing ? "pointer-events-none opacity-60" : ""}`}>

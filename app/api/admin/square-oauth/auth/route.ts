@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     const tenantId = resolveTenantId(req);
     if (!tenantId) return badRequest("テナントIDが取得できません");
 
-    const authUrl = getSquareAuthUrl(tenantId);
+    const authUrl = await getSquareAuthUrl(tenantId);
     return NextResponse.json({ ok: true, authUrl });
   } catch (error) {
     console.error("[Square OAuth Auth] エラー:", error);

@@ -1,26 +1,27 @@
 // lib/square-oauth.ts — Square OAuth2 認証フローライブラリ
+import { getSettingOrEnv } from "@/lib/settings";
 
 const SQUARE_OAUTH_BASE = "https://connect.squareup.com/oauth2/authorize";
 const SQUARE_TOKEN_ENDPOINT = "https://connect.squareup.com/oauth2/token";
 const SQUARE_REVOKE_ENDPOINT = "https://connect.squareup.com/oauth2/revoke";
 const SQUARE_API_BASE = "https://connect.squareup.com";
 
-// --- 環境変数 ---
+// --- プラットフォーム設定（DB優先 → 環境変数フォールバック） ---
 
-function getClientId(): string {
-  const id = process.env.SQUARE_OAUTH_CLIENT_ID;
+async function getClientId(): Promise<string> {
+  const id = await getSettingOrEnv("square", "oauth_client_id", "SQUARE_OAUTH_CLIENT_ID");
   if (!id) throw new Error("SQUARE_OAUTH_CLIENT_ID が未設定です");
   return id;
 }
 
-function getClientSecret(): string {
-  const secret = process.env.SQUARE_OAUTH_CLIENT_SECRET;
+async function getClientSecret(): Promise<string> {
+  const secret = await getSettingOrEnv("square", "oauth_client_secret", "SQUARE_OAUTH_CLIENT_SECRET");
   if (!secret) throw new Error("SQUARE_OAUTH_CLIENT_SECRET が未設定です");
   return secret;
 }
 
-function getRedirectUri(): string {
-  const uri = process.env.SQUARE_OAUTH_REDIRECT_URI;
+async function getRedirectUri(): Promise<string> {
+  const uri = await getSettingOrEnv("square", "oauth_redirect_uri", "SQUARE_OAUTH_REDIRECT_URI");
   if (!uri) throw new Error("SQUARE_OAUTH_REDIRECT_URI が未設定です");
   return uri;
 }
@@ -60,14 +61,14 @@ export interface SquareOAuthState {
  * @param tenantId テナントID
  * @returns 認可URL
  */
-export function getSquareAuthUrl(tenantId: string): string {
+export async function getSquareAuthUrl(tenantId: string): Promise<string> {
   const state = Buffer.from(
     JSON.stringify({ tenantId, ts: Date.now() } satisfies SquareOAuthState)
   ).toString("base64url");
 
   const params = new URLSearchParams({
-    client_id: getClientId(),
-    redirect_uri: getRedirectUri(),
+    client_id: await getClientId(),
+    redirect_uri: await getRedirectUri(),
     response_type: "code",
     scope: [
       "PAYMENTS_WRITE",
@@ -113,15 +114,18 @@ export function decodeSquareState(state: string): SquareOAuthState {
  * @returns トークンレスポンス
  */
 export async function exchangeSquareCode(code: string): Promise<SquareTokenResponse> {
+  const [clientId, clientSecret, redirectUri] = await Promise.all([
+    getClientId(), getClientSecret(), getRedirectUri(),
+  ]);
   const res = await fetch(SQUARE_TOKEN_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      client_id: getClientId(),
-      client_secret: getClientSecret(),
+      client_id: clientId,
+      client_secret: clientSecret,
       code,
       grant_type: "authorization_code",
-      redirect_uri: getRedirectUri(),
+      redirect_uri: redirectUri,
     }),
   });
 
@@ -139,12 +143,13 @@ export async function exchangeSquareCode(code: string): Promise<SquareTokenRespo
  * @returns 新しいトークンレスポンス
  */
 export async function refreshSquareToken(refreshToken: string): Promise<SquareTokenResponse> {
+  const [clientId, clientSecret] = await Promise.all([getClientId(), getClientSecret()]);
   const res = await fetch(SQUARE_TOKEN_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      client_id: getClientId(),
-      client_secret: getClientSecret(),
+      client_id: clientId,
+      client_secret: clientSecret,
       refresh_token: refreshToken,
       grant_type: "refresh_token",
     }),
@@ -163,14 +168,15 @@ export async function refreshSquareToken(refreshToken: string): Promise<SquareTo
  * @param accessToken 失効させるトークン
  */
 export async function revokeSquareToken(accessToken: string): Promise<void> {
+  const [clientId, clientSecret] = await Promise.all([getClientId(), getClientSecret()]);
   const res = await fetch(SQUARE_REVOKE_ENDPOINT, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Client ${getClientSecret()}`,
+      Authorization: `Client ${clientSecret}`,
     },
     body: JSON.stringify({
-      client_id: getClientId(),
+      client_id: clientId,
       access_token: accessToken,
     }),
   });
@@ -233,6 +239,6 @@ export async function fetchSquareLocations(accessToken: string): Promise<SquareL
 /**
  * Application ID（プラットフォーム共通）を返す
  */
-export function getSquareApplicationId(): string {
+export async function getSquareApplicationId(): Promise<string> {
   return getClientId();
 }
