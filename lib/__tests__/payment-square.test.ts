@@ -94,6 +94,7 @@ describe("SquarePaymentProvider — createCheckoutLink", () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 500,
+      text: async () => "Internal Server Error",
     });
     await expect(
       provider.createCheckoutLink(defaultCheckoutParams()),

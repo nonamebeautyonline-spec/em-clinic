@@ -100,6 +100,10 @@
     {
       "path": "/api/cron/webhook-cleanup",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/refresh-metrics",
+      "schedule": "0 1 * * *"
     }
   ]
 }

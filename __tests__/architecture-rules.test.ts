@@ -161,6 +161,7 @@ describe("テナント分離: 全APIルートの withTenant 適用監査", () =>
     "app/api/cron/send-reports/route.ts",
     "app/api/cron/square-token-refresh/route.ts",
     "app/api/cron/webhook-cleanup/route.ts",
+    "app/api/cron/refresh-metrics/route.ts",
     // 署名付きURL認証API（テナントIDはドラフトDBから取得）
     "app/api/ai-reply/[draftId]/route.ts",
     "app/api/ai-reply/[draftId]/reject/route.ts",
