@@ -6,8 +6,8 @@ import { getSetting } from "@/lib/settings";
 
 export type { PaymentProvider, CheckoutParams, CheckoutResult, WebhookEvent, RefundResult } from "./types";
 
-const providers: Record<string, () => PaymentProvider> = {
-  square: () => new SquarePaymentProvider(),
+const providers: Record<string, (tenantId?: string) => PaymentProvider> = {
+  square: (tid) => new SquarePaymentProvider(tid),
   gmo: () => new GmoPaymentProvider(),
 };
 
@@ -19,10 +19,10 @@ export async function getPaymentProvider(tenantId?: string): Promise<PaymentProv
   const factory = providers[name];
   if (!factory) {
     console.warn(`[payment] Unknown provider "${name}", falling back to square`);
-    return new SquarePaymentProvider();
+    return new SquarePaymentProvider(tenantId);
   }
 
-  return factory();
+  return factory(tenantId);
 }
 
 /** 利用可能なプロバイダー一覧 */

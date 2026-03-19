@@ -11,9 +11,14 @@ import type {
 
 export class SquarePaymentProvider implements PaymentProvider {
   name = "square";
+  private tenantId?: string;
+
+  constructor(tenantId?: string) {
+    this.tenantId = tenantId;
+  }
 
   private async getConfig() {
-    const config = await getActiveSquareAccount();
+    const config = await getActiveSquareAccount(this.tenantId);
     return {
       accessToken: config?.accessToken,
       locationId: config?.locationId,
