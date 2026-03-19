@@ -21,6 +21,15 @@ export async function GET(req: NextRequest) {
   // アクティブなSquareアカウントから設定を取得（新accounts形式→旧個別キー→env vars のフォールバック）
   const config = await getActiveSquareAccount(tid);
 
+  console.log("[sdk-config] DEBUG:", {
+    tenantId: tid,
+    hasConfig: !!config,
+    applicationId: config?.applicationId,
+    locationId: config?.locationId,
+    tokenPrefix: config?.accessToken?.slice(0, 15),
+    env: config?.env,
+  });
+
   if (!config?.applicationId || !config?.locationId) {
     return NextResponse.json({ enabled: false });
   }
