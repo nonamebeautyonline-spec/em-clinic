@@ -1,40 +1,35 @@
 // app/api/square/sdk-config/route.ts — フロント用 Square SDK 設定取得
 import { NextRequest, NextResponse } from "next/server";
-import { getSettingsBulk } from "@/lib/settings";
+import { getSetting } from "@/lib/settings";
 import { resolveTenantId } from "@/lib/tenant";
+import { getActiveSquareAccount } from "@/lib/square-account-server";
 
 export async function GET(req: NextRequest) {
   const tenantId = resolveTenantId(req);
   const tid = tenantId ?? undefined;
 
-  // 1クエリで全設定を取得（5回→1回）
-  const settings = await getSettingsBulk(["payment", "square"], tid);
-
-  const checkoutMode = settings.get("payment:checkout_mode") || "hosted";
+  const checkoutMode = await getSetting("payment", "checkout_mode", tid) || "hosted";
   if (checkoutMode !== "inline") {
     return NextResponse.json({ enabled: false });
   }
 
-  const provider = settings.get("payment:provider") || "square";
+  const provider = await getSetting("payment", "provider", tid) || "square";
   if (provider !== "square") {
     return NextResponse.json({ enabled: false });
   }
 
-  const applicationId = settings.get("square:application_id") || process.env.SQUARE_APPLICATION_ID;
-  const locationId = settings.get("square:location_id") || process.env.SQUARE_LOCATION_ID;
-  const env = settings.get("square:env") || process.env.SQUARE_ENV || "production";
+  // アクティブなSquareアカウントから設定を取得（新accounts形式→旧個別キー→env vars のフォールバック）
+  const config = await getActiveSquareAccount(tid);
 
-  if (!applicationId || !locationId) {
+  if (!config?.applicationId || !config?.locationId) {
     return NextResponse.json({ enabled: false });
   }
 
-  const threeDsEnabled = settings.get("square:3ds_enabled") === "true";
-
   return NextResponse.json({
     enabled: true,
-    applicationId,
-    locationId,
-    environment: env,
-    threeDsEnabled,
+    applicationId: config.applicationId,
+    locationId: config.locationId,
+    environment: config.env || "production",
+    threeDsEnabled: config.threeDsEnabled ?? false,
   });
 }
