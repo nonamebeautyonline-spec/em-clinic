@@ -381,6 +381,15 @@ async function handleFollow(lineUid: string, tenantId: string | null, accessToke
     assign_mark?: string;
     menu_change?: string;
     actions?: Record<string, unknown>[];
+    steps?: {
+      type: string;
+      menu_id?: string;
+      menu_name?: string;
+      condition?: {
+        enabled?: boolean;
+        rules?: { type: string; tag_ids?: number[]; tag_match?: string; mark_match?: string; mark_values?: string[] }[];
+      };
+    }[];
   };
 
   // アクション詳細を記録する配列
@@ -439,13 +448,56 @@ async function handleFollow(lineUid: string, tenantId: string | null, accessToke
     actionDetails.push(`対応マークを[${val.assign_mark}]に設定`);
   }
 
-  // リッチメニュー変更
-  if (val.menu_change) {
+  // リッチメニュー変更（条件付きステップ対応）
+  let resolvedMenuId = val.menu_change || null;
+  if (val.steps && val.steps.length > 0 && patient?.patient_id) {
+    // 患者のタグ・マーク取得
+    const { data: ptTags } = await withTenant(
+      supabaseAdmin.from("patient_tags").select("tag_id").eq("patient_id", patient.patient_id),
+      tenantId
+    );
+    const patientTagIds = (ptTags || []).map((t: { tag_id: number }) => t.tag_id);
+    const { data: ptMark } = await withTenant(
+      supabaseAdmin.from("patient_marks").select("mark").eq("patient_id", patient.patient_id).maybeSingle(),
+      tenantId
+    );
+    const patientMark = ptMark?.mark || "none";
+
+    // 条件付きステップを順に評価、最初にマッチしたものを採用
+    for (const step of val.steps) {
+      if (step.type !== "menu_change" || !step.menu_id) continue;
+      const cond = step.condition;
+      if (!cond?.enabled || !cond.rules || cond.rules.length === 0) {
+        // 条件なし → 無条件マッチ
+        resolvedMenuId = step.menu_id;
+        break;
+      }
+      // 全ルールがANDでマッチするか
+      const allMatch = cond.rules.every(rule => {
+        if (rule.type === "tag" && rule.tag_ids) {
+          const hasAny = rule.tag_ids.some(id => patientTagIds.includes(id));
+          if (rule.tag_match === "any_include") return hasAny;
+          if (rule.tag_match === "any_exclude") return !hasAny;
+        }
+        if (rule.type === "mark" && rule.mark_values) {
+          if (rule.mark_match === "any_match") return rule.mark_values.includes(patientMark);
+        }
+        return false;
+      });
+      if (allMatch) {
+        resolvedMenuId = step.menu_id;
+        console.log(`[webhook] follow: step condition matched → menu ${step.menu_name || step.menu_id}`);
+        break;
+      }
+    }
+  }
+
+  if (resolvedMenuId) {
     const { data: menu } = await withTenant(
       supabaseAdmin
         .from("rich_menus")
         .select("line_rich_menu_id, name")
-        .eq("id", Number(val.menu_change))
+        .eq("id", Number(resolvedMenuId))
         .maybeSingle(),
       tenantId
     );
@@ -455,8 +507,8 @@ async function handleFollow(lineUid: string, tenantId: string | null, accessToke
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      console.log(`[webhook] follow: assigned rich menu ${val.menu_change} to ${lineUid}`);
-      actionDetails.push(`メニュー[${menu.name || val.menu_change}]にする`);
+      console.log(`[webhook] follow: assigned rich menu ${resolvedMenuId} to ${lineUid}`);
+      actionDetails.push(`メニュー[${menu.name || resolvedMenuId}]にする`);
     }
   }
 
