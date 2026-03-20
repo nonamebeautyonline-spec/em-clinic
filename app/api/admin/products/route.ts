@@ -141,6 +141,7 @@ export async function DELETE(req: NextRequest) {
     return serverError(error.message);
   }
 
-  logAuditWithDiff(req, "product.delete", "product", String(id), before, { ...before, is_active: false });
+  const prev = before?.[0] ?? null;
+  logAuditWithDiff(req, "product.delete", "product", String(id), prev, prev ? { ...prev, is_active: false } : null);
   return NextResponse.json({ success: true });
 }
