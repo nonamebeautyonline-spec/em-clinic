@@ -349,6 +349,6 @@ export async function POST(req: NextRequest) {
   }
 
   const allSuccess = results.every(r => r.success);
-  logAudit(req, "action.execute", "action", action_id);
+  logAudit(req, "action.execute", "action", String(action_id));
   return NextResponse.json({ ok: allSuccess, results });
 }
