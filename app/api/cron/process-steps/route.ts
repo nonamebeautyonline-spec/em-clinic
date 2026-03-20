@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { pushMessage } from "@/lib/line-push";
+import { linkRichMenuToUser } from "@/lib/line-richmenu";
 import { calculateNextSendAt, evaluateStepConditions, jumpToStep, type ConditionRule } from "@/lib/step-enrollment";
 import { evaluateDisplayConditions, type DisplayConditions } from "@/lib/step-conditions";
 import { withTenant, tenantPayload } from "@/lib/tenant";
@@ -393,6 +394,23 @@ async function executeStep(step: StepItem, enrollment: StepEnrollment, lineUid: 
           mark: step.mark,
           updated_by: "step_delivery",
         }, { onConflict: "patient_id" });
+      break;
+    }
+
+    case "menu_change": {
+      if (!step.menu_id || !lineUid) break;
+      const { data: menuData } = await withTenant(
+        supabaseAdmin
+          .from("rich_menus")
+          .select("line_rich_menu_id, name")
+          .eq("id", Number(step.menu_id))
+          .maybeSingle(),
+        tenantId
+      );
+      if (menuData?.line_rich_menu_id) {
+        await linkRichMenuToUser(lineUid, menuData.line_rich_menu_id, tenantId ?? undefined);
+        console.log(`[process-steps] menu_change: ${menuData.name || step.menu_id} → ${enrollment.patient_id}`);
+      }
       break;
     }
   }

@@ -6,7 +6,25 @@ import { linkRichMenuToUser } from "@/lib/line-richmenu";
 import { withTenant, tenantPayload } from "@/lib/tenant";
 import { sanitizeFlexContents } from "@/lib/flex-sanitize";
 
-interface ActionStep {
+// 条件ルール型（ConditionBuilder UIと同一構造）
+export interface ConditionRule {
+  type: "tag" | "mark" | "name" | "registered_date" | "field"
+    | "visit_count" | "purchase_amount" | "last_visit" | "reorder_count"
+    | "intake_status" | "reservation_status";
+  tag_ids?: number[];
+  tag_match?: "any_include" | "all_include" | "any_exclude" | "all_exclude";
+  mark_values?: string[];
+  mark_match?: "any_match" | "all_match" | "any_exclude" | "all_exclude";
+  name_operator?: "contains" | "not_contains" | "equals";
+  name_value?: string;
+}
+
+export interface StepCondition {
+  enabled: boolean;
+  rules: ConditionRule[];
+}
+
+export interface ActionStep {
   type: "send_text" | "send_template" | "tag_add" | "tag_remove" | "mark_change" | "menu_change";
   content?: string;
   template_id?: number;
@@ -15,6 +33,76 @@ interface ActionStep {
   mark?: string;
   menu_id?: string;
   menu_name?: string;
+  condition?: StepCondition;
+}
+
+/** 患者のタグID・マーク・名前を取得（条件評価用） */
+async function getPatientContext(patientId: string, tenantId: string | null) {
+  const [{ data: ptTags }, { data: ptMark }, { data: ptInfo }] = await Promise.all([
+    withTenant(supabaseAdmin.from("patient_tags").select("tag_id").eq("patient_id", patientId), tenantId),
+    withTenant(supabaseAdmin.from("patient_marks").select("mark").eq("patient_id", patientId).maybeSingle(), tenantId),
+    withTenant(supabaseAdmin.from("patients").select("name").eq("patient_id", patientId).maybeSingle(), tenantId),
+  ]);
+  return {
+    tagIds: (ptTags || []).map((t: { tag_id: number }) => t.tag_id),
+    mark: ptMark?.mark || "none",
+    name: ptInfo?.name || "",
+  };
+}
+
+/** 条件ルールを評価（全ルールAND） */
+export function evaluateConditionRules(
+  rules: ConditionRule[],
+  ctx: { tagIds: number[]; mark: string; name: string }
+): boolean {
+  return rules.every(rule => {
+    switch (rule.type) {
+      case "tag": {
+        if (!rule.tag_ids || rule.tag_ids.length === 0) return true;
+        const hasAny = rule.tag_ids.some(id => ctx.tagIds.includes(id));
+        const hasAll = rule.tag_ids.every(id => ctx.tagIds.includes(id));
+        switch (rule.tag_match) {
+          case "any_include": return hasAny;
+          case "all_include": return hasAll;
+          case "any_exclude": return !hasAny;
+          case "all_exclude": return !hasAll;
+          default: return hasAny;
+        }
+      }
+      case "mark": {
+        if (!rule.mark_values || rule.mark_values.length === 0) return true;
+        const matchesAny = rule.mark_values.includes(ctx.mark);
+        switch (rule.mark_match) {
+          case "any_match": return matchesAny;
+          case "any_exclude": return !matchesAny;
+          default: return matchesAny;
+        }
+      }
+      case "name": {
+        if (!rule.name_value) return true;
+        switch (rule.name_operator) {
+          case "contains": return ctx.name.includes(rule.name_value);
+          case "not_contains": return !ctx.name.includes(rule.name_value);
+          case "equals": return ctx.name === rule.name_value;
+          default: return true;
+        }
+      }
+      default:
+        // 未対応の条件タイプはスキップ（trueで通す）
+        return true;
+    }
+  });
+}
+
+/** ステップの条件をチェック（条件なし or 無効 → true） */
+function shouldExecuteStep(
+  step: ActionStep,
+  ctx: { tagIds: number[]; mark: string; name: string }
+): boolean {
+  if (!step.condition?.enabled || !step.condition.rules || step.condition.rules.length === 0) {
+    return true;
+  }
+  return evaluateConditionRules(step.condition.rules, ctx);
 }
 
 interface LifecycleActionResult {
@@ -67,9 +155,12 @@ export async function executeLifecycleActions(params: {
     return { executed: false, actionDetails: [] };
   }
 
+  // 条件評価に必要な患者コンテキストを取得
+  const patientCtx = await getPatientContext(patientId, tenantId);
   const actionDetails: string[] = [];
 
   for (const step of steps) {
+    if (!shouldExecuteStep(step, patientCtx)) continue;
     switch (step.type) {
       case "send_text": {
         if (!step.content) break;
@@ -188,7 +279,12 @@ export async function executeActionSteps(params: {
   const { steps, patientId, lineUserId, patientName, tenantId, assignedBy } = params;
   const actionDetails: string[] = [];
 
+  // 条件付きステップがある場合のみ患者コンテキストを取得
+  const hasConditions = steps.some(s => s.condition?.enabled);
+  const patientCtx = hasConditions ? await getPatientContext(patientId, tenantId) : null;
+
   for (const step of steps) {
+    if (patientCtx && !shouldExecuteStep(step, patientCtx)) continue;
     switch (step.type) {
       case "send_text": {
         if (!step.content) break;

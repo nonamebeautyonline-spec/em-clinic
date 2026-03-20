@@ -7,6 +7,8 @@ import { getSettingOrEnv } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
 import { executeActionSchema } from "@/lib/validations/line-management";
 
+import { evaluateConditionRules, type ConditionRule, type StepCondition } from "@/lib/lifecycle-actions";
+
 interface ActionStep {
   type: "send_text" | "send_template" | "tag_add" | "tag_remove" | "mark_change" | "menu_change";
   content?: string;
@@ -16,6 +18,7 @@ interface ActionStep {
   note?: string;
   menu_id?: string;
   menu_name?: string;
+  condition?: StepCondition;
 }
 
 // アクション実行
@@ -57,8 +60,30 @@ export async function POST(req: NextRequest) {
   const lineUid = patientData?.line_id;
   const patientName = patientData?.name || "";
 
+  // 条件評価用の患者コンテキスト取得
+  const hasConditions = steps.some(s => s.condition?.enabled);
+  let patientCtx: { tagIds: number[]; mark: string; name: string } | null = null;
+  if (hasConditions) {
+    const [{ data: ptTags }, { data: ptMark }] = await Promise.all([
+      strictWithTenant(supabaseAdmin.from("patient_tags").select("tag_id").eq("patient_id", patient_id), tenantId),
+      strictWithTenant(supabaseAdmin.from("patient_marks").select("mark").eq("patient_id", patient_id).maybeSingle(), tenantId),
+    ]);
+    patientCtx = {
+      tagIds: (ptTags || []).map((t: { tag_id: number }) => t.tag_id),
+      mark: ptMark?.mark || "none",
+      name: patientName,
+    };
+  }
+
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i];
+    // 条件チェック
+    if (patientCtx && step.condition?.enabled && step.condition.rules?.length > 0) {
+      if (!evaluateConditionRules(step.condition.rules as ConditionRule[], patientCtx)) {
+        results.push({ step: i, type: step.type, success: true, detail: "条件不一致のためスキップ" });
+        continue;
+      }
+    }
     try {
       switch (step.type) {
         case "send_text": {
