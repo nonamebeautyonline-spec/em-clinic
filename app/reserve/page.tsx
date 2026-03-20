@@ -1,7 +1,7 @@
 // app/reserve/page.tsx
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useState, useCallback } from "react";
+import React, { Suspense, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import useSWR from "swr";
 import Image from "next/image";
 import Link from "next/link";
@@ -144,6 +144,8 @@ const ReserveInner: React.FC = () => {
 
   const [weekOffset, setWeekOffset] = useState(0);
   const [step, setStep] = useState<ReserveStep>(1);
+  const calendarScrollRef = useRef<HTMLDivElement>(null);
+  const hasPlayedScrollHint = useRef(false);
   const [selectedDateKey, setSelectedDateKey] = useState<string>("");
   const [selectedSlot, setSelectedSlot] = useState<SlotInfo | null>(null);
   // slotsByDate, loadingSlots, slotsError はSWRで管理
@@ -256,6 +258,23 @@ const ReserveInner: React.FC = () => {
     }
     return map;
   }, [days, weeklySlotsData]);
+
+  // ▼ カレンダー表示時に横スクロール可能を示すモーション
+  useEffect(() => {
+    if (step !== 1 || loadingSlots || hasPlayedScrollHint.current) return;
+    const el = calendarScrollRef.current;
+    if (!el) return;
+    // スクロール可能かチェック（コンテンツが容器より広い場合のみ）
+    if (el.scrollWidth <= el.clientWidth) return;
+    hasPlayedScrollHint.current = true;
+    const scrollAmount = 60;
+    setTimeout(() => {
+      el.scrollTo({ left: scrollAmount, behavior: "smooth" });
+      setTimeout(() => {
+        el.scrollTo({ left: 0, behavior: "smooth" });
+      }, 400);
+    }, 300);
+  }, [step, loadingSlots]);
 
   // ▼ 週が変わるたびにselectedDateKeyとselectedSlotをリセット
   useEffect(() => {
@@ -590,7 +609,7 @@ setTimeout(() => {
               ) : (
                 <>
                   <div className="relative">
-                    <div className="overflow-x-auto">
+                    <div ref={calendarScrollRef} className="overflow-x-auto">
                       <div className="inline-block min-w-full">
                         <div className="grid grid-cols-[90px_repeat(7,minmax(60px,1fr))] text-center text-[12px] gap-y-1">
                           <div />
