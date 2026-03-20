@@ -238,18 +238,24 @@ async function fetchSnapshot(
     latestReservationAt: latestReservation.data?.created_at ?? null,
     latestPaidAt: latestPaid.data?.paid_at ?? null,
     latestPatientAt: latestPatient.data?.created_at ?? null,
-    activeAdminSessions: activeSessionsResult.count ?? 0,
-    activeAdminNames: [
-      ...new Set(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (activeSessionsResult.data ?? [])
-          .map((s: any) => {
-            const u = s.admin_users;
-            return typeof u === "object" && u !== null ? (Array.isArray(u) ? u[0]?.name : u.name) : null;
-          })
-          .filter(Boolean) as string[]
-      ),
-    ],
+    activeAdminNames: (() => {
+      const names = [
+        ...new Set(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (activeSessionsResult.data ?? [])
+            .map((s: any) => {
+              const u = s.admin_users;
+              return typeof u === "object" && u !== null ? (Array.isArray(u) ? u[0]?.name : u.name) : null;
+            })
+            .filter(Boolean) as string[]
+        ),
+      ];
+      return names;
+    })(),
+    activeAdminSessions: new Set(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (activeSessionsResult.data ?? []).map((s: any) => s.admin_user_id).filter(Boolean)
+    ).size,
     todayOutgoingCount: todayOutgoingResult.count ?? 0,
     todayIncomingCount: todayIncomingResult.count ?? 0,
     todayMessageCount: (todayOutgoingResult.count ?? 0) + (todayIncomingResult.count ?? 0),
