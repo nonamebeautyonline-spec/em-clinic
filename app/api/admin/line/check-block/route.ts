@@ -34,27 +34,29 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ blocked: false, no_line_id: !lineId });
     }
 
-    // LINE Profile APIでブロック確認
+    // LINE Profile APIでブロック確認（404のみブロック判定、他エラーは無視）
     const profileRes = await fetch(`https://api.line.me/v2/bot/profile/${lineId}`, {
       headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
       cache: "no-store",
     });
 
-    const blocked = !profileRes.ok;
+    // 404 = ブロックまたは友だち解除。それ以外のエラー（401,429,500等）はブロックとみなさない
+    const blocked = profileRes.status === 404;
+
+    // 最新のイベントを取得
+    const { data: lastEvent } = await strictWithTenant(
+      supabaseAdmin
+        .from("message_log")
+        .select("id, event_type")
+        .eq("patient_id", patientId)
+        .eq("message_type", "event")
+        .order("sent_at", { ascending: false })
+        .limit(1),
+      tenantId
+    ).maybeSingle();
 
     if (blocked) {
-      // 最新のイベントが既にブロックなら重複挿入しない
-      const { data: lastEvent } = await strictWithTenant(
-        supabaseAdmin
-          .from("message_log")
-          .select("id, event_type")
-          .eq("patient_id", patientId)
-          .eq("message_type", "event")
-          .order("sent_at", { ascending: false })
-          .limit(1),
-        tenantId
-      ).maybeSingle();
-
+      // ブロック中で未記録なら記録
       if (!lastEvent || lastEvent.event_type !== "unfollow") {
         await supabaseAdmin.from("message_log").insert({
           ...tenantPayload(tenantId),
@@ -67,6 +69,18 @@ export async function GET(req: NextRequest) {
           status: "received",
         });
       }
+    } else if (profileRes.ok && lastEvent?.event_type === "unfollow") {
+      // LINE側は非ブロックだがDBがunfollowのまま → 再登録イベントを補完記録
+      await supabaseAdmin.from("message_log").insert({
+        ...tenantPayload(tenantId),
+        patient_id: patientId,
+        line_uid: lineId,
+        direction: "incoming",
+        event_type: "follow",
+        message_type: "event",
+        content: "友だち再追加（ブロック解除）",
+        status: "received",
+      });
     }
 
     return NextResponse.json({ blocked });
