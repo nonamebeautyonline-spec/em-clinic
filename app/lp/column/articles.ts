@@ -18,7 +18,6 @@ const categoryTagMap: Record<string, string[]> = {
   ガイド: ["LINE公式アカウント", "クリニックDX", "業務効率化"],
   業務改善: ["業務効率化", "クリニックDX", "予約管理"],
   マーケティング: ["LINE配信", "セグメント配信", "患者フォロー"],
-  比較: ["ツール比較", "LINE公式アカウント", "クリニックDX"],
 };
 
 /** 記事のタグを取得（個別指定 > カテゴリ自動） */
@@ -141,7 +140,7 @@ export const articles: Article[] = [
     description: "LINE連携に対応したクリニック向け予約システム10選を徹底比較。機能・価格・導入実績の観点から、最適な予約システムの選び方を解説。",
     date: "2026-03-17",
     updatedDate: "2026-03-18",
-    category: "比較",
+    category: "ツール比較",
     readTime: "12分",
   },
   {
@@ -195,7 +194,7 @@ export const articles: Article[] = [
     description: "LINE公式アカウントの運用代行と自社運用を徹底比較。費用・効果・柔軟性の観点から、クリニック規模別の最適な運用方法を解説。",
     date: "2026-03-17",
     updatedDate: "2026-03-18",
-    category: "比較",
+    category: "ツール比較",
     readTime: "8分",
   },
   {
@@ -222,7 +221,7 @@ export const articles: Article[] = [
     description: "病院・クリニック向けCRMを6製品厳選比較。多機能型から地域医療連携特化型まで、選定基準・導入メリット・LINE連携の重要性を解説。",
     date: "2026-03-17",
     updatedDate: "2026-03-18",
-    category: "比較",
+    category: "ツール比較",
     readTime: "9分",
   },
   {
@@ -267,7 +266,7 @@ export const articles: Article[] = [
     description: "クリニック向けLINE活用ツール5社（Lオペ for CLINIC・メディカルフォース・March・medibot・Lステップ）を機能・費用・LINE連携度で徹底比較。自院に合うツールの選び方を解説。",
     date: "2026-03-18",
     updatedDate: "2026-03-18",
-    category: "比較",
+    category: "ツール比較",
     readTime: "12分",
   },
   {

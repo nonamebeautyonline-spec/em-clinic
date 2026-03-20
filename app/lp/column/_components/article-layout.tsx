@@ -142,7 +142,6 @@ const categoryColors: Record<string, { bg: string; text: string }> = {
   ガイド: { bg: "bg-sky-50", text: "text-sky-700" },
   業務改善: { bg: "bg-amber-50", text: "text-amber-700" },
   マーケティング: { bg: "bg-rose-50", text: "text-rose-700" },
-  比較: { bg: "bg-violet-50", text: "text-violet-700" },
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════

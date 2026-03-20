@@ -43,7 +43,6 @@ const catTheme: Record<string, { from: string; to: string; accent: string; label
   ガイド:         { from: "from-sky-50",     to: "to-cyan-100/60",   accent: "#0284c7", label: "bg-sky-100 text-sky-700" },
   業務改善:       { from: "from-cyan-50",    to: "to-blue-100/60",   accent: "#0891b2", label: "bg-cyan-100 text-cyan-700" },
   マーケティング: { from: "from-indigo-50",  to: "to-blue-100/60",   accent: "#4f46e5", label: "bg-indigo-100 text-indigo-700" },
-  比較:           { from: "from-violet-50",  to: "to-purple-100/60", accent: "#7c3aed", label: "bg-violet-100 text-violet-700" },
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════

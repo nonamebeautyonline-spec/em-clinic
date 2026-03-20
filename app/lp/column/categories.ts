@@ -25,7 +25,7 @@ export const categories: CategoryDef[] = [
     label: "ツール比較",
     description:
       "クリニック向けLINEツール・予約システム・CRMの比較記事。機能・費用・運用負荷の観点から最適なツール選びをサポートします。",
-    matchValues: ["ツール比較", "比較"],
+    matchValues: ["ツール比較"],
   },
   {
     slug: "guide",
