@@ -309,6 +309,7 @@ describe("generate-reminders: LINE送信", () => {
     expect(logInsert).toBeTruthy();
     expect((logInsert!.payload as Record<string, unknown>).rule_id).toBe(1);
     expect((logInsert!.payload as Record<string, unknown>).tenant_id).toBe("tenant-1");
+    expect((logInsert!.payload as Record<string, unknown>).reserved_date).toBe("2026-02-18");
 
     vi.restoreAllMocks();
   });
@@ -352,6 +353,76 @@ describe("generate-reminders: LINE送信", () => {
     expect(body.ok).toBe(true);
     expect(body.sent).toBe(0);
     expect(pushMessage).not.toHaveBeenCalled();
+
+    vi.restoreAllMocks();
+  });
+
+  it("予約日変更後は再送信される（reserved_dateが異なるため）", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(new Date("2026-02-17T10:05:00Z").getTime());
+
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    const { withTenant } = await import("@/lib/tenant");
+    const { pushMessage } = await import("@/lib/line-push");
+
+    const mockRule = {
+      id: 2,
+      timing_type: "fixed_time",
+      is_enabled: true,
+      target_day_offset: 0,
+      message_format: "text",
+      message_template: "{name}様\n本日{time}のご予約です。",
+      tenant_id: "tenant-1",
+    };
+
+    // 予約は2/18に変更済み（旧: 2/17で送信済み）
+    const mockReservation = {
+      id: 200,
+      patient_id: "P001",
+      patient_name: "川上 愛花里",
+      reserved_date: "2026-02-18",
+      reserved_time: "11:45:00",
+    };
+
+    // withTenantモック: reservations → sent_log（reserved_date=2/18では未送信）→ patients
+    let queryCount = 0;
+    vi.mocked(withTenant).mockImplementation(() => {
+      queryCount++;
+      if (queryCount === 1) return { data: [mockReservation], error: null } as never;
+      // sent_logクエリ: reserved_date=2/18でフィルタされるので空（旧ログは2/17）
+      if (queryCount === 2) return { data: [], error: null } as never;
+      if (queryCount === 3) return { data: [{ patient_id: "P001", name: "川上 愛花里", line_id: "U049" }], error: null } as never;
+      return { data: null, error: null } as never;
+    });
+
+    const inserted: { table: string; payload: unknown }[] = [];
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "reminder_rules") {
+        return createChainMock({ data: [mockRule], error: null }) as never;
+      }
+      const chain = createChainMock({ data: null, error: null });
+      if (table === "reminder_sent_log" || table === "message_log") {
+        chain.insert = vi.fn().mockImplementation((payload: unknown) => {
+          inserted.push({ table, payload });
+          return { data: null, error: null };
+        });
+      }
+      return chain as never;
+    });
+
+    vi.mocked(pushMessage).mockResolvedValue({ ok: true } as never);
+
+    const { GET } = await import("@/app/api/cron/generate-reminders/route");
+    const response = await GET(new (await import("next/server")).NextRequest("http://localhost/api/cron/generate-reminders"));
+    const body = await response.json();
+
+    expect(body.ok).toBe(true);
+    expect(body.sent).toBe(1);
+    expect(pushMessage).toHaveBeenCalled();
+
+    // sent_logにreserved_date=2/18が記録される
+    const logInsert = inserted.find(m => m.table === "reminder_sent_log");
+    expect(logInsert).toBeTruthy();
+    expect((logInsert!.payload as Record<string, unknown>).reserved_date).toBe("2026-02-18");
 
     vi.restoreAllMocks();
   });

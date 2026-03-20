@@ -136,13 +136,14 @@ async function sendReminders(rule: ReminderRule, tenantId: string | null, target
 
   if (!reservations?.length) return 0;
 
-  // 送信済みチェック
+  // 送信済みチェック（予約日も一致するもののみ送信済みとみなす）
   const reservationIds = reservations.map((r: ReservationRow) => r.id);
   const { data: sentLogs } = await withTenant(
     supabaseAdmin
       .from("reminder_sent_log")
       .select("reservation_id")
       .eq("rule_id", rule.id)
+      .eq("reserved_date", targetDate)
       .in("reservation_id", reservationIds),
     tenantId
   );
@@ -210,6 +211,7 @@ async function sendReminders(rule: ReminderRule, tenantId: string | null, target
               ...tenantPayload(tenantId),
               rule_id: rule.id,
               reservation_id: reservation.id,
+              reserved_date: reservation.reserved_date,
             }),
           ];
           if (ok) {
