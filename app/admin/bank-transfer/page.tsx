@@ -35,6 +35,7 @@ export default function BankTransferManagementPage() {
   const [cancelMemo, setCancelMemo] = useState("");
   const [cancelling, setCancelling] = useState(false);
 
+  // テストデータ削除
   const handleDeleteTestData = async () => {
     if (!confirm("テストデータを削除しますか？")) return;
 
@@ -55,32 +56,6 @@ export default function BankTransferManagementPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     }
-  };
-
-  const handleBackfillToGAS = async () => {
-    if (!confirm("全てのデータをGASシートにバックフィルしますか？")) return;
-
-    setError("");
-
-    try {
-      const res = await fetch("/api/admin/bank-transfer/backfill-to-gas", {
-        method: "POST",
-      });
-
-      if (!res.ok) {
-        throw new Error("バックフィル失敗");
-      }
-
-      const data = await res.json();
-      alert(`${data.successCount}件をGASシートに同期しました`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    }
-  };
-
-  const openGASSheet = () => {
-    const sheetId = "1WL8zQ1PQDzLyLvl_w5StVvZU4T8nfbPGI5rxQvW5Vq0";
-    window.open(`https://docs.google.com/spreadsheets/d/${sheetId}/edit`, "_blank");
   };
 
   const handleCancel = async () => {
@@ -145,19 +120,6 @@ export default function BankTransferManagementPage() {
           <p className="text-slate-600 text-sm mt-1">住所入力・照合・転記</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={openGASSheet}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold"
-          >
-            GASシートを開く
-          </button>
-          <button
-            onClick={handleBackfillToGAS}
-            disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold disabled:bg-slate-400"
-          >
-            GASにバックフィル
-          </button>
           <button
             onClick={handleDeleteTestData}
             disabled={loading}
@@ -297,31 +259,6 @@ export default function BankTransferManagementPage() {
             </div>
           </div>
         )}
-
-      {/* GAS操作ガイド */}
-      <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-        <h2 className="text-lg font-bold text-blue-900 mb-4">GASシート操作ガイド</h2>
-        <div className="space-y-3 text-sm text-blue-800">
-          <div>
-            <strong>1. 自動照合（住所情報 × 入金CSV）</strong>
-            <p className="ml-4 text-blue-700">
-              メニューから実行。口座名義で自動的にマッチングし、照合済みシートに転記します。
-            </p>
-          </div>
-          <div>
-            <strong>2. 選択行を照合済みにコピー</strong>
-            <p className="ml-4 text-blue-700">
-              住所情報シートで行を選択してメニューから実行。手動で照合済みに移動します。
-            </p>
-          </div>
-          <div>
-            <strong>3. 選択行をのなめマスターに転記</strong>
-            <p className="ml-4 text-blue-700">
-              照合済みシートで行を選択してメニューから実行。のなめマスター「銀行振込」シートに転記し、ordersテーブルにも保存します。
-            </p>
-          </div>
-        </div>
-      </div>
 
       {/* キャンセル確認モーダル */}
       {cancelTarget && (

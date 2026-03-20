@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import useSWR, { mutate } from "swr";
 
 /* ---------- 型定義 ---------- */
@@ -42,6 +42,9 @@ export default function ChatbotPage() {
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
   const [editingNode, setEditingNode] = useState<ChatbotNode | null>(null);
   const [showNodeCreate, setShowNodeCreate] = useState(false);
+
+  // 表示モード切り替え（リスト / フロー）
+  const [viewMode, setViewMode] = useState<"list" | "flow">("list");
 
   /* ---------- シナリオ作成 ---------- */
 
@@ -310,28 +313,50 @@ export default function ChatbotPage() {
             </div>
           ) : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                <div>
+              {/* ヘッダー: タイトル + タブ切り替え + ノード追加ボタン */}
+              <div className="px-4 py-3 border-b border-gray-100">
+                <div className="flex items-center justify-between mb-2">
                   <h2 className="text-sm font-bold text-gray-700">
-                    {selectedScenario.name} - ノード一覧
+                    {selectedScenario.name} - ノード
                   </h2>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    上から順に実行されます
-                  </p>
+                  <button
+                    onClick={() => setShowNodeCreate(true)}
+                    className="px-3 py-1.5 text-xs font-medium text-white bg-[#06C755] hover:bg-[#05b34c] rounded-lg transition-colors"
+                  >
+                    + ノード追加
+                  </button>
                 </div>
-                <button
-                  onClick={() => setShowNodeCreate(true)}
-                  className="px-3 py-1.5 text-xs font-medium text-white bg-[#06C755] hover:bg-[#05b34c] rounded-lg transition-colors"
-                >
-                  + ノード追加
-                </button>
+                {/* タブ切り替え */}
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setViewMode("list")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      viewMode === "list"
+                        ? "bg-gray-800 text-white"
+                        : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                    }`}
+                  >
+                    リスト表示
+                  </button>
+                  <button
+                    onClick={() => setViewMode("flow")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      viewMode === "flow"
+                        ? "bg-gray-800 text-white"
+                        : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                    }`}
+                  >
+                    フロー表示
+                  </button>
+                </div>
               </div>
 
               {nodes.length === 0 ? (
                 <div className="p-8 text-center text-gray-400 text-sm">
                   ノードがありません。「+ ノード追加」で追加してください。
                 </div>
-              ) : (
+              ) : viewMode === "list" ? (
+                /* ---------- リスト表示（既存） ---------- */
                 <div className="divide-y divide-gray-50">
                   {nodes.map((n, idx) => (
                     <div key={n.id} className="px-4 py-3">
@@ -400,6 +425,15 @@ export default function ChatbotPage() {
                     </div>
                   ))}
                 </div>
+              ) : (
+                /* ---------- フロー表示（ビジュアル） ---------- */
+                <FlowView
+                  nodes={nodes}
+                  nodeTypeLabel={nodeTypeLabel}
+                  nodeTypeColor={nodeTypeColor}
+                  onEditNode={(n) => setEditingNode({ ...n })}
+                  onDeleteNode={handleDeleteNode}
+                />
               )}
             </div>
           )}
@@ -764,6 +798,341 @@ export default function ChatbotPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ==========================================================================
+   フロー表示コンポーネント
+   - ノードをカード型で縦に配置し、SVG矢印で接続を描画
+   - 外部ライブラリ不使用（SVG + CSS のみ）
+   ========================================================================== */
+
+/** ノードタイプ別のカードボーダー色 */
+const nodeTypeBorderColor = (t: string) => {
+  switch (t) {
+    case "message": return "#3B82F6";   // blue-500
+    case "question": return "#22C55E";  // green-500
+    case "action": return "#F97316";    // orange-500
+    case "condition": return "#A855F7"; // purple-500
+    default: return "#9CA3AF";          // gray-400
+  }
+};
+
+/** フロー表示のレイアウト定数 */
+const FLOW_CARD_WIDTH = 260;
+const FLOW_CARD_HEIGHT = 100;
+const FLOW_GAP_Y = 60;
+const FLOW_PADDING_X = 40;
+const FLOW_PADDING_Y = 30;
+
+interface FlowViewProps {
+  nodes: ChatbotNode[];
+  nodeTypeLabel: (t: string) => string;
+  nodeTypeColor: (t: string) => string;
+  onEditNode: (n: ChatbotNode) => void;
+  onDeleteNode: (id: string) => void;
+}
+
+function FlowView({ nodes, nodeTypeLabel, nodeTypeColor, onEditNode, onDeleteNode }: FlowViewProps) {
+  /* ノード配置の計算（メモ化） */
+  const layout = useMemo(() => {
+    // ノードIDからインデックスへのマップ
+    const idToIndex = new Map<string, number>();
+    nodes.forEach((n, i) => idToIndex.set(n.id, i));
+
+    // 各ノードの位置を計算（縦一列配置）
+    const positions = nodes.map((_, i) => ({
+      x: FLOW_PADDING_X,
+      y: FLOW_PADDING_Y + i * (FLOW_CARD_HEIGHT + FLOW_GAP_Y),
+    }));
+
+    // 接続線の計算
+    const connections: Array<{
+      fromIdx: number;
+      toIdx: number;
+      fromX: number;
+      fromY: number;
+      toX: number;
+      toY: number;
+    }> = [];
+
+    nodes.forEach((n, fromIdx) => {
+      if (n.next_node_id) {
+        const toIdx = idToIndex.get(n.next_node_id);
+        if (toIdx !== undefined) {
+          const from = positions[fromIdx];
+          const to = positions[toIdx];
+          connections.push({
+            fromIdx,
+            toIdx,
+            // 出発点: カード下端中央
+            fromX: from.x + FLOW_CARD_WIDTH / 2,
+            fromY: from.y + FLOW_CARD_HEIGHT,
+            // 到着点: カード上端中央
+            toX: to.x + FLOW_CARD_WIDTH / 2,
+            toY: to.y,
+          });
+        }
+      }
+    });
+
+    // 接続先を持つノードIDのセット（到達可能判定用）
+    const connectedNodeIds = new Set<string>();
+    nodes.forEach((n) => {
+      if (n.next_node_id) {
+        connectedNodeIds.add(n.id);
+        connectedNodeIds.add(n.next_node_id);
+      }
+    });
+
+    // SVG全体のサイズ
+    const svgWidth = FLOW_PADDING_X * 2 + FLOW_CARD_WIDTH;
+    const svgHeight = positions.length > 0
+      ? positions[positions.length - 1].y + FLOW_CARD_HEIGHT + FLOW_PADDING_Y
+      : 200;
+
+    return { positions, connections, connectedNodeIds, svgWidth, svgHeight };
+  }, [nodes]);
+
+  /** ノードの内容プレビューテキストを取得 */
+  const getNodePreview = (n: ChatbotNode): string => {
+    switch (n.node_type) {
+      case "message":
+        return (n.data.text as string) || "(テキスト未設定)";
+      case "question":
+        return (n.data.question_text as string) || "(質問未設定)";
+      case "action":
+        return `アクション: ${(n.data.action_type as string) || "(未設定)"}`;
+      case "condition": {
+        const count = Array.isArray(n.data.conditions) ? (n.data.conditions as unknown[]).length : 0;
+        return `条件分岐: ${count}件`;
+      }
+      default:
+        return "";
+    }
+  };
+
+  /** 接続線のSVGパス（曲線）を生成 */
+  const buildArrowPath = (conn: typeof layout.connections[number]): string => {
+    const { fromX, fromY, toX, toY } = conn;
+    const dy = toY - fromY;
+
+    // 直下への接続（通常のケース）
+    if (Math.abs(fromX - toX) < 1 && dy > 0) {
+      // まっすぐ下に伸びる矢印
+      return `M ${fromX} ${fromY} L ${toX} ${toY}`;
+    }
+
+    // 離れたノードへの接続（曲線）
+    const cpOffsetY = Math.min(Math.abs(dy) * 0.4, 60);
+    return `M ${fromX} ${fromY} C ${fromX} ${fromY + cpOffsetY}, ${toX} ${toY - cpOffsetY}, ${toX} ${toY}`;
+  };
+
+  return (
+    <div className="overflow-auto" style={{ maxHeight: "600px" }}>
+      <svg
+        width={layout.svgWidth}
+        height={layout.svgHeight}
+        className="mx-auto"
+        style={{ minWidth: FLOW_CARD_WIDTH + FLOW_PADDING_X * 2 }}
+      >
+        {/* 矢印マーカー定義 */}
+        <defs>
+          <marker
+            id="arrowhead"
+            markerWidth="8"
+            markerHeight="6"
+            refX="8"
+            refY="3"
+            orient="auto"
+          >
+            <polygon points="0 0, 8 3, 0 6" fill="#9CA3AF" />
+          </marker>
+        </defs>
+
+        {/* 接続線の描画 */}
+        {layout.connections.map((conn, i) => (
+          <path
+            key={i}
+            d={buildArrowPath(conn)}
+            fill="none"
+            stroke="#9CA3AF"
+            strokeWidth={2}
+            markerEnd="url(#arrowhead)"
+            className="transition-colors"
+          />
+        ))}
+
+        {/* ノードカードの描画 */}
+        {nodes.map((n, idx) => {
+          const pos = layout.positions[idx];
+          const borderColor = nodeTypeBorderColor(n.node_type);
+          const isConnected = layout.connectedNodeIds.has(n.id);
+          const preview = getNodePreview(n);
+
+          return (
+            <g
+              key={n.id}
+              transform={`translate(${pos.x}, ${pos.y})`}
+              onClick={() => onEditNode(n)}
+              className="cursor-pointer"
+              role="button"
+              tabIndex={0}
+            >
+              {/* カード背景 */}
+              <rect
+                x={0}
+                y={0}
+                width={FLOW_CARD_WIDTH}
+                height={FLOW_CARD_HEIGHT}
+                rx={10}
+                ry={10}
+                fill="white"
+                stroke={borderColor}
+                strokeWidth={2}
+                className="transition-all"
+              />
+
+              {/* 左のカラーバー */}
+              <rect
+                x={0}
+                y={0}
+                width={6}
+                height={FLOW_CARD_HEIGHT}
+                rx={3}
+                fill={borderColor}
+              />
+              {/* 左上角に合わせてrxを調整 */}
+              <rect
+                x={0}
+                y={0}
+                width={10}
+                height={10}
+                rx={10}
+                fill={borderColor}
+              />
+              <rect
+                x={0}
+                y={FLOW_CARD_HEIGHT - 10}
+                width={10}
+                height={10}
+                rx={10}
+                fill={borderColor}
+              />
+
+              {/* ノード番号（丸バッジ） */}
+              <circle
+                cx={24}
+                cy={22}
+                r={12}
+                fill={borderColor}
+                opacity={0.15}
+              />
+              <text
+                x={24}
+                y={26}
+                textAnchor="middle"
+                fontSize={11}
+                fontWeight="bold"
+                fill={borderColor}
+              >
+                {idx + 1}
+              </text>
+
+              {/* ノードタイプラベル */}
+              <text
+                x={44}
+                y={26}
+                fontSize={11}
+                fontWeight="600"
+                fill={borderColor}
+              >
+                {nodeTypeLabel(n.node_type)}
+              </text>
+
+              {/* 内容プレビュー（2行分、はみ出しclip） */}
+              <foreignObject
+                x={16}
+                y={38}
+                width={FLOW_CARD_WIDTH - 32}
+                height={40}
+              >
+                <div
+                  style={{
+                    fontSize: "11px",
+                    color: "#4B5563",
+                    lineHeight: "1.4",
+                    overflow: "hidden",
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    wordBreak: "break-all",
+                  }}
+                >
+                  {preview}
+                </div>
+              </foreignObject>
+
+              {/* 未接続バッジ（接続なしの場合） */}
+              {!isConnected && (
+                <>
+                  <rect
+                    x={FLOW_CARD_WIDTH - 56}
+                    y={6}
+                    width={48}
+                    height={18}
+                    rx={9}
+                    fill="#FEF2F2"
+                  />
+                  <text
+                    x={FLOW_CARD_WIDTH - 32}
+                    y={18}
+                    textAnchor="middle"
+                    fontSize={9}
+                    fill="#EF4444"
+                    fontWeight="500"
+                  >
+                    未接続
+                  </text>
+                </>
+              )}
+
+              {/* 下部: 操作アイコンエリア */}
+              <g transform={`translate(${FLOW_CARD_WIDTH - 50}, ${FLOW_CARD_HEIGHT - 24})`}>
+                {/* 編集アイコン */}
+                <g
+                  onClick={(e) => { e.stopPropagation(); onEditNode(n); }}
+                  className="cursor-pointer"
+                >
+                  <circle cx={8} cy={8} r={10} fill="transparent" />
+                  <path
+                    d="M4 12.5V14h1.5l5.3-5.3-1.5-1.5L4 12.5zm7.1-4.1c.15-.15.15-.39 0-.54l-.96-.96c-.15-.15-.39-.15-.54 0L8.7 7.8l1.5 1.5.9-.9z"
+                    fill="#9CA3AF"
+                    transform="scale(0.85) translate(-1, -1)"
+                  />
+                </g>
+                {/* 削除アイコン */}
+                <g
+                  onClick={(e) => { e.stopPropagation(); onDeleteNode(n.id); }}
+                  className="cursor-pointer"
+                  transform="translate(22, 0)"
+                >
+                  <circle cx={8} cy={8} r={10} fill="transparent" />
+                  <path
+                    d="M5 5h6M8 5V3.5M4.5 5v7.5a1 1 0 001 1h5a1 1 0 001-1V5M6.5 7.5v3M9.5 7.5v3"
+                    fill="none"
+                    stroke="#9CA3AF"
+                    strokeWidth={1}
+                    strokeLinecap="round"
+                    transform="scale(0.9) translate(0, 0)"
+                  />
+                </g>
+              </g>
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
 }
