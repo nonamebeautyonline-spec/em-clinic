@@ -58,11 +58,11 @@ export default function TrackingNumberPage() {
   const [fileInputKey, setFileInputKey] = useState(0);
 
   // 発送通知一斉送信
-  const [notifyPreview, setNotifyPreview] = useState<{ patients: { patient_id: string; patient_name: string; line_id: string | null }[]; summary: { total: number; sendable: number; no_uid: number } } | null>(null);
+  const [notifyPreview, setNotifyPreview] = useState<{ patients: { patient_id: string; patient_name: string; line_id: string | null; is_blocked?: boolean }[]; summary: { total: number; sendable: number; no_uid: number; blocked?: number } } | null>(null);
   const [notifyLoading, setNotifyLoading] = useState(false);
   const [showNotifyConfirm, setShowNotifyConfirm] = useState(false);
   const [notifySending, setNotifySending] = useState(false);
-  const [notifyResult, setNotifyResult] = useState<{ sent: number; failed: number; no_uid: number; mark_updated?: number; menu_switched?: number } | null>(null);
+  const [notifyResult, setNotifyResult] = useState<{ sent: number; failed: number; no_uid: number; blocked?: number; mark_updated?: number; menu_switched?: number } | null>(null);
 
   // ページ読み込み時にラベル作成済みの発送分を自動ロード
   useEffect(() => {
@@ -707,6 +707,7 @@ export default function TrackingNumberPage() {
                     <div className="mt-1 flex flex-wrap gap-4 text-xs">
                       <span className="text-green-700">送信成功: <strong>{notifyResult.sent}</strong></span>
                       {notifyResult.failed > 0 && <span className="text-red-600">失敗: <strong>{notifyResult.failed}</strong></span>}
+                      {(notifyResult.blocked ?? 0) > 0 && <span className="text-orange-600">ブロック中のためスキップ: <strong>{notifyResult.blocked}</strong></span>}
                       {notifyResult.no_uid > 0 && <span className="text-slate-500">LINE未連携: <strong>{notifyResult.no_uid}</strong></span>}
                       {(notifyResult.mark_updated ?? 0) > 0 && <span className="text-orange-600">マーク→処方ずみ: <strong>{notifyResult.mark_updated}</strong></span>}
                       {(notifyResult.menu_switched ?? 0) > 0 && <span className="text-blue-600">メニュー→処方後: <strong>{notifyResult.menu_switched}</strong></span>}
@@ -787,6 +788,12 @@ export default function TrackingNumberPage() {
                   <p className="text-xs text-green-600">送信対象</p>
                   <p className="text-xl font-bold text-green-700">{notifyPreview.summary.sendable}</p>
                 </div>
+                {(notifyPreview.summary.blocked ?? 0) > 0 && (
+                  <div className="flex-1 text-center p-3 bg-orange-50 rounded-lg">
+                    <p className="text-xs text-orange-600">ブロック中</p>
+                    <p className="text-xl font-bold text-orange-500">{notifyPreview.summary.blocked}</p>
+                  </div>
+                )}
                 {notifyPreview.summary.no_uid > 0 && (
                   <div className="flex-1 text-center p-3 bg-slate-50 rounded-lg">
                     <p className="text-xs text-slate-500">LINE未連携</p>
@@ -799,13 +806,23 @@ export default function TrackingNumberPage() {
               <div>
                 <p className="text-xs font-medium text-slate-500 mb-2">送信対象者</p>
                 <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
-                  {notifyPreview.patients.filter(p => p.line_id).map(p => (
+                  {notifyPreview.patients.filter(p => p.line_id && !p.is_blocked).map(p => (
                     <div key={p.patient_id} className="px-3 py-2 text-sm flex justify-between">
                       <span className="text-slate-900">{p.patient_name || p.patient_id}</span>
                       <button onClick={() => window.open(`/admin/line/talk?pid=${p.patient_id}`, '_blank')} className="text-xs text-blue-600 hover:text-blue-900 hover:underline font-mono">{p.patient_id}</button>
                     </div>
                   ))}
                 </div>
+                {notifyPreview.patients.filter(p => p.line_id && p.is_blocked).length > 0 && (
+                  <details className="mt-2">
+                    <summary className="text-xs text-orange-500 cursor-pointer">ブロック中のためスキップ ({notifyPreview.summary.blocked}人)</summary>
+                    <div className="mt-1 max-h-24 overflow-y-auto border border-orange-100 rounded divide-y divide-orange-50">
+                      {notifyPreview.patients.filter(p => p.line_id && p.is_blocked).map(p => (
+                        <div key={p.patient_id} className="px-3 py-1 text-xs text-orange-500">{p.patient_name || p.patient_id}</div>
+                      ))}
+                    </div>
+                  </details>
+                )}
                 {notifyPreview.patients.filter(p => !p.line_id).length > 0 && (
                   <details className="mt-2">
                     <summary className="text-xs text-slate-400 cursor-pointer">LINE未連携 ({notifyPreview.summary.no_uid}人)</summary>

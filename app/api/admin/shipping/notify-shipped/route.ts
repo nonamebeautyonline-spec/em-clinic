@@ -32,12 +32,22 @@ async function getTodayShippedPatients(tenantId: string | null) {
     tenantId
   );
 
-  const patientMap = new Map<string, { patient_id: string; patient_name: string; line_id: string | null }>();
+  // ブロック状態を取得
+  const { data: friendData } = await strictWithTenant(
+    supabaseAdmin.from("friend_summaries").select("patient_id, last_event_type").in("patient_id", uniquePids),
+    tenantId
+  );
+  const blockedSet = new Set(
+    (friendData || []).filter(f => f.last_event_type === "unfollow").map(f => f.patient_id)
+  );
+
+  const patientMap = new Map<string, { patient_id: string; patient_name: string; line_id: string | null; is_blocked: boolean }>();
   for (const row of pData || []) {
     patientMap.set(row.patient_id, {
       patient_id: row.patient_id,
       patient_name: row.name || "",
       line_id: row.line_id || null,
+      is_blocked: blockedSet.has(row.patient_id),
     });
   }
 
@@ -51,6 +61,7 @@ async function getTodayShippedPatients(tenantId: string | null) {
       patient_id: pid,
       patient_name: p?.patient_name || "",
       line_id: p?.line_id || null,
+      is_blocked: p?.is_blocked || false,
       tracking,
     };
   });
@@ -65,7 +76,8 @@ export async function GET(req: NextRequest) {
 
   try {
     const patients = await getTodayShippedPatients(tenantId);
-    const sendable = patients.filter(p => p.line_id);
+    const blocked = patients.filter(p => p.line_id && p.is_blocked);
+    const sendable = patients.filter(p => p.line_id && !p.is_blocked);
     const noUid = patients.filter(p => !p.line_id);
 
     return NextResponse.json({
@@ -74,6 +86,7 @@ export async function GET(req: NextRequest) {
         total: patients.length,
         sendable: sendable.length,
         no_uid: noUid.length,
+        blocked: blocked.length,
       },
     });
   } catch (e) {
@@ -94,6 +107,7 @@ export async function POST(req: NextRequest) {
     let sent = 0;
     let failed = 0;
     let noUid = 0;
+    let blocked = 0;
     let markUpdated = 0;
     let menuSwitched = 0;
 
@@ -113,9 +127,10 @@ export async function POST(req: NextRequest) {
 
     const lineToken = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
 
-    // LINE未連携を先に除外
+    // LINE未連携・ブロック中を先に除外
     const sendable = patients.filter(p => {
       if (!p.line_id) { noUid++; return false; }
+      if (p.is_blocked) { blocked++; return false; }
       return true;
     });
 
@@ -209,7 +224,7 @@ export async function POST(req: NextRequest) {
 
     logAudit(req, "shipping.notify", "shipping", "bulk");
     return NextResponse.json({
-      ok: true, sent, failed, no_uid: noUid,
+      ok: true, sent, failed, no_uid: noUid, blocked,
       mark_updated: markUpdated,
       menu_switched: menuSwitched,
     });
