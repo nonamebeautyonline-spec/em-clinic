@@ -17,6 +17,7 @@ export interface ConditionRule {
   mark_match?: "any_match" | "all_match" | "any_exclude" | "all_exclude";
   name_operator?: "contains" | "not_contains" | "equals";
   name_value?: string;
+  status_value?: string;
 }
 
 export interface StepCondition {
