@@ -142,6 +142,7 @@ export interface ToastNotification {
 // リアルタイム統計
 export interface RealtimeStats {
   activeAdminSessions: number;
+  activeAdminNames: string[];
   todayOutgoingCount: number;
   todayIncomingCount: number;
   todayMessageCount: number;

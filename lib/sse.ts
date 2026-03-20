@@ -60,6 +60,8 @@ export interface DashboardSnapshot {
   latestPatientAt: string | null;
   /** オンライン管理者セッション数（有効期限内のセッション） */
   activeAdminSessions: number;
+  /** オンライン管理者の名前一覧 */
+  activeAdminNames: string[];
   /** 本日の送信メッセージ数 */
   todayOutgoingCount: number;
   /** 本日の受信メッセージ数 */

@@ -189,11 +189,11 @@ async function fetchSnapshot(
         .order("created_at", { ascending: false })
         .limit(1),
     ).maybeSingle(),
-    // オンライン管理者セッション数（有効期限内のセッション）
+    // オンライン管理者セッション（有効期限内 — 名前一覧も取得）
     (() => {
       let q = supabase
         .from("admin_sessions")
-        .select("*", { count: "exact", head: true })
+        .select("admin_user_id, admin_users!inner(name)", { count: "exact" })
         .gt("expires_at", nowISO);
       if (tenantId) q = q.eq("tenant_id", tenantId);
       return q;
@@ -239,6 +239,17 @@ async function fetchSnapshot(
     latestPaidAt: latestPaid.data?.paid_at ?? null,
     latestPatientAt: latestPatient.data?.created_at ?? null,
     activeAdminSessions: activeSessionsResult.count ?? 0,
+    activeAdminNames: [
+      ...new Set(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (activeSessionsResult.data ?? [])
+          .map((s: any) => {
+            const u = s.admin_users;
+            return typeof u === "object" && u !== null ? (Array.isArray(u) ? u[0]?.name : u.name) : null;
+          })
+          .filter(Boolean) as string[]
+      ),
+    ],
     todayOutgoingCount: todayOutgoingResult.count ?? 0,
     todayIncomingCount: todayIncomingResult.count ?? 0,
     todayMessageCount: (todayOutgoingResult.count ?? 0) + (todayIncomingResult.count ?? 0),

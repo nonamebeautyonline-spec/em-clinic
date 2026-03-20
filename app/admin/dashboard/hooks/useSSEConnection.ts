@@ -11,6 +11,7 @@ export function useSSEConnection(
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [realtimeStats, setRealtimeStats] = useState<RealtimeStats>({
     activeAdminSessions: 0,
+    activeAdminNames: [],
     todayOutgoingCount: 0,
     todayIncomingCount: 0,
     todayMessageCount: 0,
@@ -141,6 +142,7 @@ export function useSSEConnection(
         const data = JSON.parse(e.data);
         setRealtimeStats({
           activeAdminSessions: data.activeAdminSessions ?? 0,
+          activeAdminNames: data.activeAdminNames ?? [],
           todayOutgoingCount: data.todayOutgoingCount ?? 0,
           todayIncomingCount: data.todayIncomingCount ?? 0,
           todayMessageCount: data.todayMessageCount ?? 0,
@@ -159,6 +161,7 @@ export function useSSEConnection(
         if (data.snapshot) {
           setRealtimeStats({
             activeAdminSessions: data.snapshot.activeAdminSessions ?? 0,
+            activeAdminNames: data.snapshot.activeAdminNames ?? [],
             todayOutgoingCount: data.snapshot.todayOutgoingCount ?? 0,
             todayIncomingCount: data.snapshot.todayIncomingCount ?? 0,
             todayMessageCount: data.snapshot.todayMessageCount ?? 0,
