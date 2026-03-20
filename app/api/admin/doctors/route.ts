@@ -5,7 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { doctorUpsertSchema } from "@/lib/validations/admin-operations";
-import { logAudit } from "@/lib/audit";
+import { logAuditWithDiff } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -57,6 +57,12 @@ export async function POST(req: NextRequest) {
       return badRequest("doctor_name required");
     }
 
+    // 変更前の値を取得（差分ログ用: upsertなので存在しない場合はnull）
+    const { data: before } = await strictWithTenant(
+      supabaseAdmin.from("doctors").select("*").eq("doctor_id", doctor_id),
+      tenantId
+    ).single();
+
     const record: Record<string, unknown> = {
       doctor_id,
       doctor_name,
@@ -81,7 +87,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "DB_ERROR", detail: error.message }, { status: 500 });
     }
 
-    logAudit(req, "doctor.create", "doctor", "unknown");
+    // 差分付き監査ログ（fire-and-forget）
+    const action = before ? "doctor.update" : "doctor.create";
+    logAuditWithDiff(req, action, "doctor", doctor_id, before, record);
     return NextResponse.json({ ok: true, doctor: record });
   } catch (error) {
     console.error("doctors POST error:", error);

@@ -8,7 +8,7 @@ import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/t
 import { getSetting } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
 import { inventorySchema } from "@/lib/validations/admin-operations";
-import { logAudit } from "@/lib/audit";
+import { logAuditWithDiff } from "@/lib/audit";
 
 const DEFAULT_LOCATIONS = ["本院"];
 
@@ -161,6 +161,14 @@ export async function POST(req: NextRequest) {
     updated_at: new Date().toISOString(),
   }));
 
+  // 変更前の在庫ログを取得（差分ログ用）
+  let beforeQuery = supabaseAdmin
+    .from("inventory_logs")
+    .select("item_key, section, location, box_count, shipped_count, received_count")
+    .eq("logged_date", date);
+  beforeQuery = strictWithTenant(beforeQuery, tenantId);
+  const { data: beforeLogs } = await beforeQuery;
+
   // delete+insert（upsert は NULL tenant_id で壊れるため）
   let delQuery = supabaseAdmin
     .from("inventory_logs")
@@ -183,6 +191,11 @@ export async function POST(req: NextRequest) {
     return serverError(error.message);
   }
 
-  logAudit(req, "inventory.create", "inventory", "unknown");
+  // 差分付き監査ログ（fire-and-forget）
+  logAuditWithDiff(
+    req, "inventory.update", "inventory", date,
+    { date, entries_count: beforeLogs?.length ?? 0 },
+    { date, entries_count: data?.length ?? 0 },
+  );
   return NextResponse.json({ saved: data?.length ?? 0 });
 }

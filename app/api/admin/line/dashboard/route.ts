@@ -29,16 +29,6 @@ interface BroadcastRow {
   created_at: string;
 }
 
-interface ClickLinkRow {
-  id: number;
-  broadcast_id: number;
-}
-
-interface ClickEventRow {
-  link_id: number;
-  ip_address: string;
-}
-
 interface PatientNameRow {
   patient_id: string;
   name: string;
@@ -344,51 +334,20 @@ export async function GET(req: NextRequest) {
     tenantId
   );
 
-  // 各broadcastのクリック数を取得
+  // 各broadcastのクリック数をRPCで一括取得
   const broadcastIds = (broadcastRows || []).map((b: BroadcastRow) => b.id);
-  let broadcastClickMap = new Map<number, { total: number; unique: number }>();
+  const broadcastClickMap = new Map<number, { total: number; unique: number }>();
   if (broadcastIds.length > 0) {
-    const { data: clickLinks } = await strictWithTenant(
-      supabaseAdmin
-        .from("click_tracking_links")
-        .select("id, broadcast_id")
-        .in("broadcast_id", broadcastIds),
-      tenantId
-    );
-    if (clickLinks && clickLinks.length > 0) {
-      const linkIds = clickLinks.map((l: ClickLinkRow) => l.id);
-      const linkToBroadcast = new Map<number, number>();
-      for (const l of clickLinks) linkToBroadcast.set(l.id, l.broadcast_id);
-
-      const { data: clickEvts } = await fetchAll<ClickEventRow>(() =>
-        strictWithTenant(
-          supabaseAdmin
-            .from("click_tracking_events")
-            .select("link_id, ip_address")
-            .in("link_id", linkIds),
-          tenantId
-        ) as unknown as { range: (from: number, to: number) => Promise<{ data: ClickEventRow[] | null; error: { message: string } | null }> }
-      );
-
-      for (const evt of clickEvts || []) {
-        const bid = linkToBroadcast.get(evt.link_id);
-        if (bid == null) continue;
-        const cur = broadcastClickMap.get(bid) || { total: 0, unique: 0 };
-        cur.total++;
-        broadcastClickMap.set(bid, cur);
-      }
-      // ユニーククリック計算
-      const uniqueByBroadcast = new Map<number, Set<string>>();
-      for (const evt of clickEvts || []) {
-        const bid = linkToBroadcast.get(evt.link_id);
-        if (bid == null) continue;
-        if (!uniqueByBroadcast.has(bid)) uniqueByBroadcast.set(bid, new Set());
-        uniqueByBroadcast.get(bid)!.add(evt.ip_address || "unknown");
-      }
-      for (const [bid, ips] of uniqueByBroadcast) {
-        const cur = broadcastClickMap.get(bid) || { total: 0, unique: 0 };
-        cur.unique = ips.size;
-        broadcastClickMap.set(bid, cur);
+    const { data: clickStats } = await supabaseAdmin.rpc("broadcast_click_stats", {
+      p_tenant_id: tenantId,
+      p_broadcast_ids: broadcastIds,
+    });
+    if (clickStats && Array.isArray(clickStats)) {
+      for (const s of clickStats) {
+        broadcastClickMap.set(s.broadcast_id, {
+          total: s.total_clicks,
+          unique: s.unique_clicks,
+        });
       }
     }
   }

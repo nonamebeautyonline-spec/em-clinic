@@ -8,7 +8,7 @@ import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/t
 import { checkInventoryAlerts } from "@/lib/inventory-alert";
 import { parseBody } from "@/lib/validations/helpers";
 import { productCreateSchema, productUpdateSchema } from "@/lib/validations/admin-operations";
-import { logAudit } from "@/lib/audit";
+import { logAudit, logAuditWithDiff } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -87,6 +87,11 @@ export async function PUT(req: NextRequest) {
   if ("error" in parsed) return parsed.error;
   const { id, ...updates } = parsed.data;
 
+  // 変更前の値を取得（差分ログ用）
+  const { data: before } = await strictWithTenant(
+    supabaseAdmin.from("products").select("*"), tenantId
+  ).eq("id", id).single();
+
   updates.updated_at = new Date().toISOString();
 
   const { data, error } = await strictWithTenant(
@@ -97,6 +102,9 @@ export async function PUT(req: NextRequest) {
     console.error("[products API] update error:", error.message);
     return serverError(error.message);
   }
+
+  // 差分付き監査ログ（fire-and-forget）
+  logAuditWithDiff(req, "product.update", "product", String(id), before, data);
 
   // 在庫アラートチェック（非同期、エラーは無視）
   checkInventoryAlerts(tenantId).catch(() => {});
@@ -118,6 +126,11 @@ export async function DELETE(req: NextRequest) {
     return badRequest("id は必須です");
   }
 
+  // 変更前の値を取得（差分ログ用）
+  const { data: before } = await strictWithTenant(
+    supabaseAdmin.from("products").select("id, title, code, is_active").eq("id", id), tenantId
+  );
+
   // 物理削除ではなく無効化
   const { error } = await strictWithTenant(
     supabaseAdmin.from("products").update({ is_active: false, updated_at: new Date().toISOString() }), tenantId
@@ -128,6 +141,6 @@ export async function DELETE(req: NextRequest) {
     return serverError(error.message);
   }
 
-  logAudit(req, "product.delete", "product", String(id));
+  logAuditWithDiff(req, "product.delete", "product", String(id), before, { ...before, is_active: false });
   return NextResponse.json({ success: true });
 }

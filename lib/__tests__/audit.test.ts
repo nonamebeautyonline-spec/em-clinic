@@ -35,7 +35,7 @@ vi.mock("@/lib/tenant", () => ({
   resolveTenantIdOrThrow: (...args: unknown[]) => mockResolveTenantId(...args),
 }));
 
-import { logAudit } from "@/lib/audit";
+import { logAudit, logAuditWithDiff } from "@/lib/audit";
 
 // --- ヘルパー ---
 function createMockRequest(options: {
@@ -272,5 +272,136 @@ describe("logAudit — エラーハンドリング", () => {
     );
 
     consoleErrorSpy.mockRestore();
+  });
+});
+
+// --- logAuditWithDiff テスト ---
+describe("logAuditWithDiff — 差分計算", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockInsert.mockResolvedValue({ error: null });
+    mockResolveTenantId.mockReturnValue("tenant_001");
+    mockJwtVerify.mockResolvedValue({
+      payload: { userId: "admin_001", name: "管理者" },
+    });
+  });
+
+  it("before/after差分が正しく計算される（変更フィールドのみ抽出）", async () => {
+    const req = createMockRequest({
+      cookies: { admin_session: "valid.jwt" },
+    });
+
+    const before = { name: "旧商品", price: 1000, category: "injection" };
+    const after = { name: "新商品", price: 2000, category: "injection" };
+
+    await logAuditWithDiff(req, "product.update", "product", "P001", before, after);
+
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: {
+          changes: {
+            name: { from: "旧商品", to: "新商品" },
+            price: { from: 1000, to: 2000 },
+          },
+        },
+      }),
+    );
+  });
+
+  it("変更なしの場合changesが空オブジェクト", async () => {
+    const req = createMockRequest({
+      cookies: { admin_session: "valid.jwt" },
+    });
+
+    const before = { name: "商品A", price: 1000 };
+    const after = { name: "商品A", price: 1000 };
+
+    await logAuditWithDiff(req, "product.update", "product", "P002", before, after);
+
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: { changes: {} },
+      }),
+    );
+  });
+
+  it("beforeがnull（新規作成）→ created に after を記録", async () => {
+    const req = createMockRequest({
+      cookies: { admin_session: "valid.jwt" },
+    });
+
+    const after = { name: "新商品", price: 3000 };
+
+    await logAuditWithDiff(req, "product.create", "product", "P003", null, after);
+
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: {
+          changes: {},
+          created: { name: "新商品", price: 3000 },
+        },
+      }),
+    );
+  });
+
+  it("afterがnull（削除）→ deleted に before を記録", async () => {
+    const req = createMockRequest({
+      cookies: { admin_session: "valid.jwt" },
+    });
+
+    const before = { name: "削除商品", price: 500 };
+
+    await logAuditWithDiff(req, "product.delete", "product", "P004", before, null);
+
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: {
+          changes: {},
+          deleted: { name: "削除商品", price: 500 },
+        },
+      }),
+    );
+  });
+
+  it("ネストされたオブジェクトの差分もJSON.stringifyで比較", async () => {
+    const req = createMockRequest({
+      cookies: { admin_session: "valid.jwt" },
+    });
+
+    const before = { config: { a: 1, b: 2 }, name: "same" };
+    const after = { config: { a: 1, b: 3 }, name: "same" };
+
+    await logAuditWithDiff(req, "settings.update", "settings", "S001", before, after);
+
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: {
+          changes: {
+            config: { from: { a: 1, b: 2 }, to: { a: 1, b: 3 } },
+          },
+        },
+      }),
+    );
+  });
+
+  it("afterに新しいキーが追加された場合も差分に含まれる", async () => {
+    const req = createMockRequest({
+      cookies: { admin_session: "valid.jwt" },
+    });
+
+    const before = { name: "商品" };
+    const after = { name: "商品", description: "新しい説明" };
+
+    await logAuditWithDiff(req, "product.update", "product", "P005", before, after);
+
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: {
+          changes: {
+            description: { from: undefined, to: "新しい説明" },
+          },
+        },
+      }),
+    );
   });
 });

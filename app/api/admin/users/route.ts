@@ -12,7 +12,7 @@ import { parseBody } from "@/lib/validations/helpers";
 import { createAdminUserSchema } from "@/lib/validations/admin-operations";
 import { getSettingOrEnv } from "@/lib/settings";
 import { isFullAccessRole } from "@/lib/menu-permissions";
-import { logAudit } from "@/lib/audit";
+import { logAudit, logAuditWithDiff } from "@/lib/audit";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -229,6 +229,14 @@ export async function PATCH(req: NextRequest) {
       return badRequest("自身をownerから降格させることはできません");
     }
 
+    // 変更前のロールを取得（差分ログ用）
+    const { data: beforeMember } = await supabase
+      .from("tenant_members")
+      .select("role")
+      .eq("admin_user_id", userId)
+      .eq("tenant_id", tenantId)
+      .single();
+
     const { error } = await supabase
       .from("tenant_members")
       .update({ role })
@@ -240,7 +248,8 @@ export async function PATCH(req: NextRequest) {
       return serverError("ロール変更に失敗しました");
     }
 
-    logAudit(req, "admin_user.update", "admin_user", String(userId));
+    // 差分付き監査ログ（fire-and-forget）
+    logAuditWithDiff(req, "admin_user.role_change", "admin_user", String(userId), beforeMember, { role });
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[Admin Users] PATCH error:", err);

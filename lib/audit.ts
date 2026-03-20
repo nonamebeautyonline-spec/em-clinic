@@ -67,3 +67,33 @@ export async function logAudit(
     console.error("[audit] Failed to log:", err);
   }
 }
+
+/**
+ * 変更前後の差分付き監査ログ（設定変更・マスタ更新等）
+ * before/after のうち変更があったフィールドのみ details に記録
+ */
+export async function logAuditWithDiff(
+  req: NextRequest,
+  action: string,
+  resourceType: string,
+  resourceId: string,
+  before: Record<string, unknown> | null,
+  after: Record<string, unknown> | null,
+): Promise<void> {
+  // diff: before と after で値が異なるフィールドのみ抽出
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+  if (before && after) {
+    const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+    for (const key of allKeys) {
+      if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) {
+        changes[key] = { from: before[key], to: after[key] };
+      }
+    }
+  }
+
+  const details: Record<string, unknown> = { changes };
+  if (!before && after) details.created = after;
+  if (before && !after) details.deleted = before;
+
+  return logAudit(req, action, resourceType, resourceId, details);
+}

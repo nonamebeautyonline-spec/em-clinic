@@ -36,8 +36,12 @@ vi.mock("@/lib/admin-auth", () => ({
 }));
 
 // Supabase モック
+const mockRpc = vi.fn().mockResolvedValue({ data: null, error: null });
 vi.mock("@/lib/supabase", () => ({
-  supabaseAdmin: { from: vi.fn((table: string) => getOrCreateChain(table)) },
+  supabaseAdmin: {
+    from: vi.fn((table: string) => getOrCreateChain(table)),
+    rpc: (...args: unknown[]) => mockRpc(...args),
+  },
 }));
 
 // テナントモック
@@ -692,8 +696,7 @@ describe("admin/segments", () => {
   });
 
   it("GET: セグメント一覧を返す（空データ）", async () => {
-    const chain = getOrCreateChain("patient_segments");
-    chain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: [], error: null }));
+    mockRpc.mockResolvedValueOnce({ data: [], error: null });
     const req = createRequest("GET", "http://localhost/api/admin/segments");
     const res = await segmentsGET(req);
     expect(res.status).toBe(200);

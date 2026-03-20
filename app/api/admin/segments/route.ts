@@ -1,12 +1,12 @@
-// app/api/admin/segments/route.ts — セグメント一覧API
-// GET: セグメント別の患者一覧とサマリーを返す
+// app/api/admin/segments/route.ts — セグメント一覧API（RPC版）
+// GET: セグメント別の患者一覧とサマリーを返す（DB側集計）
 
 import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
-import { ALL_SEGMENTS, SEGMENT_LABELS, type SegmentType } from "@/lib/patient-segments";
+import { resolveTenantIdOrThrow } from "@/lib/tenant";
+import { ALL_SEGMENTS } from "@/lib/patient-segments";
 
 export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
@@ -14,87 +14,28 @@ export async function GET(req: NextRequest) {
 
   const tenantId = resolveTenantIdOrThrow(req);
 
-  // セグメントデータを患者情報と一緒に取得
-  const { data: segmentData, error } = await strictWithTenant(
-    supabaseAdmin
-      .from("patient_segments")
-      .select("patient_id, segment, rfm_score, calculated_at"),
-    tenantId,
-  );
+  // RPC で DB側集計
+  const { data, error } = await supabaseAdmin.rpc("segments_summary", {
+    p_tenant_id: tenantId,
+  });
 
   if (error) {
-    console.error("[segments] 取得エラー:", error);
+    console.error("[segments] RPC エラー:", error);
     return serverError("セグメントデータの取得に失敗しました");
   }
 
-  if (!segmentData || segmentData.length === 0) {
-    // データが空の場合、空のセグメント一覧を返す
-    const emptySegments: Record<string, unknown[]> = {};
-    const emptySummary: Record<string, number> = {};
-    for (const seg of ALL_SEGMENTS) {
-      emptySegments[seg] = [];
-      emptySummary[seg] = 0;
-    }
-    return NextResponse.json({ segments: emptySegments, summary: emptySummary, total: 0 });
-  }
-
-  // 患者IDリストを取得して患者情報を一括取得
-  const patientIds = segmentData.map((s: { patient_id: string }) => s.patient_id);
-  const { data: patients } = await strictWithTenant(
-    supabaseAdmin
-      .from("patients")
-      .select("patient_id, name, name_kana, tel, line_id, created_at")
-      .in("patient_id", patientIds),
-    tenantId,
-  );
-
-  // 患者情報をMapに変換
-  const patientMap = new Map<string, { patient_id: string; name: string | null; name_kana: string | null; tel: string | null; line_id: string | null; created_at: string }>();
-  for (const p of patients || []) {
-    patientMap.set(p.patient_id, p);
-  }
-
-  // セグメント別に分類
-  interface SegmentEntry {
-    patientId: string;
-    name: string | null;
-    nameKana: string | null;
-    tel: string | null;
-    lineId: string | null;
-    rfmScore: unknown;
-    calculatedAt: unknown;
-  }
-  const segments: Record<string, SegmentEntry[]> = {};
+  // RPC結果にすべてのセグメントキーが含まれるよう補完
+  const segments: Record<string, unknown[]> = {};
   const summary: Record<string, number> = {};
 
   for (const seg of ALL_SEGMENTS) {
-    segments[seg] = [];
-    summary[seg] = 0;
-  }
-
-  for (const row of segmentData) {
-    const seg = row.segment as SegmentType;
-    if (!segments[seg]) {
-      segments[seg] = [];
-      summary[seg] = 0;
-    }
-
-    const patient = patientMap.get(row.patient_id);
-    segments[seg].push({
-      patientId: row.patient_id,
-      name: patient?.name || null,
-      nameKana: patient?.name_kana || null,
-      tel: patient?.tel || null,
-      lineId: patient?.line_id || null,
-      rfmScore: row.rfm_score,
-      calculatedAt: row.calculated_at,
-    });
-    summary[seg] = (summary[seg] || 0) + 1;
+    segments[seg] = data?.segments?.[seg] || [];
+    summary[seg] = data?.summary?.[seg] || 0;
   }
 
   return NextResponse.json({
     segments,
     summary,
-    total: segmentData.length,
+    total: data?.total || 0,
   });
 }

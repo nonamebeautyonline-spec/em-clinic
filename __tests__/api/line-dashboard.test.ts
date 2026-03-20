@@ -68,9 +68,16 @@ function createChain(table: string) {
   return chain;
 }
 
+// RPC モック（broadcast_click_stats等）
+let mockRpcResults: Record<string, MockResult> = {};
+
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
     from: vi.fn((table: string) => createChain(table)),
+    rpc: vi.fn((name: string) => {
+      const result = mockRpcResults[name] || { data: [], error: null };
+      return Promise.resolve(result);
+    }),
   },
 }));
 
@@ -105,6 +112,7 @@ describe("LINE ダッシュボード API", () => {
     mockAuthorized = true;
     mockLineToken = "test-line-token";
     mockResultsByTable = {};
+    mockRpcResults = {};
     mockFetchResponses = [];
     fetchCallIndex = 0;
     vi.clearAllMocks();
@@ -173,8 +181,8 @@ describe("LINE ダッシュボード API", () => {
         error: null,
       };
 
-      // click_tracking_links（空）
-      mockResultsByTable["click_tracking_links"] = { data: [], error: null };
+      // クリック追跡RPC（空）
+      mockRpcResults["broadcast_click_stats"] = { data: [], error: null };
 
       const res = await GET(createReq());
       expect(res.status).toBe(200);
@@ -353,16 +361,10 @@ describe("LINE ダッシュボード API", () => {
         ],
         error: null,
       };
-      // クリック追跡リンクとイベント
-      mockResultsByTable["click_tracking_links"] = {
-        data: [{ id: 10, broadcast_id: 1 }],
-        error: null,
-      };
-      mockResultsByTable["click_tracking_events"] = {
+      // クリック追跡RPC結果
+      mockRpcResults["broadcast_click_stats"] = {
         data: [
-          { link_id: 10, ip_address: "1.1.1.1" },
-          { link_id: 10, ip_address: "1.1.1.1" },
-          { link_id: 10, ip_address: "2.2.2.2" },
+          { broadcast_id: 1, total_clicks: 3, unique_clicks: 2 },
         ],
         error: null,
       };

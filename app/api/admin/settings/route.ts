@@ -7,7 +7,7 @@ import { maskValue } from "@/lib/crypto";
 import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { settingsUpdateSchema } from "@/lib/validations/admin-operations";
-import { logAudit } from "@/lib/audit";
+import { logAuditWithDiff } from "@/lib/audit";
 
 // 管理可能な設定キーの定義
 // sensitive: false → 値をマスクせずにそのまま返す（checkout_mode等の選択肢型設定）
@@ -194,11 +194,19 @@ export async function PUT(req: NextRequest) {
     return badRequest("この設定はシステムが自動管理しているため変更できません");
   }
 
+  // 変更前の値を取得（差分ログ用）
+  const previousValue = await getSetting(category, key, tenantId ?? undefined);
+
   const success = await setSetting(category, key, value, tenantId ?? undefined);
   if (!success) {
     return serverError("設定の保存に失敗しました");
   }
 
-  logAudit(req, "settings.update", "tenant_settings", "settings");
+  // 差分付き監査ログ（fire-and-forget）
+  logAuditWithDiff(
+    req, "settings.update", "tenant_settings", `${category}:${key}`,
+    { [key]: previousValue },
+    { [key]: value },
+  );
   return NextResponse.json({ success: true, maskedValue: maskValue(value) });
 }

@@ -8,9 +8,7 @@ const mockVerifyAdminAuth = vi.fn();
 const mockClassifyPatients = vi.fn();
 const mockSaveSegments = vi.fn();
 
-// Supabase チェーン用モック
-const mockSelectResult = { data: null as unknown, error: null as unknown };
-
+// Supabase RPC/チェーン用モック
 const mockChain = {
   select: vi.fn().mockReturnThis(),
   eq: vi.fn().mockReturnThis(),
@@ -19,6 +17,8 @@ const mockChain = {
   upsert: vi.fn(() => ({ error: null })),
 };
 
+const mockRpc = vi.fn(() => ({ data: null, error: null }));
+
 vi.mock("@/lib/admin-auth", () => ({
   verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
@@ -26,6 +26,7 @@ vi.mock("@/lib/admin-auth", () => ({
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
     from: vi.fn(() => mockChain),
+    rpc: (...args: unknown[]) => mockRpc(...args),
   },
 }));
 
@@ -78,9 +79,11 @@ describe("GET /api/admin/segments", () => {
     expect(res.status).toBe(401);
   });
 
-  it("データが空の場合 → 空のセグメント一覧", async () => {
-    // select → 空配列
-    mockChain.select.mockReturnValue({ data: [], error: null });
+  it("RPC結果が空の場合 → 空のセグメント一覧", async () => {
+    mockRpc.mockReturnValue({
+      data: { segments: {}, summary: {}, total: 0 },
+      error: null,
+    });
 
     const { GET } = await import("@/app/api/admin/segments/route");
     const req = createMockRequest("GET", "http://localhost/api/admin/segments");
@@ -95,53 +98,37 @@ describe("GET /api/admin/segments", () => {
   });
 
   it("セグメントデータがある場合 → 患者情報付きで返す", async () => {
-    // 1回目: patient_segments の select
-    const segmentData = [
-      {
-        patient_id: "P001",
-        segment: "vip",
-        rfm_score: { recency: 5, frequency: 5, monetary: 5 },
-        calculated_at: "2026-02-22T00:00:00Z",
+    mockRpc.mockReturnValue({
+      data: {
+        segments: {
+          vip: [
+            {
+              patientId: "P001",
+              name: "田中太郎",
+              nameKana: "タナカタロウ",
+              tel: "09012345678",
+              lineId: "U123",
+              rfmScore: { recency: 5, frequency: 5, monetary: 5 },
+              calculatedAt: "2026-02-22T00:00:00Z",
+            },
+          ],
+          new: [
+            {
+              patientId: "P002",
+              name: "山田花子",
+              nameKana: "ヤマダハナコ",
+              tel: "08087654321",
+              lineId: "U456",
+              rfmScore: { recency: 1, frequency: 1, monetary: 1 },
+              calculatedAt: "2026-02-22T00:00:00Z",
+            },
+          ],
+        },
+        summary: { vip: 1, new: 1 },
+        total: 2,
       },
-      {
-        patient_id: "P002",
-        segment: "new",
-        rfm_score: { recency: 1, frequency: 1, monetary: 1 },
-        calculated_at: "2026-02-22T00:00:00Z",
-      },
-    ];
-
-    const patientData = [
-      {
-        patient_id: "P001",
-        name: "田中太郎",
-        name_kana: "タナカタロウ",
-        tel: "09012345678",
-        line_id: "U123",
-        created_at: "2026-01-01",
-      },
-      {
-        patient_id: "P002",
-        name: "山田花子",
-        name_kana: "ヤマダハナコ",
-        tel: "08087654321",
-        line_id: "U456",
-        created_at: "2026-02-01",
-      },
-    ];
-
-    let callCount = 0;
-    mockChain.select.mockImplementation(() => {
-      callCount++;
-      if (callCount === 1) {
-        // patient_segments の select
-        return { data: segmentData, error: null };
-      }
-      // patients の select（in チェーンの後）
-      return mockChain;
+      error: null,
     });
-
-    mockChain.in.mockReturnValue({ data: patientData, error: null });
 
     const { GET } = await import("@/app/api/admin/segments/route");
     const req = createMockRequest("GET", "http://localhost/api/admin/segments");
@@ -159,8 +146,8 @@ describe("GET /api/admin/segments", () => {
     expect(json.segments.new[0].patientId).toBe("P002");
   });
 
-  it("DBエラー → 500", async () => {
-    mockChain.select.mockReturnValue({
+  it("RPCエラー → 500", async () => {
+    mockRpc.mockReturnValue({
       data: null,
       error: { message: "DB error" },
     });
