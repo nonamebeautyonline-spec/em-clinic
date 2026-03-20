@@ -612,7 +612,7 @@ setTimeout(() => {
                     <div ref={calendarScrollRef} className="overflow-x-auto">
                       <div className="inline-block min-w-full">
                         <div className="grid grid-cols-[90px_repeat(7,minmax(60px,1fr))] text-center text-[12px] gap-y-1">
-                          <div />
+                          <div className="sticky left-0 z-10 bg-white" />
                           {days.map((d) => {
                             const key = formatDateKey(d);
                             const wd = d.getDay();
@@ -640,7 +640,7 @@ setTimeout(() => {
 
                           {SLOTS_9_23.map((slot) => (
                             <React.Fragment key={`${slot.start}-${slot.end}`}>
-                              <div className="h-10 flex items-center justify-center text-[13px] font-semibold text-slate-700">
+                              <div className="h-10 flex items-center justify-center text-[13px] font-semibold text-slate-700 sticky left-0 z-10 bg-white">
                                 {slot.start}〜{slot.end}
                               </div>
 
