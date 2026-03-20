@@ -51,7 +51,8 @@ export async function logAudit(
       null;
     const userAgent = req.headers.get("user-agent") || null;
 
-    await getSupabase().from("audit_logs").insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (getSupabase() as any).from("audit_logs").insert({
       tenant_id: tenantId,
       admin_user_id: adminUserId,
       admin_name: adminName,
