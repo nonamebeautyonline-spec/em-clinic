@@ -4,7 +4,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // === モック設定 ===
 const mockVerifyAdminAuth = vi.fn().mockResolvedValue(true);
-vi.mock("@/lib/admin-auth", () => ({ verifyAdminAuth: mockVerifyAdminAuth }));
+const mockGetAdminTenantRole = vi.fn().mockResolvedValue("owner");
+const mockGetAdminUserId = vi.fn().mockResolvedValue("caller-id");
+vi.mock("@/lib/admin-auth", () => ({
+  verifyAdminAuth: mockVerifyAdminAuth,
+  getAdminTenantRole: mockGetAdminTenantRole,
+  getAdminUserId: mockGetAdminUserId,
+}));
+
+vi.mock("@/lib/menu-permissions", () => ({
+  isFullAccessRole: vi.fn((role: string) => role === "owner" || role === "admin"),
+}));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
@@ -67,6 +77,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   tableChains = {};
   mockVerifyAdminAuth.mockResolvedValue(true);
+  mockGetAdminTenantRole.mockResolvedValue("owner");
+  mockGetAdminUserId.mockResolvedValue("caller-id");
   mockSendWelcomeEmail.mockResolvedValue({ success: true });
   mockGenerateUsername.mockResolvedValue("LP-A1B2C");
 });
@@ -210,6 +222,7 @@ describe("admin/users POST", () => {
       return resolve({ data: null, error: null });
     });
     tableChains["admin_users"] = chain;
+    tableChains["tenant_members"] = createChain({ data: null, error: null });
     tableChains["password_reset_tokens"] = createChain({ data: null, error: null });
 
     const { POST } = await import("@/app/api/admin/users/route");
@@ -242,6 +255,7 @@ describe("admin/users POST", () => {
       return resolve({ data: null, error: null });
     });
     tableChains["admin_users"] = chain;
+    tableChains["tenant_members"] = createChain({ data: null, error: null });
     tableChains["password_reset_tokens"] = createChain({ data: null, error: null });
 
     const { POST } = await import("@/app/api/admin/users/route");

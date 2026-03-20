@@ -225,7 +225,11 @@ describe("ダッシュボード SSE API", () => {
       mockSupabaseResults["reservations"] = { data: null, error: null, count: 0 };
       mockSupabaseResults["orders"] = { data: null, error: null, count: 0 };
       mockSupabaseResults["intake"] = { data: null, error: null, count: 0 };
-      mockSupabaseResults["admin_sessions"] = { data: null, error: null, count: 3 };
+      mockSupabaseResults["admin_sessions"] = { data: [
+        { admin_user_id: "u1", admin_users: { name: "User1" } },
+        { admin_user_id: "u2", admin_users: { name: "User2" } },
+        { admin_user_id: "u1", admin_users: { name: "User1" } },
+      ], error: null, count: 3 };
       // message_log は送信(outgoing)と受信(incoming)で2回クエリされるため、
       // count=42 の場合 todayMessageCount = 42 + 42 = 84 になる
       mockSupabaseResults["message_log"] = { data: null, error: null, count: 42 };
@@ -246,7 +250,7 @@ describe("ダッシュボード SSE API", () => {
       const dataLine = text.split("\n").find(l => l.startsWith("data: "));
       expect(dataLine).toBeDefined();
       const snapshot = JSON.parse(dataLine!.replace("data: ", "")).snapshot;
-      expect(snapshot.activeAdminSessions).toBe(3);
+      expect(snapshot.activeAdminSessions).toBe(2); // 3セッションだがユニークユーザーは2人
       // outgoing(42) + incoming(42) = 84
       expect(snapshot.todayMessageCount).toBe(84);
       expect(snapshot.todayNewPatients).toBe(7);

@@ -2,6 +2,8 @@
 // セッション検証API
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
+import { createClient } from "@supabase/supabase-js";
+import { isFullAccessRole } from "@/lib/menu-permissions";
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET || process.env.ADMIN_TOKEN;
@@ -21,6 +23,27 @@ export async function GET(req: NextRequest) {
     const secret = new TextEncoder().encode(getJwtSecret());
     const { payload } = await jwtVerify(sessionCookie, secret);
 
+    const tenantRole = ((payload as Record<string, unknown>).tenantRole as string) || "admin";
+
+    // メニュー権限を取得
+    let allowedMenuKeys: string[] | null = null;
+    if (!isFullAccessRole(tenantRole)) {
+      try {
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+        const { data: permissions } = await supabase
+          .from("role_menu_permissions")
+          .select("menu_key")
+          .eq("role", tenantRole);
+        allowedMenuKeys = (permissions || []).map((p: { menu_key: string }) => p.menu_key);
+      } catch (e) {
+        console.error("[Session] menu permissions fetch error:", e);
+        allowedMenuKeys = [];
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       user: {
@@ -30,7 +53,8 @@ export async function GET(req: NextRequest) {
         role: payload.role,
         tenantId: (payload as Record<string, unknown>).tenantId || null,
         platformRole: (payload as Record<string, unknown>).platformRole || "tenant_admin",
-        tenantRole: (payload as Record<string, unknown>).tenantRole || "admin",
+        tenantRole,
+        allowedMenuKeys,
       },
       expiresAt: payload.exp ? new Date(payload.exp * 1000).toISOString() : null,
     });

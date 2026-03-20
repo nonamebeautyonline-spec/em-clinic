@@ -3,8 +3,8 @@
 
 import { useRouter } from "next/navigation";
 
-export type SectionKey = "general" | "payment" | "line" | "sms" | "mypage" | "consultation" | "ehr" | "notification" | "business_rules" | "report" | "legal" | "options" | "cron" | "account";
-const SECTIONS: { key: SectionKey; label: string; icon: string; clinicOnly?: boolean }[] = [
+export type SectionKey = "general" | "payment" | "line" | "sms" | "mypage" | "consultation" | "ehr" | "notification" | "business_rules" | "report" | "legal" | "options" | "cron" | "staff" | "account";
+const SECTIONS: { key: SectionKey; label: string; icon: string; clinicOnly?: boolean; ownerOnly?: boolean }[] = [
   { key: "general", label: "基本情報", icon: "🏥" },
   { key: "line", label: "LINE連携", icon: "💬" },
   { key: "payment", label: "決済設定", icon: "💳" },
@@ -18,6 +18,7 @@ const SECTIONS: { key: SectionKey; label: string; icon: string; clinicOnly?: boo
   { key: "legal", label: "利用規約", icon: "📜" },
   { key: "options", label: "オプション機能", icon: "✨" },
   { key: "cron", label: "Cron実行履歴", icon: "⏱" },
+  { key: "staff", label: "スタッフ管理", icon: "👥", ownerOnly: true },
   { key: "account", label: "アカウント", icon: "👤" },
 ];
 
@@ -25,12 +26,14 @@ interface SettingsNavProps {
   active: SectionKey;
   onChange: (key: SectionKey) => void;
   industry?: string;
+  tenantRole?: string;
 }
 
-export default function SettingsNav({ active, onChange, industry = "clinic" }: SettingsNavProps) {
+export default function SettingsNav({ active, onChange, industry = "clinic", tenantRole }: SettingsNavProps) {
   const router = useRouter();
   const visibleSections = SECTIONS.filter((s) => {
     if (s.clinicOnly && industry !== "clinic") return false;
+    if (s.ownerOnly && tenantRole !== "owner" && tenantRole !== "admin") return false;
     return true;
   });
 

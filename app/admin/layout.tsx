@@ -10,6 +10,7 @@ import { FeaturesProvider, useFeatures } from "@/lib/hooks/use-features";
 import { SWRProvider } from "@/lib/swr/provider";
 import { adminFetcher } from "@/lib/swr/config";
 import type { Feature } from "@/lib/feature-flags";
+import { resolveMenuKeyFromPath } from "@/lib/menu-permissions";
 
 // 認証不要のパス
 const PUBLIC_PATHS = ["/admin/login", "/admin/forgot-password", "/admin/reset-password", "/admin/setup"];
@@ -31,25 +32,25 @@ function LogoMark({ compact }: { compact?: boolean }) {
 }
 
 // スマホ用メニュー項目（必要な機能のみ）
-const MOBILE_MENU_ITEMS: { href: string; icon: string; label: string; feature?: Feature }[] = [
-  { href: "/admin/accounting", icon: "💹", label: "売上管理" },
-  { href: "/admin/line/talk", icon: "💬", label: "LINE機能" },
-  { href: "/admin/line/tracking-sources", icon: "📈", label: "流入経路" },
-  { href: "/admin/reservations", icon: "📅", label: "予約リスト" },
-  { href: "/admin/reorders", icon: "🔄", label: "再処方リスト", feature: "reorder" },
-  { href: "/admin/doctor", icon: "🩺", label: "簡易カルテ" },
-  { href: "/admin/karte", icon: "📋", label: "カルテ" },
-  { href: "/admin/noname-master", icon: "📋", label: "決済" },
-  { href: "/admin/shipping/pending", icon: "📦", label: "発送" },
-  { href: "/admin/view-mypage", icon: "👁️", label: "顧客マイページ確認" },
-  { href: "/admin/merge-patients", icon: "🔗", label: "顧客情報変更" },
-  { href: "/admin/intake-form", icon: "📝", label: "問診設定", feature: "form_builder" },
-  { href: "/admin/schedule", icon: "🗓️", label: "予約設定" },
-  { href: "/admin/notification-settings", icon: "📩", label: "イベント通知" },
-  { href: "/admin/products", icon: "💊", label: "商品管理" },
-  { href: "/admin/inventory", icon: "📦", label: "在庫" },
-  { href: "/admin/settings", icon: "⚙️", label: "設定" },
-  { href: "/admin/help", icon: "❓", label: "ヘルプ" },
+const MOBILE_MENU_ITEMS: { href: string; icon: string; label: string; feature?: Feature; menuKey?: string }[] = [
+  { href: "/admin/accounting", icon: "💹", label: "売上管理", menuKey: "accounting" },
+  { href: "/admin/line/talk", icon: "💬", label: "LINE機能", menuKey: "line" },
+  { href: "/admin/line/tracking-sources", icon: "📈", label: "流入経路", menuKey: "tracking_sources" },
+  { href: "/admin/reservations", icon: "📅", label: "予約リスト", menuKey: "reservations" },
+  { href: "/admin/reorders", icon: "🔄", label: "再処方リスト", feature: "reorder", menuKey: "reorders" },
+  { href: "/admin/doctor", icon: "🩺", label: "簡易カルテ", menuKey: "doctor" },
+  { href: "/admin/karte", icon: "📋", label: "カルテ", menuKey: "karte" },
+  { href: "/admin/noname-master", icon: "📋", label: "決済", menuKey: "payments" },
+  { href: "/admin/shipping/pending", icon: "📦", label: "発送", menuKey: "shipping" },
+  { href: "/admin/view-mypage", icon: "👁️", label: "顧客マイページ確認", menuKey: "view_mypage" },
+  { href: "/admin/merge-patients", icon: "🔗", label: "顧客情報変更", menuKey: "merge_patients" },
+  { href: "/admin/intake-form", icon: "📝", label: "問診設定", feature: "form_builder", menuKey: "intake_form" },
+  { href: "/admin/schedule", icon: "🗓️", label: "予約設定", menuKey: "schedule" },
+  { href: "/admin/notification-settings", icon: "📩", label: "イベント通知", menuKey: "notification_settings" },
+  { href: "/admin/products", icon: "💊", label: "商品管理", menuKey: "products" },
+  { href: "/admin/inventory", icon: "📦", label: "在庫", menuKey: "inventory" },
+  { href: "/admin/settings", icon: "⚙️", label: "設定", menuKey: "settings" },
+  { href: "/admin/help", icon: "❓", label: "ヘルプ", menuKey: "help" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -62,6 +63,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
   const [platformRole, setPlatformRole] = useState<string>("tenant_admin");
   const [tenantRole, setTenantRole] = useState<string>("admin");
+  const [allowedMenuKeys, setAllowedMenuKeys] = useState<string[] | null>(null);
   const sidebarNavRef = useRef<HTMLDivElement>(null);
   const prevPathnameRef = useRef(pathname);
 
@@ -148,6 +150,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               .catch(() => {});
             setPlatformRole(data.user?.platformRole || "tenant_admin");
             setTenantRole(data.user?.tenantRole || "admin");
+            setAllowedMenuKeys(data.user?.allowedMenuKeys ?? null);
             setIsAuthenticated(true);
 
             // 初回ログイン時: セットアップ未完了ならオンボーディングへリダイレクト
@@ -203,6 +206,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return () => clearTimeout(timer);
     }
   }, [pathname]);
+
+  // 不許可ページへのリダイレクト
+  useEffect(() => {
+    if (!isAuthenticated || allowedMenuKeys === null) return;
+    if (PUBLIC_PATHS.includes(pathname)) return;
+    if (pathname.startsWith("/admin/onboarding")) return;
+
+    const menuKey = resolveMenuKeyFromPath(pathname);
+    // menuKey が null（マッピング対象外のパス）は許可
+    if (menuKey === null) return;
+    if (!allowedMenuKeys.includes(menuKey)) {
+      router.push("/admin/dashboard");
+    }
+  }, [pathname, isAuthenticated, allowedMenuKeys, router]);
 
   // サイドバーのスクロール位置を保存・復元
   useEffect(() => {
@@ -312,6 +329,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   badge={item.href === "/admin/line/talk" ? unreadCount : item.href === "/admin/reorders" ? pendingReorderCount : item.href === "/admin/inventory" ? inventoryAlertCount : undefined}
                   alert={item.href === "/admin/schedule" ? bookingAlert : undefined}
                   feature={item.feature}
+                  menuKey={item.menuKey}
+                  allowedMenuKeys={allowedMenuKeys}
                 />
               ))}
             </nav>
@@ -372,6 +391,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="ダッシュボード"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/dashboard" || pathname === "/admin"}
+            menuKey="dashboard"
+            allowedMenuKeys={allowedMenuKeys}
           />
           <MenuItem
             href="/admin/accounting"
@@ -379,6 +400,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="売上管理"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/accounting"}
+            menuKey="accounting"
+            allowedMenuKeys={allowedMenuKeys}
           />
           <MenuItem
             href="/admin/line/talk"
@@ -387,6 +410,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isOpen={isSidebarOpen}
             isActive={pathname?.startsWith("/admin/line") && pathname !== "/admin/line/tracking-sources"}
             badge={unreadCount}
+            menuKey="line"
+            allowedMenuKeys={allowedMenuKeys}
           />
 
           <MenuSection label="予約・診察" isOpen={isSidebarOpen} />
@@ -396,6 +421,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="予約リスト"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/reservations"}
+            menuKey="reservations"
+            allowedMenuKeys={allowedMenuKeys}
           />
           <MenuItem
             href="/admin/reorders"
@@ -405,6 +432,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isActive={pathname === "/admin/reorders"}
             badge={pendingReorderCount}
             feature="reorder"
+            menuKey="reorders"
+            allowedMenuKeys={allowedMenuKeys}
           />
           <MenuItem
             href="/admin/karte"
@@ -412,6 +441,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="カルテ"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/karte" || pathname === "/admin/kartesearch"}
+            menuKey="karte"
+            allowedMenuKeys={allowedMenuKeys}
           />
           <MenuItem
             href="/admin/doctor"
@@ -419,6 +450,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="簡易カルテ"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/doctor"}
+            menuKey="doctor"
+            allowedMenuKeys={allowedMenuKeys}
           />
 
           <MenuSection label="決済管理" isOpen={isSidebarOpen} />
@@ -428,6 +461,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="決済"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/noname-master"}
+            menuKey="payments"
+            allowedMenuKeys={allowedMenuKeys}
           />
           <MenuItem
             href="/admin/bank-transfer/reconcile"
@@ -435,6 +470,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="銀行振込照合"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/bank-transfer/reconcile"}
+            menuKey="bank_reconcile"
+            allowedMenuKeys={allowedMenuKeys}
           />
 
           <MenuSection label="発送管理" isOpen={isSidebarOpen} />
@@ -444,6 +481,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="発送"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/shipping/pending"}
+            menuKey="shipping"
+            allowedMenuKeys={allowedMenuKeys}
           />
           <MenuItem
             href="/admin/shipping/tracking"
@@ -451,6 +490,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="追跡番号"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/shipping/tracking"}
+            menuKey="shipping_tracking"
+            allowedMenuKeys={allowedMenuKeys}
           />
           <MenuItem
             href="/admin/shipping/settings"
@@ -458,6 +499,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="配送設定"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/shipping/settings"}
+            menuKey="shipping_settings"
+            allowedMenuKeys={allowedMenuKeys}
           />
 
           <MenuSection label="顧客管理" isOpen={isSidebarOpen} />
@@ -467,6 +510,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="顧客マイページ確認"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/view-mypage"}
+            menuKey="view_mypage"
+            allowedMenuKeys={allowedMenuKeys}
           />
           <MenuItem
             href="/admin/merge-patients"
@@ -474,6 +519,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="顧客情報変更"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/merge-patients" || pathname === "/admin/patient-data" || pathname === "/admin/dedup-patients"}
+            menuKey="merge_patients"
+            allowedMenuKeys={allowedMenuKeys}
           />
 
           <MenuSection label="業務管理" isOpen={isSidebarOpen} />
@@ -484,6 +531,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/intake-form"}
             feature="form_builder"
+            menuKey="intake_form"
+            allowedMenuKeys={allowedMenuKeys}
           />
           <MenuItem
             href="/admin/schedule"
@@ -492,6 +541,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isOpen={isSidebarOpen}
             isActive={pathname?.startsWith("/admin/schedule")}
             alert={bookingAlert}
+            menuKey="schedule"
+            allowedMenuKeys={allowedMenuKeys}
           />
           <MenuItem
             href="/admin/notification-settings"
@@ -499,6 +550,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="イベント通知"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/notification-settings"}
+            menuKey="notification_settings"
+            allowedMenuKeys={allowedMenuKeys}
           />
           <MenuItem
             href="/admin/products"
@@ -506,6 +559,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="商品管理"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/products"}
+            menuKey="products"
+            allowedMenuKeys={allowedMenuKeys}
           />
           <MenuItem
             href="/admin/inventory"
@@ -514,6 +569,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isOpen={isSidebarOpen}
             isActive={pathname.startsWith("/admin/inventory")}
             badge={inventoryAlertCount}
+            menuKey="inventory"
+            allowedMenuKeys={allowedMenuKeys}
           />
           <MenuItem
             href="/admin/line/tracking-sources"
@@ -521,6 +578,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="流入経路"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/line/tracking-sources"}
+            menuKey="tracking_sources"
+            allowedMenuKeys={allowedMenuKeys}
           />
           <MenuSection label="システム" isOpen={isSidebarOpen} />
           <MenuItem
@@ -529,6 +588,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="設定"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/settings"}
+            menuKey="settings"
+            allowedMenuKeys={allowedMenuKeys}
           />
           <MenuItem
             href="/admin/help"
@@ -536,6 +597,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="ヘルプ"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/help"}
+            menuKey="help"
+            allowedMenuKeys={allowedMenuKeys}
           />
         </nav>
 
@@ -582,11 +645,15 @@ interface MenuItemProps {
   badge?: number;
   alert?: boolean;
   feature?: Feature;
+  menuKey?: string;
+  allowedMenuKeys?: string[] | null;
 }
 
-function MenuItem({ href, icon, label, isOpen, isActive, badge, alert: showAlert, feature }: MenuItemProps) {
+function MenuItem({ href, icon, label, isOpen, isActive, badge, alert: showAlert, feature, menuKey, allowedMenuKeys }: MenuItemProps) {
   const { hasFeature } = useFeatures();
   if (feature && !hasFeature(feature)) return null;
+  // メニュー権限制御: allowedMenuKeys が配列かつ menuKey 指定ありの場合、含まれていなければ非表示
+  if (allowedMenuKeys !== null && allowedMenuKeys !== undefined && menuKey && !allowedMenuKeys.includes(menuKey)) return null;
 
   return (
     <Link
@@ -637,11 +704,15 @@ interface MobileMenuItemProps {
   badge?: number;
   alert?: boolean;
   feature?: Feature;
+  menuKey?: string;
+  allowedMenuKeys?: string[] | null;
 }
 
-function MobileMenuItem({ href, icon, label, isActive, onClick, badge, alert: showAlert, feature }: MobileMenuItemProps) {
+function MobileMenuItem({ href, icon, label, isActive, onClick, badge, alert: showAlert, feature, menuKey, allowedMenuKeys }: MobileMenuItemProps) {
   const { hasFeature } = useFeatures();
   if (feature && !hasFeature(feature)) return null;
+  // メニュー権限制御: allowedMenuKeys が配列かつ menuKey 指定ありの場合、含まれていなければ非表示
+  if (allowedMenuKeys !== null && allowedMenuKeys !== undefined && menuKey && !allowedMenuKeys.includes(menuKey)) return null;
 
   return (
     <Link

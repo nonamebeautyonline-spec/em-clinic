@@ -140,6 +140,25 @@ export async function getAdminTenantRole(request: NextRequest): Promise<string> 
 }
 
 /**
+ * JWTから許可メニューキー一覧を取得
+ * null = 全権限（owner/admin）
+ */
+export async function getAllowedMenuKeys(request: NextRequest): Promise<string[] | null> {
+  const sessionCookie = request.cookies.get("admin_session")?.value;
+  if (sessionCookie) {
+    try {
+      const secret = new TextEncoder().encode(JWT_SECRET);
+      const { payload } = await jwtVerify(sessionCookie, secret);
+      const keys = (payload as { allowedMenuKeys?: string[] | null }).allowedMenuKeys;
+      return keys ?? null;
+    } catch {
+      // クッキー無効
+    }
+  }
+  return null;
+}
+
+/**
  * Server Component用: cookiesからJWTペイロードを取得
  * cookies()の結果を受け取る（Server Component側で await cookies() して渡す）
  */

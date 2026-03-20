@@ -12,6 +12,7 @@ import { logAudit } from "@/lib/audit";
 import { createSession } from "@/lib/session";
 import { sendLoginAlertIfNewIp } from "@/lib/notifications/login-alert";
 import { isPasswordExpired } from "@/lib/password-policy";
+import { isFullAccessRole } from "@/lib/menu-permissions";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -106,6 +107,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // メニュー権限を取得（editor/viewer のみ）
+    let allowedMenuKeys: string[] | null = null;
+    if (!isFullAccessRole(tenantRole) && user.tenant_id) {
+      const { data: perms } = await supabase
+        .from("role_menu_permissions")
+        .select("menu_key")
+        .eq("tenant_id", user.tenant_id)
+        .eq("role", tenantRole);
+      allowedMenuKeys = (perms || []).map((p: { menu_key: string }) => p.menu_key);
+    }
+
     // JWTトークン生成
     const secret = new TextEncoder().encode(getJwtSecret());
     const expiresAt = new Date(Date.now() + SESSION_DURATION_SECONDS * 1000);
@@ -119,6 +131,7 @@ export async function POST(req: NextRequest) {
       tenantId: user.tenant_id || null,
       platformRole: user.platform_role || "tenant_admin",
       tenantRole,
+      allowedMenuKeys,
     })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()

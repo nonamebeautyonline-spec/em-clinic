@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import { getRequiredPermission, hasPermission } from "@/lib/permissions";
+import { resolveMenuKeyFromPath } from "@/lib/menu-permissions";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN;
 if (!JWT_SECRET) {
@@ -191,8 +192,9 @@ export async function middleware(req: NextRequest) {
   let tenantId: string | null = null;
   let jwtTenantId: string | null = null;
   let tenantRole: string | null = null;
+  let allowedMenuKeys: string[] | null = null;
 
-  // 1. admin_session Cookie から tenantId / tenantRole を抽出
+  // 1. admin_session Cookie から tenantId / tenantRole / allowedMenuKeys を抽出
   const sessionCookie = req.cookies.get("admin_session")?.value;
   if (sessionCookie) {
     try {
@@ -200,6 +202,8 @@ export async function middleware(req: NextRequest) {
       const { payload } = await jwtVerify(sessionCookie, secret);
       jwtTenantId = (payload as { tenantId?: string | null }).tenantId || null;
       tenantRole = (payload as { tenantRole?: string | null }).tenantRole || null;
+      const menuKeys = (payload as { allowedMenuKeys?: string[] | null }).allowedMenuKeys;
+      allowedMenuKeys = menuKeys ?? null;
     } catch {
       // JWT 無効 — tenantId なしで続行
     }
@@ -271,6 +275,32 @@ export async function middleware(req: NextRequest) {
         { ok: false, error: "この操作に対する権限がありません" },
         { status: 403 },
       );
+    }
+  }
+
+  // === メニューキーベースのアクセス制御 ===
+  if (allowedMenuKeys !== null && (pathname.startsWith("/admin/") || pathname.startsWith("/api/admin/"))) {
+    // ログイン・セッション等の基盤パスは除外
+    const menuExemptPaths = ["/admin/login", "/admin/forgot-password", "/admin/reset-password", "/admin/setup",
+      "/api/admin/login", "/api/admin/logout", "/api/admin/session", "/api/admin/account",
+      "/api/admin/unread-count", "/api/admin/chat-reads", "/api/admin/csrf-token"];
+    const isMenuExempt = menuExemptPaths.some((p) => pathname.startsWith(p));
+    if (!isMenuExempt) {
+      // ページパスの場合（/admin/xxx）
+      const checkPath = pathname.startsWith("/api/admin/")
+        ? "/admin/" + pathname.replace("/api/admin/", "")
+        : pathname;
+      const menuKey = resolveMenuKeyFromPath(checkPath);
+      if (menuKey && !allowedMenuKeys.includes(menuKey)) {
+        if (pathname.startsWith("/api/")) {
+          return NextResponse.json(
+            { ok: false, error: "この機能へのアクセス権限がありません" },
+            { status: 403 },
+          );
+        }
+        // ページアクセスの場合はダッシュボードにリダイレクト
+        return NextResponse.redirect(new URL("/admin/dashboard", req.url));
+      }
     }
   }
 

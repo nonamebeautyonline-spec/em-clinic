@@ -1,16 +1,17 @@
 // app/api/admin/users/route.ts
-// 管理者ユーザー作成・一覧API
+// 管理者ユーザー作成・一覧・ロール変更API
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { randomBytes } from "crypto";
 import { sendWelcomeEmail } from "@/lib/email";
-import { verifyAdminAuth } from "@/lib/admin-auth";
+import { verifyAdminAuth, getAdminTenantRole, getAdminUserId } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { generateUsername } from "@/lib/username";
 import { parseBody } from "@/lib/validations/helpers";
 import { createAdminUserSchema } from "@/lib/validations/admin-operations";
 import { getSettingOrEnv } from "@/lib/settings";
+import { isFullAccessRole } from "@/lib/menu-permissions";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,7 +19,7 @@ const supabase = createClient(
 );
 
 /**
- * GET: 管理者一覧
+ * GET: 管理者一覧（tenant_membersからroleをJOIN）
  */
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -31,7 +32,8 @@ export async function GET(req: NextRequest) {
   const { data: users, error } = await strictWithTenant(
     supabase
       .from("admin_users")
-      .select("id, email, name, username, is_active, created_at, updated_at")
+      .select("id, email, name, username, is_active, created_at, updated_at, tenant_members!inner(role)")
+      .eq("tenant_members.tenant_id", tenantId)
       .order("created_at", { ascending: true }),
     tenantId
   );
@@ -41,11 +43,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "database_error" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, users });
+  // tenant_membersのネストをフラット化してroleフィールドを追加
+  const usersWithRole = (users || []).map((u: Record<string, unknown>) => {
+    const tenantMembers = u.tenant_members as { role: string }[] | null;
+    const role = tenantMembers?.[0]?.role || "viewer";
+    const { tenant_members: _, ...rest } = u;
+    return { ...rest, role };
+  });
+
+  return NextResponse.json({ ok: true, users: usersWithRole });
 }
 
 /**
  * POST: 管理者作成（招待メール送信）
+ * owner/adminのみ実行可能
  */
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -55,10 +66,21 @@ export async function POST(req: NextRequest) {
 
   const tenantId = resolveTenantIdOrThrow(req);
 
+  // owner/adminのみ実行可能
+  const callerRole = await getAdminTenantRole(req);
+  if (!isFullAccessRole(callerRole)) {
+    return NextResponse.json({ ok: false, error: "権限がありません" }, { status: 403 });
+  }
+
   try {
     const parsed = await parseBody(req, createAdminUserSchema);
     if ("error" in parsed) return parsed.error;
     const { email, name } = parsed.data;
+    const role = (parsed.data as Record<string, unknown>).role as string || "viewer";
+    // 許可値チェック
+    if (role !== "editor" && role !== "viewer") {
+      return badRequest("roleはeditorまたはviewerのみ指定可能です");
+    }
 
     // メールアドレス重複チェック
     const { data: existing } = await strictWithTenant(
@@ -94,6 +116,20 @@ export async function POST(req: NextRequest) {
     if (insertError) {
       console.error("[Admin Users] Insert error:", insertError);
       return serverError("作成に失敗しました");
+    }
+
+    // tenant_membersにロールを登録
+    const { error: memberError } = await supabase
+      .from("tenant_members")
+      .insert({
+        admin_user_id: newUser.id,
+        tenant_id: tenantId,
+        role,
+      });
+
+    if (memberError) {
+      console.error("[Admin Users] tenant_members insert error:", memberError);
+      // ユーザーは作成済みなのでエラーにしない（警告のみ）
     }
 
     // セットアップトークン作成（24時間有効）
@@ -137,6 +173,74 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[Admin Users] Error:", err);
+    return serverError("サーバーエラー");
+  }
+}
+
+/**
+ * PATCH: ロール変更
+ * owner/adminのみ実行可能。ownerへの変更はownerのみ許可。
+ */
+export async function PATCH(req: NextRequest) {
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) {
+    return unauthorized();
+  }
+
+  const tenantId = resolveTenantIdOrThrow(req);
+
+  // owner/adminのみ実行可能
+  const callerRole = await getAdminTenantRole(req);
+  if (!isFullAccessRole(callerRole)) {
+    return NextResponse.json({ ok: false, error: "権限がありません" }, { status: 403 });
+  }
+
+  try {
+    const body = await req.json();
+    const { userId, role } = body as { userId: string; role: string };
+
+    if (!userId || !role) {
+      return badRequest("userId と role は必須です");
+    }
+
+    // 許可値チェック
+    const allowedRoles = ["admin", "editor", "viewer"];
+    if (callerRole === "owner") {
+      allowedRoles.push("owner");
+    }
+    if (!allowedRoles.includes(role)) {
+      return badRequest(
+        callerRole === "owner"
+          ? "roleはowner, admin, editor, viewerのいずれかを指定してください"
+          : "roleはadmin, editor, viewerのいずれかを指定してください"
+      );
+    }
+
+    // ownerへの変更はownerのみ許可
+    if (role === "owner" && callerRole !== "owner") {
+      return NextResponse.json({ ok: false, error: "ownerへの変更はownerのみ実行できます" }, { status: 403 });
+    }
+
+    // 自身をownerから降格させることは禁止（最低1人のowner保護）
+    const callerId = await getAdminUserId(req);
+    if (callerId === userId && callerRole === "owner" && role !== "owner") {
+      return badRequest("自身をownerから降格させることはできません");
+    }
+
+    const { error } = await supabase
+      .from("tenant_members")
+      .update({ role })
+      .eq("admin_user_id", userId)
+      .eq("tenant_id", tenantId);
+
+    if (error) {
+      console.error("[Admin Users] Role update error:", error);
+      return serverError("ロール変更に失敗しました");
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[Admin Users] PATCH error:", err);
     return serverError("サーバーエラー");
   }
 }

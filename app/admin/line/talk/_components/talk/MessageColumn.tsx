@@ -241,73 +241,82 @@ export default function MessageColumn() {
               className="hidden"
               onChange={ctx.handleImageSelect}
             />
-            <div className="flex items-end gap-2">
-              <button
-                onClick={() => ctx.setShowAttachPanel(!ctx.showAttachPanel)}
-                className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-                  ctx.showAttachPanel
-                    ? "bg-[#00B900] text-white rotate-45"
-                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                }`}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-              </button>
-              <textarea
-                ref={ctx.inputRef}
-                value={ctx.newMessage}
-                onChange={(e) => { ctx.setNewMessage(e.target.value); const t = e.target as HTMLTextAreaElement; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 200) + "px"; }}
-                onKeyDown={ctx.handleKeyDown}
-                placeholder={ctx.scheduleMode ? "予約送信するメッセージを入力" : "メッセージを入力"}
-                rows={2}
-                className={`flex-1 px-3 py-2 border rounded-xl text-sm resize-none focus:outline-none focus:ring-2 transition-all ${
-                  ctx.scheduleMode
-                    ? "border-blue-200 focus:ring-blue-300/20 focus:border-blue-400 bg-blue-50/30"
-                    : "border-gray-200 focus:ring-[#00B900]/20 focus:border-[#00B900] bg-gray-50/50"
-                }`}
-                style={{ maxHeight: "200px" }}
-                onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 200) + "px"; }}
-              />
-              <div className="flex flex-col gap-1 flex-shrink-0">
-                {ctx.scheduleMode ? (
-                  <button
-                    onClick={ctx.handleSend}
-                    disabled={ctx.sending || !ctx.newMessage.trim() || !ctx.scheduledAt}
-                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm font-medium hover:shadow-md disabled:opacity-30 transition-all flex items-center gap-1.5"
-                  >
-                    {ctx.sending ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    )}
-                    予約
-                  </button>
-                ) : (
-                  <button
-                    onClick={ctx.handleSend}
-                    disabled={ctx.sending || ctx.sendingImage || !ctx.newMessage.trim()}
-                    className="px-4 py-2 bg-gradient-to-r from-[#00B900] to-[#00a000] text-white rounded-xl text-sm font-medium hover:shadow-md disabled:opacity-30 transition-all flex items-center gap-1.5"
-                  >
-                    {ctx.sending || ctx.sendingImage ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                    )}
-                    送信
-                  </button>
-                )}
-                <button
-                  onClick={() => { ctx.setScheduleMode(!ctx.scheduleMode); if (ctx.scheduleMode) ctx.setScheduledAt(""); }}
-                  className={`px-2 py-1 rounded-lg text-[10px] font-medium transition-all flex items-center gap-1 justify-center ${
-                    ctx.scheduleMode
-                      ? "bg-blue-100 text-blue-600 hover:bg-blue-200"
-                      : "bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                  }`}
-                  title="予約送信"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  予約
-                </button>
+            {ctx.isBlocked ? (
+              <div className="flex items-center justify-center gap-2 py-3 text-gray-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                <span className="text-xs">ブロック中のためメッセージを送信できません</span>
               </div>
-            </div>
-            <div className="text-[9px] text-gray-300 mt-1 text-right">
-              {ctx.sendingImage ? "画像送信中..." : ctx.scheduleMode ? "日時を指定して予約送信" : "Enter で改行"}
-            </div>
+            ) : (
+              <>
+                <div className="flex items-end gap-2">
+                  <button
+                    onClick={() => ctx.setShowAttachPanel(!ctx.showAttachPanel)}
+                    className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+                      ctx.showAttachPanel
+                        ? "bg-[#00B900] text-white rotate-45"
+                        : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                    }`}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                  </button>
+                  <textarea
+                    ref={ctx.inputRef}
+                    value={ctx.newMessage}
+                    onChange={(e) => { ctx.setNewMessage(e.target.value); const t = e.target as HTMLTextAreaElement; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 200) + "px"; }}
+                    onKeyDown={ctx.handleKeyDown}
+                    placeholder={ctx.scheduleMode ? "予約送信するメッセージを入力" : "メッセージを入力"}
+                    rows={2}
+                    className={`flex-1 px-3 py-2 border rounded-xl text-sm resize-none focus:outline-none focus:ring-2 transition-all ${
+                      ctx.scheduleMode
+                        ? "border-blue-200 focus:ring-blue-300/20 focus:border-blue-400 bg-blue-50/30"
+                        : "border-gray-200 focus:ring-[#00B900]/20 focus:border-[#00B900] bg-gray-50/50"
+                    }`}
+                    style={{ maxHeight: "200px" }}
+                    onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 200) + "px"; }}
+                  />
+                  <div className="flex flex-col gap-1 flex-shrink-0">
+                    {ctx.scheduleMode ? (
+                      <button
+                        onClick={ctx.handleSend}
+                        disabled={ctx.sending || !ctx.newMessage.trim() || !ctx.scheduledAt}
+                        className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm font-medium hover:shadow-md disabled:opacity-30 transition-all flex items-center gap-1.5"
+                      >
+                        {ctx.sending ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        )}
+                        予約
+                      </button>
+                    ) : (
+                      <button
+                        onClick={ctx.handleSend}
+                        disabled={ctx.sending || ctx.sendingImage || !ctx.newMessage.trim()}
+                        className="px-4 py-2 bg-gradient-to-r from-[#00B900] to-[#00a000] text-white rounded-xl text-sm font-medium hover:shadow-md disabled:opacity-30 transition-all flex items-center gap-1.5"
+                      >
+                        {ctx.sending || ctx.sendingImage ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                        )}
+                        送信
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { ctx.setScheduleMode(!ctx.scheduleMode); if (ctx.scheduleMode) ctx.setScheduledAt(""); }}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-medium transition-all flex items-center gap-1 justify-center ${
+                        ctx.scheduleMode
+                          ? "bg-blue-100 text-blue-600 hover:bg-blue-200"
+                          : "bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                      }`}
+                      title="予約送信"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      予約
+                    </button>
+                  </div>
+                </div>
+                <div className="text-[9px] text-gray-300 mt-1 text-right">
+                  {ctx.sendingImage ? "画像送信中..." : ctx.scheduleMode ? "日時を指定して予約送信" : "Enter で改行"}
+                </div>
+              </>
+            )}
           </div>
         </>
       )}

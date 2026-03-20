@@ -17,6 +17,7 @@ import ReportSection from "./_components/ReportSection";
 import LegalSection from "./_components/LegalSection";
 import CronSection from "./_components/CronSection";
 import BusinessRulesSection from "./_components/BusinessRulesSection";
+import StaffSection from "./_components/StaffSection";
 
 /* ---------- 共通型（子コンポーネントから参照） ---------- */
 export type CategoryKey = "square" | "gmo" | "line" | "gas" | "general" | "payment" | "sms";
@@ -175,6 +176,10 @@ export default function SettingsPage() {
   const industry = tenantData?.industry ?? "clinic";
   const enabledOptions = tenantData?.enabledOptions ?? [];
 
+  // セッション情報取得（tenantRole用）
+  const { data: sessionData } = useSWR<{ ok: boolean; user: { tenantRole?: string; userId?: string } }>("/api/admin/session");
+  const tenantRole = sessionData?.ok ? sessionData.user?.tenantRole || "" : "";
+
   // セットアップ状態取得
   const { data: setupData } = useSWR<{ setupComplete?: boolean }>("/api/admin/setup-status");
   const setupComplete = setupData?.setupComplete ?? true;
@@ -263,13 +268,13 @@ export default function SettingsPage() {
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-6">
         {/* モバイルナビ（md未満で表示） */}
         <div className="md:hidden">
-          <SettingsNav active={activeSection} onChange={setActiveSection} industry={industry} />
+          <SettingsNav active={activeSection} onChange={setActiveSection} industry={industry} tenantRole={tenantRole} />
         </div>
 
         <div className="flex gap-6">
           {/* PCナビ（md以上で表示） */}
           <div className="hidden md:block">
-            <SettingsNav active={activeSection} onChange={setActiveSection} industry={industry} />
+            <SettingsNav active={activeSection} onChange={setActiveSection} industry={industry} tenantRole={tenantRole} />
           </div>
 
           {/* コンテンツ領域 */}
@@ -287,6 +292,7 @@ export default function SettingsPage() {
             {activeSection === "legal" && <LegalSection onToast={handleToast} />}
             {activeSection === "options" && <OptionsSection enabledOptions={enabledOptions} />}
             {activeSection === "cron" && <CronSection onToast={handleToast} />}
+            {activeSection === "staff" && <StaffSection onToast={handleToast} currentUserId={sessionData?.ok ? (sessionData.user?.userId as string) || "" : ""} />}
             {activeSection === "account" && <AccountSection onToast={handleToast} />}
           </div>
         </div>
