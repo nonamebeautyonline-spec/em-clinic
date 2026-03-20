@@ -45,7 +45,7 @@ export default function Hero() {
           <FadeIn direction="right" delay={0.3}>
             <div className="relative" role="img" aria-label="Lオペ for CLINICのダッシュボード画面：予約管理、LINE友だち数推移、月間売上、リピート率、対応状況、配信結果を一覧表示">
               <MockWindow title="Lオペ for CLINIC — ダッシュボード">
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {[
                     { label: "本日の予約", val: "24", unit: "件", bg: "bg-blue-50", text: "text-blue-600" },
                     { label: "LINE友だち", val: "1,847", unit: "人", bg: "bg-sky-50", text: "text-sky-600" },
@@ -83,7 +83,7 @@ export default function Hero() {
                   </div>
                 </div>
               </MockWindow>
-              <div className="absolute -right-3 -bottom-3 rounded-xl border border-blue-100 bg-white px-4 py-2.5 shadow-lg shadow-blue-100/40 md:-right-6 md:-bottom-5">
+              <div className="absolute right-2 -bottom-3 rounded-xl border border-blue-100 bg-white px-4 py-2.5 shadow-lg shadow-blue-100/40 md:-right-6 md:-bottom-5">
                 <div className="text-[11px] text-slate-400">リマインド自動配信</div>
                 <div className="text-[13px] font-bold text-blue-600">24件 送信完了</div>
               </div>

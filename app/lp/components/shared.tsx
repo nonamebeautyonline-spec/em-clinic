@@ -25,12 +25,12 @@ export function Sub({ children }: { children: React.ReactNode }) {
 
 export function MockWindow({ title, children, className = "" }: { title: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={`overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-xl shadow-slate-200/40 ${className}`}>
+    <div className={`min-w-0 overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-xl shadow-slate-200/40 ${className}`}>
       <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/80 px-4 py-2.5">
         <span className="h-2.5 w-2.5 rounded-full bg-[#FF5F57]" /><span className="h-2.5 w-2.5 rounded-full bg-[#FEBC2E]" /><span className="h-2.5 w-2.5 rounded-full bg-[#28C840]" />
         <span className="ml-3 text-[10px] font-medium text-slate-400">{title}</span>
       </div>
-      <div className="p-4 md:p-5">{children}</div>
+      <div className="overflow-x-auto p-4 md:p-5">{children}</div>
     </div>
   );
 }
