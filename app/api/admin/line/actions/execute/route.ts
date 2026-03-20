@@ -7,7 +7,8 @@ import { getSettingOrEnv } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
 import { executeActionSchema } from "@/lib/validations/line-management";
 
-import { evaluateConditionRules, type ConditionRule, type StepCondition } from "@/lib/lifecycle-actions";
+import { evaluateConditionRules, type ConditionRule, type StepCondition, type PatientContext } from "@/lib/lifecycle-actions";
+import { logAudit } from "@/lib/audit";
 
 interface ActionStep {
   type: "send_text" | "send_template" | "tag_add" | "tag_remove" | "mark_change" | "menu_change";
@@ -62,16 +63,26 @@ export async function POST(req: NextRequest) {
 
   // 条件評価用の患者コンテキスト取得
   const hasConditions = steps.some(s => s.condition?.enabled);
-  let patientCtx: { tagIds: number[]; mark: string; name: string } | null = null;
+  let patientCtx: PatientContext | null = null;
   if (hasConditions) {
-    const [{ data: ptTags }, { data: ptMark }] = await Promise.all([
+    const today = new Date().toISOString().split("T")[0];
+    const [{ data: ptTags }, { data: ptMark }, { data: intakes }, { data: reservations }] = await Promise.all([
       strictWithTenant(supabaseAdmin.from("patient_tags").select("tag_id").eq("patient_id", patient_id), tenantId),
       strictWithTenant(supabaseAdmin.from("patient_marks").select("mark").eq("patient_id", patient_id).maybeSingle(), tenantId),
+      strictWithTenant(supabaseAdmin.from("intake").select("status").eq("patient_id", patient_id), tenantId),
+      strictWithTenant(supabaseAdmin.from("reservations").select("id").eq("patient_id", patient_id).gte("reserved_date", today).neq("status", "canceled").limit(1), tenantId),
     ]);
+    let intakeStatus = "none";
+    for (const row of intakes || []) {
+      if ((row as { status: string | null }).status === "OK") { intakeStatus = "OK"; break; }
+      if ((row as { status: string | null }).status === "NG") intakeStatus = "NG";
+    }
     patientCtx = {
       tagIds: (ptTags || []).map((t: { tag_id: number }) => t.tag_id),
       mark: ptMark?.mark || "none",
       name: patientName,
+      intakeStatus,
+      hasReservation: (reservations || []).length > 0,
     };
   }
 
@@ -338,5 +349,6 @@ export async function POST(req: NextRequest) {
   }
 
   const allSuccess = results.every(r => r.success);
+  logAudit(req, "action.execute", "action", action_id);
   return NextResponse.json({ ok: allSuccess, results });
 }

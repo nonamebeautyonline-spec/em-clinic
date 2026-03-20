@@ -28,7 +28,7 @@ let tableChains: Record<string, ReturnType<typeof createChain>> = {};
 function createChain(defaultResolve = { data: null, error: null }) {
   const chain: Record<string, ReturnType<typeof vi.fn>> = {};
   ["insert", "update", "delete", "select", "eq", "neq", "upsert",
-   "order", "limit", "single", "maybeSingle", "in", "is", "not"].forEach(m => {
+   "order", "limit", "single", "maybeSingle", "in", "is", "not", "gte", "lte", "gt", "lt"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
   chain.then = vi.fn((resolve: (val: unknown) => void) => resolve(defaultResolve));
@@ -47,7 +47,7 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 import { executeLifecycleActions, evaluateConditionRules } from "@/lib/lifecycle-actions";
-import type { ConditionRule } from "@/lib/lifecycle-actions";
+import type { ConditionRule, PatientContext } from "@/lib/lifecycle-actions";
 import { supabaseAdmin } from "@/lib/supabase";
 
 beforeEach(() => {
@@ -398,7 +398,7 @@ describe("executeLifecycleActions", () => {
 });
 
 describe("evaluateConditionRules", () => {
-  const ctx = { tagIds: [1, 2], mark: "red", name: "田中太郎" };
+  const ctx: PatientContext = { tagIds: [1, 2], mark: "red", name: "田中太郎", intakeStatus: "OK", hasReservation: true };
 
   describe("タグ条件", () => {
     it("any_include: いずれかのタグを持っていればtrue", () => {
@@ -496,6 +496,42 @@ describe("evaluateConditionRules", () => {
         { type: "mark", mark_values: ["green"], mark_match: "any_match" },
       ];
       expect(evaluateConditionRules(rules, ctx)).toBe(false);
+    });
+  });
+
+  describe("診察ステータス条件", () => {
+    it("intake_status: OKに一致すればtrue", () => {
+      const rules: ConditionRule[] = [{ type: "intake_status", status_value: "OK" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(true);
+    });
+
+    it("intake_status: NGに一致しなければfalse", () => {
+      const rules: ConditionRule[] = [{ type: "intake_status", status_value: "NG" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(false);
+    });
+
+    it("intake_status: 未診察の患者でnone指定", () => {
+      const rules: ConditionRule[] = [{ type: "intake_status", status_value: "none" }];
+      const noIntakeCtx: PatientContext = { ...ctx, intakeStatus: "none" };
+      expect(evaluateConditionRules(rules, noIntakeCtx)).toBe(true);
+    });
+  });
+
+  describe("予約ステータス条件", () => {
+    it("reservation_status: 予約ありでhas指定→true", () => {
+      const rules: ConditionRule[] = [{ type: "reservation_status", status_value: "has" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(true);
+    });
+
+    it("reservation_status: 予約ありでnone指定→false", () => {
+      const rules: ConditionRule[] = [{ type: "reservation_status", status_value: "none" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(false);
+    });
+
+    it("reservation_status: 予約なしでnone指定→true", () => {
+      const rules: ConditionRule[] = [{ type: "reservation_status", status_value: "none" }];
+      const noResCtx: PatientContext = { ...ctx, hasReservation: false };
+      expect(evaluateConditionRules(rules, noResCtx)).toBe(true);
     });
   });
 

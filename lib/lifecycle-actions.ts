@@ -36,24 +36,45 @@ export interface ActionStep {
   condition?: StepCondition;
 }
 
-/** 患者のタグID・マーク・名前を取得（条件評価用） */
-async function getPatientContext(patientId: string, tenantId: string | null) {
-  const [{ data: ptTags }, { data: ptMark }, { data: ptInfo }] = await Promise.all([
+export interface PatientContext {
+  tagIds: number[];
+  mark: string;
+  name: string;
+  intakeStatus: string; // "none" | "OK" | "NG"
+  hasReservation: boolean;
+}
+
+/** 患者のタグID・マーク・名前・診察ステータス・予約状態を取得（条件評価用） */
+async function getPatientContext(patientId: string, tenantId: string | null): Promise<PatientContext> {
+  const today = new Date().toISOString().split("T")[0];
+  const [{ data: ptTags }, { data: ptMark }, { data: ptInfo }, { data: intakes }, { data: reservations }] = await Promise.all([
     withTenant(supabaseAdmin.from("patient_tags").select("tag_id").eq("patient_id", patientId), tenantId),
     withTenant(supabaseAdmin.from("patient_marks").select("mark").eq("patient_id", patientId).maybeSingle(), tenantId),
     withTenant(supabaseAdmin.from("patients").select("name").eq("patient_id", patientId).maybeSingle(), tenantId),
+    withTenant(supabaseAdmin.from("intake").select("status").eq("patient_id", patientId), tenantId),
+    withTenant(supabaseAdmin.from("reservations").select("id").eq("patient_id", patientId).gte("reserved_date", today).neq("status", "canceled").limit(1), tenantId),
   ]);
+
+  // intakeステータス: OKが1件でもあればOK、なければNGがあればNG、なければnone
+  let intakeStatus = "none";
+  for (const row of intakes || []) {
+    if (row.status === "OK") { intakeStatus = "OK"; break; }
+    if (row.status === "NG") intakeStatus = "NG";
+  }
+
   return {
     tagIds: (ptTags || []).map((t: { tag_id: number }) => t.tag_id),
     mark: ptMark?.mark || "none",
     name: ptInfo?.name || "",
+    intakeStatus,
+    hasReservation: (reservations || []).length > 0,
   };
 }
 
 /** 条件ルールを評価（全ルールAND） */
 export function evaluateConditionRules(
   rules: ConditionRule[],
-  ctx: { tagIds: number[]; mark: string; name: string }
+  ctx: PatientContext
 ): boolean {
   return rules.every(rule => {
     switch (rule.type) {
@@ -87,6 +108,15 @@ export function evaluateConditionRules(
           default: return true;
         }
       }
+      case "intake_status": {
+        if (!rule.status_value) return true;
+        return ctx.intakeStatus === rule.status_value;
+      }
+      case "reservation_status": {
+        if (!rule.status_value) return true;
+        const actual = ctx.hasReservation ? "has" : "none";
+        return actual === rule.status_value;
+      }
       default:
         // 未対応の条件タイプはスキップ（trueで通す）
         return true;
@@ -97,7 +127,7 @@ export function evaluateConditionRules(
 /** ステップの条件をチェック（条件なし or 無効 → true） */
 function shouldExecuteStep(
   step: ActionStep,
-  ctx: { tagIds: number[]; mark: string; name: string }
+  ctx: PatientContext
 ): boolean {
   if (!step.condition?.enabled || !step.condition.rules || step.condition.rules.length === 0) {
     return true;
