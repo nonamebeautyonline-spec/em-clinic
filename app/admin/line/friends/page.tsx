@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import useSWR, { mutate } from "swr";
 
 interface Tag { id: number; name: string; color: string; }
@@ -11,11 +11,13 @@ interface Template { id: number; name: string; content: string; }
 interface ActionDef { id: number; name: string; }
 interface RichMenuDef { id: number; name: string; line_rich_menu_id: string | null; is_active: boolean; }
 
+/** APIレスポンス型 */
+interface FriendsListResponse { patients: PatientRow[]; hasMore: boolean; total: number; }
+
 const PAGE_SIZE = 50;
 
 export default function FriendsListPage() {
-  // SWRキー定義
-  const FRIENDS_KEY = "/api/admin/line/friends-list";
+  // SWRキー定義（friends-list以外は固定キー）
   const TAGS_KEY = "/api/admin/tags";
   const FIELDS_KEY = "/api/admin/friend-fields";
   const MARKS_KEY = "/api/admin/line/marks";
@@ -23,8 +25,40 @@ export default function FriendsListPage() {
   const ACTIONS_KEY = "/api/admin/line/actions";
   const MENUS_KEY = "/api/admin/line/rich-menus";
 
-  // 7並列データ取得をSWRで管理
-  const { data: pData, isLoading: pLoading } = useSWR<{ patients: PatientRow[] }>(FRIENDS_KEY);
+  const [filterTag, setFilterTag] = useState<number | null>(null);
+  const [filterMark, setFilterMark] = useState<string>("");
+  const [filterLine, setFilterLine] = useState<string>("");
+  const [searchName, setSearchName] = useState("");
+
+  // 検索デバウンス（300ms）
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchName), 300);
+    return () => clearTimeout(timer);
+  }, [searchName]);
+
+  // ページネーション（0始まり）
+  const [page, setPage] = useState(0);
+
+  // フィルタ・検索変更時にページリセット
+  useEffect(() => {
+    setPage(0);
+  }, [debouncedSearch, filterTag, filterMark, filterLine]);
+
+  // 動的SWRキー: クエリパラメータ付きURLでサーバーサイドフィルタ・ページネーション
+  const friendsKey = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set("page", String(page + 1)); // APIは1始まり
+    params.set("limit", String(PAGE_SIZE));
+    if (debouncedSearch) params.set("search", debouncedSearch);
+    if (filterTag) params.set("tag", String(filterTag));
+    if (filterMark) params.set("mark", filterMark);
+    if (filterLine) params.set("line_status", filterLine);
+    return `/api/admin/line/friends-list?${params.toString()}`;
+  }, [page, debouncedSearch, filterTag, filterMark, filterLine]);
+
+  // friends-list データ取得（SWRキーが変わると自動再フェッチ）
+  const { data: pData, isLoading: pLoading } = useSWR<FriendsListResponse>(friendsKey);
   const { data: tData } = useSWR<{ tags: Tag[] }>(TAGS_KEY);
   const { data: fData } = useSWR<{ fields: FieldDef[] }>(FIELDS_KEY);
   const { data: mData } = useSWR<{ marks: MarkDef[] }>(MARKS_KEY);
@@ -33,6 +67,7 @@ export default function FriendsListPage() {
   const { data: menuData } = useSWR<{ menus: RichMenuDef[] }>(MENUS_KEY);
 
   const patients = pData?.patients ?? [];
+  const total = pData?.total ?? 0;
   const allTags = tData?.tags ?? [];
   const fieldDefs = fData?.fields ?? [];
   const markDefs = mData?.marks ?? [];
@@ -41,26 +76,21 @@ export default function FriendsListPage() {
   const richMenus = menuData?.menus ?? [];
   const loading = pLoading;
 
-  // mutation後にfriends-listを再検証
-  const revalidateFriends = useCallback(() => { mutate(FRIENDS_KEY); }, []);
+  // mutation後にfriends-listを再検証（動的SWRキーに対応）
+  const revalidateFriends = useCallback(() => { mutate(friendsKey); }, [friendsKey]);
   // 全SWRキーを再検証
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const revalidateAll = useCallback(() => {
-    mutate(FRIENDS_KEY); mutate(TAGS_KEY); mutate(FIELDS_KEY);
+    mutate(friendsKey); mutate(TAGS_KEY); mutate(FIELDS_KEY);
     mutate(MARKS_KEY); mutate(TEMPLATES_KEY); mutate(ACTIONS_KEY); mutate(MENUS_KEY);
-  }, []);
-  const [filterTag, setFilterTag] = useState<number | null>(null);
-  const [filterMark, setFilterMark] = useState<string>("");
-  const [filterLine, setFilterLine] = useState<string>("");
-  const [searchName, setSearchName] = useState("");
+  }, [friendsKey]);
+
   const [selectedPatient, setSelectedPatient] = useState<PatientRow | null>(null);
   const [editingFields, setEditingFields] = useState<Record<number, string>>({});
   const [editingMark, setEditingMark] = useState<string>("");
   const [markNote, setMarkNote] = useState("");
   const [savingFields, setSavingFields] = useState(false);
   const [openMarkDropdown, setOpenMarkDropdown] = useState<string | null>(null);
-
-  // ページネーション
-  const [page, setPage] = useState(0);
 
   // チェックボックス選択
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -115,16 +145,16 @@ export default function FriendsListPage() {
   const handleMarkChange = async (patientId: string, mark: string) => {
     setOpenMarkDropdown(null);
     // Optimistic UI: SWRキャッシュを即座に更新し、API失敗時にロールバック
-    await mutate(FRIENDS_KEY, async (current: { patients: PatientRow[] } | undefined) => {
+    await mutate(friendsKey, async (current: FriendsListResponse | undefined) => {
       await fetch(`/api/admin/patients/${patientId}/mark`, {
         method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ mark }),
       });
-      return { patients: (current?.patients ?? []).map(p => p.patient_id === patientId ? { ...p, mark } : p) };
+      return { ...current, patients: (current?.patients ?? []).map(p => p.patient_id === patientId ? { ...p, mark } : p) } as FriendsListResponse;
     }, {
-      optimisticData: (current: { patients: PatientRow[] } | undefined) => ({
-        patients: (current?.patients ?? []).map(p => p.patient_id === patientId ? { ...p, mark } : p),
-      }),
+      optimisticData: (current: FriendsListResponse | undefined) => ({
+        ...current, patients: (current?.patients ?? []).map(p => p.patient_id === patientId ? { ...p, mark } : p),
+      } as FriendsListResponse),
       rollbackOnError: true,
       revalidate: false,
     });
@@ -177,16 +207,16 @@ export default function FriendsListPage() {
     setBulkResult(null);
     const markVal = bulkSelectedMark;
     const ids = new Set(selectedIds);
-    await mutate(FRIENDS_KEY, async (current: { patients: PatientRow[] } | undefined) => {
+    await mutate(friendsKey, async (current: FriendsListResponse | undefined) => {
       await fetch("/api/admin/patients/bulk/mark", {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ patient_ids: [...ids], mark: markVal }),
       });
-      return { patients: (current?.patients ?? []).map(p => ids.has(p.patient_id) ? { ...p, mark: markVal } : p) };
+      return { ...current, patients: (current?.patients ?? []).map(p => ids.has(p.patient_id) ? { ...p, mark: markVal } : p) } as FriendsListResponse;
     }, {
-      optimisticData: (current: { patients: PatientRow[] } | undefined) => ({
-        patients: (current?.patients ?? []).map(p => ids.has(p.patient_id) ? { ...p, mark: markVal } : p),
-      }),
+      optimisticData: (current: FriendsListResponse | undefined) => ({
+        ...current, patients: (current?.patients ?? []).map(p => ids.has(p.patient_id) ? { ...p, mark: markVal } : p),
+      } as FriendsListResponse),
       rollbackOnError: true,
       revalidate: false,
     });
@@ -365,11 +395,11 @@ export default function FriendsListPage() {
     advSearch.markConditions.filter(c => c.values.length > 0).length +
     advSearch.fieldConditions.length + (advSearch.lineStatus ? 1 : 0);
 
-  // フィルタリング
-  const filtered = patients.filter(p => {
-    if (searchName && !p.patient_name?.includes(searchName) && !p.patient_id.includes(searchName)) return false;
-
-    if (advActive) {
+  // 詳細検索によるクライアント側フィルタ（advSearch使用時のみ現在ページデータに適用）
+  // 基本フィルタ（名前検索、タグ、マーク、LINE連携）はサーバーサイドで処理済み
+  const filtered = useMemo(() => {
+    if (!advActive) return patients; // サーバーサイドフィルタ済みのデータをそのまま使用
+    return patients.filter(p => {
       const pTagIds = p.tags.map(t => t.id);
       for (const cond of advSearch.tagConditions) {
         if (cond.tagIds.length === 0) continue;
@@ -400,28 +430,17 @@ export default function FriendsListPage() {
       }
       if (advSearch.lineStatus === "yes" && !p.line_id) return false;
       if (advSearch.lineStatus === "no" && p.line_id) return false;
-    } else {
-      if (filterTag && !p.tags.some(t => t.id === filterTag)) return false;
-      if (filterMark && p.mark !== filterMark) return false;
-      if (filterLine === "yes" && !p.line_id) return false;
-      if (filterLine === "no" && p.line_id) return false;
-    }
-    return true;
-  });
+      return true;
+    });
+  }, [patients, advActive, advSearch, fieldDefs]);
 
-  // フィルタ変更時にページリセット
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- フィルタ変更時のページリセット
-    setPage(0);
-  }, [searchName, filterTag, filterMark, filterLine, advActive]);
+  // ページネーション（サーバーサイド。totalはAPIから取得）
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  // APIが既にページ分のデータを返すため、クライアントでのスライスは不要
+  const paged = filtered;
 
-  // ページネーション
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-
-  // 全選択（現在のページ）
+  // 全選択（現在のページのみ。全件はメモリにないためページ内選択に限定）
   const allPageSelected = paged.length > 0 && paged.every(p => selectedIds.has(p.patient_id));
-  const allFilteredSelected = filtered.length > 0 && filtered.every(p => selectedIds.has(p.patient_id));
   const toggleSelectAll = () => {
     const next = new Set(selectedIds);
     if (allPageSelected) {
@@ -430,15 +449,6 @@ export default function FriendsListPage() {
       for (const p of paged) next.add(p.patient_id);
     }
     setSelectedIds(next);
-  };
-  const selectAllFiltered = () => {
-    const next = new Set(selectedIds);
-    for (const p of filtered) next.add(p.patient_id);
-    setSelectedIds(next);
-  };
-  const deselectAllFiltered = () => {
-    const filteredIds = new Set(filtered.map(p => p.patient_id));
-    setSelectedIds(new Set([...selectedIds].filter(id => !filteredIds.has(id))));
   };
   const toggleSelect = (pid: string) => {
     const next = new Set(selectedIds);
@@ -546,7 +556,7 @@ export default function FriendsListPage() {
             </button>
           )}
           <div className="ml-auto bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-semibold">
-            {filtered.length} 人
+            {total} 人
           </div>
         </div>
       </div>
@@ -579,26 +589,12 @@ export default function FriendsListPage() {
                   <th className="px-4 py-3.5 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wider w-16">LINE</th>
                 </tr>
               </thead>
-              {/* 全件選択バナー */}
-              {allPageSelected && filtered.length > paged.length && (
+              {/* ページ内全選択バナー */}
+              {allPageSelected && totalPages > 1 && (
                 <tbody>
                   <tr>
                     <td colSpan={100} className="bg-blue-50 border-b border-blue-100 px-4 py-2.5 text-center text-sm text-blue-800">
-                      {allFilteredSelected ? (
-                        <>
-                          表示中条件に当てはまる <strong>{filtered.length}人</strong> すべてが選択されています。
-                          <button onClick={deselectAllFiltered} className="ml-2 text-blue-600 hover:text-blue-800 underline font-medium">
-                            選択解除
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          このページの{paged.length}人すべてが選択されています。
-                          <button onClick={selectAllFiltered} className="ml-2 text-blue-600 hover:text-blue-800 underline font-medium">
-                            表示中条件に当てはまる {filtered.length}人 をすべて選択
-                          </button>
-                        </>
-                      )}
+                      このページの{paged.length}人すべてが選択されています。
                     </td>
                   </tr>
                 </tbody>
@@ -695,7 +691,7 @@ export default function FriendsListPage() {
                 className="p-1.5 rounded-lg border border-gray-200 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                 <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
               </button>
-              <span className="text-xs text-gray-400 ml-2">（全{filtered.length}件）</span>
+              <span className="text-xs text-gray-400 ml-2">（全{total}件）</span>
             </div>
           )}
         </div>

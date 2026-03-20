@@ -1224,7 +1224,7 @@ export default function RichMenuManagementPage() {
                 onMouseUp={handleCanvasMouseUp}
                 onMouseLeave={handleCanvasMouseUp}
               >
-                {imageUrl && <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />}
+                {imageUrl && <img src={imageUrl} alt="リッチメニュー画像プレビュー" className="absolute inset-0 w-full h-full object-cover" />}
                 {/* グリッド線表示（ドラッグ中のみ、スナップ有効時） */}
                 {isDragging.current && gridSize > 0 && !shiftPressed && (() => {
                   const { verticals, horizontals } = generateGridLines(CANVAS_W, CANVAS_H, gridSize, scaleX, scaleY);

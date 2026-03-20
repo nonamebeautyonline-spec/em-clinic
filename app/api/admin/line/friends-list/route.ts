@@ -8,7 +8,7 @@ import { transformFriendsRow as transformRow } from "@/lib/friends-list-transfor
 
 /**
  * ベースデータ取得（Redisキャッシュ or RPC）
- * 検索なし時のみキャッシュを利用
+ * 検索・フィルタなし時のみキャッシュを利用
  */
 async function fetchBaseData(
   tenantId: string | null,
@@ -58,7 +58,130 @@ async function fetchBaseData(
   return { patients, hasMore, tRpc, cacheHit: false };
 }
 
-// 友達一覧（サーバーサイド検索・ページネーション対応）
+/**
+ * 総件数を取得（フィルタ条件を適用）
+ * RPC と同じ WHERE 条件 + 追加フィルタ（tag, mark, line_status）
+ */
+async function fetchTotalCount(
+  effectiveTenantId: string,
+  searchName: string,
+  searchId: string,
+  tagId: number | null,
+  markFilter: string,
+  lineStatus: string,
+): Promise<number> {
+  // タグフィルタ指定時: 該当 patient_id を先に取得
+  let tagPatientIds: string[] | null = null;
+  if (tagId) {
+    const { data: tagRows } = await supabaseAdmin
+      .from("patient_tags")
+      .select("patient_id")
+      .eq("tag_id", tagId);
+    tagPatientIds = (tagRows || []).map(r => r.patient_id);
+    if (tagPatientIds.length === 0) return 0;
+  }
+
+  // friend_summaries + patients で count クエリを組み立て
+  let query = supabaseAdmin
+    .from("friend_summaries")
+    .select("patient_id, patients!inner(line_id, name)", { count: "exact", head: true })
+    .eq("tenant_id", effectiveTenantId);
+
+  // 名前検索（ilike）
+  if (searchName) {
+    query = query.ilike("patients.name", `%${searchName}%`);
+  }
+  // ID検索（ilike）
+  if (searchId) {
+    query = query.ilike("patient_id", `%${searchId}%`);
+  }
+  // タグフィルタ: patient_id を IN で絞り込み
+  if (tagPatientIds) {
+    query = query.in("patient_id", tagPatientIds);
+  }
+  // マークフィルタ: patient_marks テーブルとの結合が必要なため、別途処理
+  // → count クエリでは mark フィルタは後段で対応（下記参照）
+  // LINE連携フィルタ
+  if (lineStatus === "yes") {
+    query = query.not("patients.line_id", "is", null);
+  } else if (lineStatus === "no") {
+    query = query.is("patients.line_id", null);
+  }
+
+  const { count, error } = await query;
+  if (error) {
+    console.error("[friends-list] count error:", error.message);
+    return 0;
+  }
+
+  // マークフィルタ時は patient_marks を別途カウント
+  if (markFilter) {
+    // マークフィルタ時は正確な件数を別途取得
+    const markCount = await fetchCountWithMark(effectiveTenantId, searchName, searchId, tagPatientIds, markFilter, lineStatus);
+    return markCount;
+  }
+
+  return count ?? 0;
+}
+
+/**
+ * マークフィルタ付きの正確な件数を取得
+ */
+async function fetchCountWithMark(
+  effectiveTenantId: string,
+  searchName: string,
+  searchId: string,
+  tagPatientIds: string[] | null,
+  markFilter: string,
+  lineStatus: string,
+): Promise<number> {
+  // patient_marks から該当 patient_id を取得
+  let markQuery = supabaseAdmin
+    .from("patient_marks")
+    .select("patient_id")
+    .eq("mark", markFilter);
+
+  const { data: markRows } = await markQuery;
+  const markPatientIds = new Set((markRows || []).map(r => r.patient_id));
+
+  if (markPatientIds.size === 0 && markFilter !== "none") return 0;
+
+  // friend_summaries でカウント（mark が "none" の場合は patient_marks にレコードがない患者も含む）
+  let query = supabaseAdmin
+    .from("friend_summaries")
+    .select("patient_id, patients!inner(line_id, name)", { count: "exact", head: true })
+    .eq("tenant_id", effectiveTenantId);
+
+  if (searchName) query = query.ilike("patients.name", `%${searchName}%`);
+  if (searchId) query = query.ilike("patient_id", `%${searchId}%`);
+  if (tagPatientIds) query = query.in("patient_id", tagPatientIds);
+  if (lineStatus === "yes") query = query.not("patients.line_id", "is", null);
+  else if (lineStatus === "no") query = query.is("patients.line_id", null);
+
+  if (markFilter !== "none") {
+    // 特定マークの患者のみ
+    query = query.in("patient_id", [...markPatientIds]);
+  } else {
+    // "none" = patient_marks にレコードがない or mark が "none" の患者
+    // → patient_marks テーブルで mark != "none" の patient_id を除外
+    const { data: nonNoneRows } = await supabaseAdmin
+      .from("patient_marks")
+      .select("patient_id")
+      .neq("mark", "none");
+    const nonNoneIds = (nonNoneRows || []).map(r => r.patient_id);
+    if (nonNoneIds.length > 0) {
+      // Supabase の not.in は配列が大きい場合に問題になる可能性があるが、
+      // 実用上は問題ない（マーク設定済みの患者数は限定的）
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      query = query.not("patient_id", "in", `(${nonNoneIds.map(id => `"${id}"`).join(",")})` as any);
+    }
+  }
+
+  const { count } = await query;
+  return count ?? 0;
+}
+
+// 友達一覧（サーバーサイド検索・フィルタ・ページネーション対応）
 export async function GET(req: NextRequest) {
   const t0 = Date.now();
 
@@ -68,21 +191,164 @@ export async function GET(req: NextRequest) {
 
   const tenantId = resolveTenantIdOrThrow(req);
   const url = req.nextUrl;
-  const searchId = url.searchParams.get("id")?.trim() || "";
-  const searchName = url.searchParams.get("name")?.trim() || "";
+
+  // クエリパラメータ取得
+  // search: 名前/ID統合検索（既存の name/id パラメータも後方互換で対応）
+  const search = url.searchParams.get("search")?.trim() || "";
+  const searchId = search || url.searchParams.get("id")?.trim() || "";
+  const searchName = search || url.searchParams.get("name")?.trim() || "";
   const pinIdsRaw = url.searchParams.get("pin_ids")?.trim() || "";
-  const offset = Math.max(0, parseInt(url.searchParams.get("offset") || "0", 10) || 0);
+
+  // ページネーション: page パラメータ（1始まり）優先、なければ offset
+  const pageParam = parseInt(url.searchParams.get("page") || "0", 10);
   const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get("limit") || "50", 10) || 50));
+  const offset = pageParam > 0
+    ? (pageParam - 1) * limit
+    : Math.max(0, parseInt(url.searchParams.get("offset") || "0", 10) || 0);
+
+  // フィルタパラメータ
+  const tagFilter = parseInt(url.searchParams.get("tag") || "0", 10) || null;
+  const markFilter = url.searchParams.get("mark")?.trim() || "";
+  const lineStatus = url.searchParams.get("line_status")?.trim() || "";
 
   const effectiveTenantId = tenantId || "00000000-0000-0000-0000-000000000001";
+  const hasFilter = !!(tagFilter || markFilter || lineStatus);
 
-  const result = await fetchBaseData(tenantId, effectiveTenantId, searchId, searchName, offset, limit, tAuth);
+  // タグフィルタ指定時: 該当 patient_id を先に取得
+  let tagPatientIds: Set<string> | null = null;
+  if (tagFilter) {
+    const { data: tagRows } = await supabaseAdmin
+      .from("patient_tags")
+      .select("patient_id")
+      .eq("tag_id", tagFilter);
+    tagPatientIds = new Set((tagRows || []).map(r => r.patient_id));
+    if (tagPatientIds.size === 0) {
+      // タグに該当する患者がいない場合は空を返す
+      const tEnd = Date.now();
+      return NextResponse.json({
+        patients: [], hasMore: false, total: 0,
+        _timing: { auth_ms: tAuth - t0, total_ms: tEnd - t0, rows: 0 },
+      });
+    }
+  }
+
+  // マークフィルタ指定時: 該当 patient_id を先に取得
+  let markPatientIds: Set<string> | null = null;
+  if (markFilter) {
+    if (markFilter === "none") {
+      // "none" = patient_marks にレコードがない or mark が "none"
+      const { data: nonNoneRows } = await supabaseAdmin
+        .from("patient_marks")
+        .select("patient_id")
+        .neq("mark", "none");
+      // "none" マークの患者は除外リストで管理（後段でフィルタ）
+      markPatientIds = new Set(); // 空セット = 除外リスト方式
+      for (const r of (nonNoneRows || [])) markPatientIds.add(r.patient_id);
+    } else {
+      const { data: markRows } = await supabaseAdmin
+        .from("patient_marks")
+        .select("patient_id")
+        .eq("mark", markFilter);
+      markPatientIds = new Set((markRows || []).map(r => r.patient_id));
+      if (markPatientIds.size === 0) {
+        const tEnd = Date.now();
+        return NextResponse.json({
+          patients: [], hasMore: false, total: 0,
+          _timing: { auth_ms: tAuth - t0, total_ms: tEnd - t0, rows: 0 },
+        });
+      }
+    }
+  }
+
+  // RPC でベースデータ取得
+  // フィルタ時は多めに取得して後フィルタ（RPC は tag/mark/line_status 非対応のため）
+  const fetchLimit = hasFilter ? limit * 4 : limit;
+  const result = await fetchBaseData(tenantId, effectiveTenantId, searchId, searchName, hasFilter ? 0 : offset, fetchLimit, tAuth);
   if (result instanceof NextResponse) return result;
 
-  const { patients, hasMore, tRpc, cacheHit } = result;
+  let { patients, tRpc, cacheHit } = result;
 
+  // フィルタ適用（tag, mark, line_status）
+  if (hasFilter) {
+    // フィルタ時は RPC の結果を後フィルタし、正確なページネーションのため
+    // RPC から全件取得して手動でフィルタ + ページング
+    // （パフォーマンス改善は将来 RPC にフィルタ条件を追加して対応）
+
+    // 全件取得のため、RPC を再帰的に呼び出して全データを収集
+    let allPatients = [...patients];
+    let currentOffset = fetchLimit;
+    let moreData = result.hasMore;
+
+    while (moreData) {
+      const moreResult = await fetchBaseData(tenantId, effectiveTenantId, searchId, searchName, currentOffset, fetchLimit, tRpc);
+      if (moreResult instanceof NextResponse) break;
+      allPatients = [...allPatients, ...moreResult.patients];
+      moreData = moreResult.hasMore;
+      currentOffset += fetchLimit;
+      // 安全上限: 最大10,000件
+      if (allPatients.length > 10000) break;
+    }
+
+    // フィルタ適用
+    const filtered = allPatients.filter(p => {
+      // タグフィルタ
+      if (tagPatientIds && !tagPatientIds.has(p.patient_id)) return false;
+      // マークフィルタ
+      if (markFilter && markPatientIds) {
+        if (markFilter === "none") {
+          // markPatientIds = 除外リスト（none以外のマークを持つ患者）
+          if (markPatientIds.has(p.patient_id)) return false;
+        } else {
+          if (!markPatientIds.has(p.patient_id)) return false;
+        }
+      }
+      // LINE連携フィルタ
+      if (lineStatus === "yes" && !p.line_id) return false;
+      if (lineStatus === "no" && p.line_id) return false;
+      return true;
+    });
+
+    const total = filtered.length;
+    const pagedFiltered = filtered.slice(offset, offset + limit);
+    const hasMore = offset + limit < total;
+
+    patients = pagedFiltered;
+
+    // ピン留め、流入経路、レスポンス構築は下で共通処理
+    // total をレスポンスに含めるため変数として保持
+    // （フィルタ時は fetchTotalCount を使わず手動カウント）
+    return await buildResponse(req, patients, hasMore, total, effectiveTenantId, tenantId, pinIdsRaw, searchId, searchName, offset, t0, tAuth, tRpc, cacheHit, hasFilter);
+  }
+
+  // フィルタなし時: total は別途カウントクエリで取得
+  const total = await fetchTotalCount(effectiveTenantId, searchName, searchId, null, "", "");
+  const { hasMore } = result;
+
+  return await buildResponse(req, patients, hasMore, total, effectiveTenantId, tenantId, pinIdsRaw, searchId, searchName, offset, t0, tAuth, tRpc, cacheHit, hasFilter);
+}
+
+/**
+ * レスポンスを構築（ピン留め補完・流入経路情報付加・JSON返却）
+ */
+async function buildResponse(
+  _req: NextRequest,
+  patients: ReturnType<typeof transformRow>[],
+  hasMore: boolean,
+  total: number,
+  effectiveTenantId: string,
+  tenantId: string | null,
+  pinIdsRaw: string,
+  searchId: string,
+  searchName: string,
+  offset: number,
+  t0: number,
+  tAuth: number,
+  tRpc: number,
+  cacheHit: boolean,
+  hasFilter: boolean,
+) {
   // ピン留め患者を補完（初回ロード時のみ、メイン結果に含まれないピンを別途取得）
-  if (pinIdsRaw && !searchId && !searchName && offset === 0) {
+  if (pinIdsRaw && !searchId && !searchName && offset === 0 && !hasFilter) {
     const pinIds = pinIdsRaw.split(",").filter(Boolean);
     const existingIds = new Set(patients.map((p: { patient_id: string }) => p.patient_id));
     const missingPinIds = pinIds.filter(id => !existingIds.has(id));
@@ -203,5 +469,5 @@ export async function GET(req: NextRequest) {
   };
   console.log("[friends-list]", _timing);
 
-  return NextResponse.json({ patients: patientsWithTracking, hasMore, _timing });
+  return NextResponse.json({ patients: patientsWithTracking, hasMore, total, _timing });
 }

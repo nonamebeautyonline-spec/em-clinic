@@ -414,10 +414,13 @@ body: JSON.stringify({
         return;
       }
 
-      const reserveId = data.reserveId ?? `mock-${Date.now()}`;
+      // reserveIdがない場合はエラーとして処理中断
       if (!data.reserveId) {
-        console.warn("[reserve] API returned ok but no reserveId — using mock fallback");
+        alert("予約の保存に失敗しました。再度お試しください。");
+        return;
       }
+
+      const reserveId = data.reserveId;
 
       setShowSuccess(true);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import useSWR, { mutate } from "swr";
 
 interface WebhookEvent {
@@ -47,6 +47,15 @@ export default function WebhookEventsPage() {
   const [sourceFilter, setSourceFilter] = useState("");
   const [replayingId, setReplayingId] = useState<number | null>(null);
 
+  // トースト通知
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  useEffect(() => {
+    if (toast) {
+      const t = setTimeout(() => setToast(null), toast.type === "success" ? 3000 : 5000);
+      return () => clearTimeout(t);
+    }
+  }, [toast]);
+
   // SWRキーをフィルタ・ページに応じて動的に構築
   const swrKey = (() => {
     const params = new URLSearchParams();
@@ -70,13 +79,13 @@ export default function WebhookEventsPage() {
       const res = await fetch(`/api/admin/webhook-events/${eventId}/replay`, { method: "POST" });
       const data = await res.json();
       if (data.ok) {
-        alert("リプレイ成功");
+        setToast({ message: "リプレイ成功", type: "success" });
       } else {
-        alert(`リプレイ失敗: ${data.error}`);
+        setToast({ message: `リプレイ失敗: ${data.error}`, type: "error" });
       }
       await mutate(swrKey);
-    } catch (err) {
-      alert("リプレイエラー");
+    } catch {
+      setToast({ message: "リプレイエラー", type: "error" });
     } finally {
       setReplayingId(null);
     }
@@ -94,6 +103,17 @@ export default function WebhookEventsPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
+      {/* トースト通知 */}
+      {toast && (
+        <div
+          className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm font-medium transition-opacity ${
+            toast.type === "success" ? "bg-green-600" : "bg-red-600"
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
+
       <h1 className="text-2xl font-bold mb-6">Webhook イベント管理</h1>
 
       {/* サマリーカード */}

@@ -9,8 +9,8 @@ import { ignoreDuplicateSchema } from "@/lib/validations/dedup";
 import { logAudit } from "@/lib/audit";
 
 /**
- * GET /api/admin/dedup-patients?min_score=70
- * 重複候補一覧を確度順に返す
+ * GET /api/admin/dedup-patients?min_score=70&limit=20&offset=0
+ * 重複候補一覧を確度順に返す（ページネーション対応）
  */
 export async function GET(req: NextRequest) {
   const isAuth = await verifyAdminAuth(req);
@@ -20,10 +20,15 @@ export async function GET(req: NextRequest) {
 
   const tenantId = resolveTenantIdOrThrow(req);
   const minScore = Number(req.nextUrl.searchParams.get("min_score") || "70");
+  const limit = Math.min(Math.max(Number(req.nextUrl.searchParams.get("limit") || "20"), 1), 100);
+  const offset = Math.max(Number(req.nextUrl.searchParams.get("offset") || "0"), 0);
 
   try {
-    const candidates = await findDuplicateCandidates(tenantId, minScore);
-    return NextResponse.json({ ok: true, candidates, count: candidates.length });
+    const allCandidates = await findDuplicateCandidates(tenantId, minScore);
+    const total = allCandidates.length;
+    // ページネーション: offset〜offset+limit の範囲を返す
+    const candidates = allCandidates.slice(offset, offset + limit);
+    return NextResponse.json({ ok: true, candidates, total, count: candidates.length });
   } catch (err) {
     console.error("[dedup-patients] 検出エラー:", err);
     return serverError("重複候補の検出に失敗しました");

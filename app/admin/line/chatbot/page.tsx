@@ -1,7 +1,24 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import useSWR, { mutate } from "swr";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 /* ---------- 型定義 ---------- */
 
@@ -22,6 +39,117 @@ interface ChatbotNode {
   position_y: number;
   data: Record<string, unknown>;
   next_node_id: string | null;
+}
+
+/* ---------- ソート可能なノードアイテム ---------- */
+
+function SortableNodeItem({
+  node,
+  index,
+  nodeTypeLabel,
+  nodeTypeColor,
+  onEdit,
+  onDelete,
+}: {
+  node: ChatbotNode;
+  index: number;
+  nodeTypeLabel: (t: string) => string;
+  nodeTypeColor: (t: string) => string;
+  onEdit: (n: ChatbotNode) => void;
+  onDelete: (id: string) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: node.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="px-4 py-3 border-b border-gray-50">
+      <div className="flex items-start justify-between">
+        <div className="flex items-start gap-3">
+          {/* ドラッグハンドル */}
+          <button
+            {...attributes}
+            {...listeners}
+            className="mt-0.5 p-1 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing"
+            title="ドラッグで並べ替え"
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M7 2a2 2 0 10.001 4.001A2 2 0 007 2zm0 6a2 2 0 10.001 4.001A2 2 0 007 8zm0 6a2 2 0 10.001 4.001A2 2 0 007 14zm6-12a2 2 0 10.001 4.001A2 2 0 0013 2zm0 6a2 2 0 10.001 4.001A2 2 0 0013 8zm0 6a2 2 0 10.001 4.001A2 2 0 0013 14z" />
+            </svg>
+          </button>
+          <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-500 text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
+            {index + 1}
+          </span>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${nodeTypeColor(node.node_type)}`}>
+                {nodeTypeLabel(node.node_type)}
+              </span>
+            </div>
+            <div className="text-sm text-gray-700 mt-1">
+              {node.node_type === "message" && (
+                <span>{(node.data.text as string) || "(テキスト未設定)"}</span>
+              )}
+              {node.node_type === "question" && (
+                <div>
+                  <span>{(node.data.question_text as string) || "(質問未設定)"}</span>
+                  {Array.isArray(node.data.buttons) && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {(node.data.buttons as Array<{ label: string }>).map((b, i) => (
+                        <span key={i} className="px-2 py-0.5 text-[10px] bg-gray-100 rounded-full text-gray-600">
+                          {b.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {node.node_type === "action" && (
+                <span>アクション: {(node.data.action_type as string) || "(未設定)"}</span>
+              )}
+              {node.node_type === "condition" && (
+                <span>条件分岐: {Array.isArray(node.data.conditions) ? `${(node.data.conditions as unknown[]).length}件` : "0件"}</span>
+              )}
+            </div>
+            {node.next_node_id && (
+              <p className="text-[10px] text-gray-400 mt-1">
+                次ノード: {node.next_node_id.slice(0, 8)}...
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => onEdit({ ...node })}
+            className="p-1 text-gray-400 hover:text-gray-600"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+          <button
+            onClick={() => onDelete(node.id)}
+            className="p-1 text-gray-400 hover:text-red-500"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ---------- メインページ ---------- */
@@ -45,6 +173,17 @@ export default function ChatbotPage() {
 
   // 表示モード切り替え（リスト / フロー）
   const [viewMode, setViewMode] = useState<"list" | "flow">("list");
+
+  // テスト実行モーダル
+  const [showTestModal, setShowTestModal] = useState(false);
+  const [testCurrentNodeId, setTestCurrentNodeId] = useState<string | null>(null);
+  const [testFinished, setTestFinished] = useState(false);
+
+  // DnDセンサー（ノード並べ替え用）
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   /* ---------- シナリオ作成 ---------- */
 
@@ -179,6 +318,72 @@ export default function ChatbotPage() {
     );
     if (res.ok) mutate(nodesKey);
   };
+
+  /* ---------- ノードD&D並べ替え ---------- */
+
+  const handleNodeDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !selectedScenario) return;
+
+    const oldIndex = nodes.findIndex((n) => n.id === active.id);
+    const newIndex = nodes.findIndex((n) => n.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+
+    const reordered = arrayMove(nodes, oldIndex, newIndex);
+
+    // サーバーに順序を保存（position_yで順序を表現）
+    const updates = reordered.map((n, i) => ({
+      id: n.id,
+      position_y: i * 120,
+    }));
+
+    try {
+      const res = await fetch(`/api/admin/chatbot/scenarios/${selectedScenario.id}/nodes`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reorder: updates }),
+      });
+      if (res.ok) {
+        mutate(nodesKey);
+      }
+    } catch {
+      // エラー時はリフェッチで元に戻す
+      mutate(nodesKey);
+    }
+  }, [nodes, selectedScenario, nodesKey]);
+
+  /* ---------- テスト実行 ---------- */
+
+  const startTest = useCallback(() => {
+    if (nodes.length === 0) return;
+    // 最初のノードから開始
+    setTestCurrentNodeId(nodes[0].id);
+    setTestFinished(false);
+    setShowTestModal(true);
+  }, [nodes]);
+
+  const testCurrentNode = useMemo(() => {
+    if (!testCurrentNodeId) return null;
+    return nodes.find((n) => n.id === testCurrentNodeId) || null;
+  }, [testCurrentNodeId, nodes]);
+
+  const handleTestNext = useCallback(() => {
+    if (!testCurrentNode) return;
+    if (testCurrentNode.next_node_id) {
+      setTestCurrentNodeId(testCurrentNode.next_node_id);
+    } else {
+      setTestFinished(true);
+    }
+  }, [testCurrentNode]);
+
+  const handleTestButtonClick = useCallback((nextNodeId: string | undefined) => {
+    if (nextNodeId) {
+      setTestCurrentNodeId(nextNodeId);
+    } else {
+      setTestFinished(true);
+    }
+  }, []);
 
   /* ---------- ノードタイプラベル ---------- */
 
@@ -319,12 +524,21 @@ export default function ChatbotPage() {
                   <h2 className="text-sm font-bold text-gray-700">
                     {selectedScenario.name} - ノード
                   </h2>
-                  <button
-                    onClick={() => setShowNodeCreate(true)}
-                    className="px-3 py-1.5 text-xs font-medium text-white bg-[#06C755] hover:bg-[#05b34c] rounded-lg transition-colors"
-                  >
-                    + ノード追加
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={startTest}
+                      disabled={nodes.length === 0}
+                      className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      テスト実行
+                    </button>
+                    <button
+                      onClick={() => setShowNodeCreate(true)}
+                      className="px-3 py-1.5 text-xs font-medium text-white bg-[#06C755] hover:bg-[#05b34c] rounded-lg transition-colors"
+                    >
+                      + ノード追加
+                    </button>
+                  </div>
                 </div>
                 {/* タブ切り替え */}
                 <div className="flex gap-1">
@@ -356,75 +570,31 @@ export default function ChatbotPage() {
                   ノードがありません。「+ ノード追加」で追加してください。
                 </div>
               ) : viewMode === "list" ? (
-                /* ---------- リスト表示（既存） ---------- */
-                <div className="divide-y divide-gray-50">
-                  {nodes.map((n, idx) => (
-                    <div key={n.id} className="px-4 py-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-3">
-                          <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-500 text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
-                            {idx + 1}
-                          </span>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${nodeTypeColor(n.node_type)}`}>
-                                {nodeTypeLabel(n.node_type)}
-                              </span>
-                            </div>
-                            <div className="text-sm text-gray-700 mt-1">
-                              {n.node_type === "message" && (
-                                <span>{(n.data.text as string) || "(テキスト未設定)"}</span>
-                              )}
-                              {n.node_type === "question" && (
-                                <div>
-                                  <span>{(n.data.question_text as string) || "(質問未設定)"}</span>
-                                  {Array.isArray(n.data.buttons) && (
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                      {(n.data.buttons as Array<{ label: string }>).map((b, i) => (
-                                        <span key={i} className="px-2 py-0.5 text-[10px] bg-gray-100 rounded-full text-gray-600">
-                                          {b.label}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                              {n.node_type === "action" && (
-                                <span>アクション: {(n.data.action_type as string) || "(未設定)"}</span>
-                              )}
-                              {n.node_type === "condition" && (
-                                <span>条件分岐: {Array.isArray(n.data.conditions) ? `${(n.data.conditions as unknown[]).length}件` : "0件"}</span>
-                              )}
-                            </div>
-                            {n.next_node_id && (
-                              <p className="text-[10px] text-gray-400 mt-1">
-                                次ノード: {n.next_node_id.slice(0, 8)}...
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => setEditingNode({ ...n })}
-                            className="p-1 text-gray-400 hover:text-gray-600"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleDeleteNode(n.id)}
-                            className="p-1 text-gray-400 hover:text-red-500"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
+                /* ---------- リスト表示（D&D並べ替え対応） ---------- */
+                <DndContext
+                  sensors={dndSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleNodeDragEnd}
+                >
+                  <SortableContext
+                    items={nodes.map((n) => n.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div>
+                      {nodes.map((n, idx) => (
+                        <SortableNodeItem
+                          key={n.id}
+                          node={n}
+                          index={idx}
+                          nodeTypeLabel={nodeTypeLabel}
+                          nodeTypeColor={nodeTypeColor}
+                          onEdit={setEditingNode}
+                          onDelete={handleDeleteNode}
+                        />
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </SortableContext>
+                </DndContext>
               ) : (
                 /* ---------- フロー表示（ビジュアル） ---------- */
                 <FlowView
@@ -587,6 +757,112 @@ export default function ChatbotPage() {
                 キャンセル
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* テスト実行モーダル */}
+      {showTestModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-gray-900">テスト実行</h3>
+              <button
+                onClick={() => setShowTestModal(false)}
+                className="p-1 text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {testFinished ? (
+              /* シナリオ終了 */
+              <div className="text-center py-8">
+                <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-[#06C755]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <p className="text-base font-bold text-gray-900 mb-1">シナリオ終了</p>
+                <p className="text-sm text-gray-500">すべてのノードを通過しました</p>
+                <button
+                  onClick={() => setShowTestModal(false)}
+                  className="mt-6 px-6 py-2 text-sm font-medium text-white bg-[#06C755] hover:bg-[#05b34c] rounded-lg"
+                >
+                  閉じる
+                </button>
+              </div>
+            ) : testCurrentNode ? (
+              /* ノード表示 */
+              <div>
+                {/* ノードタイプバッジ */}
+                <div className="mb-3">
+                  <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${nodeTypeColor(testCurrentNode.node_type)}`}>
+                    {nodeTypeLabel(testCurrentNode.node_type)}
+                  </span>
+                </div>
+
+                {/* ノード内容表示 */}
+                <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                  {testCurrentNode.node_type === "message" && (
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                      {(testCurrentNode.data.text as string) || "(テキスト未設定)"}
+                    </p>
+                  )}
+                  {testCurrentNode.node_type === "question" && (
+                    <div>
+                      <p className="text-sm text-gray-800 whitespace-pre-wrap mb-3">
+                        {(testCurrentNode.data.question_text as string) || "(質問未設定)"}
+                      </p>
+                      {/* 選択肢ボタン */}
+                      {Array.isArray(testCurrentNode.data.buttons) && (
+                        <div className="space-y-2">
+                          {(testCurrentNode.data.buttons as Array<{ label: string; value: string; next_node_id?: string }>).map((btn, i) => (
+                            <button
+                              key={i}
+                              onClick={() => handleTestButtonClick(btn.next_node_id)}
+                              className="w-full px-4 py-2 text-sm text-left border border-[#06C755] text-[#06C755] rounded-lg hover:bg-green-50 transition-colors"
+                            >
+                              {btn.label || `選択肢${i + 1}`}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {testCurrentNode.node_type === "action" && (
+                    <p className="text-sm text-gray-800">
+                      アクション: {(testCurrentNode.data.action_type as string) || "(未設定)"}
+                      {testCurrentNode.data.tag_id ? ` (タグID: ${String(testCurrentNode.data.tag_id)})` : null}
+                      {testCurrentNode.data.api_url ? ` (URL: ${String(testCurrentNode.data.api_url)})` : null}
+                    </p>
+                  )}
+                  {testCurrentNode.node_type === "condition" && (
+                    <p className="text-sm text-gray-800">
+                      条件分岐: {Array.isArray(testCurrentNode.data.conditions)
+                        ? `${(testCurrentNode.data.conditions as unknown[]).length}件の条件`
+                        : "条件なし"}
+                    </p>
+                  )}
+                </div>
+
+                {/* questionノード以外は「次へ」ボタンを表示 */}
+                {testCurrentNode.node_type !== "question" && (
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleTestNext}
+                      className="px-4 py-2 text-sm font-medium text-white bg-[#06C755] hover:bg-[#05b34c] rounded-lg transition-colors"
+                    >
+                      {testCurrentNode.next_node_id ? "次へ" : "終了"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 text-center py-4">ノードが見つかりません</p>
+            )}
           </div>
         </div>
       )}

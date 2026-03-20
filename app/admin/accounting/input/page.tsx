@@ -171,7 +171,7 @@ function AccountingInputContent() {
   };
 
   // 月選択オプション生成（過去12ヶ月）
-  const monthOptions = [];
+  const monthOptions: Array<{ value: string; label: string }> = [];
   const now = new Date();
   for (let i = 0; i < 12; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);

@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import useSWR, { mutate } from "swr";
+
+// --- 定数 ---
+const PAGE_SIZE = 20;
 
 // --- 型定義 ---
 
@@ -58,10 +61,44 @@ function formatDate(s: string | null): string {
 export default function DedupPatientsPage() {
   const [minScore, setMinScore] = useState(70);
 
-  const swrKey = `/api/admin/dedup-patients?min_score=${minScore}`;
-  const { data: swrData, error: swrError, isLoading: loading } = useSWR<{ ok: boolean; candidates: DuplicateCandidate[]; message?: string; error?: string }>(swrKey);
-  const candidates = swrData?.ok ? (swrData.candidates ?? []) : [];
+  // --- ページネーション状態 ---
+  const [candidates, setCandidates] = useState<DuplicateCandidate[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // 初回取得用SWRキー（最初の20件）
+  const swrKey = `/api/admin/dedup-patients?min_score=${minScore}&limit=${PAGE_SIZE}&offset=0`;
+  const { data: swrData, error: swrError, isLoading: loading } = useSWR<{ ok: boolean; candidates: DuplicateCandidate[]; total?: number; message?: string; error?: string }>(swrKey);
+
+  // SWR onSuccessでsetState禁止 — useEffectで初回データを反映
+  useEffect(() => {
+    if (swrData?.ok) {
+      setCandidates(swrData.candidates ?? []);
+      setTotal(swrData.total ?? swrData.candidates?.length ?? 0);
+    }
+  }, [swrData]);
+
   const error = swrError ? "通信エラーが発生しました" : (swrData && !swrData.ok ? ((swrData.message || swrData.error) || "取得に失敗しました") : null);
+
+  // さらに読み込む（offset = 現在の候補数）
+  const loadMore = useCallback(async () => {
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/admin/dedup-patients?min_score=${minScore}&limit=${PAGE_SIZE}&offset=${candidates.length}`, {
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setCandidates((prev) => [...prev, ...(data.candidates ?? [])]);
+        setTotal(data.total ?? total);
+      }
+    } catch {
+      // エラーは無視（リトライ可能）
+    }
+    setLoadingMore(false);
+  }, [minScore, candidates.length, total]);
+
+  const hasMore = candidates.length < total;
 
   // 統合確認モーダル
   const [mergeModal, setMergeModal] = useState<{
@@ -75,7 +112,12 @@ export default function DedupPatientsPage() {
   // 無視処理中
   const [ignoringPair, setIgnoringPair] = useState<string | null>(null);
 
-  const fetchCandidates = () => mutate(swrKey);
+  // 検索ボタン押下時: SWRキャッシュを再検証＋候補リセット
+  const fetchCandidates = () => {
+    setCandidates([]);
+    setTotal(0);
+    mutate(swrKey);
+  };
 
   // 統合実行
   const handleMerge = async () => {
@@ -96,7 +138,17 @@ export default function DedupPatientsPage() {
       const data = await res.json();
       if (data.ok) {
         setMergeResult({ ok: true, message: data.message });
-        mutate(swrKey);
+        // 統合済みの候補をローカルから除去
+        const removeA = mergeModal.candidate.patientA.patient_id;
+        const removeB = mergeModal.candidate.patientB.patient_id;
+        setCandidates((prev) =>
+          prev.filter(
+            (c) =>
+              !(c.patientA.patient_id === removeA && c.patientB.patient_id === removeB) &&
+              !(c.patientA.patient_id === removeB && c.patientB.patient_id === removeA),
+          ),
+        );
+        setTotal((prev) => Math.max(prev - 1, 0));
         // モーダルを閉じる
         setTimeout(() => {
           setMergeModal(null);
@@ -128,7 +180,15 @@ export default function DedupPatientsPage() {
       });
       const data = await res.json();
       if (data.ok) {
-        mutate(swrKey);
+        // 無視した候補をローカルから除去
+        setCandidates((prev) =>
+          prev.filter(
+            (c) =>
+              !(c.patientA.patient_id === candidate.patientA.patient_id &&
+                c.patientB.patient_id === candidate.patientB.patient_id),
+          ),
+        );
+        setTotal((prev) => Math.max(prev - 1, 0));
       }
     } catch {
       // エラーは無視
@@ -178,9 +238,9 @@ export default function DedupPatientsPage() {
           >
             {loading ? "検索中..." : "検索"}
           </button>
-          {!loading && (
+          {!loading && total > 0 && (
             <span className="ml-auto text-sm text-gray-400">
-              {candidates.length}件の候補
+              {total}件の候補（{candidates.length}件表示中）
             </span>
           )}
         </div>
@@ -225,7 +285,7 @@ export default function DedupPatientsPage() {
 
             return (
               <div
-                key={idx}
+                key={`${candidate.patientA.patient_id}::${candidate.patientB.patient_id}::${idx}`}
                 className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden"
               >
                 {/* 確度ヘッダー */}
@@ -281,6 +341,19 @@ export default function DedupPatientsPage() {
               </div>
             );
           })}
+
+          {/* もっと見るボタン */}
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="px-6 py-2.5 bg-white border border-gray-200 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-sm"
+              >
+                {loadingMore ? "読み込み中..." : `さらに${Math.min(PAGE_SIZE, total - candidates.length)}件を表示`}
+              </button>
+            </div>
+          )}
         </div>
       )}
 

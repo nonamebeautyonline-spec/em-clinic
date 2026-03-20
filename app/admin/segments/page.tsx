@@ -17,10 +17,22 @@ interface PatientSegment {
   calculatedAt: string;
 }
 
-interface SegmentData {
-  segments: Record<SegmentType, PatientSegment[]>;
+// サマリーAPIのレスポンス型
+interface SummaryData {
   summary: Record<SegmentType, number>;
   total: number;
+}
+
+// 患者リストAPIのレスポンス型
+interface SegmentPatientsData {
+  segment: SegmentType;
+  patients: PatientSegment[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+  };
 }
 
 // ── セグメント表示設定 ──────────────────────────────────────────
@@ -75,6 +87,8 @@ const SEGMENT_CONFIG: {
   },
 ];
 
+const PAGE_SIZE = 20;
+
 // ── AIセグメント型定義 ──────────────────────────────────────────
 
 interface AIQueryPatient {
@@ -84,6 +98,7 @@ interface AIQueryPatient {
 
 export default function SegmentsPage() {
   const [activeTab, setActiveTab] = useState<SegmentType>("vip");
+  const [currentPage, setCurrentPage] = useState(1);
   const [recalculating, setRecalculating] = useState(false);
   const [recalcMessage, setRecalcMessage] = useState("");
 
@@ -97,11 +112,28 @@ export default function SegmentsPage() {
   const [aiError, setAiError] = useState("");
   const aiInputRef = useRef<HTMLTextAreaElement>(null);
 
-  // ── データ取得 ──────────────────────────────────────────
+  // ── サマリーデータ取得（件数のみ） ──────────────────────────────
+  const summaryKey = "/api/admin/segments";
+  const {
+    data: summaryData,
+    isLoading: summaryLoading,
+    error: summaryError,
+  } = useSWR<SummaryData>(summaryKey);
 
-  const segmentsKey = "/api/admin/segments";
-  const { data, isLoading: loading, error: swrError } = useSWR<SegmentData>(segmentsKey);
-  const error = swrError ? "セグメントデータの取得に失敗しました" : "";
+  // ── 患者リスト取得（タブ・ページに応じて動的にキー変更） ──────────
+  const patientsKey = `/api/admin/segments?segment=${activeTab}&page=${currentPage}&limit=${PAGE_SIZE}`;
+  const {
+    data: patientsData,
+    isLoading: patientsLoading,
+  } = useSWR<SegmentPatientsData>(patientsKey);
+
+  const error = summaryError ? "セグメントデータの取得に失敗しました" : "";
+
+  // ── タブ切替 ──────────────────────────────────────────
+  const handleTabChange = (tab: SegmentType) => {
+    setActiveTab(tab);
+    setCurrentPage(1); // タブ切替時はページを1にリセット
+  };
 
   // ── 再計算 ──────────────────────────────────────────
 
@@ -118,8 +150,9 @@ export default function SegmentsPage() {
       setRecalcMessage(
         `再計算完了: ${json.processed}名を処理しました`,
       );
-      // データを再読み込み
-      await mutate(segmentsKey);
+      // サマリーと現在の患者リストを再読み込み
+      await mutate(summaryKey);
+      await mutate(patientsKey);
     } catch (err) {
       setRecalcMessage("再計算に失敗しました");
       console.error("[segments] 再計算エラー:", err);
@@ -218,9 +251,47 @@ export default function SegmentsPage() {
     );
   };
 
+  // ── ページネーションコンポーネント ──────────────────────────────
+
+  const Pagination = () => {
+    const pagination = patientsData?.pagination;
+    if (!pagination || pagination.totalPages <= 1) return null;
+
+    const { page, totalCount, totalPages } = pagination;
+    const start = (page - 1) * PAGE_SIZE + 1;
+    const end = Math.min(page * PAGE_SIZE, totalCount);
+
+    return (
+      <div className="px-6 py-3 border-t border-gray-200 flex items-center justify-between">
+        <p className="text-sm text-gray-500">
+          {totalCount}件中 {start}〜{end}件を表示
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            前へ
+          </button>
+          <span className="text-sm text-gray-600">
+            {page} / {totalPages}
+          </span>
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            次へ
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // ── レンダリング ──────────────────────────────────────────
 
-  if (loading) {
+  if (summaryLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-gray-500">読み込み中...</div>
@@ -237,7 +308,8 @@ export default function SegmentsPage() {
   }
 
   const activeConfig = SEGMENT_CONFIG.find((c) => c.key === activeTab)!;
-  const activePatients = data?.segments[activeTab] || [];
+  const activePatients = patientsData?.patients || [];
+  const activeCount = summaryData?.summary[activeTab] || 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -249,7 +321,7 @@ export default function SegmentsPage() {
               患者セグメント
             </h1>
             <p className="mt-1 text-sm text-gray-500">
-              RFM分析に基づく患者の自動分類（合計: {data?.total || 0}名）
+              RFM分析に基づく患者の自動分類（合計: {summaryData?.total || 0}名）
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -269,15 +341,15 @@ export default function SegmentsPage() {
         {/* サマリーカード */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           {SEGMENT_CONFIG.map((config) => {
-            const count = data?.summary[config.key] || 0;
+            const count = summaryData?.summary[config.key] || 0;
             const percentage =
-              data?.total && data.total > 0
-                ? Math.round((count / data.total) * 100)
+              summaryData?.total && summaryData.total > 0
+                ? Math.round((count / summaryData.total) * 100)
                 : 0;
             return (
               <button
                 key={config.key}
-                onClick={() => setActiveTab(config.key)}
+                onClick={() => handleTabChange(config.key)}
                 className={`p-4 rounded-lg border-2 transition-all text-left ${
                   activeTab === config.key
                     ? "border-indigo-500 shadow-md"
@@ -476,7 +548,7 @@ export default function SegmentsPage() {
                 {activeConfig.label}
               </h2>
               <span className="text-sm text-gray-500">
-                ({activePatients.length}名)
+                ({activeCount}名)
               </span>
             </div>
             <p className="mt-1 text-sm text-gray-500">
@@ -484,7 +556,11 @@ export default function SegmentsPage() {
             </p>
           </div>
 
-          {activePatients.length === 0 ? (
+          {patientsLoading ? (
+            <div className="px-6 py-12 text-center text-gray-500">
+              <p>読み込み中...</p>
+            </div>
+          ) : activePatients.length === 0 ? (
             <div className="px-6 py-12 text-center text-gray-500">
               <p>該当する患者がいません</p>
               <p className="text-sm mt-1">
@@ -492,69 +568,73 @@ export default function SegmentsPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      患者ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      氏名
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      電話番号
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      RFMスコア
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      計算日時
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {activePatients.map((patient) => (
-                    <tr key={patient.patientId} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                        {patient.patientId}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {patient.name || "未登録"}
-                        {patient.nameKana && (
-                          <span className="ml-2 text-xs text-gray-400">
-                            {patient.nameKana}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {patient.tel || "-"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex gap-1">
-                          <RFMBadge label="R" value={patient.rfmScore.recency} />
-                          <RFMBadge
-                            label="F"
-                            value={patient.rfmScore.frequency}
-                          />
-                          <RFMBadge
-                            label="M"
-                            value={patient.rfmScore.monetary}
-                          />
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {patient.calculatedAt
-                          ? new Date(patient.calculatedAt).toLocaleString(
-                              "ja-JP",
-                            )
-                          : "-"}
-                      </td>
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        患者ID
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        氏名
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        電話番号
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        RFMスコア
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        計算日時
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {activePatients.map((patient) => (
+                      <tr key={patient.patientId} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
+                          {patient.patientId}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {patient.name || "未登録"}
+                          {patient.nameKana && (
+                            <span className="ml-2 text-xs text-gray-400">
+                              {patient.nameKana}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {patient.tel || "-"}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex gap-1">
+                            <RFMBadge label="R" value={patient.rfmScore.recency} />
+                            <RFMBadge
+                              label="F"
+                              value={patient.rfmScore.frequency}
+                            />
+                            <RFMBadge
+                              label="M"
+                              value={patient.rfmScore.monetary}
+                            />
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {patient.calculatedAt
+                            ? new Date(patient.calculatedAt).toLocaleString(
+                                "ja-JP",
+                              )
+                            : "-"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* ページネーションUI */}
+              <Pagination />
+            </>
           )}
         </div>
       </div>

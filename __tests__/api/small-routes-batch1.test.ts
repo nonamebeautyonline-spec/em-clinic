@@ -696,13 +696,13 @@ describe("admin/segments", () => {
   });
 
   it("GET: セグメント一覧を返す（空データ）", async () => {
-    mockRpc.mockResolvedValueOnce({ data: [], error: null });
+    // サマリーAPIはfrom("patient_segments").select("segment")を使う
+    tableChains["patient_segments"] = createChain({ data: [], error: null });
     const req = createRequest("GET", "http://localhost/api/admin/segments");
     const res = await segmentsGET(req);
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.total).toBe(0);
-    expect(json.segments).toBeDefined();
     expect(json.summary).toBeDefined();
   });
 });

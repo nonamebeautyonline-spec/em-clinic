@@ -53,7 +53,8 @@ export default function AdminViewMypagePage() {
   if (!data || error) {
     return (
       <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
-        <h1 style={{ marginBottom: "2rem" }}>管理者用：マイページデータ確認</h1>
+        <h1 style={{ marginBottom: "2rem" }}>デバッグ用：患者マイページデータ確認</h1>
+        <p style={{ color: "#666", fontSize: "0.875rem", marginBottom: "1rem" }}>患者IDを指定してマイページに表示されるデータを確認できます（読み取り専用）</p>
 
         <form onSubmit={handleSubmit} style={{ marginBottom: "2rem" }}>
           <div style={{ marginBottom: "1rem" }}>

@@ -7,12 +7,14 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   type DragStartEvent,
   type DragEndEvent,
   type DragOverEvent,
 } from "@dnd-kit/core";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { Breadcrumb } from "./_components/Breadcrumb";
 import { ContextMenu } from "./_components/ContextMenu";
@@ -344,6 +346,7 @@ export default function ProductsPage() {
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
   // ─── 矩形選択（マーキー） ───

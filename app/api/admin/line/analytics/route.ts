@@ -7,6 +7,10 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 
+// ページネーション・取得件数の定数
+const ANALYTICS_PAGE_SIZE = 5000;      // fetchAll のページサイズ
+const BROADCAST_STATS_LIMIT = 50;      // 配信別統計の取得上限
+
 // Supabaseクエリ結果用の型定義
 interface DailyStatRow {
   stat_date: string;
@@ -48,7 +52,7 @@ interface FetchAllResult<T> {
 }
 
 // ページネーション付きfetch
-async function fetchAll<T = Record<string, unknown>>(buildQuery: () => { range: (from: number, to: number) => Promise<{ data: T[] | null; error: { message: string } | null }> }, pageSize = 5000): Promise<FetchAllResult<T>> {
+async function fetchAll<T = Record<string, unknown>>(buildQuery: () => { range: (from: number, to: number) => Promise<{ data: T[] | null; error: { message: string } | null }> }, pageSize = ANALYTICS_PAGE_SIZE): Promise<FetchAllResult<T>> {
   const all: T[] = [];
   let offset = 0;
   for (;;) {
@@ -157,7 +161,7 @@ export async function GET(req: NextRequest) {
       .select("id, name, status, total_targets, sent_count, failed_count, no_uid_count, sent_at, created_at")
       .in("status", ["sent", "sending"])
       .order("created_at", { ascending: false })
-      .limit(50),
+      .limit(BROADCAST_STATS_LIMIT),
     tenantId
   );
 

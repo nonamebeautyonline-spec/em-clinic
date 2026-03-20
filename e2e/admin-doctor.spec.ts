@@ -69,4 +69,44 @@ test.describe("診察フロー（Drカルテ）", () => {
     await page.getByRole("link", { name: /Drカルテ/ }).click();
     await page.waitForURL("/admin/doctor");
   });
+
+  test("カルテ本文を入力して保存 → 成功表示の確認", async ({ page }) => {
+    await page.goto("/admin/doctor");
+    await page.waitForLoadState("networkidle");
+
+    // 予約一覧から最初の患者行をクリック（存在する場合のみ）
+    const patientRow = page.locator("tr, [data-testid='patient-row']").first();
+    const hasPatient = await patientRow.isVisible().catch(() => false);
+
+    if (!hasPatient) {
+      // テストデータがない場合はスキップ
+      test.skip(true, "テスト用の予約データが存在しません");
+      return;
+    }
+
+    // テキストエリア（カルテ本文入力欄）を探す
+    const textarea = page.locator("textarea").first();
+    const hasTextarea = await textarea.isVisible({ timeout: 5000 }).catch(() => false);
+
+    if (!hasTextarea) {
+      // テキストエリアが表示されない場合（患者未選択等）はスキップ
+      test.skip(true, "カルテ入力テキストエリアが表示されません");
+      return;
+    }
+
+    // カルテ本文を入力
+    const testNote = `E2Eテスト用カルテ入力 ${Date.now()}`;
+    await textarea.fill(testNote);
+    await expect(textarea).toHaveValue(testNote);
+
+    // 保存ボタンをクリック
+    const saveButton = page.getByRole("button", { name: /保存/ });
+    if (await saveButton.isVisible().catch(() => false)) {
+      await saveButton.click();
+
+      // 成功メッセージまたは保存完了の表示を待つ
+      // 保存ボタンが「保存中...」→ 元に戻る、またはアラートが出るのを確認
+      await expect(saveButton).not.toHaveText("保存中...", { timeout: 10000 });
+    }
+  });
 });

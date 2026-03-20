@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import useSWR, { mutate } from "swr";
 import BroadcastCalendar from "../_components/BroadcastCalendar";
 
@@ -41,6 +41,15 @@ export default function BroadcastsPage() {
   const [confirmAction, setConfirmAction] = useState<{ id: number; action: "pause" | "resume" } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // エラー通知用トースト
+  const [actionError, setActionError] = useState<string | null>(null);
+  useEffect(() => {
+    if (actionError) {
+      const t = setTimeout(() => setActionError(null), 5000);
+      return () => clearTimeout(t);
+    }
+  }, [actionError]);
+
   const formatDate = (s: string) => {
     const d = new Date(s);
     return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -65,7 +74,7 @@ export default function BroadcastsPage() {
         mutate(BROADCASTS_SWR_KEY);
       }
     } catch {
-      // エラー時は何もしない（UIが元の状態のまま）
+      setActionError("操作に失敗しました。時間をおいて再度お試しください。");
     } finally {
       setActionLoading(false);
       setConfirmAction(null);
@@ -74,6 +83,13 @@ export default function BroadcastsPage() {
 
   return (
     <div className="min-h-full bg-gray-50/50">
+      {/* エラートースト */}
+      {actionError && (
+        <div className="fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg bg-red-600 text-white text-sm font-medium">
+          {actionError}
+        </div>
+      )}
+
       {/* ヘッダー */}
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">

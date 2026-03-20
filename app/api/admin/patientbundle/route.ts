@@ -20,8 +20,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, message: "missing_patientId" }, { status: 400 });
     }
 
-    // 5テーブル並列取得（intake正規化: patient_name/line_id→patients、reserved_date/time/prescription_menu→reservations）
-    const [answererRes, intakeRes, reservationsRes, ordersRes, reordersRes] = await Promise.all([
+    // 5テーブル並列取得（1つが失敗しても他のデータは返す）
+    const tableNames = ["patients", "intake", "reservations", "orders", "reorders"] as const;
+    const [answererRes, intakeRes, reservationsRes, ordersRes, reordersRes] = await Promise.allSettled([
       strictWithTenant(
         supabaseAdmin
           .from("patients")
@@ -69,11 +70,19 @@ export async function GET(req: NextRequest) {
       ),
     ]);
 
-    const answerer = answererRes.data;
-    const intakes = intakeRes.data || [];
-    const reservations = reservationsRes.data || [];
-    const orders = ordersRes.data || [];
-    const reorders = reordersRes.data || [];
+    // 各テーブルの結果を安全に取り出す（失敗時はフォールバック + 警告ログ）
+    const settled = [answererRes, intakeRes, reservationsRes, ordersRes, reordersRes];
+    settled.forEach((result, i) => {
+      if (result.status === "rejected") {
+        console.warn(`[patientbundle] ${tableNames[i]} テーブル取得失敗 (patientId=${patientId}):`, result.reason);
+      }
+    });
+
+    const answerer = answererRes.status === "fulfilled" ? answererRes.value.data : null;
+    const intakes = (intakeRes.status === "fulfilled" ? intakeRes.value.data : null) || [];
+    const reservations = (reservationsRes.status === "fulfilled" ? reservationsRes.value.data : null) || [];
+    const orders = (ordersRes.status === "fulfilled" ? ordersRes.value.data : null) || [];
+    const reorders = (reordersRes.status === "fulfilled" ? reordersRes.value.data : null) || [];
 
     // reserve_id → reservation のマップ
     const resMap = new Map(reservations.map((r) => [r.reserve_id, r]));

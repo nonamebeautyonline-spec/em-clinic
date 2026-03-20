@@ -14,106 +14,19 @@ const swrFetcher = (url: string) =>
   });
 
 
-type ProductCode =
-  | "MJL_2.5mg_1m"
-  | "MJL_2.5mg_2m"
-  | "MJL_2.5mg_3m"
-  | "MJL_5mg_1m"
-  | "MJL_5mg_2m"
-  | "MJL_5mg_3m"
-  | "MJL_7.5mg_1m"
-  | "MJL_7.5mg_2m"
-  | "MJL_7.5mg_3m";
-
 type Mode = "current" | "first" | "reorder";
 
+// 商品マスタから取得する商品型（productsテーブル準拠）
 type Product = {
-  code: ProductCode;
+  code: string;
   title: string;
-  mg: "2.5mg" | "5mg" | "7.5mg";
-  months: 1 | 2 | 3;
-  shots: number;
+  dosage: string | null;
+  duration_months: number | null;
+  quantity: number | null;
   price: number;
-  recommended?: boolean;
+  discount_price: number | null;
+  discount_until: string | null;
 };
-
-const PRODUCTS: Product[] = [
-  // 2.5mg
-  {
-    code: "MJL_2.5mg_1m",
-    title: "マンジャロ 2.5mg 1ヶ月",
-    mg: "2.5mg",
-    months: 1,
-    shots: 4,
-    price: 13000,
-  },
-  {
-    code: "MJL_2.5mg_2m",
-    title: "マンジャロ 2.5mg 2ヶ月",
-    mg: "2.5mg",
-    months: 2,
-    shots: 8,
-    price: 25500,
-  },
-  {
-    code: "MJL_2.5mg_3m",
-    title: "マンジャロ 2.5mg 3ヶ月",
-    mg: "2.5mg",
-    months: 3,
-    shots: 12,
-    price: 35000,
-  },
-  // 5mg
-  {
-    code: "MJL_5mg_1m",
-    title: "マンジャロ 5mg 1ヶ月",
-    mg: "5mg",
-    months: 1,
-    shots: 4,
-    price: 22850,
-  },
-  {
-    code: "MJL_5mg_2m",
-    title: "マンジャロ 5mg 2ヶ月",
-    mg: "5mg",
-    months: 2,
-    shots: 8,
-    price: 45500,
-  },
-  {
-    code: "MJL_5mg_3m",
-    title: "マンジャロ 5mg 3ヶ月",
-    mg: "5mg",
-    months: 3,
-    shots: 12,
-    price: 63000,
-  },
-  // 7.5mg
-  {
-    code: "MJL_7.5mg_1m",
-    title: "マンジャロ 7.5mg 1ヶ月",
-    mg: "7.5mg",
-    months: 1,
-    shots: 4,
-    price: 34000,
-  },
-  {
-    code: "MJL_7.5mg_2m",
-    title: "マンジャロ 7.5mg 2ヶ月",
-    mg: "7.5mg",
-    months: 2,
-    shots: 8,
-    price: 65000,
-  },
-  {
-    code: "MJL_7.5mg_3m",
-    title: "マンジャロ 7.5mg 3ヶ月",
-    mg: "7.5mg",
-    months: 3,
-    shots: 12,
-    price: 96000,
-  },
-];
 
 type SdkConfig = {
   enabled: boolean;
@@ -279,13 +192,40 @@ function PurchaseConfirmContent() {
     if (card.hasCard) setPaymentMode("saved_card");
   }, [savedCardData, savedCardError]);
 
-  const codeParam = searchParams.get("code") as ProductCode | null;
+  // 商品マスタをAPIから取得
+  const { data: productsData, error: productsError } = useSWR("/api/mypage/products", swrFetcher, {
+    revalidateOnFocus: false,
+  });
+
+  const products = useMemo<Product[]>(() => {
+    if (!productsData?.products) return [];
+    return productsData.products as Product[];
+  }, [productsData]);
+
+  // 商品マスタ取得エラー時のメッセージ
+  useEffect(() => {
+    if (productsError) {
+      setError("商品情報の取得に失敗しました。通信環境をご確認ください。");
+    }
+  }, [productsError]);
+
+  const codeParam = searchParams.get("code");
   const modeParam = searchParams.get("mode") as Mode | null;
 
   const product = useMemo(
-    () => (codeParam ? PRODUCTS.find((p) => p.code === codeParam) ?? null : null),
-    [codeParam],
+    () => (codeParam ? products.find((p) => p.code === codeParam) ?? null : null),
+    [codeParam, products],
   );
+
+  // 割引価格が有効期間内であれば適用した実効価格を算出
+  const effectivePrice = useMemo(() => {
+    if (!product) return 0;
+    if (product.discount_price != null && product.discount_until) {
+      const until = new Date(product.discount_until);
+      if (until > new Date()) return product.discount_price;
+    }
+    return product.price;
+  }, [product]);
 
   const isValidMode =
     modeParam === "current" || modeParam === "first" || modeParam === "reorder";
@@ -399,6 +339,23 @@ function PurchaseConfirmContent() {
 
   const handleCardFormError = useCallback((msg: string) => setError(msg), []);
 
+  // 商品データ読み込み中はスケルトン表示
+  if (!productsData && !productsError) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="mx-auto max-w-md px-4 py-6 space-y-4">
+          <div className="h-5 w-40 bg-slate-200 rounded animate-pulse" />
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 space-y-3">
+            <div className="h-4 w-48 bg-slate-200 rounded animate-pulse" />
+            <div className="h-3 w-32 bg-slate-100 rounded animate-pulse" />
+            <div className="h-6 w-24 bg-slate-200 rounded animate-pulse ml-auto" />
+          </div>
+          <div className="h-10 w-full bg-slate-200 rounded-full animate-pulse" />
+        </div>
+      </div>
+    );
+  }
+
   if (!codeParam || !product || !modeParam || !isValidMode) {
     return (
       <div className="min-h-screen bg-slate-50">
@@ -447,13 +404,13 @@ function PurchaseConfirmContent() {
                 <span className="text-xs font-semibold text-slate-900">{product.title}</span>
               </div>
               <p className="mt-1 text-[11px] text-slate-600">
-                {product.mg}/{product.months}ヶ月分（全{product.shots}本）/週1回
+                {product.dosage && `${product.dosage}/`}{product.duration_months && `${product.duration_months}ヶ月分`}{product.quantity && `（全${product.quantity}本）`}/週1回
               </p>
             </div>
             <div className="text-right whitespace-nowrap">
               <div className="text-[11px] text-slate-400">お支払い金額</div>
               <div className="text-lg font-semibold text-slate-900">
-                ¥{product.price.toLocaleString()}
+                ¥{effectivePrice.toLocaleString()}
               </div>
               <div className="mt-0.5 text-[10px] text-slate-400">税込/送料込み</div>
             </div>
@@ -735,7 +692,7 @@ function PurchaseConfirmContent() {
                   submitting={submitting}
                   threeDsEnabled={sdkConfig.threeDsEnabled}
                   verificationDetails={product ? {
-                    amount: String(product.price),
+                    amount: String(effectivePrice),
                     currencyCode: "JPY",
                     intent: "CHARGE",
                     billingContact: {

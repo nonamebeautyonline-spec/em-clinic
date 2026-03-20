@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ checkoutUrl: result.checkoutUrl });
   } catch (err) {
-    console.error("Checkout API error:", err);
-    return serverError("決済リンクの作成中にエラーが発生しました。時間をおいて再度お試しください。",);
+    console.error("[checkout] error:", err instanceof Error ? err.message : err);
+    return serverError("決済リンクの作成中にエラーが発生しました。時間をおいて再度お試しください。");
   }
 }

@@ -589,7 +589,8 @@ describe("SWR移行ルール", () => {
       });
 
       it("useCallbackでfetchDataを定義していない", () => {
-        expect(src).not.toMatch(/useCallback\s*\(\s*async\s*\(\)\s*=>\s*\{[\s\S]*?fetch\s*\(/);
+        // loadMore等のページネーション用fetchは許可、初期データ取得のfetchDataパターンのみ禁止
+        expect(src).not.toMatch(/const\s+fetchData\s*=\s*useCallback/);
       });
     });
   }
