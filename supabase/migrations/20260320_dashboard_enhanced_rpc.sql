@@ -315,14 +315,15 @@ BEGIN
     );
   v_prev_period_patient_ids := COALESCE(v_prev_period_patient_ids, ARRAY[]::text[]);
 
-  -- 20. 不通（call_status = no_answer / no_answer_sent、診察済みを除く）
-  SELECT array_agg(patient_id) INTO v_no_answer_ids
-  FROM reservations
-  WHERE tenant_id = p_tenant_id
-    AND reserved_date >= p_reservation_start_date
-    AND reserved_date < p_reservation_end_date
-    AND call_status IN ('no_answer', 'no_answer_sent')
-    AND status NOT IN ('OK', 'NG', 'canceled');
+  -- 20. 不通（intake.call_status = no_answer / no_answer_sent、診察済みを除く）
+  SELECT array_agg(r.patient_id) INTO v_no_answer_ids
+  FROM reservations r
+  JOIN intake i ON i.reserve_id = r.reserve_id AND i.tenant_id = p_tenant_id
+  WHERE r.tenant_id = p_tenant_id
+    AND r.reserved_date >= p_reservation_start_date
+    AND r.reserved_date < p_reservation_end_date
+    AND i.call_status IN ('no_answer', 'no_answer_sent')
+    AND r.status NOT IN ('OK', 'NG', 'canceled');
   v_no_answer_ids := COALESCE(v_no_answer_ids, ARRAY[]::text[]);
   v_no_answer_count := COALESCE(array_length(v_no_answer_ids, 1), 0);
 
