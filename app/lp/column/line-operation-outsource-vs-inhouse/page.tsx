@@ -4,7 +4,7 @@ import { articles } from "../articles";
 import ArticleLayout, { InlineCTA, Callout, StatGrid, ResultCard, BarChart, FlowSteps, ComparisonTable } from "../_components/article-layout";
 
 const SITE_URL = "https://l-ope.jp";
-const self = articles[18];
+const self = articles.find((a) => a.slug === "line-operation-outsource-vs-inhouse")!;
 
 export const metadata: Metadata = {
   title: self.title,

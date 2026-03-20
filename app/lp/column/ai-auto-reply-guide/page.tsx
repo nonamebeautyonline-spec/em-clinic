@@ -4,7 +4,7 @@ import { articles } from "../articles";
 import ArticleLayout, { InlineCTA, Callout, StatGrid, ResultCard, FlowSteps, BarChart, ComparisonTable, DonutChart } from "../_components/article-layout";
 
 const SITE_URL = "https://l-ope.jp";
-const self = articles[14];
+const self = articles.find((a) => a.slug === "ai-auto-reply-guide")!;
 
 export const metadata: Metadata = {
   title: self.title,

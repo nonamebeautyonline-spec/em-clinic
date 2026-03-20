@@ -20,7 +20,7 @@ export default function Hero() {
             </FadeIn>
             <TextReveal>
               <h1 className="mb-6 text-[2.2rem] font-extrabold leading-[1.25] tracking-tight md:text-5xl lg:text-[3.2rem]">
-                LINE公式アカウントで<br /><span className="bg-gradient-to-r from-blue-600 to-sky-500 bg-clip-text text-transparent">クリニック業務</span>を<br />まるごとDX化
+                <span className="bg-gradient-to-r from-blue-600 to-sky-500 bg-clip-text text-transparent">Lオペ for CLINIC</span><br />LINE公式アカウントで<br />クリニック業務をまるごとDX化
               </h1>
             </TextReveal>
             <FadeIn delay={0.2}>

@@ -4,7 +4,7 @@ import { articles } from "../articles";
 import ArticleLayout, { InlineCTA, Callout, StatGrid, ComparisonTable, FlowSteps, ResultCard, BarChart, DonutChart } from "../_components/article-layout";
 
 const SITE_URL = "https://l-ope.jp";
-const self = articles[7];
+const self = articles.find((a) => a.slug === "online-medical-line")!;
 
 export const metadata: Metadata = {
   title: self.title,

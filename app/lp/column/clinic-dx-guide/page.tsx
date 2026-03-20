@@ -11,7 +11,7 @@ import ArticleLayout, {
 } from "../_components/article-layout";
 
 const SITE_URL = "https://l-ope.jp";
-const self = articles[2];
+const self = articles.find((a) => a.slug === "clinic-dx-guide")!;
 
 export const metadata: Metadata = {
   title: self.title,

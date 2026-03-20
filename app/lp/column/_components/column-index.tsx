@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { articles } from "../articles";
-import { categories } from "../categories";
+import { categories, getArticlesByCategory } from "../categories";
 import ArticleThumbnail from "./article-thumbnail";
 
 /* ─── カテゴリ設定 ─── */
@@ -86,6 +86,28 @@ export default function ColumnIndex() {
           <p className="mt-3 max-w-2xl text-[16px] leading-relaxed text-gray-500">
             クリニックのLINE公式アカウント活用・DX推進に役立つ情報を発信しています
           </p>
+        </div>
+      </div>
+
+      {/* カテゴリ別ピラー導線 */}
+      <div className="border-b border-gray-200 bg-white px-6 py-6">
+        <div className="mx-auto max-w-7xl">
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {categories.map((cat) => {
+              const count = getArticlesByCategory(cat).length;
+              return (
+                <Link
+                  key={cat.slug}
+                  href={`/lp/column/category/${cat.slug}`}
+                  className="group rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 transition hover:border-blue-200 hover:bg-blue-50"
+                >
+                  <p className="text-[14px] font-bold text-gray-800 group-hover:text-blue-700 transition">{cat.label}</p>
+                  <p className="mt-1 text-[11px] text-gray-400 line-clamp-2">{cat.description.slice(0, 40)}...</p>
+                  <p className="mt-1.5 text-[11px] font-semibold text-blue-500">{count}件の記事</p>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       </div>
 

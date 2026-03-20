@@ -12,7 +12,7 @@ import ArticleLayout, {
 } from "../_components/article-layout";
 
 const SITE_URL = "https://l-ope.jp";
-const self = articles[4];
+const self = articles.find((a) => a.slug === "segment-delivery-repeat")!;
 
 export const metadata: Metadata = {
   title: self.title,

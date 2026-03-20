@@ -5,7 +5,7 @@ import { categories } from "./lp/column/categories";
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = "https://l-ope.jp";
 
-  const today = new Date("2026-03-18");
+  const today = new Date();
 
   return [
     {
@@ -46,7 +46,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     })),
     ...articles.map((a) => ({
       url: `${baseUrl}/lp/column/${a.slug}`,
-      lastModified: new Date(a.date),
+      lastModified: new Date(a.updatedDate || a.date),
       changeFrequency: "monthly" as const,
       priority: 0.7,
     })),

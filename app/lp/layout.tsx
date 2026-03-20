@@ -9,6 +9,13 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
+  robots: {
+    index: true,
+    follow: true,
+    "max-image-preview": "large",
+    "max-snippet": -1,
+    "max-video-preview": -1,
+  },
   keywords: [
     /* ブランド */
     "Lオペ", "Lオペ for CLINIC", "L-OPE",

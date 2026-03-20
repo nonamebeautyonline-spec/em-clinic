@@ -11,7 +11,7 @@ import ArticleLayout, {
 } from "../_components/article-layout";
 
 const SITE_URL = "https://l-ope.jp";
-const self = articles[1];
+const self = articles.find((a) => a.slug === "lstep-vs-clinic-tool")!;
 
 export const metadata: Metadata = {
   title: self.title,

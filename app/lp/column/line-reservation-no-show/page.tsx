@@ -12,7 +12,7 @@ import ArticleLayout, {
 } from "../_components/article-layout";
 
 const SITE_URL = "https://l-ope.jp";
-const self = articles[3];
+const self = articles.find((a) => a.slug === "line-reservation-no-show")!;
 
 export const metadata: Metadata = {
   title: self.title,
