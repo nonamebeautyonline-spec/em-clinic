@@ -34,6 +34,24 @@ export default function Nav() {
           <a href="/lp/contact" className="mt-2 block rounded-lg bg-blue-600 py-3 text-center text-sm font-bold text-white" onClick={() => setOpen(false)}>お問い合わせ</a>
         </div>
       )}
+      {/* モバイル用クイックリンクバー */}
+      <div className="flex items-center gap-1 overflow-x-auto border-t border-slate-100/60 bg-white/90 px-4 py-1.5 md:hidden" style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}>
+        {links.map((l) => (
+          <a
+            key={l.href}
+            href={l.href}
+            className="shrink-0 rounded-full bg-slate-50 px-3.5 py-1.5 text-[12px] font-medium text-slate-600 transition active:bg-blue-50 active:text-blue-600"
+          >
+            {l.label}
+          </a>
+        ))}
+        <a
+          href="/lp/contact"
+          className="shrink-0 rounded-full bg-blue-600 px-3.5 py-1.5 text-[12px] font-bold text-white"
+        >
+          お問い合わせ
+        </a>
+      </div>
     </nav>
   );
 }
