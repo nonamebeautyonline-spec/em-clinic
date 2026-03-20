@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { patientNameChangeSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -117,6 +118,7 @@ export async function POST(req: NextRequest) {
       results
     );
 
+    logAudit(req, "patient.name_change", "patient", String(patientId));
     return NextResponse.json({ ok: true, results, previous });
   } catch (err) {
     console.error("POST /api/admin/patient-name-change error", err);

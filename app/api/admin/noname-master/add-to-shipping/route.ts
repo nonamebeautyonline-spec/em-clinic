@@ -3,6 +3,7 @@ import { serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { parseBody } from "@/lib/validations/helpers";
 import { addToShippingSchema } from "@/lib/validations/shipping";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,6 +21,7 @@ export async function POST(req: NextRequest) {
     // shipping_list_created_atはCSV出力時のみ設定
     console.log(`[AddToShipping] ✅ Order ${order_id} marked for today's shipping (no DB update needed)`);
 
+    logAudit(req, "shipping.add", "order", String(order_id));
     return NextResponse.json({
       success: true,
       order: { id: order_id },

@@ -4,6 +4,7 @@ import { serverError, unauthorized, notFound } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -43,5 +44,6 @@ export async function POST(req: NextRequest) {
   if (insertError)
     return serverError(insertError.message);
 
+  logAudit(req, "intake_form.duplicate", "intake_form", "unknown");
   return NextResponse.json({ ok: true, template: inserted });
 }

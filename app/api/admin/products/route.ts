@@ -8,6 +8,7 @@ import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/t
 import { checkInventoryAlerts } from "@/lib/inventory-alert";
 import { parseBody } from "@/lib/validations/helpers";
 import { productCreateSchema, productUpdateSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -127,5 +128,6 @@ export async function DELETE(req: NextRequest) {
     return serverError(error.message);
   }
 
+  logAudit(req, "product.delete", "product", String(id));
   return NextResponse.json({ success: true });
 }

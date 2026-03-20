@@ -8,6 +8,7 @@ import { resolveTargets } from "../route";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { abTestSchema } from "@/lib/validations/line-broadcast";
+import { logAudit } from "@/lib/audit";
 
 // A/Bテスト配信実行
 export async function POST(req: NextRequest) {
@@ -173,6 +174,7 @@ export async function POST(req: NextRequest) {
     ),
   ]);
 
+  logAudit(req, "broadcast.ab_test", "broadcast", "ab_test");
   return NextResponse.json({
     ok: true,
     test_name: testName,

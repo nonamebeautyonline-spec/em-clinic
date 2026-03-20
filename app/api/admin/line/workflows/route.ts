@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createWorkflowSchema } from "@/lib/validations/line-common";
+import { logAudit } from "@/lib/audit";
 
 /**
  * GET: ワークフロー一覧取得（ステップ数・実行回数含む）
@@ -95,5 +96,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  logAudit(req, "workflow.create", "workflow", String(workflow.id));
   return NextResponse.json({ ok: true, workflow });
 }

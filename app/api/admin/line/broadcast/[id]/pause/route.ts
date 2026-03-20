@@ -4,6 +4,7 @@ import { serverError, unauthorized, badRequest, notFound } from "@/lib/api-error
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 // PATCH /api/admin/line/broadcast/[id]/pause
 // scheduled → paused に遷移
@@ -49,5 +50,6 @@ export async function PATCH(
 
   if (updateError) return serverError(updateError.message);
 
+  logAudit(req, "broadcast.update", "broadcast", String(id));
   return NextResponse.json({ ok: true, status: "paused" });
 }

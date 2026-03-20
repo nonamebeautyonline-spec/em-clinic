@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { karteLockSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
     if (error)
       return serverError(error.message);
 
+    logAudit(req, "karte.lock", "karte", "unknown");
     return NextResponse.json({ ok: true, locked: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);

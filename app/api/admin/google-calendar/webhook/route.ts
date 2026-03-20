@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { strictWithTenant } from "@/lib/tenant";
 import { processGcalChanges } from "@/lib/google-calendar-sync";
+import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,6 +49,7 @@ export async function POST(req: NextRequest) {
       `[gcal-webhook] 処理完了: processed=${result.processed}, errors=${result.errors}`
     );
 
+    logAudit(req, "google_calendar.create", "google_calendar", "unknown");
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     console.error("[gcal-webhook] エラー:", err);

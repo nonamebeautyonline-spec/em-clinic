@@ -5,6 +5,7 @@ import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 // フローグラフの型定義
 interface FlowNodeData {
@@ -243,6 +244,7 @@ export async function PUT(req: NextRequest) {
     tenantId
   );
 
+  logAudit(req, "flow.update", "flow", String(scenario_id));
   return NextResponse.json({ ok: true, step_count: steps.length });
 }
 

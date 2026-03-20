@@ -5,6 +5,7 @@ import { resolveTenantIdOrThrow, tenantPayload } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
 import { unauthorized, forbidden, badRequest, serverError } from "@/lib/api-error";
 import { isFullAccessRole, ALL_MENU_KEYS } from "@/lib/menu-permissions";
+import { logAudit } from "@/lib/audit";
 
 // 更新可能なロール
 const EDITABLE_ROLES = ["editor", "viewer"] as const;
@@ -113,6 +114,7 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    logAudit(request, "role_permission.update", "role_permission", "unknown");
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[role-permissions PUT] unexpected:", err);

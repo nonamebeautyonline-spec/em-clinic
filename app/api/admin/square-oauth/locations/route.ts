@@ -6,6 +6,7 @@ import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { getSetting, setSetting } from "@/lib/settings";
 import { fetchSquareLocations } from "@/lib/square-oauth";
 import type { SquareAccount } from "@/lib/square-account";
+import { logAudit } from "@/lib/audit";
 
 /** GET: アカウントのロケーション一覧を取得 */
 export async function GET(req: NextRequest) {
@@ -65,6 +66,7 @@ export async function PUT(req: NextRequest) {
     accounts[idx].location_id = locationId.trim();
     await setSetting("square", "accounts", JSON.stringify(accounts), tenantId);
 
+    logAudit(req, "square_oauth.select_location", "square_oauth", String(accountId));
     return NextResponse.json({ success: true, locationId: accounts[idx].location_id });
   } catch (error) {
     console.error("[Square OAuth Locations PUT] エラー:", error);

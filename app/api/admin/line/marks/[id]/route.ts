@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createMarkSchema } from "@/lib/validations/line-common";
+import { logAudit } from "@/lib/audit";
 
 async function fetchAll(buildQuery: () => { range: (from: number, to: number) => Promise<{ data: Record<string, unknown>[] | null; error: { message: string } | null }> }, pageSize = 5000) {
   const all: Record<string, unknown>[] = [];
@@ -108,6 +109,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   ).select().single();
 
   if (error) return serverError(error.message);
+  logAudit(req, "mark.update", "mark", String(id));
   return NextResponse.json({ mark: data });
 }
 
@@ -141,5 +143,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   );
 
   if (error) return serverError(error.message);
+  logAudit(req, "mark.delete", "mark", String(id));
   return NextResponse.json({ ok: true });
 }

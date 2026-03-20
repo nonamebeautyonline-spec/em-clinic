@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 const BUCKET = "line-images";
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
@@ -85,5 +86,6 @@ export async function POST(req: NextRequest) {
     direction: "outgoing",
   }).select("id, sent_at").single();
 
+  logAudit(req, "message.send_image", "message", "unknown");
   return NextResponse.json({ ok: status === "sent", status, imageUrl, messageId: imgLog?.id, sentAt: imgLog?.sent_at });
 }

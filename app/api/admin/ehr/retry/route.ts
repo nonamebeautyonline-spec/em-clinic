@@ -7,6 +7,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { parseBody } from "@/lib/validations/helpers";
 import { ehrRetrySchema, ehrBulkRetrySchema, ehrLogsQuerySchema } from "@/lib/validations/ehr";
 import { createAdapter, pushPatient, pullPatient, pushKarte, pullKarte } from "@/lib/ehr/sync";
+import { logAudit } from "@/lib/audit";
 
 /**
  * POST: 失敗した同期ジョブをリトライ
@@ -159,6 +160,7 @@ export async function POST(req: NextRequest) {
       skipped: results.filter((r) => r.status === "skipped").length,
     };
 
+    logAudit(req, "ehr.retry", "ehr", "retry");
     return NextResponse.json({ ok: true, summary, results });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "リトライ処理に失敗しました";

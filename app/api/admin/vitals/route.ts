@@ -6,6 +6,7 @@ import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/t
 import { parseBody } from "@/lib/validations/helpers";
 import { vitalCreateSchema } from "@/lib/validations/vitals";
 import { unauthorized, badRequest, serverError } from "@/lib/api-error";
+import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -95,6 +96,7 @@ export async function POST(req: NextRequest) {
       return serverError(error.message);
     }
 
+    logAudit(req, "vital.create", "vital", "unknown");
     return NextResponse.json({ ok: true, vital: data });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);

@@ -5,6 +5,7 @@ import * as iconv from "iconv-lite";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { parseBody } from "@/lib/validations/helpers";
 import { reminderCsvSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`[ReminderCSV] Generated CSV: ${filename}, ${reminders.length} rows (Shift-JIS)`);
 
+    logAudit(req, "reminder.export_csv", "reservation", "export");
     return new NextResponse(uint8Array, {
       status: 200,
       headers: {

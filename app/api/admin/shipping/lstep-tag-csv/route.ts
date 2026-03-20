@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { lstepTagCsvSchema } from "@/lib/validations/shipping";
+import { logAudit } from "@/lib/audit";
 
 const TAG_ATTR_ID = "9217653"; // タグID（GASと同じ）
 
@@ -53,6 +54,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`[LstepTagCSV] Generated CSV for ${uniqueIds.length} IDs (Shift-JIS)`);
 
+    logAudit(req, "shipping.export_lstep_tags", "shipping", "export");
     return new NextResponse(uint8Array, {
       status: 200,
       headers: {

@@ -4,6 +4,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 // 有効なトリガータイプ
 const VALID_TRIGGER_TYPES = ["birthday", "first_purchase_days", "nth_visit", "tag_added"] as const;
@@ -94,5 +95,6 @@ export async function POST(req: NextRequest) {
 
   if (error) return serverError(error.message);
 
+  logAudit(req, "coupon_rule.create", "coupon_distribution_rule", rule?.id || "unknown");
   return NextResponse.json({ ok: true, rule });
 }

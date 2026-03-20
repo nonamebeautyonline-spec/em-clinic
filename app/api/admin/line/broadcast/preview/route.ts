@@ -5,6 +5,7 @@ import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { resolveTargets } from "../route";
 import { parseBody } from "@/lib/validations/helpers";
 import { broadcastPreviewSchema } from "@/lib/validations/line-broadcast";
+import { logAudit } from "@/lib/audit";
 
 // フィルタ条件で対象者プレビュー
 export async function POST(req: NextRequest) {
@@ -22,6 +23,7 @@ export async function POST(req: NextRequest) {
   const withUid = targets.filter(t => !!t.line_id);
   const withoutUid = targets.filter(t => !t.line_id);
 
+  logAudit(req, "broadcast.preview", "broadcast", "preview");
   return NextResponse.json({
     total: targets.length,
     sendable: withUid.length,

@@ -6,6 +6,7 @@ import { evaluateMenuRules } from "@/lib/menu-auto-rules";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { patientMarkUpdateSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 // 対応マーク取得
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -68,5 +69,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (error) return serverError(error.message);
   // メニュー自動切替ルール評価（非同期・失敗無視）
   evaluateMenuRules(id, tenantId ?? undefined).catch(() => {});
+  logAudit(req, "patient_mark.update", "patient", String(id));
   return NextResponse.json({ ok: true });
 }

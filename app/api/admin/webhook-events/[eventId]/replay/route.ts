@@ -4,6 +4,7 @@ import { unauthorized, serverError } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { replayWebhookEvent } from "@/lib/webhook-replay";
+import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export async function POST(
     const result = await replayWebhookEvent(eventIdNum, tenantId);
 
     if (result.success) {
+      logAudit(req, "webhook_event.replay", "webhook_event", String(eventId));
       return NextResponse.json({ ok: true, message: "リプレイ成功" });
     } else {
       return NextResponse.json({ ok: false, error: result.error }, { status: 422 });

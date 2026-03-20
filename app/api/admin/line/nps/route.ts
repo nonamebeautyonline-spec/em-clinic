@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createNpsSchema, updateNpsSchema } from "@/lib/validations/line-management";
+import { logAudit } from "@/lib/audit";
 
 // 調査一覧
 export async function GET(req: NextRequest) {
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return serverError(error.message);
+  logAudit(req, "nps.create", "nps_survey", "unknown");
   return NextResponse.json({ ok: true, survey });
 }
 
@@ -88,6 +90,7 @@ export async function PUT(req: NextRequest) {
   );
 
   if (error) return serverError(error.message);
+  logAudit(req, "nps.update", "nps_survey", String(id));
   return NextResponse.json({ ok: true });
 }
 
@@ -107,5 +110,6 @@ export async function DELETE(req: NextRequest) {
   );
 
   if (error) return serverError(error.message);
+  logAudit(req, "nps.delete", "nps_survey", "unknown");
   return NextResponse.json({ ok: true });
 }

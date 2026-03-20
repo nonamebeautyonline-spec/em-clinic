@@ -7,6 +7,7 @@ import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/t
 import { parseBody } from "@/lib/validations/helpers";
 import { patientFieldsUpdateSchema } from "@/lib/validations/admin-operations";
 import { validateFieldValue, isValidFieldType, type FieldType } from "@/lib/custom-field-types";
+import { logAudit } from "@/lib/audit";
 
 // 患者の友達情報欄の値を取得
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -63,6 +64,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (def && isValidFieldType(def.field_type)) {
       const result = validateFieldValue(def.field_type as FieldType, v.value, def.options as never);
       if (!result.valid) {
+        logAudit(req, "fields.update", "fields", String(id));
         return NextResponse.json(
           { error: "VALIDATION_ERROR", message: result.error },
           { status: 400 },

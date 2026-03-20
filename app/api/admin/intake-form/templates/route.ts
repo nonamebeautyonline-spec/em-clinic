@@ -4,6 +4,7 @@ import { serverError, unauthorized, badRequest } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 // テンプレート一覧取得
 export async function GET(req: NextRequest) {
@@ -73,5 +74,6 @@ export async function DELETE(req: NextRequest) {
   if (deleteError)
     return serverError(deleteError.message);
 
+  logAudit(req, "intake_form_template.delete", "intake_form_template", String(templateId));
   return NextResponse.json({ ok: true });
 }

@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createScheduleSchema } from "@/lib/validations/line-management";
+import { logAudit } from "@/lib/audit";
 
 // 予約送信一覧
 export async function GET(req: NextRequest) {
@@ -57,5 +58,6 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return serverError(error.message);
+  logAudit(req, "schedule_message.create", "schedule_message", String(patient_id));
   return NextResponse.json({ schedule: data });
 }

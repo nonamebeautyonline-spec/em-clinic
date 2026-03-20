@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { reminderPreviewSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 interface ReminderData {
   lstep_id: string;
@@ -125,6 +126,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    logAudit(req, "reminder.preview", "reservation", "unknown");
     return NextResponse.json({
       date: date,
       reminders: reminderList,

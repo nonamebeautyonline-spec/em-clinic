@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { keywordTestSchema } from "@/lib/validations/line-management";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -51,5 +52,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  logAudit(req, "keyword_reply.test", "keyword_reply", "test");
   return NextResponse.json({ matched: false, rule: null });
 }

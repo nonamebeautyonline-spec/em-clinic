@@ -3,6 +3,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 const BUCKET = "line-images";
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
@@ -53,5 +54,6 @@ export async function POST(req: NextRequest) {
 
   const { data: urlData } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(fileName);
 
+  logAudit(req, "template_image.upload", "template", "unknown");
   return NextResponse.json({ ok: true, url: urlData.publicUrl });
 }

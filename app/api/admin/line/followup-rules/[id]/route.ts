@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateFollowupRuleSchema } from "@/lib/validations/followup";
+import { logAudit } from "@/lib/audit";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -42,6 +43,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
     return serverError(error.message);
   }
 
+  logAudit(req, "followup_rule.update", "followup_rule", String(id));
   return NextResponse.json({ ok: true });
 }
 
@@ -73,5 +75,6 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
     return serverError(error.message);
   }
 
+  logAudit(req, "followup_rule.delete", "followup_rule", String(id));
   return NextResponse.json({ ok: true });
 }

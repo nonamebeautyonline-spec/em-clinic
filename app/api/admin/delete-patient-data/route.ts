@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     // 3. キャッシュ削除
     await invalidateDashboardCache(patient_id);
 
-    logAudit(req, "patient.delete_data", "patient", patient_id, { delete_intake, delete_reservation, results });
+    logAudit(req, "patient.delete_data", "patient", String(patient_id), { delete_intake, delete_reservation, results });
 
     return NextResponse.json({
       ok: results.errors.length === 0,

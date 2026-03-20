@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { bookingOpenSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -91,6 +92,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Booking Open] Month ${month} has been opened early`);
 
+    logAudit(req, "booking.create", "booking", "unknown");
     return NextResponse.json({
       ok: true,
       message: `${month}の予約を開放しました`,
@@ -134,6 +136,7 @@ export async function DELETE(req: NextRequest) {
 
     console.log(`[Booking Open] Early open for ${month} has been cancelled`);
 
+    logAudit(req, "booking.delete", "booking", "unknown");
     return NextResponse.json({
       ok: true,
       message: `${month}の早期開放を取り消しました`,

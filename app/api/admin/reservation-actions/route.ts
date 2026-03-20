@@ -10,6 +10,7 @@ import {
   reservationActionSettingsSchema,
   RESERVATION_EVENT_TYPES,
 } from "@/lib/validations/reservation-settings";
+import { logAudit } from "@/lib/audit";
 
 type ActionItem = {
   id: string;
@@ -130,6 +131,7 @@ export async function PUT(req: NextRequest) {
       }
     }
 
+    logAudit(req, "reservation.update", "reservation", "settings");
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[reservation-actions] PUT error:", e);

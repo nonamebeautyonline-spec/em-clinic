@@ -10,6 +10,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { karteEditSessionSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -88,6 +89,7 @@ export async function POST(req: NextRequest) {
     if (error)
       return serverError(error.message);
 
+    logAudit(req, "karte_session.create", "karte", "unknown");
     return NextResponse.json({ ok: true, sessionId: data.id });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -119,6 +121,7 @@ export async function PUT(req: NextRequest) {
     if (error)
       return serverError(error.message);
 
+    logAudit(req, "karte_session.create", "karte", "unknown");
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -161,6 +164,7 @@ export async function DELETE(req: NextRequest) {
       return badRequest("sessionId または intakeId+editorName が必要です");
     }
 
+    logAudit(req, "karte_session.create", "karte", "unknown");
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);

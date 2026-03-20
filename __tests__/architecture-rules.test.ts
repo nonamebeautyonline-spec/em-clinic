@@ -746,3 +746,254 @@ describe("分割コンポーネントの責務境界", () => {
     }
   });
 });
+
+// ===================================================================
+// 監査ログ網羅性チェック:
+// 書き込み系admin APIは全て logAudit を呼び出すべき
+// ※ 現時点では警告のみ（CI失敗にしない）。段階的に対応を進める
+// ===================================================================
+describe("監査ログ網羅性チェック", () => {
+  // 監査ログ不要なルート（認証・セッション系エンドポイント）
+  const AUDIT_EXEMPT_PATHS = [
+    "admin/login",
+    "admin/logout",
+    "admin/session",
+    "admin/csrf-token",
+    "admin/setup",
+    "admin/forgot-password",
+    "admin/reset-password",
+    "admin/account",
+    "admin/dashboard-sse",
+    "admin/unread-count",
+    "admin/chat-reads",
+  ];
+
+  function isExempt(relativePath: string): boolean {
+    return AUDIT_EXEMPT_PATHS.some((exempt) =>
+      relativePath.includes(`app/api/${exempt}/`)
+    );
+  }
+
+  it("書き込み系admin APIでlogAudit未使用のルートを検出する", () => {
+    const adminApiDir = path.resolve(process.cwd(), "app/api/admin");
+    const routes = findAllRouteFiles(adminApiDir);
+    const missing: string[] = [];
+
+    for (const routePath of routes) {
+      const relativePath = path.relative(process.cwd(), routePath);
+      if (isExempt(relativePath)) continue;
+
+      const src = fs.readFileSync(routePath, "utf-8");
+      // POST, PUT, PATCH, DELETE のいずれかをexportしているか
+      const hasWriteExport = /export\s+(async\s+)?function\s+(POST|PUT|PATCH|DELETE)\b/.test(src);
+      if (!hasWriteExport) continue;
+
+      if (!src.includes("logAudit")) {
+        missing.push(relativePath);
+      }
+    }
+
+    if (missing.length > 0) {
+      console.warn(
+        `[監査ログ未対応] 以下の${missing.length}ルートにlogAuditがありません:\n` +
+          missing.map((f) => `  - ${f}`).join("\n")
+      );
+    }
+
+    // 警告のみ — テスト自体は常にパス
+    expect(true).toBe(true);
+  });
+});
+
+// ===================================================================
+// バリデーション網羅性チェック:
+// POST/PUT/PATCH を受け付ける admin API は parseBody または
+// Zodスキーマによるバリデーションを行うべき
+// ※ 現時点では警告のみ（CI失敗にしない）
+// ===================================================================
+describe("バリデーション網羅性チェック", () => {
+  const VALIDATION_EXEMPT_PATHS = [
+    "admin/login",
+    "admin/logout",
+    "admin/session",
+    "admin/csrf-token",
+    "admin/setup",
+    "admin/forgot-password",
+    "admin/reset-password",
+    "admin/account",
+    "admin/dashboard-sse",
+    "admin/unread-count",
+    "admin/chat-reads",
+  ];
+
+  function isExempt(relativePath: string): boolean {
+    // 認証・セッション系
+    if (VALIDATION_EXEMPT_PATHS.some((exempt) => relativePath.includes(`app/api/${exempt}/`))) {
+      return true;
+    }
+    // webhook系はリクエスト構造が外部依存のため除外
+    if (relativePath.includes("webhook")) return true;
+    return false;
+  }
+
+  it("POST/PUT/PATCHを受けるadmin APIでバリデーション未使用のルートを検出する", () => {
+    const adminApiDir = path.resolve(process.cwd(), "app/api/admin");
+    const routes = findAllRouteFiles(adminApiDir);
+    const missing: string[] = [];
+
+    for (const routePath of routes) {
+      const relativePath = path.relative(process.cwd(), routePath);
+      if (isExempt(relativePath)) continue;
+
+      const src = fs.readFileSync(routePath, "utf-8");
+      // POST, PUT, PATCH のいずれかをexportしているか
+      const hasWriteExport = /export\s+(async\s+)?function\s+(POST|PUT|PATCH)\b/.test(src);
+      if (!hasWriteExport) continue;
+
+      // バリデーションパターンの検出
+      const hasValidation =
+        src.includes("parseBody") ||
+        src.includes("adminLoginSchema") ||
+        /z\.object\s*\(/.test(src) ||
+        /\.parse\s*\(/.test(src) ||
+        /\.safeParse\s*\(/.test(src);
+
+      if (!hasValidation) {
+        missing.push(relativePath);
+      }
+    }
+
+    if (missing.length > 0) {
+      console.warn(
+        `[バリデーション未対応] 以下の${missing.length}ルートにparseBody/Zodバリデーションがありません:\n` +
+          missing.map((f) => `  - ${f}`).join("\n")
+      );
+    }
+
+    // 警告のみ — テスト自体は常にパス
+    expect(true).toBe(true);
+  });
+});
+
+// ===================================================================
+// page.tsx 直接fetch禁止チェック:
+// admin の page.tsx は直接 fetch() や supabaseAdmin を使わず、
+// hooks やサーバーコンポーネント経由でデータ取得すべき
+// ※ 現時点では警告のみ（CI失敗にしない）
+// ===================================================================
+describe("page.tsx 直接データ取得禁止チェック", () => {
+  function findPageFiles(dir: string): string[] {
+    const results: string[] = [];
+    if (!fs.existsSync(dir)) return results;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        results.push(...findPageFiles(full));
+      } else if (entry.name === "page.tsx") {
+        results.push(full);
+      }
+    }
+    return results;
+  }
+
+  it("admin page.tsxでfetch()やsupabaseAdminを直接使用しているページを検出する", () => {
+    const adminDir = path.resolve(process.cwd(), "app/admin");
+    const pages = findPageFiles(adminDir);
+    const directFetch: string[] = [];
+    const directSupabase: string[] = [];
+
+    for (const pagePath of pages) {
+      const relativePath = path.relative(process.cwd(), pagePath);
+      const src = fs.readFileSync(pagePath, "utf-8");
+
+      if (/\bfetch\s*\(/.test(src)) {
+        directFetch.push(relativePath);
+      }
+      if (src.includes("supabaseAdmin")) {
+        directSupabase.push(relativePath);
+      }
+    }
+
+    if (directFetch.length > 0) {
+      console.warn(
+        `[直接fetch検出] 以下の${directFetch.length}ページがpage.tsx内で直接fetch()を使用しています:\n` +
+          directFetch.map((f) => `  - ${f}`).join("\n")
+      );
+    }
+    if (directSupabase.length > 0) {
+      console.warn(
+        `[直接supabaseAdmin検出] 以下の${directSupabase.length}ページがpage.tsx内で直接supabaseAdminを使用しています:\n` +
+          directSupabase.map((f) => `  - ${f}`).join("\n")
+      );
+    }
+
+    // 警告のみ — テスト自体は常にパス
+    expect(true).toBe(true);
+  });
+});
+
+// ===================================================================
+// 大規模ファイル検出（400行超）:
+// 肥大化したファイルは保守性が低下するため早期に検出する
+// ※ 現時点では警告のみ（CI失敗にしない）
+// ===================================================================
+describe("大規模ファイル検出（400行超）", () => {
+  // 意図的に大きいファイル、またはリファクタリング予定のファイル
+  const LARGE_FILE_EXCEPTIONS = new Set([
+    "app/api/line/webhook/route.ts",
+    "app/admin/layout.tsx",
+    "app/api/admin/line/dashboard/route.ts",
+  ]);
+
+  function findTsFiles(dir: string): string[] {
+    const results: string[] = [];
+    if (!fs.existsSync(dir)) return results;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.name === "node_modules" || entry.name === "__tests__") continue;
+      if (entry.isDirectory()) {
+        results.push(...findTsFiles(full));
+      } else if (/\.(ts|tsx)$/.test(entry.name)) {
+        results.push(full);
+      }
+    }
+    return results;
+  }
+
+  it("400行を超えるts/tsxファイルを検出する", () => {
+    const LINE_LIMIT = 400;
+    const largeFiles: { file: string; lines: number }[] = [];
+
+    const dirs = [
+      path.resolve(process.cwd(), "app"),
+      path.resolve(process.cwd(), "lib"),
+    ];
+
+    for (const dir of dirs) {
+      const files = findTsFiles(dir);
+      for (const filePath of files) {
+        const relativePath = path.relative(process.cwd(), filePath);
+        if (LARGE_FILE_EXCEPTIONS.has(relativePath)) continue;
+
+        const src = fs.readFileSync(filePath, "utf-8");
+        const lineCount = src.split("\n").length;
+        if (lineCount > LINE_LIMIT) {
+          largeFiles.push({ file: relativePath, lines: lineCount });
+        }
+      }
+    }
+
+    if (largeFiles.length > 0) {
+      largeFiles.sort((a, b) => b.lines - a.lines);
+      console.warn(
+        `[大規模ファイル] 以下の${largeFiles.length}ファイルが${LINE_LIMIT}行を超えています:\n` +
+          largeFiles.map((f) => `  - ${f.file} (${f.lines}行)`).join("\n")
+      );
+    }
+
+    // 警告のみ — テスト自体は常にパス
+    expect(true).toBe(true);
+  });
+});

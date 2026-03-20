@@ -8,6 +8,7 @@ import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/t
 import { resolveTargets } from "@/app/api/admin/line/broadcast/route";
 import { parseBody } from "@/lib/validations/helpers";
 import { distributeCouponSchema } from "@/lib/validations/line-management";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(
   req: NextRequest,
@@ -118,5 +119,6 @@ export async function POST(
     }
   }
 
+  logAudit(req, "coupon.create", "coupon", couponId);
   return NextResponse.json({ ok: true, distributed, sent, total: withLineId.length });
 }

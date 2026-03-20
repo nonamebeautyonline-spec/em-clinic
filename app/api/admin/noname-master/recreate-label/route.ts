@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { recreateLabelSchema } from "@/lib/validations/shipping";
+import { logAudit } from "@/lib/audit";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`[RecreateLabel] ✅ Reset shipping info for order ${order_id} and added to shipping list`);
 
+    logAudit(req, "shipping_label.recreate", "order", String(order_id));
     return NextResponse.json({
       success: true,
       order: data[0],

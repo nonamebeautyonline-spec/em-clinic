@@ -7,6 +7,7 @@ import { getSetting, setSetting } from "@/lib/settings";
 import { generateWeeklyReport } from "@/lib/report-generator";
 import { sendEmail } from "@/lib/email";
 import { z } from "zod";
+import { logAudit } from "@/lib/audit";
 
 // 設定取得
 export async function GET(request: NextRequest) {
@@ -96,6 +97,7 @@ export async function PUT(request: NextRequest) {
       setSetting("report", "emails", emailList.join(","), tid),
     ]);
 
+    logAudit(request, "report_settings.update", "settings", "settings");
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[report-settings] PUT error:", err);

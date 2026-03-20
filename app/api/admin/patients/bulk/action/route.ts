@@ -6,6 +6,7 @@ import { pushMessage } from "@/lib/line-push";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { bulkActionSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 interface ActionStep {
   type: "send_text" | "send_template" | "tag_add" | "tag_remove" | "mark_change";
@@ -256,5 +257,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  logAudit(req, "patient.bulk_action", "patient", "bulk");
   return NextResponse.json({ ok: true, success: successCount, failed: failCount, total: patient_ids.length });
 }

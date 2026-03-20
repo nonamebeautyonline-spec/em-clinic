@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { z } from "zod";
+import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -103,5 +104,6 @@ export async function POST(req: NextRequest) {
 
   if (error) return serverError(error.message);
 
+  logAudit(req, "karte_template_version.create", "karte_template", current?.id ?? "unknown");
   return NextResponse.json({ ok: true, template: updated });
 }

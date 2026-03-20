@@ -13,6 +13,7 @@ import {
   pullKarte,
 } from "@/lib/ehr/sync";
 import type { SyncResult } from "@/lib/ehr/types";
+import { logAudit } from "@/lib/audit";
 
 /**
  * POST: 手動同期
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    logAudit(req, "ehr.sync", "ehr", "unknown");
     return NextResponse.json({ results });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "同期処理に失敗しました";

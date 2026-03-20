@@ -7,6 +7,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, tenantPayload, strictWithTenant } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getPointSettings } from "@/lib/points";
+import { logAudit } from "@/lib/audit";
 
 /**
  * GET: ポイント設定を取得
@@ -80,6 +81,7 @@ export async function PUT(req: NextRequest) {
       return serverError("ポイント設定の更新に失敗しました");
     }
 
+    logAudit(req, "point_settings.update", "point_settings", "settings");
     return NextResponse.json({ ok: true, settings: data });
   } catch (err) {
     console.error("[admin/points/settings] PUT error:", err);

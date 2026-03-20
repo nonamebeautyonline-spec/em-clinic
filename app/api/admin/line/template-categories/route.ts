@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createTemplateCategorySchema } from "@/lib/validations/line-management";
+import { logAudit } from "@/lib/audit";
 
 // テンプレートカテゴリ一覧
 export async function GET(req: NextRequest) {
@@ -52,5 +53,6 @@ export async function POST(req: NextRequest) {
     }
     return serverError(error.message);
   }
+  logAudit(req, "template_category.create", "template_category", "unknown");
   return NextResponse.json({ category: data });
 }

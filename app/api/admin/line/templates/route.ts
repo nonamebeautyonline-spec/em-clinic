@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createTemplateSchema } from "@/lib/validations/line-common";
+import { logAudit } from "@/lib/audit";
 
 // テンプレート一覧
 export async function GET(req: NextRequest) {
@@ -53,5 +54,6 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return serverError(error.message);
+  logAudit(req, "template.create", "template", "unknown");
   return NextResponse.json({ template: data });
 }

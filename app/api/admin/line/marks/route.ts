@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createMarkSchema } from "@/lib/validations/line-common";
+import { logAudit } from "@/lib/audit";
 
 // 対応マーク一覧（各マークの患者数付き）
 export async function GET(req: NextRequest) {
@@ -97,5 +98,6 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return serverError(error.message);
+  logAudit(req, "mark.create", "mark", "unknown");
   return NextResponse.json({ mark: data });
 }

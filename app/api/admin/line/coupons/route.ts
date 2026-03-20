@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createCouponSchema } from "@/lib/validations/line-common";
+import { logAudit } from "@/lib/audit";
 
 // クーポン一覧
 export async function GET(req: NextRequest) {
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest) {
 
   if (error) return serverError(error.message);
 
+  logAudit(req, "coupon.create", "coupon", "unknown");
   return NextResponse.json({ ok: true, coupon });
 }
 
@@ -119,6 +121,7 @@ export async function PUT(req: NextRequest) {
   );
 
   if (error) return serverError(error.message);
+  logAudit(req, "coupon.update", "coupon", String(id));
   return NextResponse.json({ ok: true });
 }
 
@@ -138,5 +141,6 @@ export async function DELETE(req: NextRequest) {
   );
 
   if (error) return serverError(error.message);
+  logAudit(req, "coupon.delete", "coupon", "unknown");
   return NextResponse.json({ ok: true });
 }

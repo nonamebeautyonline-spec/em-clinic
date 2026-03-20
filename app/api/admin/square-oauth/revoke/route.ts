@@ -6,6 +6,7 @@ import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { getSetting, setSetting } from "@/lib/settings";
 import { revokeSquareToken } from "@/lib/square-oauth";
 import type { SquareAccount } from "@/lib/square-account";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Square OAuth Revoke] 切断成功: tenant=${tenantId}, account=${accountId}`);
 
+    logAudit(req, "square_oauth.revoke", "square_oauth", String(accountId));
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[Square OAuth Revoke] エラー:", error);

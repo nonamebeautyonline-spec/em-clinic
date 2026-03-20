@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { reservationSettingsSchema } from "@/lib/validations/reservation-settings";
+import { logAudit } from "@/lib/audit";
 
 // デフォルト設定（テーブルにレコードがない場合）
 const DEFAULT_SETTINGS = {
@@ -78,6 +79,7 @@ export async function PUT(req: NextRequest) {
       return serverError("設定の保存に失敗しました");
     }
 
+    logAudit(req, "reservation_settings.update", "reservation_settings", "settings");
     return NextResponse.json({ ok: true, settings: data });
   } catch (e) {
     console.error("[reservation-settings] PUT error:", e);

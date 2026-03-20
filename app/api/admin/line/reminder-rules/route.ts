@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { reminderRuleSchema } from "@/lib/validations/line-common";
+import { logAudit } from "@/lib/audit";
 
 // ルール一覧
 export async function GET(req: NextRequest) {
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return serverError(error.message);
+  logAudit(req, "reminder_rule.create", "reminder_rule", "unknown");
   return NextResponse.json({ ok: true, rule: data });
 }
 
@@ -125,6 +127,7 @@ export async function PUT(req: NextRequest) {
   ).single();
 
   if (error) return serverError(error.message);
+  logAudit(req, "reminder_rule.update", "reminder_rule", String(body.id));
   return NextResponse.json({ ok: true, rule: data });
 }
 
@@ -145,5 +148,6 @@ export async function DELETE(req: NextRequest) {
   );
 
   if (error) return serverError(error.message);
+  logAudit(req, "reminder_rule.delete", "reminder_rule", "unknown");
   return NextResponse.json({ ok: true });
 }

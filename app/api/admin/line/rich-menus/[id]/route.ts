@@ -7,6 +7,7 @@ import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateRichMenuSchema } from "@/lib/validations/line-management";
 import { getSettingOrEnv } from "@/lib/settings";
+import { logAudit } from "@/lib/audit";
 
 /**
  * メニュー名に基づいて、個別リンク対象のLINE user IDを取得
@@ -108,6 +109,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // 3. LINE API同期（画像がある場合のみ）
     if (!data.image_url) {
+      logAudit(req, "rich_menu.update", "rich_menu", String(id));
       return NextResponse.json({ menu: data });
     }
 
@@ -202,6 +204,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     );
 
     if (error) return serverError(error.message);
+    logAudit(req, "rich_menu.delete", "rich_menu", String(id));
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[Rich Menu DELETE] Unhandled error:", e instanceof Error ? e.message : e);

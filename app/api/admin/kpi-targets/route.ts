@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth, getAdminUserId } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { unauthorized, serverError } from "@/lib/api-error";
+import { logAudit } from "@/lib/audit";
 
 // 有効な metric_type の一覧
 const VALID_METRIC_TYPES = [
@@ -136,6 +137,7 @@ export async function POST(request: NextRequest) {
       return serverError(error.message);
     }
 
+    logAudit(request, "kpi_target.create", "kpi_target", "unknown");
     return NextResponse.json({ target: data }, { status: 200 });
   } catch (err) {
     console.error("[kpi-targets] POST unexpected error:", err);
@@ -169,6 +171,7 @@ export async function DELETE(request: NextRequest) {
       return serverError(error.message);
     }
 
+    logAudit(request, "kpi_target.delete", "kpi_target", String(id));
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[kpi-targets] DELETE unexpected error:", err);

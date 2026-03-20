@@ -7,6 +7,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
 import { grantPoints } from "@/lib/points";
+import { logAudit } from "@/lib/audit";
 
 /**
  * GET: 患者ポイント残高一覧
@@ -96,6 +97,7 @@ export async function POST(req: NextRequest) {
       "manual",
     );
 
+    logAudit(req, "point.create", "point", String(patient_id));
     return NextResponse.json({ ok: true, entry });
   } catch (err) {
     console.error("[admin/points] POST error:", err);

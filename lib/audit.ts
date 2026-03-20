@@ -4,10 +4,17 @@ import { createClient } from "@supabase/supabase-js";
 import { jwtVerify } from "jose";
 import { resolveTenantId } from "@/lib/tenant";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+// 遅延初期化（テスト環境で環境変数未設定時のクラッシュ防止）
+let _supabase: ReturnType<typeof createClient> | null = null;
+function getSupabase() {
+  if (!_supabase) {
+    _supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+  }
+  return _supabase;
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN;
 
@@ -44,7 +51,7 @@ export async function logAudit(
       null;
     const userAgent = req.headers.get("user-agent") || null;
 
-    await supabase.from("audit_logs").insert({
+    await getSupabase().from("audit_logs").insert({
       tenant_id: tenantId,
       admin_user_id: adminUserId,
       admin_name: adminName,

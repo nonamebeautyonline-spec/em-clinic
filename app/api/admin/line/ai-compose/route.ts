@@ -8,6 +8,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   // 認証チェック
@@ -131,6 +132,7 @@ ${templateContext}
       alternatives: string[];
     };
 
+    logAudit(req, "ai_compose.generate", "ai_compose", "ai");
     return NextResponse.json({
       ok: true,
       message: result.message,

@@ -3,6 +3,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 interface TrackingUpdate {
   paymentId: string;
@@ -214,6 +215,7 @@ export async function POST(req: NextRequest) {
       matched: u.order !== null,
     }));
 
+    logAudit(req, "tracking.preview", "shipping", "preview");
     return NextResponse.json({
       entries,
       errors,

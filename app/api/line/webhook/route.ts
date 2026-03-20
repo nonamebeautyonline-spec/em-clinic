@@ -1545,9 +1545,21 @@ export async function POST(req: NextRequest) {
       resolvedTenantId = await resolveLineTenantBySignature(rawBody, signature);
     }
     if (!resolvedTenantId) {
-      console.warn("[line/webhook] テナントID解決失敗 — DEFAULT_TENANT_IDにフォールバック");
+      console.error("[line/webhook] テナントID解決失敗 — イベントを記録して終了");
+      // webhook_eventsに失敗記録（取りこぼし防止）
+      try {
+        await supabaseAdmin.from("webhook_events").insert({
+          event_source: "line",
+          event_id: `line_unresolved_${Date.now()}`,
+          status: "failed",
+          payload: { signature, body_preview: rawBody.substring(0, 200) },
+        });
+      } catch (e) {
+        console.error("[line/webhook] 失敗記録エラー:", e);
+      }
+      return NextResponse.json({ ok: true }); // LINEには常に200返却
     }
-    const tenantId = resolvedTenantId ?? DEFAULT_TENANT_ID;
+    const tenantId = resolvedTenantId;
     const tid = tenantId ?? undefined;
 
     const messagingSecret = await getSettingOrEnv("line", "channel_secret", "LINE_MESSAGING_API_CHANNEL_SECRET", tid);

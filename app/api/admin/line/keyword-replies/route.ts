@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { keywordReplySchema } from "@/lib/validations/line-common";
+import { logAudit } from "@/lib/audit";
 
 // 一覧取得
 export async function GET(req: NextRequest) {
@@ -131,5 +132,6 @@ export async function DELETE(req: NextRequest) {
   );
 
   if (error) return serverError(error.message);
+  logAudit(req, "keyword_reply.delete", "keyword_reply", "unknown");
   return NextResponse.json({ ok: true });
 }

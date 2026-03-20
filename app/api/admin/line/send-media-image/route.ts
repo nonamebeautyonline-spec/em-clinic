@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 // 登録済みメディア画像をLINE送信するAPI
 export async function POST(req: NextRequest) {
@@ -46,6 +47,7 @@ export async function POST(req: NextRequest) {
     direction: "outgoing",
   }).select("id, sent_at").single();
 
+  logAudit(req, "message.send_media_image", "message", String(patient_id));
   return NextResponse.json({
     ok: status === "sent",
     status,

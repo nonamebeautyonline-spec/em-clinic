@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { karteTemplateCreateSchema, karteTemplateUpdateSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +78,7 @@ export async function POST(req: NextRequest) {
   if (error)
     return serverError(error.message);
 
+  logAudit(req, "karte_template.create", "karte_template", "unknown");
   return NextResponse.json({ ok: true, template: data });
 }
 
@@ -144,6 +146,7 @@ export async function PUT(req: NextRequest) {
   if (error)
     return serverError(error.message);
 
+  logAudit(req, "karte_template.update", "karte_template", String(body.id));
   return NextResponse.json({ ok: true, template: data });
 }
 
@@ -171,6 +174,7 @@ export async function DELETE(req: NextRequest) {
   if (error)
     return serverError(error.message);
 
+  logAudit(req, "karte_template.delete", "karte_template", "unknown");
   return NextResponse.json({ ok: true });
 }
 

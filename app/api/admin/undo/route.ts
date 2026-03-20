@@ -8,6 +8,7 @@ import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { executeUndoSchema } from "@/lib/validations/undo";
 import { getRecentUndoActions, executeUndo } from "@/lib/undo";
+import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,7 @@ export async function POST(req: NextRequest) {
       return badRequest(result.error ?? "元に戻す操作に失敗しました");
     }
 
+    logAudit(req, "undo.create", "undo", "unknown");
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);

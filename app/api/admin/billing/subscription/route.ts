@@ -11,6 +11,7 @@ import { getStripeClient } from "@/lib/stripe";
 import { getPlanByKey, MESSAGE_PLANS } from "@/lib/plan-config";
 import { parseBody } from "@/lib/validations/helpers";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -170,6 +171,7 @@ export async function POST(req: NextRequest) {
     60,
   );
   if (rl.limited) {
+    logAudit(req, "subscription.create", "subscription", "unknown");
     return NextResponse.json(
       {
         ok: false,
@@ -218,6 +220,7 @@ export async function DELETE(req: NextRequest) {
     60,
   );
   if (rl.limited) {
+    logAudit(req, "subscription.delete", "subscription", "unknown");
     return NextResponse.json(
       {
         ok: false,

@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { strictWithTenant, resolveTenantIdOrThrow } from "@/lib/tenant";
 import { evaluateStepConditions, type ConditionRule } from "@/lib/step-enrollment";
 import { evaluateDisplayConditions, type DisplayConditions } from "@/lib/step-conditions";
+import { logAudit } from "@/lib/audit";
 
 interface TestRunStep {
   nodeId: string;
@@ -300,6 +301,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    logAudit(request, "flow.test_run", "flow", "test");
     return NextResponse.json({
       patient: { patient_id: patient.patient_id, name: patient.name },
       results,

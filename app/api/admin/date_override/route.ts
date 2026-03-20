@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { dateOverridePostSchema, dateOverrideDeleteSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -75,6 +76,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "DB_ERROR", detail: insertError.message }, { status: 500 });
     }
 
+    logAudit(req, "date_override.create", "date_override", "unknown");
     return NextResponse.json({ ok: true, override: record });
   } catch (error) {
     console.error("date_override POST error:", error);
@@ -115,6 +117,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "DB_ERROR", detail: error.message }, { status: 500 });
     }
 
+    logAudit(req, "date_override.delete", "date_override", "unknown");
     return NextResponse.json({ ok: true, deleted: { doctor_id, date, slot_name, delete_all } });
   } catch (error) {
     console.error("date_override DELETE error:", error);

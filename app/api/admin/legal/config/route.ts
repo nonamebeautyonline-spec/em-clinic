@@ -4,6 +4,7 @@ import { serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { getLegalConfig, setLegalConfig } from "@/lib/legal/config";
+import { logAudit } from "@/lib/audit";
 
 // 設定取得
 export async function GET(req: NextRequest) {
@@ -35,5 +36,6 @@ export async function PUT(req: NextRequest) {
 
   const saved = await setLegalConfig(body.config, tenantId ?? undefined);
   if (!saved) return serverError("保存に失敗しました");
+  logAudit(req, "legal_config.update", "legal_config", "settings");
   return NextResponse.json({ ok: true });
 }

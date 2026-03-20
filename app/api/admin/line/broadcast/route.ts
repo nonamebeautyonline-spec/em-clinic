@@ -11,6 +11,7 @@ import {
 import { parseBody } from "@/lib/validations/helpers";
 import { broadcastSchema } from "@/lib/validations/line-broadcast";
 import { invalidateFriendsListCache } from "@/lib/redis";
+import { logAudit } from "@/lib/audit";
 
 // Supabaseは1リクエスト最大1000行のため、全件取得にはページネーションが必要
 async function fetchAll(buildQuery: () => { range: (from: number, to: number) => PromiseLike<{ data: Record<string, unknown>[] | null; error: { message: string } | null }> }, pageSize = 5000) {
@@ -98,6 +99,7 @@ export async function POST(req: NextRequest) {
 
   // 予約送信の場合はここで終了
   if (scheduled_at) {
+    logAudit(req, "broadcast.create", "broadcast", "unknown");
     return NextResponse.json({ ok: true, broadcast_id: broadcast.id, total: targets.length, status: "scheduled" });
   }
 

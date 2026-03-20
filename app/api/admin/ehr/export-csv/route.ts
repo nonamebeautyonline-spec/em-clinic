@@ -9,6 +9,7 @@ import { ehrCsvExportSchema } from "@/lib/validations/ehr";
 import { toEhrPatient, toEhrKarte } from "@/lib/ehr/mapper";
 import { generatePatientCsv, generateKarteCsv } from "@/lib/ehr/csv-adapter";
 import type { EhrPatient, EhrKarte } from "@/lib/ehr/types";
+import { logAudit } from "@/lib/audit";
 
 /**
  * POST: CSVエクスポート
@@ -84,6 +85,7 @@ export async function POST(req: NextRequest) {
 
       const { data: intakes, error } = await query;
       if (error) {
+        logAudit(req, "ehr.export_csv", "ehr", "export");
         return NextResponse.json(
           { error: `データ取得に失敗しました: ${error.message}` },
           { status: 500 },

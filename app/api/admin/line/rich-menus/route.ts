@@ -8,6 +8,7 @@ import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/t
 import { parseBody } from "@/lib/validations/helpers";
 import { createRichMenuSchema } from "@/lib/validations/line-common";
 import { getSettingOrEnv } from "@/lib/settings";
+import { logAudit } from "@/lib/audit";
 
 // リッチメニュー一覧（各メニューの表示人数付き）
 export async function GET(req: NextRequest) {
@@ -172,6 +173,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    logAudit(req, "rich_menu.create", "rich_menu", data?.id || "unknown");
     return NextResponse.json({ menu: data });
   } catch (e) {
     console.error("[Rich Menu POST] Unhandled error:", (e as Error).message || e);

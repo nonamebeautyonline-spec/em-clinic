@@ -6,6 +6,7 @@ import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { ehrTestConnectionSchema } from "@/lib/validations/ehr";
 import { createAdapter } from "@/lib/ehr/sync";
+import { logAudit } from "@/lib/audit";
 
 /**
  * POST: 電子カルテ接続テスト
@@ -39,6 +40,7 @@ export async function POST(req: NextRequest) {
     // 接続テスト実行
     const result = await adapter.testConnection();
 
+    logAudit(req, "ehr.test_connection", "ehr", "test");
     return NextResponse.json({ ok: result.ok, message: result.message });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "接続テストに失敗しました";

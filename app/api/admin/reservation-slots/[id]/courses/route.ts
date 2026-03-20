@@ -7,6 +7,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { slotCourseLinksSchema } from "@/lib/validations/reservation-settings";
+import { logAudit } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -72,6 +73,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       }
     }
 
+    logAudit(req, "reservation_slot.update", "reservation_slot", String(id));
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[slot-courses] PUT error:", e);

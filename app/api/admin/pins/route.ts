@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { pinsUpdateSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 const MAX_PINS = 15;
 
@@ -77,5 +78,6 @@ export async function PUT(req: NextRequest) {
     }
   }
 
+  logAudit(req, "pin.update", "pin", "bulk");
   return NextResponse.json({ ok: true });
 }

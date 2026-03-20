@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { bankTransferReconcileConfirmSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -207,6 +208,7 @@ export async function POST(req: NextRequest) {
 
     const successCount = updateResults.filter((r) => r.success).length;
 
+    logAudit(req, "bank_transfer_reconcile.confirm", "order", "reconcile");
     return NextResponse.json({
       matched: matches.map((m, i) => ({
         transfer: m.transfer,

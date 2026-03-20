@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createFolderSchema, updateFolderSchema } from "@/lib/validations/line-management";
+import { logAudit } from "@/lib/audit";
 
 // フォルダ一覧取得
 export async function GET(req: NextRequest) {
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
 
   if (error) return serverError(error.message);
 
+  logAudit(req, "media_folder.create", "media_folder", "unknown");
   return NextResponse.json({ ok: true, folder: data });
 }
 
@@ -74,6 +76,7 @@ export async function PUT(req: NextRequest) {
 
   if (error) return serverError(error.message);
 
+  logAudit(req, "media_folder.update", "media_folder", String(id));
   return NextResponse.json({ ok: true, folder: data });
 }
 
@@ -129,5 +132,6 @@ export async function DELETE(req: NextRequest) {
 
   if (error) return serverError(error.message);
 
+  logAudit(req, "media_folder.delete", "media_folder", String(defaultFolder?.id ?? "unknown"));
   return NextResponse.json({ ok: true });
 }

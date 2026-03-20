@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { nonameMasterUpdateTrackingSchema } from "@/lib/validations/shipping";
+import { logAudit } from "@/lib/audit";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
@@ -80,6 +81,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    logAudit(req, "tracking.update", "order", String(order_id));
     return NextResponse.json({
       success: true,
       order: data[0],

@@ -7,6 +7,7 @@ import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/t
 import { parseBody } from "@/lib/validations/helpers";
 import { updateWorkflowSchema } from "@/lib/validations/line-common";
 import { executeWorkflow } from "@/lib/workflow-engine";
+import { logAudit } from "@/lib/audit";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -147,6 +148,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
     .eq("workflow_id", id)
     .order("sort_order", { ascending: true });
 
+  logAudit(req, "workflow.update", "workflow", String(id));
   return NextResponse.json({
     ok: true,
     workflow: updated,
@@ -187,6 +189,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
     return serverError(error.message);
   }
 
+  logAudit(req, "workflow.delete", "workflow", String(id));
   return NextResponse.json({ ok: true });
 }
 

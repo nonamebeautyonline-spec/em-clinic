@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createFollowupRuleSchema } from "@/lib/validations/followup";
+import { logAudit } from "@/lib/audit";
 
 /**
  * GET: フォローアップルール一覧取得
@@ -87,5 +88,6 @@ export async function POST(req: NextRequest) {
     return serverError(error.message);
   }
 
+  logAudit(req, "followup_rule.create", "followup_rule", "unknown");
   return NextResponse.json({ ok: true });
 }

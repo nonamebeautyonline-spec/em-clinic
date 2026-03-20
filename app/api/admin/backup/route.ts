@@ -4,6 +4,7 @@ import { verifyAdminAuth, getAdminUserId } from "@/lib/admin-auth";
 import { unauthorized, serverError, badRequest } from "@/lib/api-error";
 import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { listBackups, createBackup, BACKUP_TABLES } from "@/lib/tenant-backup";
+import { logAudit } from "@/lib/audit";
 
 /** GET: バックアップ一覧取得 */
 export async function GET(request: NextRequest) {
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     const backup = await createBackup(tenantId, name, description, userId ?? undefined, tables);
+    logAudit(request, "backup.create", "backup", "unknown");
     return NextResponse.json({ ok: true, backup }, { status: 201 });
   } catch (error) {
     console.error("バックアップ作成エラー:", error);

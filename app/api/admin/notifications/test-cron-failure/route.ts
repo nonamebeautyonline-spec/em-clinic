@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getSetting } from "@/lib/settings";
 import { pushMessage } from "@/lib/line-push";
 import { resolveTenantIdOrThrow } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -20,6 +21,7 @@ export async function POST(req: NextRequest) {
     ]);
 
     if (!slackWebhookUrl && !lineNotifyUid) {
+      logAudit(req, "notification.test", "notification", "test");
       return NextResponse.json(
         { error: "通知先（Slack Webhook URL または LINE UID）が未設定です" },
         { status: 400 },

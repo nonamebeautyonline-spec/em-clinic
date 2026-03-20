@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateMediaSchema } from "@/lib/validations/line-management";
+import { logAudit } from "@/lib/audit";
 
 const BUCKET = "line-images";
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -125,6 +126,7 @@ export async function POST(req: NextRequest) {
     return serverError("DB登録失敗: " + dbError.message);
   }
 
+  logAudit(req, "media.create", "media", "unknown");
   return NextResponse.json({ ok: true, file: inserted });
 }
 
@@ -152,6 +154,7 @@ export async function PUT(req: NextRequest) {
 
   if (error) return serverError(error.message);
 
+  logAudit(req, "media.update", "media", String(id));
   return NextResponse.json({ ok: true, file: data });
 }
 
@@ -192,5 +195,6 @@ export async function DELETE(req: NextRequest) {
 
   if (error) return serverError(error.message);
 
+  logAudit(req, "media.delete", "media", "unknown");
   return NextResponse.json({ ok: true });
 }

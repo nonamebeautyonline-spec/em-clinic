@@ -6,6 +6,7 @@ import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
 import { refreshProfileSchema } from "@/lib/validations/line-management";
+import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -60,5 +61,6 @@ export async function POST(req: NextRequest) {
     tenantId
   );
 
+  logAudit(req, "line_profile.refresh", "patient", String(patient_id));
   return NextResponse.json({ ok: true, displayName, pictureUrl });
 }

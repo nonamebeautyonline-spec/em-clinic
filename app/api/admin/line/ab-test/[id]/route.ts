@@ -7,6 +7,7 @@ import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateAbTestSchema } from "@/lib/validations/line-broadcast";
 import { determineWinner, type VariantStats } from "@/lib/ab-test-stats";
+import { logAudit } from "@/lib/audit";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -165,6 +166,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
     tenantId,
   ).single();
 
+  logAudit(req, "ab_test.update", "ab_test", String(id));
   return NextResponse.json({ test: result || updated });
 }
 
@@ -201,5 +203,6 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
     return serverError(error.message);
   }
 
+  logAudit(req, "ab_test.delete", "ab_test", String(id));
   return NextResponse.json({ ok: true });
 }

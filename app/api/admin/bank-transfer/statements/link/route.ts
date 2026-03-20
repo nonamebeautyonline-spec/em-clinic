@@ -4,6 +4,7 @@ import { badRequest, unauthorized, serverError } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { createClient } from "@supabase/supabase-js";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -119,6 +120,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    logAudit(req, "bank_statement.link", "bank_statement", newOrderId || "link");
     return NextResponse.json({ ok: true, linkedCount: ids.length, newOrderId });
   } catch (e) {
     console.error("[Statements/link] error:", e);

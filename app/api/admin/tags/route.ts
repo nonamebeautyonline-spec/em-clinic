@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { tagCreateSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 // タグ一覧取得（各タグの患者数付き）
 export async function GET(req: NextRequest) {
@@ -82,5 +83,6 @@ export async function POST(req: NextRequest) {
     return serverError(error.message);
   }
 
+  logAudit(req, "tag.create", "tag", "unknown");
   return NextResponse.json({ tag: data });
 }

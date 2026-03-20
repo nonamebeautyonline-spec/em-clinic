@@ -6,6 +6,7 @@ import { evaluateMenuRulesForMany } from "@/lib/menu-auto-rules";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { bulkTagSchema } from "@/lib/validations/line-common";
+import { logAudit } from "@/lib/audit";
 
 // 複数患者にタグを一括追加/削除
 export async function POST(req: NextRequest) {
@@ -49,5 +50,6 @@ export async function POST(req: NextRequest) {
 
   // メニュー自動切替ルール評価（非同期・失敗無視）
   evaluateMenuRulesForMany(patient_ids, tenantId ?? undefined).catch(() => {});
+  logAudit(req, "patient_tag.bulk_update", "patient", "bulk");
   return NextResponse.json({ ok: true, updated_count: patient_ids.length });
 }

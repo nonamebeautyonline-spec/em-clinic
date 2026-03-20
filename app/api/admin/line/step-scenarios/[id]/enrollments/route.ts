@@ -7,6 +7,7 @@ import { enrollPatient } from "@/lib/step-enrollment";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { enrollStepSchema } from "@/lib/validations/line-management";
+import { logAudit } from "@/lib/audit";
 
 // 登録者一覧
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     enrolled++;
   }
 
+  logAudit(req, "step_scenario.create", "step_scenario", String(id));
   return NextResponse.json({ ok: true, enrolled });
 }
 
@@ -97,5 +99,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   );
 
   if (error) return serverError(error.message);
+  logAudit(req, "step_scenario.delete", "step_scenario", String(id));
   return NextResponse.json({ ok: true });
 }

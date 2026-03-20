@@ -4,6 +4,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -126,5 +127,6 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
   );
 
   if (error) return serverError(error.message);
+  logAudit(req, "chatbot_scenario.delete", "chatbot_scenario", String(nodeId));
   return NextResponse.json({ ok: true });
 }

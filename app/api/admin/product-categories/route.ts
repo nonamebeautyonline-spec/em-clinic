@@ -9,6 +9,7 @@ import {
   productCategoryCreateSchema,
   productCategoryUpdateSchema,
 } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest) {
     return serverError(error.message);
   }
 
+  logAudit(req, "product_category.create", "product_category", "unknown");
   return NextResponse.json({ category: data }, { status: 201 });
 }
 
@@ -86,6 +88,7 @@ export async function PUT(req: NextRequest) {
     return serverError(error.message);
   }
 
+  logAudit(req, "product_category.update", "product_category", String(id));
   return NextResponse.json({ category: data });
 }
 
@@ -110,5 +113,6 @@ export async function DELETE(req: NextRequest) {
     return serverError(error.message);
   }
 
+  logAudit(req, "product_category.delete", "product_category", "unknown");
   return NextResponse.json({ success: true });
 }

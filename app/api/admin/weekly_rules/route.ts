@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { weeklyRulesSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -49,6 +50,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    logAudit(req, "weekly_rule.create", "weekly_rule", "unknown");
     return NextResponse.json({ ok: true, rules: savedRules });
   } catch (error) {
     console.error("weekly_rules API error:", error);

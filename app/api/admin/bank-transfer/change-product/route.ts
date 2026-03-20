@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
 
     pushToGroup(notifyText, lineToken, lineGroupId).catch(() => {});
 
-    logAudit(req, "bank_transfer.change_product", "order", order_id);
+    logAudit(req, "bank_transfer.change_product", "order", String(order_id));
 
     return NextResponse.json({
       ok: true,

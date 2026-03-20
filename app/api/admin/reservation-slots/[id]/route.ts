@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { reservationSlotSchema } from "@/lib/validations/reservation-settings";
+import { logAudit } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -39,6 +40,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       return serverError("予約枠の更新に失敗しました");
     }
 
+    logAudit(req, "reservation_slot.update", "reservation_slot", String(id));
     return NextResponse.json({ ok: true, slot: data });
   } catch (e) {
     console.error("[reservation-slots] PUT error:", e);
@@ -70,6 +72,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
       return serverError("予約枠の削除に失敗しました");
     }
 
+    logAudit(req, "reservation_slot.delete", "reservation_slot", String(id));
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[reservation-slots] DELETE error:", e);

@@ -13,6 +13,25 @@ vi.mock("@/lib/idempotency", () => ({
   checkIdempotency: vi.fn(),
 }));
 
+// テナント解決: テスト用にデフォルトテナントIDを返す
+vi.mock("@/lib/tenant", () => ({
+  resolveTenantId: vi.fn(() => null),
+}));
+
+vi.mock("@/lib/webhook-tenant-resolver", () => ({
+  resolveWebhookTenant: vi.fn().mockResolvedValue("00000000-0000-0000-0000-000000000001"),
+}));
+
+// Stripe業務ロジックハンドラ
+vi.mock("@/lib/webhook-handlers/stripe", () => ({
+  processStripeEvent: vi.fn().mockResolvedValue(undefined),
+}));
+
+// webhook失敗通知
+vi.mock("@/lib/notifications/webhook-failure", () => ({
+  notifyWebhookFailure: vi.fn().mockResolvedValue(undefined),
+}));
+
 // 再帰的にチェーン可能なモック
 function chainMock(): Record<string, ReturnType<typeof vi.fn>> {
   const mock: Record<string, ReturnType<typeof vi.fn>> = {};

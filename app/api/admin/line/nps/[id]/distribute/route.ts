@@ -9,6 +9,7 @@ import { resolveTargets } from "@/app/api/admin/line/broadcast/route";
 import { parseBody } from "@/lib/validations/helpers";
 import { distributeNpsSchema } from "@/lib/validations/line-management";
 import { getSettingOrEnv } from "@/lib/settings";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(
   req: NextRequest,
@@ -87,5 +88,6 @@ export async function POST(
     }
   }
 
+  logAudit(req, "nps.create", "nps_survey", surveyId);
   return NextResponse.json({ ok: true, sent, total: withLineId.length });
 }

@@ -8,6 +8,7 @@ import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { exportYamatoB2CustomSchema } from "@/lib/validations/shipping";
 import { getYamatoConfig } from "@/lib/shipping/config";
+import { logAudit } from "@/lib/audit";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
@@ -121,6 +122,7 @@ export async function POST(req: NextRequest) {
     }
 
     // CSVをレスポンスとして返す
+    logAudit(req, "shipping.export_b2_custom", "shipping", "export");
     return new NextResponse(csv, {
       status: 200,
       headers: {

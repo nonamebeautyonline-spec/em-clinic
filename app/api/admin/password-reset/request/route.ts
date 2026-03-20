@@ -10,6 +10,7 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { parseBody } from "@/lib/validations/helpers";
 import { adminPasswordResetRequestSchema } from "@/lib/validations/admin-operations";
 import { getSettingOrEnv } from "@/lib/settings";
+import { logAudit } from "@/lib/audit";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -91,6 +92,7 @@ export async function POST(req: NextRequest) {
       return serverError("メール送信に失敗しました");
     }
 
+    logAudit(req, "password_reset.request", "admin_user", String(user.id));
     return NextResponse.json({
       ok: true,
       message: "登録されているメールアドレスの場合、リセット用のメールを送信しました",

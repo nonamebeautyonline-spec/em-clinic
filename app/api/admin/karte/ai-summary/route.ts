@@ -4,6 +4,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { generateAiKarteSummary } from "@/lib/ai-karte-summary";
+import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,7 @@ export async function POST(req: NextRequest) {
       intake_id || undefined
     );
 
+    logAudit(req, "karte.ai_summary", "karte", "ai");
     return NextResponse.json({
       ok: true,
       soap: result.soap,

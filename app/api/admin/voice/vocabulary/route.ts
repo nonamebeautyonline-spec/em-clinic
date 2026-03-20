@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
   }
 
   await invalidateVocabCache(tenantId);
-  logAudit(req, "create", "medical_vocabulary", data.id, { term, category, specialty });
+  logAudit(req, "create", "medical_vocabulary", String(data.id), { term, category, specialty });
 
   return NextResponse.json({ ok: true, item: data });
 }
@@ -253,7 +253,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   await invalidateVocabCache(tenantId);
-  logAudit(req, "delete", "medical_vocabulary", id);
+  logAudit(req, "delete", "medical_vocabulary", String(id));
 
   return NextResponse.json({ ok: true });
 }

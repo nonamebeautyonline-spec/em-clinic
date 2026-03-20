@@ -5,6 +5,7 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { parseBody } from "@/lib/validations/helpers";
 import { invalidateCacheSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
     // ★ Redis キャッシュ削除
     await invalidateDashboardCache(patientId);
 
+    logAudit(req, "cache.invalidate", "cache", "cache");
     return NextResponse.json({ ok: true, patientId }, { status: 200 });
   } catch (err) {
     console.error("POST /api/admin/invalidate-cache error", err);

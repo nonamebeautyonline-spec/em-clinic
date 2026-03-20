@@ -7,6 +7,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { parsePatientCsv, parseKarteCsv } from "@/lib/ehr/csv-adapter";
 import { fromEhrPatient, fromEhrKarte } from "@/lib/ehr/mapper";
 import { normalizeJPPhone } from "@/lib/phone";
+import { logAudit } from "@/lib/audit";
 
 /**
  * POST: CSVファイルをインポート
@@ -124,6 +125,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    logAudit(req, "ehr.import_csv", "ehr", "import", { type, imported, skipped });
     return NextResponse.json({ imported, skipped, errors });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "CSVインポートに失敗しました";

@@ -4,6 +4,7 @@ import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 // 有効なトリガータイプ
 const VALID_TRIGGER_TYPES = ["per_purchase", "first_purchase", "amount_threshold"] as const;
@@ -117,5 +118,6 @@ export async function DELETE(
 
   if (error) return serverError(error.message);
 
+  logAudit(req, "point_rule.delete", "point_auto_grant_rule", String(id));
   return NextResponse.json({ ok: true });
 }

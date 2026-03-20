@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { resolveTenantId, DEFAULT_TENANT_ID } from "@/lib/tenant";
+import { resolveTenantId } from "@/lib/tenant";
 import { resolveSquareTenantBySignatureKey } from "@/lib/webhook-tenant-resolver";
+import { supabaseAdmin } from "@/lib/supabase";
 import { getActiveSquareAccount } from "@/lib/square-account-server";
 import { checkIdempotency } from "@/lib/idempotency";
 import { processSquareEvent, type SquareEvent } from "@/lib/webhook-handlers/square";
@@ -34,8 +35,18 @@ export async function POST(req: Request) {
     tenantId = await resolveSquareTenantBySignatureKey(bodyText, signatureHeader, verifyUrl);
   }
   if (!tenantId) {
-    console.warn("[square/webhook] テナントID解決失敗 — DEFAULT_TENANT_IDにフォールバック");
-    tenantId = DEFAULT_TENANT_ID;
+    console.error("[square/webhook] テナントID解決失敗 — イベントを記録して終了");
+    try {
+      await supabaseAdmin.from("webhook_events").insert({
+        event_source: "square",
+        event_id: `square_unresolved_${Date.now()}`,
+        status: "failed",
+        payload: { body_preview: bodyText.substring(0, 200) },
+      });
+    } catch (e) {
+      console.error("[square/webhook] 失敗記録エラー:", e);
+    }
+    return new NextResponse("ok", { status: 200 });
   }
   const tid = tenantId ?? undefined;
 

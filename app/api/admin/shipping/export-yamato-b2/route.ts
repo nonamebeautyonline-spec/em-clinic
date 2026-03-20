@@ -7,6 +7,7 @@ import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { exportYamatoB2Schema } from "@/lib/validations/shipping";
 import { getYamatoConfig } from "@/lib/shipping/config";
+import { logAudit } from "@/lib/audit";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -92,6 +93,7 @@ export async function POST(req: NextRequest) {
     const csv = generateYamatoB2Csv(csvData, shipDate, yamatoConfig);
 
     // CSVをレスポンスとして返す
+    logAudit(req, "shipping.export_b2", "shipping", "export");
     return new NextResponse(csv, {
       status: 200,
       headers: {

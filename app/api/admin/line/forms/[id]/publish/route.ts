@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { publishFormSchema } from "@/lib/validations/line-management";
+import { logAudit } from "@/lib/audit";
 
 // 公開/非公開切替
 export async function POST(
@@ -29,5 +30,6 @@ export async function POST(
   ).select("id, is_published").single();
 
   if (error) return serverError(error.message);
+  logAudit(req, "form.create", "form", String(id));
   return NextResponse.json({ ok: true, form: data });
 }

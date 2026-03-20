@@ -96,6 +96,49 @@ vi.mock("@/lib/settings", () => ({
 vi.mock("@/lib/ai-reply", () => ({
   scheduleAiReply: vi.fn().mockResolvedValue(undefined),
   sendAiReply: vi.fn().mockResolvedValue(undefined),
+  processAiReply: vi.fn().mockResolvedValue(undefined),
+  clearAiReplyDebounce: vi.fn().mockResolvedValue(undefined),
+}));
+
+// webhook-tenant-resolver: テナント逆引き（テスト用にデフォルトテナントIDを返す）
+vi.mock("@/lib/webhook-tenant-resolver", () => ({
+  resolveLineTenantBySignature: vi.fn().mockResolvedValue("00000000-0000-0000-0000-000000000001"),
+  resolveWebhookTenant: vi.fn().mockResolvedValue("00000000-0000-0000-0000-000000000001"),
+  resolveSquareTenantBySignatureKey: vi.fn().mockResolvedValue("00000000-0000-0000-0000-000000000001"),
+}));
+
+// 冪等性チェック（テストではスキップ）
+vi.mock("@/lib/idempotency", () => ({
+  checkIdempotency: vi.fn().mockResolvedValue({ duplicate: false, markCompleted: vi.fn(), markFailed: vi.fn() }),
+}));
+
+// ライフサイクルアクション（actionDetails配列を返す必要あり）
+vi.mock("@/lib/lifecycle-actions", () => ({
+  executeLifecycleActions: vi.fn().mockResolvedValue({ actionDetails: [] }),
+}));
+
+// webhook失敗通知
+vi.mock("@/lib/notifications/webhook-failure", () => ({
+  notifyWebhookFailure: vi.fn().mockResolvedValue(undefined),
+}));
+
+// 営業時間チェック
+vi.mock("@/lib/business-hours", () => ({
+  isWithinBusinessHours: vi.fn().mockReturnValue(true),
+}));
+
+// Flexメッセージサニタイズ
+vi.mock("@/lib/flex-sanitize", () => ({
+  sanitizeFlexContents: vi.fn((contents: unknown) => contents),
+}));
+
+// チャットボットエンジン
+vi.mock("@/lib/chatbot-engine", () => ({
+  findScenarioByKeyword: vi.fn().mockResolvedValue(null),
+  getActiveSession: vi.fn().mockResolvedValue(null),
+  startScenario: vi.fn().mockResolvedValue(null),
+  processUserInput: vi.fn().mockResolvedValue(null),
+  getNextMessage: vi.fn().mockResolvedValue(null),
 }));
 
 const mockCheckSpamBurst = vi.fn().mockResolvedValue({ blocked: false, shouldNotify: false });
@@ -275,18 +318,9 @@ describe("LINE Webhook POST API", () => {
       );
     });
 
-    it("グリーティングメッセージが設定されている場合送信される", async () => {
+    it("グリーティングメッセージが設定されている場合executeLifecycleActionsが呼ばれる", async () => {
       tableChains["patients"] = createChain({
         data: [{ patient_id: "p001", name: "山田太郎" }],
-        error: null,
-      });
-      // 友だち追加時設定: グリーティングメッセージあり
-      tableChains["friend_add_settings"] = createChain({
-        data: {
-          setting_key: "new_friend",
-          enabled: true,
-          setting_value: { greeting_message: "ようこそ！{name}さん" },
-        },
         error: null,
       });
       tableChains["message_log"] = createChain({ data: null, error: null });
@@ -297,11 +331,16 @@ describe("LINE Webhook POST API", () => {
       tableChains["rich_menus"] = createChain({ data: null, error: null });
 
       await POST(makeWebhookReq({ events: [followEvent()] }));
-      // pushMessage がグリーティングメッセージで呼ばれる
-      expect(pushMessage).toHaveBeenCalledWith(
-        "U1234567890",
-        [{ type: "text", text: expect.stringContaining("ようこそ！") }],
-        "00000000-0000-0000-0000-000000000001",
+      // グリーティング送信はexecuteLifecycleActionsに委譲された
+      // 既存患者なのでsettingKeyは "returning_blocked"（再追加扱い）
+      const { executeLifecycleActions } = await import("@/lib/lifecycle-actions");
+      expect(executeLifecycleActions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          settingKey: "returning_blocked",
+          patientId: "p001",
+          lineUserId: "U1234567890",
+          tenantId: "00000000-0000-0000-0000-000000000001",
+        }),
       );
     });
   });

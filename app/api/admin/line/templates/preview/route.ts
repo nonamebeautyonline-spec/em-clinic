@@ -7,6 +7,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { templatePreviewSchema } from "@/lib/validations/template-preview";
+import { logAudit } from "@/lib/audit";
 
 /** 今日の日付をフォーマット */
 function formatToday(): string {
@@ -117,6 +118,7 @@ export async function POST(req: NextRequest) {
 
     const preview = replaceVariables(template_content, vars);
 
+    logAudit(req, "template.preview", "template", "preview");
     return NextResponse.json({
       ok: true,
       preview,

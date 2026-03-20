@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createActionSchema, updateActionSchema } from "@/lib/validations/line-management";
+import { logAudit } from "@/lib/audit";
 
 // アクション一覧
 export async function GET(req: NextRequest) {
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return serverError(error.message);
+  logAudit(req, "action.create", "action", "unknown");
   return NextResponse.json({ ok: true, action: data });
 }
 
@@ -78,6 +80,7 @@ export async function PUT(req: NextRequest) {
   ).select().single();
 
   if (error) return serverError(error.message);
+  logAudit(req, "action.update", "action", String(id));
   return NextResponse.json({ ok: true, action: data });
 }
 
@@ -100,5 +103,6 @@ export async function DELETE(req: NextRequest) {
   );
 
   if (error) return serverError(error.message);
+  logAudit(req, "action.delete", "action", "unknown");
   return NextResponse.json({ ok: true });
 }

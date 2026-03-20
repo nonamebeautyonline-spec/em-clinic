@@ -57,6 +57,14 @@ const isWebhookRoute = (f: string) =>
   f.startsWith("app/api/stripe/") ||
   f.startsWith("app/api/line/");
 
+// webhook_eventsへの失敗記録INSERTはtenant_id不要（テナント解決失敗時の記録のため）
+// 業務ロジックのINSERTはハンドラモジュール（lib/webhook-handlers/）に委譲されている
+const WEBHOOK_INSERT_EXEMPT_ROUTES = new Set([
+  "app/api/gmo/webhook/route.ts",
+  "app/api/square/webhook/route.ts",
+  "app/api/stripe/webhook/route.ts",
+]);
+
 // ===================================================================
 // テナントAPI境界テスト1: INSERT時にtenant_idが含まれることを検証
 // ===================================================================
@@ -64,8 +72,9 @@ describe("テナントAPI境界: INSERT操作のtenant_id付与", () => {
   const allRoutes = findRouteFiles("app/api");
 
   // .insert() を含み、DB操作があるルートを抽出
+  // webhook_eventsへの失敗記録INSERTのみのルートは除外（テナント未解決時の記録）
   const insertRoutes = allRoutes.filter((f) => {
-    if (TENANT_EXEMPT_ROUTES.has(f) || isPlatformRoute(f)) return false;
+    if (TENANT_EXEMPT_ROUTES.has(f) || isPlatformRoute(f) || WEBHOOK_INSERT_EXEMPT_ROUTES.has(f)) return false;
     const src = readFile(f);
     return src.includes(".insert(") && src.includes("supabaseAdmin");
   });

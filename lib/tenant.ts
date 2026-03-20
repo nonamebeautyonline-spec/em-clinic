@@ -1,7 +1,7 @@
 // lib/tenant.ts — テナント解決ユーティリティ
 // 既存の lib/products.ts、lib/settings.ts のパターンを共通化
 
-/** デフォルトテナントID（シングルテナント運用時） */
+/** @deprecated webhook からの直接参照禁止。webhook-tenant-resolver 経由でテナント解決すること */
 export const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 /**

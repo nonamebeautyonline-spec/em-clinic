@@ -5,6 +5,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,7 @@ export async function DELETE(req: NextRequest) {
       return serverError("学習例の削除に失敗しました");
     }
 
+    logAudit(req, "ai_reply_example.delete", "ai_reply_example", String(id));
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[AI Reply Examples] 削除例外:", err);

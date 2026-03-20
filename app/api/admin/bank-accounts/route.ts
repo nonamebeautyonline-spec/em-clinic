@@ -7,6 +7,7 @@ import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { bankAccountsUpdateSchema } from "@/lib/validations/admin-operations";
 import { type BankAccount } from "@/lib/bank-account";
+import { logAudit } from "@/lib/audit";
 
 /**
  * GET: 口座一覧 + アクティブIDを返す
@@ -83,6 +84,7 @@ export async function PUT(req: NextRequest) {
     await setSetting("payment", "bank_accounts", JSON.stringify(accounts), tenantId);
     await setSetting("payment", "active_bank_account_id", activeId, tenantId);
 
+    logAudit(req, "bank_account.update", "bank_account", activeId || "settings");
     return NextResponse.json({ success: true, accounts, activeId });
   } catch (e) {
     console.error("[BankAccounts PUT] Error:", e);

@@ -11,6 +11,7 @@ import {
   ALL_SEGMENTS,
   type SegmentType,
 } from "@/lib/patient-segments";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
       segmentCounts[r.segment] = (segmentCounts[r.segment] || 0) + 1;
     }
 
+    logAudit(req, "segment.recalculate", "segment", "recalculate");
     return NextResponse.json({
       ok: true,
       processed: results.length,

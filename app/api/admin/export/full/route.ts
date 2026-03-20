@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
 import { executeFullExport } from "@/lib/export-worker";
+import { logAudit } from "@/lib/audit";
 
 // POST: エクスポートジョブ作成
 export async function POST(req: NextRequest) {
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
     // エラーは export-worker 内で処理される
   });
 
+  logAudit(req, "export.create", "export", String(job.id));
   return NextResponse.json({ jobId: job.id, status: "pending" });
 }
 

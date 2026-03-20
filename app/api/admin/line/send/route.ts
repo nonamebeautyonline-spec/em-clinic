@@ -11,6 +11,7 @@ import { sanitizeFlexContents } from "@/lib/flex-sanitize";
 import { invalidateFriendsListCache } from "@/lib/redis";
 import { buildImagemapMessage, getImagemapBaseUrl } from "@/lib/line-imagemap";
 import type { ImagemapData } from "@/lib/line-imagemap";
+import { logAudit } from "@/lib/audit";
 
 // 個別メッセージ送信
 export async function POST(req: NextRequest) {
@@ -82,6 +83,7 @@ export async function POST(req: NextRequest) {
 
     if (schedErr) return serverError(schedErr.message);
 
+    logAudit(req, "message.send", "message", String(patient_id));
     return NextResponse.json({
       ok: true,
       status: "scheduled",

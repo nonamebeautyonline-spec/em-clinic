@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateTrackingConfirmSchema } from "@/lib/validations/shipping";
+import { logAudit } from "@/lib/audit";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
@@ -150,6 +151,7 @@ export async function POST(req: NextRequest) {
       await Promise.allSettled(invalidatePromises);
     }
 
+    logAudit(req, "tracking.confirm", "shipping", "bulk");
     return NextResponse.json({
       success: true,
       updated: successUpdates.length,

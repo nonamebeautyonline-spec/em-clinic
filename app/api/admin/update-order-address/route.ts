@@ -7,6 +7,7 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateOrderAddressSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
 
@@ -94,6 +95,7 @@ export async function POST(req: NextRequest) {
       await invalidateDashboardCache(order.patient_id);
     }
 
+    logAudit(req, "order.update_address", "order", "unknown");
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("POST /api/admin/update-order-address error", e);

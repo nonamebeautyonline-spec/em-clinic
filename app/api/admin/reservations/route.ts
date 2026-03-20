@@ -3,6 +3,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 interface ReservationRow {
   id: string;
@@ -299,6 +300,7 @@ export async function PATCH(req: NextRequest) {
       return serverError("Database error");
     }
 
+    logAudit(req, "reservation.update", "reservation", String(reserveId));
     return NextResponse.json({ ok: true, reserve_id: reserveId, doctor_id: doctorId });
   } catch (error) {
     console.error("PATCH reservations error:", error);

@@ -3,6 +3,7 @@ import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 // 予約送信キャンセル
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -18,5 +19,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   );
 
   if (error) return serverError(error.message);
+  logAudit(req, "schedule_message.delete", "schedule_message", String(id));
   return NextResponse.json({ ok: true });
 }

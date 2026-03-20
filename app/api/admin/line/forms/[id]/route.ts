@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateFormSchema } from "@/lib/validations/line-management";
+import { logAudit } from "@/lib/audit";
 
 // フォーム詳細取得
 export async function GET(
@@ -61,6 +62,7 @@ export async function PUT(
   ).select().single();
 
   if (error) return serverError(error.message);
+  logAudit(req, "form.update", "form", String(id));
   return NextResponse.json({ ok: true, form: data });
 }
 
@@ -83,5 +85,6 @@ export async function DELETE(
   );
 
   if (error) return serverError(error.message);
+  logAudit(req, "form.delete", "form", String(id));
   return NextResponse.json({ ok: true });
 }

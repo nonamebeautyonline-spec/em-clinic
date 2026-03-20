@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { patientNoteSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    logAudit(req, "patient_note.create", "patient_note", patientId);
     return NextResponse.json({ ok: true, editedAt: stamp });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);

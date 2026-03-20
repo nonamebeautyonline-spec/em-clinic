@@ -8,6 +8,7 @@ import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/t
 import { getSetting } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
 import { inventorySchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 const DEFAULT_LOCATIONS = ["本院"];
 
@@ -182,5 +183,6 @@ export async function POST(req: NextRequest) {
     return serverError(error.message);
   }
 
+  logAudit(req, "inventory.create", "inventory", "unknown");
   return NextResponse.json({ saved: data?.length ?? 0 });
 }

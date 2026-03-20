@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { z } from "zod";
+import { logAudit } from "@/lib/audit";
 
 /** カテゴリ更新スキーマ */
 const updateTemplateCategorySchema = z
@@ -79,6 +80,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
     return serverError(error.message);
   }
+  logAudit(req, "template_category.update", "template_category", String(id));
   return NextResponse.json({ category: data });
 }
 
@@ -121,5 +123,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   );
 
   if (error) return serverError(error.message);
+  logAudit(req, "template_category.delete", "template_category", String(id));
   return NextResponse.json({ ok: true });
 }

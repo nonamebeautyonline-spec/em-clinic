@@ -6,6 +6,7 @@ import { getSetting, setSetting } from "@/lib/settings";
 import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { saveSegmentSchema } from "@/lib/validations/line-broadcast";
+import { logAudit } from "@/lib/audit";
 
 export interface SavedSegment {
   id: string;
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
 
   const saved = await saveSegments(segments, tenantId ?? undefined);
   if (!saved) return serverError("保存に失敗しました");
+  logAudit(req, "segment.create", "segment", "unknown");
   return NextResponse.json({ segment: newSeg });
 }
 
@@ -78,5 +80,6 @@ export async function DELETE(req: NextRequest) {
 
   const saved = await saveSegments(filtered, tenantId ?? undefined);
   if (!saved) return serverError("削除に失敗しました");
+  logAudit(req, "segment.delete", "segment", String(id));
   return NextResponse.json({ ok: true });
 }

@@ -6,6 +6,7 @@ import { jwtVerify } from "jose";
 import { resolveTenantIdOrThrow, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { shippingShareSchema } from "@/lib/validations/shipping";
+import { logAudit } from "@/lib/audit";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -77,6 +78,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Share] Created share: ${shareId}, expires: ${expiresAt.toISOString()}`);
 
+    logAudit(req, "shipping.share", "shipping", "unknown");
     return NextResponse.json({ shareId });
   } catch (e) {
     console.error("[Share] Error:", e);

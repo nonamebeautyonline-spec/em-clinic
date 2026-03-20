@@ -7,6 +7,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { getSetting, setSetting } from "@/lib/settings";
+import { logAudit } from "@/lib/audit";
 
 /** 同期間隔の種類 */
 const VALID_INTERVALS = ["hourly", "every6h", "daily"] as const;
@@ -125,6 +126,7 @@ export async function PUT(req: NextRequest) {
       return serverError("同期スケジュール設定の保存に失敗しました");
     }
 
+    logAudit(req, "ehr_schedule.update", "ehr", "settings");
     return NextResponse.json({ ok: true, schedule: updated });
   } catch (e) {
     console.error("[ehr-sync-schedule] PUT エラー:", e);

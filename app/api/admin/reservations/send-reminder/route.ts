@@ -9,6 +9,7 @@ import { formatReservationTime, buildReminderMessage } from "@/lib/auto-reminder
 import { parseBody } from "@/lib/validations/helpers";
 import { sendReminderSchema } from "@/lib/validations/admin-operations";
 import { checkIdempotency } from "@/lib/idempotency";
+import { logAudit } from "@/lib/audit";
 
 // 対象患者を取得（共通）
 async function getTargetPatients(date: string, tenantId: string | null) {
@@ -139,6 +140,7 @@ export async function POST(req: NextRequest) {
           tenantId
         ).maybeSingle();
         if (!testPatient?.line_id) {
+          logAudit(req, "reminder.send", "reservation", "unknown");
           return NextResponse.json({
             error: `テスト対象 (PID: ${TEST_PID}) のLINE IDが見つかりません`,
           }, { status: 400 });

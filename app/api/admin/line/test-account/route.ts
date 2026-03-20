@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getSetting, setSetting, deleteSetting } from "@/lib/settings";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 interface TestAccount {
   patient_id: string;
@@ -120,6 +121,7 @@ export async function PUT(req: NextRequest) {
     return serverError("設定の保存に失敗しました");
   }
 
+  logAudit(req, "test_account.update", "test_account", "test");
   return NextResponse.json({
     ok: true,
     account: { patient_id: patientId, patient_name: patient.name || "", has_line_uid: !!patient.line_id },

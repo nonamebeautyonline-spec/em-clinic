@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { reservationSlotSchema } from "@/lib/validations/reservation-settings";
+import { logAudit } from "@/lib/audit";
 
 /** GET — 予約枠一覧 */
 export async function GET(req: NextRequest) {
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest) {
       return serverError("予約枠の作成に失敗しました");
     }
 
+    logAudit(req, "reservation_slot.create", "reservation_slot", "unknown");
     return NextResponse.json({ ok: true, slot: data });
   } catch (e) {
     console.error("[reservation-slots] POST error:", e);

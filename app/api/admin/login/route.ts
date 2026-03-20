@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
 
     // ログイン成功 → レート制限カウントをリセット + 監査ログ + ログインアラート
     await resetRateLimit(`login:user:${usernameNorm}`);
-    logAudit(req, "admin.login.success", "admin_user", user.id, { username: user.username });
+    logAudit(req, "admin.login.success", "admin_user", String(user.id), { username: user.username });
 
     // 新しいIPからのログイン時にメール通知（fire-and-forget）
     sendLoginAlertIfNewIp({

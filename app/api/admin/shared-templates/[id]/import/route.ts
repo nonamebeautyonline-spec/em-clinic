@@ -65,7 +65,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
 
     // 監査ログ（fire-and-forget）
-    logAudit(req, "import_shared_template", "message_template", imported.id, {
+    logAudit(req, "import_shared_template", "message_template", String(imported.id), {
       shared_template_id: id,
       shared_template_name: shared.name,
     });

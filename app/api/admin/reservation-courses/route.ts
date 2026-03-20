@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { reservationCourseSchema } from "@/lib/validations/reservation-settings";
+import { logAudit } from "@/lib/audit";
 
 /** GET — コース一覧 */
 export async function GET(req: NextRequest) {
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest) {
       return serverError("コースの作成に失敗しました");
     }
 
+    logAudit(req, "reservation_course.create", "reservation_course", "unknown");
     return NextResponse.json({ ok: true, course: data });
   } catch (e) {
     console.error("[reservation-courses] POST error:", e);

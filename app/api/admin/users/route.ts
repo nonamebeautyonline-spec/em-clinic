@@ -12,6 +12,7 @@ import { parseBody } from "@/lib/validations/helpers";
 import { createAdminUserSchema } from "@/lib/validations/admin-operations";
 import { getSettingOrEnv } from "@/lib/settings";
 import { isFullAccessRole } from "@/lib/menu-permissions";
+import { logAudit } from "@/lib/audit";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -166,6 +167,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    logAudit(req, "admin_user.create", "admin_user", String(newUser.id));
     return NextResponse.json({
       ok: true,
       user: newUser,
@@ -238,6 +240,7 @@ export async function PATCH(req: NextRequest) {
       return serverError("ロール変更に失敗しました");
     }
 
+    logAudit(req, "admin_user.update", "admin_user", String(userId));
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[Admin Users] PATCH error:", err);
@@ -276,5 +279,6 @@ export async function DELETE(req: NextRequest) {
     return serverError("削除に失敗しました");
   }
 
+  logAudit(req, "admin_user.delete", "admin_user", String(userId));
   return NextResponse.json({ ok: true });
 }

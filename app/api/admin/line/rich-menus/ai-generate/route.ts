@@ -7,6 +7,7 @@ import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { aiRichMenuGenerateSchema } from "@/lib/validations/line-common";
 import { generateRichMenuImage } from "@/lib/ai-richmenu-generator";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
       tenantId ?? undefined
     );
 
+    logAudit(req, "rich_menu.ai_generate", "rich_menu", "ai");
     return NextResponse.json({
       ok: true,
       svg: result.svg,

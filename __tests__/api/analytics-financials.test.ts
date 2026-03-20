@@ -73,10 +73,12 @@ describe("analytics: 分析データ詳細", () => {
     expect(src).toMatch(/export\s+async\s+function\s+GET/);
   });
 
-  it("orders テーブルを参照している", () => {
+  it("daily_metricsテーブルまたはRPC関数を使用している", () => {
     if (!fileExists(file)) return;
     const src = readFile(file);
-    expect(src).toContain('"orders"');
+    // リファクタリング後: daily_metricsテーブル + RPC関数（analytics_ltv, analytics_cohort等）
+    const usesNewApproach = src.includes('"daily_metrics"') || src.includes("analytics_ltv") || src.includes("analytics_cohort");
+    expect(usesNewApproach).toBe(true);
   });
 });
 

@@ -6,6 +6,7 @@ import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
 import { bulkMenuSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 const LINE_API = "https://api.line.me/v2/bot/richmenu/bulk/link";
 
@@ -110,6 +111,7 @@ export async function POST(req: NextRequest) {
     }
 
     const noUid = patient_ids.length - lineUserIds.length;
+    logAudit(req, "patient_menu.bulk_update", "patient", "bulk");
     return NextResponse.json({ ok: linked > 0, linked, failed, no_uid: noUid, total: patient_ids.length });
   } catch (e) {
     console.error("[Rich Menu Bulk Link] Unhandled error:", e instanceof Error ? e.message : e);

@@ -6,6 +6,7 @@ import { evaluateMenuRules } from "@/lib/menu-auto-rules";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { patientTagAddSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 // 患者のタグ一覧取得
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (error) return serverError(error.message);
   // メニュー自動切替ルール評価（非同期・失敗無視）
   evaluateMenuRules(id, tenantId ?? undefined).catch(() => {});
+  logAudit(req, "patient_tag.create", "patient", String(id));
   return NextResponse.json({ ok: true });
 }
 
@@ -72,5 +74,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (error) return serverError(error.message);
   // メニュー自動切替ルール評価（非同期・失敗無視）
   evaluateMenuRules(id, tenantId ?? undefined).catch(() => {});
+  logAudit(req, "patient_tag.delete", "patient", String(id));
   return NextResponse.json({ ok: true });
 }

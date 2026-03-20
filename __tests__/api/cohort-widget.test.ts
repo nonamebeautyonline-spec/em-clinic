@@ -1,13 +1,13 @@
 // __tests__/api/cohort-widget.test.ts
 // コホートウィジェット関連テスト
-// - コホートAPIの統合テスト（type=cohort）
+// - コホートAPIの統合テスト（type=cohort）— RPC版
 // - ウィジェットで使用するヘルパー関数のテスト
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// ─── コホートAPIテスト ──────────────────────────────────────
+// ─── コホートAPIテスト（RPC版） ──────────────────────────────────────
 
-// チェーン生成ヘルパー
+// daily_metricsテーブル用チェーン生成ヘルパー
 type SupabaseChain = Record<string, ReturnType<typeof vi.fn>>;
 function createChain(
   defaultResolve: Record<string, unknown> = { data: [], error: null, count: 0 },
@@ -26,11 +26,15 @@ function createChain(
   return chain;
 }
 
-const ordersChain = createChain();
+const metricsChain = createChain();
+
+// RPC呼び出しのモック（コホート・LTV・商品別集計）
+const rpcMock = vi.fn().mockResolvedValue({ data: [], error: null });
 
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
-    from: vi.fn(() => ordersChain),
+    from: vi.fn(() => metricsChain),
+    rpc: (...args: unknown[]) => rpcMock(...args),
   },
 }));
 
@@ -59,29 +63,15 @@ function createMockRequest(url: string) {
 import { GET } from "@/app/api/admin/analytics/route";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 
-// チェーンリセット
-function resetChain() {
-  [
-    "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
-    "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
-    "ilike", "or", "count", "csv",
-  ].forEach((m) => {
-    ordersChain[m] = vi.fn().mockReturnValue(ordersChain);
-  });
-  ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
-    resolve({ data: [], error: null, count: 0 }),
-  );
-}
-
 describe("コホートウィジェット関連テスト", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(verifyAdminAuth).mockResolvedValue(true);
-    resetChain();
+    rpcMock.mockResolvedValue({ data: [], error: null });
   });
 
   // ========================================
-  // コホートAPIテスト
+  // コホートAPIテスト（RPC版）
   // ========================================
   describe("コホートAPI (type=cohort)", () => {
     it("認証失敗 → 401", async () => {
@@ -91,10 +81,18 @@ describe("コホートウィジェット関連テスト", () => {
       expect(res.status).toBe(401);
     });
 
+    it("RPCがanalytics_cohortを呼び出す", async () => {
+      rpcMock.mockResolvedValue({ data: [], error: null });
+      const req = createMockRequest("http://localhost/api/admin/analytics?type=cohort");
+      await GET(req);
+      expect(rpcMock).toHaveBeenCalledWith("analytics_cohort", {
+        p_tenant_id: "test-tenant",
+        p_months: 12,
+      });
+    });
+
     it("データなし → cohort空配列", async () => {
-      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
-        resolve({ data: [], error: null }),
-      );
+      rpcMock.mockResolvedValue({ data: [], error: null });
       const req = createMockRequest("http://localhost/api/admin/analytics?type=cohort");
       const res = await GET(req);
       expect(res.status).toBe(200);
@@ -103,9 +101,7 @@ describe("コホートウィジェット関連テスト", () => {
     });
 
     it("data=null → cohort空配列", async () => {
-      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
-        resolve({ data: null, error: null }),
-      );
+      rpcMock.mockResolvedValue({ data: null, error: null });
       const req = createMockRequest("http://localhost/api/admin/analytics?type=cohort");
       const res = await GET(req);
       expect(res.status).toBe(200);
@@ -113,23 +109,64 @@ describe("コホートウィジェット関連テスト", () => {
       expect(json.cohort).toEqual([]);
     });
 
-    it("コホートの構造が正しい（month, size, retention配列）", async () => {
-      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
-        resolve({
-          data: [
-            { patient_id: "pa", paid_at: "2026-01-05T00:00:00Z" },
-            { patient_id: "pa", paid_at: "2026-02-10T00:00:00Z" },
-            { patient_id: "pb", paid_at: "2026-01-15T00:00:00Z" },
+    it("RPCエラー → cohort空配列", async () => {
+      rpcMock.mockResolvedValue({ data: null, error: { message: "RPC失敗" } });
+      const req = createMockRequest("http://localhost/api/admin/analytics?type=cohort");
+      const res = await GET(req);
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.cohort).toEqual([]);
+    });
+
+    it("RPCの結果がそのまま返される", async () => {
+      // DB側RPC関数が返すコホートデータ形式
+      const cohortData = [
+        {
+          month: "2026-01",
+          size: 3,
+          retention: [
+            { monthOffset: 0, rate: 100 },
+            { monthOffset: 1, rate: 67 },
+            { monthOffset: 2, rate: 33 },
           ],
-          error: null,
-        }),
-      );
+        },
+        {
+          month: "2026-02",
+          size: 2,
+          retention: [
+            { monthOffset: 0, rate: 100 },
+            { monthOffset: 1, rate: 50 },
+          ],
+        },
+      ];
+      rpcMock.mockResolvedValue({ data: cohortData, error: null });
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=cohort");
       const res = await GET(req);
       const json = await res.json();
 
-      // 少なくとも1コホート存在
+      // RPCの結果がそのまま返される
+      expect(json.cohort).toEqual(cohortData);
+      expect(json.cohort).toHaveLength(2);
+    });
+
+    it("コホートの構造が正しい（month, size, retention配列）", async () => {
+      const cohortData = [
+        {
+          month: "2026-01",
+          size: 3,
+          retention: [
+            { monthOffset: 0, rate: 100 },
+            { monthOffset: 1, rate: 67 },
+          ],
+        },
+      ];
+      rpcMock.mockResolvedValue({ data: cohortData, error: null });
+
+      const req = createMockRequest("http://localhost/api/admin/analytics?type=cohort");
+      const res = await GET(req);
+      const json = await res.json();
+
       expect(json.cohort.length).toBeGreaterThanOrEqual(1);
 
       // 各コホートの構造を確認
@@ -143,138 +180,18 @@ describe("コホートウィジェット関連テスト", () => {
       }
     });
 
-    it("初月のリテンション率は常に100%", async () => {
-      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
-        resolve({
-          data: [
-            { patient_id: "pa", paid_at: "2026-03-05T00:00:00Z" },
-            { patient_id: "pb", paid_at: "2026-03-15T00:00:00Z" },
-            { patient_id: "pc", paid_at: "2026-03-20T00:00:00Z" },
-          ],
-          error: null,
-        }),
-      );
-
-      const req = createMockRequest("http://localhost/api/admin/analytics?type=cohort");
-      const res = await GET(req);
-      const json = await res.json();
-
-      // 2026-03コホートの初月（monthOffset=0）は100%
-      const march = json.cohort.find((c: { month: string }) => c.month === "2026-03");
-      expect(march).toBeDefined();
-      expect(march.size).toBe(3);
-      expect(march.retention[0].monthOffset).toBe(0);
-      expect(march.retention[0].rate).toBe(100);
-    });
-
-    it("リテンション率の計算が正確（リピートした人数/コホート人数）", async () => {
-      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
-        resolve({
-          data: [
-            // 2026-01コホート: pa, pb, pc (3人)
-            { patient_id: "pa", paid_at: "2026-01-05T00:00:00Z" },
-            { patient_id: "pb", paid_at: "2026-01-10T00:00:00Z" },
-            { patient_id: "pc", paid_at: "2026-01-20T00:00:00Z" },
-            // 2026-02: paとpcがリピート（2/3 = 67%）
-            { patient_id: "pa", paid_at: "2026-02-05T00:00:00Z" },
-            { patient_id: "pc", paid_at: "2026-02-15T00:00:00Z" },
-            // 2026-03: paのみリピート（1/3 = 33%）
-            { patient_id: "pa", paid_at: "2026-03-05T00:00:00Z" },
-          ],
-          error: null,
-        }),
-      );
-
-      const req = createMockRequest("http://localhost/api/admin/analytics?type=cohort");
-      const res = await GET(req);
-      const json = await res.json();
-
-      const jan = json.cohort.find((c: { month: string }) => c.month === "2026-01");
-      expect(jan).toBeDefined();
-      expect(jan.size).toBe(3);
-
-      // 初月: 100%
-      expect(jan.retention[0].rate).toBe(100);
-      // 1ヶ月後: 2/3 = 67%（Math.round）
-      expect(jan.retention[1].rate).toBe(67);
-      // 2ヶ月後: 1/3 = 33%（Math.round）
-      expect(jan.retention[2].rate).toBe(33);
-    });
-
-    it("複数コホートが月順にソートされる", async () => {
-      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
-        resolve({
-          data: [
-            { patient_id: "pa", paid_at: "2026-03-01T00:00:00Z" },
-            { patient_id: "pb", paid_at: "2026-01-01T00:00:00Z" },
-            { patient_id: "pc", paid_at: "2026-02-01T00:00:00Z" },
-          ],
-          error: null,
-        }),
-      );
-
-      const req = createMockRequest("http://localhost/api/admin/analytics?type=cohort");
-      const res = await GET(req);
-      const json = await res.json();
-
-      // コホート月が昇順であることを確認
-      const months = json.cohort.map((c: { month: string }) => c.month);
-      const sorted = [...months].sort();
-      expect(months).toEqual(sorted);
-    });
-
-    it("patient_id=null の注文は無視される", async () => {
-      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
-        resolve({
-          data: [
-            { patient_id: null, paid_at: "2026-01-05T00:00:00Z" },
-            { patient_id: "pa", paid_at: "2026-01-10T00:00:00Z" },
-          ],
-          error: null,
-        }),
-      );
-
-      const req = createMockRequest("http://localhost/api/admin/analytics?type=cohort");
-      const res = await GET(req);
-      const json = await res.json();
-
-      // 1コホート（2026-01）、1人のみ
-      expect(json.cohort).toHaveLength(1);
-      expect(json.cohort[0].size).toBe(1);
-    });
-
-    it("最大12ヶ月分のコホートに制限される", async () => {
-      // 15ヶ月分のデータを生成
-      const orders: Record<string, unknown>[] = [];
-      for (let i = 0; i < 15; i++) {
-        const year = 2025 + Math.floor(i / 12);
-        const month = (i % 12) + 1;
-        orders.push({
-          patient_id: `p-${i}`,
-          paid_at: `${year}-${String(month).padStart(2, "0")}-10T00:00:00Z`,
-        });
-      }
-
-      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
-        resolve({ data: orders, error: null }),
-      );
-
-      const req = createMockRequest("http://localhost/api/admin/analytics?type=cohort");
-      const res = await GET(req);
-      const json = await res.json();
-      expect(json.cohort.length).toBeLessThanOrEqual(12);
-    });
-
     it("リテンション配列の各要素にmonthOffsetとrateが含まれる", async () => {
-      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
-        resolve({
-          data: [
-            { patient_id: "pa", paid_at: "2026-01-05T00:00:00Z" },
-            { patient_id: "pa", paid_at: "2026-02-05T00:00:00Z" },
+      const cohortData = [
+        {
+          month: "2026-01",
+          size: 1,
+          retention: [
+            { monthOffset: 0, rate: 100 },
+            { monthOffset: 1, rate: 50 },
           ],
-          error: null,
-        }),
-      );
+        },
+      ];
+      rpcMock.mockResolvedValue({ data: cohortData, error: null });
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=cohort");
       const res = await GET(req);

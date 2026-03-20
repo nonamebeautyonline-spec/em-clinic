@@ -6,6 +6,7 @@ import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateTrackingCsvSchema } from "@/lib/validations/shipping";
 import { invalidateDashboardCache } from "@/lib/redis";
+import { logAudit } from "@/lib/audit";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -140,6 +141,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    logAudit(req, "tracking.update", "shipping", "bulk");
     return NextResponse.json({
       success: successUpdates.length,
       failed: errors.length,

@@ -6,6 +6,7 @@ import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
 import { assignUserRichMenuSchema } from "@/lib/validations/line-management";
+import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -166,6 +167,7 @@ export async function POST(req: NextRequest) {
     return serverError(`LINE API エラー: ${lineRes.status}`);
   }
 
+  logAudit(req, "user_richmenu.update", "rich_menu", String(rich_menu_id));
   return NextResponse.json({
     success: true,
     menu: {

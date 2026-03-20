@@ -4,6 +4,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getSetting, setSetting } from "@/lib/settings";
 import { resolveTenantIdOrThrow } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 // ウィジェットID一覧（デフォルト順）
 export const WIDGET_DEFINITIONS = [
@@ -147,5 +148,6 @@ export async function PUT(request: NextRequest) {
     return serverError("保存に失敗しました");
   }
 
+  logAudit(request, "dashboard_layout.update", "dashboard_layout", "settings");
   return NextResponse.json({ ok: true });
 }

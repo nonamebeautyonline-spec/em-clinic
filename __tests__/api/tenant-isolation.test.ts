@@ -62,6 +62,14 @@ const TENANT_EXEMPT_ROUTES = new Set([
 // platform APIはスーパー管理者用で意図的にテナント横断アクセスするため、テナントフィルター不要
 const isPlatformRoute = (f: string) => f.startsWith("app/api/platform/");
 
+// webhook_eventsへの失敗記録INSERTはtenant_id不要（テナント解決失敗時の記録のため）
+// 業務ロジックのINSERTはハンドラモジュール（lib/webhook-handlers/）に委譲されている
+const WEBHOOK_INSERT_EXEMPT_ROUTES = new Set([
+  "app/api/gmo/webhook/route.ts",
+  "app/api/square/webhook/route.ts",
+  "app/api/stripe/webhook/route.ts",
+]);
+
 // ===================================================================
 // テナント分離ルール1: 全admin APIルートのテナント対応チェック
 // ===================================================================
@@ -160,9 +168,9 @@ describe("テナント分離: cron APIルート", () => {
 describe("テナント分離: INSERT時のtenantPayload", () => {
   const allRoutes = findRouteFiles("app/api");
 
-  // .insert() を使用しているファイルを全て検出（platform APIは除外）
+  // .insert() を使用しているファイルを全て検出（platform API・webhook失敗記録は除外）
   const insertRoutes = allRoutes.filter(f => {
-    if (TENANT_EXEMPT_ROUTES.has(f) || isPlatformRoute(f)) return false;
+    if (TENANT_EXEMPT_ROUTES.has(f) || isPlatformRoute(f) || WEBHOOK_INSERT_EXEMPT_ROUTES.has(f)) return false;
     const src = readFile(f);
     return src.includes(".insert(") && src.includes('.from("');
   });

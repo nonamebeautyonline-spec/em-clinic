@@ -6,6 +6,7 @@ import { nanoid } from "nanoid";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createFormSchema } from "@/lib/validations/line-common";
+import { logAudit } from "@/lib/audit";
 
 // フォーム一覧
 export async function GET(req: NextRequest) {
@@ -57,5 +58,6 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return serverError(error.message);
+  logAudit(req, "form.create", "form", "unknown");
   return NextResponse.json({ ok: true, form: data });
 }

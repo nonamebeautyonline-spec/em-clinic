@@ -8,6 +8,7 @@ import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/t
 import { parseBody } from "@/lib/validations/helpers";
 import { updateAiReplySettingsSchema } from "@/lib/validations/line-management";
 import { DEFAULT_BUSINESS_HOURS, type BusinessHoursConfig } from "@/lib/business-hours";
+import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -154,5 +155,6 @@ export async function PUT(req: NextRequest) {
       );
   }
 
+  logAudit(req, "ai_reply_settings.update", "ai_reply_settings", "settings");
   return NextResponse.json({ ok: true, settings: result.data });
 }

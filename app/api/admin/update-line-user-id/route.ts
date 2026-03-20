@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateLineUserIdSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`[update-line-user-id] DB updated for patient ${patientId}: line_id=${lineUserId || "(null)"}`);
 
+    logAudit(req, "patient.update_line_id", "patient", "unknown");
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (err) {
     console.error("POST /api/admin/update-line-user-id error", err);

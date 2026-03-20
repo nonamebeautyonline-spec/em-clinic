@@ -10,6 +10,7 @@ import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { supabaseAdmin } from "@/lib/supabase";
 import { parseBody } from "@/lib/validations/helpers";
+import { logAudit } from "@/lib/audit";
 
 // ── バリデーション ──────────────────────────────────────────
 
@@ -258,6 +259,7 @@ export async function POST(req: NextRequest) {
     }
 
     // execute=trueかつsql未指定の場合、生成したSQLを直接実行
+    logAudit(req, "segment.ai_query", "segment", "ai");
     return await executeQuery(generatedSQL, tenantId);
   }
 

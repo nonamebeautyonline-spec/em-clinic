@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { buildShippingFlex, sendShippingNotification } from "@/lib/shipping-flex";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
+import { logAudit } from "@/lib/audit";
 
 export const maxDuration = 60;
 
@@ -206,6 +207,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    logAudit(req, "shipping.notify", "shipping", "bulk");
     return NextResponse.json({
       ok: true, sent, failed, no_uid: noUid,
       mark_updated: markUpdated,

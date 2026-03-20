@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { doctorUpsertSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -80,6 +81,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "DB_ERROR", detail: error.message }, { status: 500 });
     }
 
+    logAudit(req, "doctor.create", "doctor", "unknown");
     return NextResponse.json({ ok: true, doctor: record });
   } catch (error) {
     console.error("doctors POST error:", error);

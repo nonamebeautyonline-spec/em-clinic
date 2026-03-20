@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { tagUpdateSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 // ページネーション付き全件取得
 async function fetchAll(buildQuery: () => { range: (from: number, to: number) => Promise<{ data: Record<string, unknown>[] | null; error: { message: string } | null }> }, pageSize = 5000) {
@@ -94,6 +95,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   ).select().single();
 
   if (error) return serverError(error.message);
+  logAudit(req, "tag.update", "tag", String(id));
   return NextResponse.json({ tag: data });
 }
 
@@ -114,5 +116,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   );
 
   if (error) return serverError(error.message);
+  logAudit(req, "tag.delete", "tag", String(id));
   return NextResponse.json({ ok: true });
 }

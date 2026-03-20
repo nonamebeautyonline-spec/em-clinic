@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { mergePatientSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 // 統合対象テーブル一覧（patient_id カラムを持つテーブル）
 const MERGE_TABLES = [
@@ -133,6 +134,7 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(`[merge-patients] Completed: ${oldPatientId} -> ${newPatientId}`, results);
+    logAudit(req, "patient.merge", "patient", String(newPatientId), { oldPatientId });
     return NextResponse.json({ ok: true, results }, { status: 200 });
   } catch (err) {
     console.error("POST /api/admin/merge-patients error", err);

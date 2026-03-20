@@ -6,6 +6,7 @@ import { pushMessage } from "@/lib/line-push";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { bulkSendSchema } from "@/lib/validations/line-common";
+import { logAudit } from "@/lib/audit";
 
 // 複数患者にテンプレートメッセージを一括送信
 export async function POST(req: NextRequest) {
@@ -107,5 +108,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  logAudit(req, "message.bulk_send", "message", "bulk");
   return NextResponse.json({ ok: true, sent, failed, no_uid: noUid, total: patient_ids.length });
 }

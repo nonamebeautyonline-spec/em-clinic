@@ -8,6 +8,7 @@ import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { adminPasswordResetConfirmSchema } from "@/lib/validations/admin-operations";
 import { checkPasswordHistory, savePasswordHistory } from "@/lib/password-policy";
+import { logAudit } from "@/lib/audit";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -138,6 +139,7 @@ export async function POST(req: NextRequest) {
       tenantId
     );
 
+    logAudit(req, "password_reset.confirm", "admin_user", String(resetToken.id));
     return NextResponse.json({
       ok: true,
       message: "パスワードを設定しました",

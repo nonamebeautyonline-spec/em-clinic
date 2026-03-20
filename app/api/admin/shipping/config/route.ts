@@ -6,6 +6,7 @@ import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { getShippingConfig, setShippingConfig } from "@/lib/shipping/config";
 import { parseBody } from "@/lib/validations/helpers";
 import { shippingConfigPutSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 // 設定取得
 export async function GET(req: NextRequest) {
@@ -29,5 +30,6 @@ export async function PUT(req: NextRequest) {
 
   const saved = await setShippingConfig(config, tenantId ?? undefined);
   if (!saved) return serverError("保存に失敗しました");
+  logAudit(req, "shipping_config.update", "shipping_config", "settings");
   return NextResponse.json({ ok: true });
 }

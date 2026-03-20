@@ -7,6 +7,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { bankTransferManualConfirmSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -137,6 +138,7 @@ export async function POST(req: NextRequest) {
       console.error(`[ManualConfirm] Cache invalidation error:`, e);
     }
 
+    logAudit(req, "bank_transfer.confirm", "order", String(order_id));
     return NextResponse.json({
       success: true,
       old_id: order_id,

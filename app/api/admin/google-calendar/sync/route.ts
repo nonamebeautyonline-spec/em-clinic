@@ -16,6 +16,7 @@ import {
   calculateTokenExpiry,
   type GoogleCalendarEventInput,
 } from "@/lib/google-calendar";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -239,6 +240,7 @@ export async function POST(req: NextRequest) {
       `Google→em-clinic: ${overridesCreated}件, em-clinic→Google: ${eventsCreated}件`
     );
 
+    logAudit(req, "google_calendar.sync", "google_calendar", String(doctor_id));
     return NextResponse.json({
       ok: true,
       doctor_id,

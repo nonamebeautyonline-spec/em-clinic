@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSetting } from "@/lib/settings";
+import { logAudit } from "@/lib/audit";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -308,6 +309,7 @@ export async function POST(req: NextRequest) {
       console.log(`[Preview] Saved ${newRows.length} new transactions (${allTransactions.length - newRows.length} duplicates skipped), updated ${matchedDates.length} existing matched rows`);
     }
 
+    logAudit(req, "bank_transfer_reconcile.preview", "order", "preview");
     return NextResponse.json({
       mode: reconcileMode,
       matched: matched.map((m) => ({

@@ -4,6 +4,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { unauthorized, serverError, notFound, badRequest } from "@/lib/api-error";
 import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { getBackupStatus, deleteBackup } from "@/lib/tenant-backup";
+import { logAudit } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -50,6 +51,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
       return serverError("バックアップの削除に失敗しました");
     }
 
+    logAudit(request, "backup.delete", "backup", String(id));
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("バックアップ削除エラー:", error);

@@ -1,7 +1,8 @@
 // app/api/gmo/webhook/route.ts — GMO PG 結果通知エンドポイント
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { resolveTenantId, DEFAULT_TENANT_ID } from "@/lib/tenant";
+import { resolveTenantId } from "@/lib/tenant";
+import { supabaseAdmin } from "@/lib/supabase";
 import { resolveWebhookTenant } from "@/lib/webhook-tenant-resolver";
 import { checkIdempotency } from "@/lib/idempotency";
 import { getSettingOrEnv } from "@/lib/settings";
@@ -67,8 +68,18 @@ export async function POST(req: Request) {
       }
     }
     if (!tenantId) {
-      console.warn("[gmo/webhook] テナントID解決失敗 — DEFAULT_TENANT_IDにフォールバック");
-      tenantId = DEFAULT_TENANT_ID;
+      console.error("[gmo/webhook] テナントID解決失敗 — イベントを記録して終了");
+      try {
+        await supabaseAdmin.from("webhook_events").insert({
+          event_source: "gmo",
+          event_id: `gmo_unresolved_${Date.now()}`,
+          status: "failed",
+          payload: { body_preview: bodyText.substring(0, 200) },
+        });
+      } catch (e) {
+        console.error("[gmo/webhook] 失敗記録エラー:", e);
+      }
+      return new NextResponse("ok", { status: 200 });
     }
     const tid = tenantId ?? undefined;
 

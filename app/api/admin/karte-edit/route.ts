@@ -7,6 +7,7 @@ import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { karteEditSchema } from "@/lib/validations/admin-operations";
 import { recordKarteChange } from "@/lib/karte-history";
+import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest) {
       tenantId,
     });
 
+    logAudit(req, "karte.create", "karte", "unknown");
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);

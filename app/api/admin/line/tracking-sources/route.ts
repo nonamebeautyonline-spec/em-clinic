@@ -10,6 +10,7 @@ import {
   updateTrackingSourceSchema,
 } from "@/lib/validations/line-management";
 import { getSettingOrEnv } from "@/lib/settings";
+import { logAudit } from "@/lib/audit";
 
 // 一覧取得（visit_count, converted_count 付き）
 export async function GET(req: NextRequest) {
@@ -120,6 +121,7 @@ export async function POST(req: NextRequest) {
 
   const baseUrl = (await getSettingOrEnv("general", "app_base_url", "APP_BASE_URL", tenantId ?? undefined)) || "";
 
+  logAudit(req, "tracking_source.create", "tracking_source", "unknown");
   return NextResponse.json({
     ok: true,
     source: data,
@@ -150,6 +152,7 @@ export async function PUT(req: NextRequest) {
   ).select().single();
 
   if (error) return serverError(error.message);
+  logAudit(req, "tracking_source.update", "tracking_source", String(id));
   return NextResponse.json({ ok: true, source: data });
 }
 
@@ -181,5 +184,6 @@ export async function DELETE(req: NextRequest) {
   );
 
   if (error) return serverError(error.message);
+  logAudit(req, "tracking_source.delete", "tracking_source", "unknown");
   return NextResponse.json({ ok: true });
 }

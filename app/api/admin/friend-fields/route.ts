@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { friendFieldCreateSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 // 友達情報欄の定義一覧
 export async function GET(req: NextRequest) {
@@ -47,5 +48,6 @@ export async function POST(req: NextRequest) {
     return serverError(error.message);
   }
 
+  logAudit(req, "friend_field.create", "friend_field", "unknown");
   return NextResponse.json({ field: data });
 }

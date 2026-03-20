@@ -7,6 +7,7 @@ import { maskValue } from "@/lib/crypto";
 import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { settingsUpdateSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 // 管理可能な設定キーの定義
 // sensitive: false → 値をマスクせずにそのまま返す（checkout_mode等の選択肢型設定）
@@ -198,5 +199,6 @@ export async function PUT(req: NextRequest) {
     return serverError("設定の保存に失敗しました");
   }
 
+  logAudit(req, "settings.update", "tenant_settings", "settings");
   return NextResponse.json({ success: true, maskedValue: maskValue(value) });
 }

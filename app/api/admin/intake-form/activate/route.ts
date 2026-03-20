@@ -5,6 +5,7 @@ import { serverError, unauthorized, badRequest, notFound } from "@/lib/api-error
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -59,5 +60,6 @@ export async function POST(req: NextRequest) {
   if (activateError)
     return serverError(activateError.message);
 
+  logAudit(req, "intake_form.activate", "intake_form", String(templateId));
   return NextResponse.json({ ok: true });
 }

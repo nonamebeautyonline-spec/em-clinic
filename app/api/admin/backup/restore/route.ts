@@ -8,6 +8,7 @@ import {
   decryptBackupData,
   importTenantData,
 } from "@/lib/tenant-backup";
+import { logAudit } from "@/lib/audit";
 
 /** POST: リストア実行 */
 export async function POST(request: NextRequest) {
@@ -49,6 +50,7 @@ export async function POST(request: NextRequest) {
       return serverError(`リストアに失敗しました: ${result.error}`);
     }
 
+    logAudit(request, "backup.restore", "backup", "unknown");
     return NextResponse.json({
       ok: true,
       message: "リストアが完了しました",

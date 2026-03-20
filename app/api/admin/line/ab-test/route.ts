@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createAbTestSchema } from "@/lib/validations/line-broadcast";
+import { logAudit } from "@/lib/audit";
 
 /**
  * GET: ABテスト一覧取得
@@ -91,6 +92,7 @@ export async function POST(req: NextRequest) {
     return serverError(variantError.message);
   }
 
+  logAudit(req, "ab_test.create", "ab_test", String(test.id));
   return NextResponse.json({
     test: { ...test, ab_test_variants: createdVariants },
   });

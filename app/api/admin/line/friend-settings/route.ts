@@ -6,6 +6,7 @@ import { setDefaultRichMenu } from "@/lib/line-richmenu";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateFriendSettingsSchema } from "@/lib/validations/line-management";
+import { logAudit } from "@/lib/audit";
 
 // 友達追加時設定一覧
 export async function GET(req: NextRequest) {
@@ -78,5 +79,6 @@ export async function PUT(req: NextRequest) {
     }
   }
 
+  logAudit(req, "friend_settings.update", "friend_settings", "settings");
   return NextResponse.json({ setting: data });
 }

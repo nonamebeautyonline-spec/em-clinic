@@ -7,6 +7,7 @@ import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/t
 import { parseBody } from "@/lib/validations/helpers";
 import { createClickTrackSchema } from "@/lib/validations/line-management";
 import { getSettingOrEnv } from "@/lib/settings";
+import { logAudit } from "@/lib/audit";
 
 // クリック計測リンク一覧（配信IDで絞り込み可）
 export async function GET(req: NextRequest) {
@@ -69,5 +70,6 @@ export async function POST(req: NextRequest) {
   const baseUrl = (await getSettingOrEnv("general", "app_base_url", "APP_BASE_URL", tenantId ?? undefined)) || "";
   const trackingUrl = `${baseUrl}/r/${trackingCode}`;
 
+  logAudit(req, "click_track.create", "click_track", "unknown");
   return NextResponse.json({ link: data, tracking_url: trackingUrl });
 }

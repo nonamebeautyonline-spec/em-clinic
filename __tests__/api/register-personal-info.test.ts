@@ -27,6 +27,11 @@ vi.mock("@/lib/merge-tables", () => ({
   migrateFriendSummary: vi.fn().mockResolvedValue(undefined),
 }));
 
+// ライフサイクルアクション（actionDetails配列を返す必要あり）
+vi.mock("@/lib/lifecycle-actions", () => ({
+  executeLifecycleActions: vi.fn().mockResolvedValue({ actionDetails: [] }),
+}));
+
 // === Supabase モック（テーブル名ベース） ===
 let tableChains: Record<string, Record<string, ReturnType<typeof vi.fn>>> = {};
 let rpcResult: { data: unknown; error: unknown } = { data: null, error: null };
@@ -197,20 +202,6 @@ describe("register/personal-info 既存患者（LINE再ログイン）", () => {
     tableChains["patient_tags"] = createChain({ data: null, error: null });
     tableChains["rich_menus"] = createChain({ data: { line_rich_menu_id: "richmenu-xxx" }, error: null });
 
-    // ライフサイクルイベント設定（executeLifecycleActions用）
-    tableChains["friend_add_settings"] = createChain({
-      data: {
-        enabled: true,
-        setting_value: {
-          steps: [
-            { type: "tag_add", tag_id: 1, tag_name: "個人情報提出ずみ" },
-            { type: "menu_change", menu_id: "1" },
-          ],
-        },
-      },
-      error: null,
-    });
-
     const { POST } = await import("@/app/api/register/personal-info/route");
     const req = createRequest(validBody, { line_user_id: "U12345" });
 
@@ -220,8 +211,15 @@ describe("register/personal-info 既存患者（LINE再ログイン）", () => {
     expect(res.status).toBe(200);
     expect(json.ok).toBe(true);
     expect(json.patient_id).toBe("10005");
-    // ライフサイクルイベント経由でリッチメニュー切り替えが呼ばれる
-    expect(mockLinkRichMenuToUser).toHaveBeenCalledWith("U12345", "richmenu-xxx", "test-tenant");
+    // ライフサイクルアクション（リッチメニュー切り替え等）はexecuteLifecycleActionsに委譲
+    const { executeLifecycleActions } = await import("@/lib/lifecycle-actions");
+    expect(executeLifecycleActions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settingKey: "personal_info_completed",
+        patientId: "10005",
+        lineUserId: "U12345",
+      }),
+    );
   });
 });
 

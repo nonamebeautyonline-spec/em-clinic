@@ -7,6 +7,7 @@ import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { squareAccountsUpdateSchema } from "@/lib/validations/admin-operations";
 import { type SquareAccount } from "@/lib/square-account";
+import { logAudit } from "@/lib/audit";
 
 /**
  * GET: Squareアカウント一覧 + アクティブIDを返す
@@ -90,6 +91,7 @@ export async function PUT(req: NextRequest) {
     await setSetting("square", "accounts", JSON.stringify(accounts), tenantId);
     await setSetting("square", "active_account_id", activeId, tenantId);
 
+    logAudit(req, "square_account.update", "square_account", activeId || "settings");
     return NextResponse.json({ success: true, accounts, activeId });
   } catch (e) {
     console.error("[SquareAccounts PUT] Error:", e);

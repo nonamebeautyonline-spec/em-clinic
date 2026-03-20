@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { stepScenarioSchema } from "@/lib/validations/line-common";
+import { logAudit } from "@/lib/audit";
 
 // シナリオ一覧
 export async function GET(req: NextRequest) {
@@ -103,6 +104,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  logAudit(req, "step_scenario.create", "step_scenario", String(scenario.id));
   return NextResponse.json({ ok: true, scenario });
 }
 
@@ -170,6 +172,7 @@ export async function PUT(req: NextRequest) {
     }
   }
 
+  logAudit(req, "step_scenario.update", "step_scenario", String(id));
   return NextResponse.json({ ok: true, scenario });
 }
 
@@ -190,5 +193,6 @@ export async function DELETE(req: NextRequest) {
   );
 
   if (error) return serverError(error.message);
+  logAudit(req, "step_scenario.delete", "step_scenario", "unknown");
   return NextResponse.json({ ok: true });
 }

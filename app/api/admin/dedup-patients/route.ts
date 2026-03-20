@@ -6,6 +6,7 @@ import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { findDuplicateCandidates, ignoreDuplicatePair } from "@/lib/patient-dedup";
 import { parseBody } from "@/lib/validations/helpers";
 import { ignoreDuplicateSchema } from "@/lib/validations/dedup";
+import { logAudit } from "@/lib/audit";
 
 /**
  * GET /api/admin/dedup-patients?min_score=70
@@ -49,6 +50,7 @@ export async function POST(req: NextRequest) {
     if (!result.ok) {
       return serverError(result.error ?? "処理に失敗しました");
     }
+    logAudit(req, "patient.dedup_scan", "patient", "unknown");
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[dedup-patients] 無視リスト追加エラー:", err);

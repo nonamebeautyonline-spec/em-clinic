@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { friendFieldUpdateSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -26,6 +27,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   ).single();
 
   if (error) return serverError(error.message);
+  logAudit(req, "friend_field.update", "friend_field", String(id));
   return NextResponse.json({ field: data });
 }
 
@@ -45,5 +47,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   );
 
   if (error) return serverError(error.message);
+  logAudit(req, "friend_field.delete", "friend_field", String(id));
   return NextResponse.json({ ok: true });
 }

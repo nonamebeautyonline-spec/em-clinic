@@ -10,6 +10,7 @@ import {
   DEFAULT_INTAKE_FIELDS,
   DEFAULT_INTAKE_SETTINGS,
 } from "@/lib/intake-form-defaults";
+import { logAudit } from "@/lib/audit";
 
 // 問診フォーム定義取得
 export async function GET(req: NextRequest) {
@@ -98,5 +99,6 @@ export async function PUT(req: NextRequest) {
       return serverError(error.message);
   }
 
+  logAudit(req, "intake_form.update", "intake_form", existing?.id ?? "unknown");
   return NextResponse.json({ ok: true });
 }

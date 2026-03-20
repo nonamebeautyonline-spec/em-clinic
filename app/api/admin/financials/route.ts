@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { financialsSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -132,6 +133,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
     }
 
+    logAudit(req, "financial.create", "financial", "unknown");
     return NextResponse.json({ ok: true, data });
   } catch (err) {
     console.error("[financials] POST exception:", err);

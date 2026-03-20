@@ -6,6 +6,7 @@ import { getFlexConfig, setFlexConfig } from "@/lib/flex-message/config";
 import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { flexSettingsSchema } from "@/lib/validations/admin-operations";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
@@ -27,5 +28,6 @@ export async function PUT(req: NextRequest) {
 
   const saved = await setFlexConfig(config, tenantId ?? undefined);
   if (!saved) return serverError("保存に失敗しました");
+  logAudit(req, "flex_settings.update", "settings", "settings");
   return NextResponse.json({ ok: true });
 }

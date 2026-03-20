@@ -6,6 +6,7 @@ import { getSetting, setSetting } from "@/lib/settings";
 import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateColumnSettingsSchema } from "@/lib/validations/line-management";
+import { logAudit } from "@/lib/audit";
 
 // 表示設定取得
 export async function GET(req: NextRequest) {
@@ -33,5 +34,6 @@ export async function PUT(req: NextRequest) {
 
   const ok = await setSetting("line", "right_column_sections", JSON.stringify(sections), tenantId ?? undefined);
   if (!ok) return serverError("保存に失敗しました");
+  logAudit(req, "column_settings.update", "column_settings", "settings");
   return NextResponse.json({ ok: true });
 }

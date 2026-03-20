@@ -12,6 +12,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { menuRuleSchema } from "@/lib/validations/line-management";
+import { logAudit } from "@/lib/audit";
 
 // ルール一覧取得
 export async function GET(req: NextRequest) {
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
 
   const saved = await saveMenuRules(rules, tenantId ?? undefined);
   if (!saved) return serverError("保存に失敗しました");
+  logAudit(req, "menu_rule.create", "menu_rule", String(rule.id));
   return NextResponse.json({ ok: true, rules });
 }
 
@@ -73,6 +75,7 @@ export async function DELETE(req: NextRequest) {
   const rules = await loadMenuRules(tenantId ?? undefined);
   const filtered = rules.filter(r => r.id !== id);
   await saveMenuRules(filtered, tenantId ?? undefined);
+  logAudit(req, "menu_rule.delete", "menu_rule", String(id));
   return NextResponse.json({ ok: true });
 }
 
@@ -96,5 +99,6 @@ export async function PUT(req: NextRequest) {
   if (ids.length === 0) return NextResponse.json({ ok: true, evaluated: 0 });
 
   await evaluateMenuRulesForMany(ids, tenantId ?? undefined);
+  logAudit(req, "menu_rule.update", "menu_rule", "unknown");
   return NextResponse.json({ ok: true, evaluated: ids.length });
 }
