@@ -46,7 +46,8 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
-import { executeLifecycleActions } from "@/lib/lifecycle-actions";
+import { executeLifecycleActions, evaluateConditionRules } from "@/lib/lifecycle-actions";
+import type { ConditionRule } from "@/lib/lifecycle-actions";
 import { supabaseAdmin } from "@/lib/supabase";
 
 beforeEach(() => {
@@ -308,5 +309,209 @@ describe("executeLifecycleActions", () => {
     // mark_change none はスキップされるが、stepsは空ではないのでexecutedはtrue
     expect(result.executed).toBe(true);
     expect(result.actionDetails).toHaveLength(0);
+  });
+
+  it("条件付きステップ: 条件不一致ならスキップ", async () => {
+    tableChains["friend_add_settings"] = createChain({
+      data: {
+        enabled: true,
+        setting_value: {
+          steps: [
+            {
+              type: "send_text",
+              content: "条件不一致",
+              condition: {
+                enabled: true,
+                rules: [{ type: "tag", tag_ids: [99], tag_match: "any_include" }],
+              },
+            },
+          ],
+        },
+      },
+      error: null,
+    });
+    // 患者コンテキスト: タグなし, マークnone
+    tableChains["patient_tags"] = createChain({ data: [], error: null });
+    tableChains["patient_marks"] = createChain({ data: null, error: null });
+    tableChains["patients"] = createChain({ data: { name: "テスト" }, error: null });
+
+    const result = await executeLifecycleActions(baseParams);
+    expect(result.executed).toBe(true);
+    expect(result.actionDetails).toHaveLength(0);
+    expect(mockPushMessage).not.toHaveBeenCalled();
+  });
+
+  it("条件付きステップ: 条件一致なら実行", async () => {
+    tableChains["friend_add_settings"] = createChain({
+      data: {
+        enabled: true,
+        setting_value: {
+          steps: [
+            {
+              type: "send_text",
+              content: "条件一致",
+              condition: {
+                enabled: true,
+                rules: [{ type: "tag", tag_ids: [1], tag_match: "any_include" }],
+              },
+            },
+          ],
+        },
+      },
+      error: null,
+    });
+    // 患者コンテキスト: タグ1あり
+    tableChains["patient_tags"] = createChain({ data: [{ tag_id: 1 }], error: null });
+    tableChains["patient_marks"] = createChain({ data: null, error: null });
+    tableChains["patients"] = createChain({ data: { name: "テスト" }, error: null });
+
+    const result = await executeLifecycleActions(baseParams);
+    expect(result.executed).toBe(true);
+    expect(result.actionDetails).toContain("テキスト送信");
+    expect(mockPushMessage).toHaveBeenCalled();
+  });
+
+  it("condition.enabled=false なら条件を無視して実行", async () => {
+    tableChains["friend_add_settings"] = createChain({
+      data: {
+        enabled: true,
+        setting_value: {
+          steps: [
+            {
+              type: "send_text",
+              content: "条件無効",
+              condition: {
+                enabled: false,
+                rules: [{ type: "tag", tag_ids: [99], tag_match: "any_include" }],
+              },
+            },
+          ],
+        },
+      },
+      error: null,
+    });
+
+    const result = await executeLifecycleActions(baseParams);
+    expect(result.executed).toBe(true);
+    expect(result.actionDetails).toContain("テキスト送信");
+  });
+});
+
+describe("evaluateConditionRules", () => {
+  const ctx = { tagIds: [1, 2], mark: "red", name: "田中太郎" };
+
+  describe("タグ条件", () => {
+    it("any_include: いずれかのタグを持っていればtrue", () => {
+      const rules: ConditionRule[] = [{ type: "tag", tag_ids: [1, 99], tag_match: "any_include" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(true);
+    });
+
+    it("any_include: どのタグも持っていなければfalse", () => {
+      const rules: ConditionRule[] = [{ type: "tag", tag_ids: [98, 99], tag_match: "any_include" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(false);
+    });
+
+    it("all_include: 全タグを持っていればtrue", () => {
+      const rules: ConditionRule[] = [{ type: "tag", tag_ids: [1, 2], tag_match: "all_include" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(true);
+    });
+
+    it("all_include: 一部しか持っていなければfalse", () => {
+      const rules: ConditionRule[] = [{ type: "tag", tag_ids: [1, 99], tag_match: "all_include" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(false);
+    });
+
+    it("any_exclude: いずれかのタグを持っていればfalse", () => {
+      const rules: ConditionRule[] = [{ type: "tag", tag_ids: [1, 99], tag_match: "any_exclude" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(false);
+    });
+
+    it("any_exclude: どのタグも持っていなければtrue", () => {
+      const rules: ConditionRule[] = [{ type: "tag", tag_ids: [98, 99], tag_match: "any_exclude" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(true);
+    });
+
+    it("all_exclude: 全タグを持っていればfalse", () => {
+      const rules: ConditionRule[] = [{ type: "tag", tag_ids: [1, 2], tag_match: "all_exclude" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(false);
+    });
+
+    it("all_exclude: 一部しか持っていなければtrue", () => {
+      const rules: ConditionRule[] = [{ type: "tag", tag_ids: [1, 99], tag_match: "all_exclude" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(true);
+    });
+  });
+
+  describe("マーク条件", () => {
+    it("any_match: マークが一致すればtrue", () => {
+      const rules: ConditionRule[] = [{ type: "mark", mark_values: ["red", "green"], mark_match: "any_match" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(true);
+    });
+
+    it("any_match: マークが一致しなければfalse", () => {
+      const rules: ConditionRule[] = [{ type: "mark", mark_values: ["green", "blue"], mark_match: "any_match" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(false);
+    });
+
+    it("any_exclude: マークが一致すればfalse", () => {
+      const rules: ConditionRule[] = [{ type: "mark", mark_values: ["red"], mark_match: "any_exclude" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(false);
+    });
+
+    it("any_exclude: マークが一致しなければtrue", () => {
+      const rules: ConditionRule[] = [{ type: "mark", mark_values: ["green"], mark_match: "any_exclude" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(true);
+    });
+  });
+
+  describe("名前条件", () => {
+    it("contains: 名前に含まれればtrue", () => {
+      const rules: ConditionRule[] = [{ type: "name", name_operator: "contains", name_value: "田中" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(true);
+    });
+
+    it("not_contains: 名前に含まれなければtrue", () => {
+      const rules: ConditionRule[] = [{ type: "name", name_operator: "not_contains", name_value: "鈴木" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(true);
+    });
+
+    it("equals: 完全一致でtrue", () => {
+      const rules: ConditionRule[] = [{ type: "name", name_operator: "equals", name_value: "田中太郎" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(true);
+    });
+  });
+
+  describe("AND条件（複数ルール）", () => {
+    it("全ルール一致でtrue", () => {
+      const rules: ConditionRule[] = [
+        { type: "tag", tag_ids: [1], tag_match: "any_include" },
+        { type: "mark", mark_values: ["red"], mark_match: "any_match" },
+      ];
+      expect(evaluateConditionRules(rules, ctx)).toBe(true);
+    });
+
+    it("1つでも不一致ならfalse", () => {
+      const rules: ConditionRule[] = [
+        { type: "tag", tag_ids: [1], tag_match: "any_include" },
+        { type: "mark", mark_values: ["green"], mark_match: "any_match" },
+      ];
+      expect(evaluateConditionRules(rules, ctx)).toBe(false);
+    });
+  });
+
+  describe("エッジケース", () => {
+    it("空のルール配列 → true", () => {
+      expect(evaluateConditionRules([], ctx)).toBe(true);
+    });
+
+    it("未対応の条件タイプ → true（スキップ）", () => {
+      const rules = [{ type: "visit_count" as const }] as ConditionRule[];
+      expect(evaluateConditionRules(rules, ctx)).toBe(true);
+    });
+
+    it("tag_ids が空 → true", () => {
+      const rules: ConditionRule[] = [{ type: "tag", tag_ids: [], tag_match: "any_include" }];
+      expect(evaluateConditionRules(rules, ctx)).toBe(true);
+    });
   });
 });
