@@ -392,7 +392,7 @@ export default function FlexSection({ onToast }: Props) {
               <button
                 type="button"
                 onClick={() => toggleTab(key)}
-                className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                className={`w-full px-5 py-4 flex items-center justify-between transition-colors ${isOpen ? "bg-blue-50 border-l-4 border-l-blue-500" : "hover:bg-gray-50"}`}
               >
                 <span className="text-sm font-bold text-gray-800">{label}</span>
                 <svg
@@ -422,24 +422,34 @@ export default function FlexSection({ onToast }: Props) {
 
                     {/* === 再処方承認 === */}
                     {key === "reorder_approve" && (
-                      <>
-                        <div className="px-5 py-4 flex items-center justify-between">
-                          <div>
-                            <p className="text-xs text-gray-500">Dr承認時に患者へLINEメッセージを送信</p>
+                      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 p-5">
+                        <div className="lg:col-span-3 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-xs text-gray-500">Dr承認時に患者へLINEメッセージを送信</p>
+                            </div>
+                            <Toggle checked={eventConfig.notifyReorderApprove} onChange={(v) => setEventConfig(prev => ({ ...prev, notifyReorderApprove: v }))} disabled={!editing} />
                           </div>
-                          <Toggle checked={eventConfig.notifyReorderApprove} onChange={(v) => setEventConfig(prev => ({ ...prev, notifyReorderApprove: v }))} disabled={!editing} />
+                          {eventConfig.notifyReorderApprove && (
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">送信メッセージ</label>
+                              <textarea rows={3} value={eventConfig.approveMessage}
+                                onChange={(e) => setEventConfig(prev => ({ ...prev, approveMessage: e.target.value }))}
+                                placeholder={DEFAULT_APPROVE_MESSAGE}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                              <p className="text-xs text-gray-400 mt-1">空の場合はデフォルト文言が使用されます</p>
+                            </div>
+                          )}
                         </div>
                         {eventConfig.notifyReorderApprove && (
-                          <div className="px-5 pb-5">
-                            <label className="block text-xs font-medium text-gray-500 mb-1">送信メッセージ</label>
-                            <textarea rows={3} value={eventConfig.approveMessage}
-                              onChange={(e) => setEventConfig(prev => ({ ...prev, approveMessage: e.target.value }))}
-                              placeholder={DEFAULT_APPROVE_MESSAGE}
-                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
-                            <p className="text-xs text-gray-400 mt-1">空の場合はデフォルト文言が使用されます</p>
+                          <div className="lg:col-span-2">
+                            <div className="sticky top-6">
+                              <h3 className="text-sm font-semibold text-gray-700 mb-3">LINEメッセージプレビュー</h3>
+                              <LineMessagePreview message={eventConfig.approveMessage} placeholder={DEFAULT_APPROVE_MESSAGE} />
+                            </div>
                           </div>
                         )}
-                      </>
+                      </div>
                     )}
 
                     {/* === 決済完了 === */}
@@ -593,24 +603,34 @@ export default function FlexSection({ onToast }: Props) {
 
                     {/* === 不通通知 === */}
                     {key === "no_answer" && (
-                      <>
-                        <div className="px-5 py-4 flex items-center justify-between">
-                          <div>
-                            <p className="text-xs text-gray-500">Drが不通ボタンを押した際に患者へ自動でLINEメッセージを送信</p>
+                      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 p-5">
+                        <div className="lg:col-span-3 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-xs text-gray-500">Drが不通ボタンを押した際に患者へ自動でLINEメッセージを送信</p>
+                            </div>
+                            <Toggle checked={eventConfig.notifyNoAnswer} onChange={(v) => setEventConfig(prev => ({ ...prev, notifyNoAnswer: v }))} disabled={!editing} />
                           </div>
-                          <Toggle checked={eventConfig.notifyNoAnswer} onChange={(v) => setEventConfig(prev => ({ ...prev, notifyNoAnswer: v }))} disabled={!editing} />
+                          {eventConfig.notifyNoAnswer && (
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">送信メッセージ</label>
+                              <textarea rows={6} value={eventConfig.noAnswerMessage}
+                                onChange={(e) => setEventConfig(prev => ({ ...prev, noAnswerMessage: e.target.value }))}
+                                placeholder={DEFAULT_NO_ANSWER_MESSAGE}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                              <p className="text-xs text-gray-400 mt-1">空の場合はデフォルト文言が使用されます</p>
+                            </div>
+                          )}
                         </div>
                         {eventConfig.notifyNoAnswer && (
-                          <div className="px-5 pb-5">
-                            <label className="block text-xs font-medium text-gray-500 mb-1">送信メッセージ</label>
-                            <textarea rows={6} value={eventConfig.noAnswerMessage}
-                              onChange={(e) => setEventConfig(prev => ({ ...prev, noAnswerMessage: e.target.value }))}
-                              placeholder={DEFAULT_NO_ANSWER_MESSAGE}
-                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
-                            <p className="text-xs text-gray-400 mt-1">空の場合はデフォルト文言が使用されます</p>
+                          <div className="lg:col-span-2">
+                            <div className="sticky top-6">
+                              <h3 className="text-sm font-semibold text-gray-700 mb-3">LINEメッセージプレビュー</h3>
+                              <LineMessagePreview message={eventConfig.noAnswerMessage} placeholder={DEFAULT_NO_ANSWER_MESSAGE} />
+                            </div>
                           </div>
                         )}
-                      </>
+                      </div>
                     )}
 
                     {/* === 問診リマインダー === */}
@@ -996,6 +1016,29 @@ function ShippingPreview({ config }: { config: FlexMessageConfig }) {
           {shipping.buttonLabel}
         </button>
         <p className="text-xs text-center" style={{ color: colors.bodyText }}>{shipping.footerNote}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- LINEメッセージプレビュー ---------- */
+function LineMessagePreview({ message, placeholder }: { message: string; placeholder: string }) {
+  const text = message || placeholder;
+  return (
+    <div className="mx-auto w-[320px] rounded-2xl overflow-hidden shadow-lg border border-gray-200">
+      {/* LINEチャットヘッダー */}
+      <div className="px-4 py-2.5 bg-[#6B8BB2] flex items-center gap-3">
+        <div className="w-8 h-8 rounded-full bg-white/30 flex items-center justify-center text-sm">🏥</div>
+        <span className="text-white text-sm font-medium">クリニック</span>
+      </div>
+      {/* チャットエリア */}
+      <div className="p-4 min-h-[120px]" style={{ backgroundColor: "#7494C0" }}>
+        <div className="flex items-end gap-2">
+          <div className="max-w-[240px] bg-white rounded-2xl rounded-tl-sm px-3 py-2.5 shadow-sm">
+            <p className="text-sm leading-relaxed whitespace-pre-wrap text-gray-900">{text}</p>
+          </div>
+          <span className="text-[10px] text-white/70 shrink-0 pb-0.5">14:00</span>
+        </div>
       </div>
     </div>
   );
