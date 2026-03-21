@@ -16,6 +16,11 @@ const swrFetcher = (url: string) =>
 
 type AnswerMap = Record<string, string>;
 
+interface ActiveForm {
+  id: string;
+  name: string;
+}
+
 function CheckingUI() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -89,10 +94,63 @@ function CheckErrorUI({
   );
 }
 
+// ============================================================
+// 問診フォーム選択画面
+// ============================================================
+
+function FormSelectUI({
+  forms,
+  onSelect,
+  onBack,
+}: {
+  forms: ActiveForm[];
+  onSelect: (templateId: string) => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <header className="bg-white border-b px-4 py-3">
+        <h1 className="text-lg font-semibold">問診フォーム選択</h1>
+      </header>
+      <main className="flex-1 px-4 py-6">
+        <p className="text-sm text-gray-600 mb-4">
+          該当する問診を選択してください
+        </p>
+        <div className="space-y-3">
+          {forms.map((form) => (
+            <button
+              key={form.id}
+              onClick={() => onSelect(form.id)}
+              className="w-full bg-white rounded-xl shadow-sm p-4 text-left hover:bg-blue-50 active:bg-blue-100 transition-colors border border-gray-200"
+            >
+              <span className="text-base font-semibold text-gray-800">{form.name}</span>
+              <span className="block text-xs text-gray-400 mt-0.5">タップして問診を開始</span>
+            </button>
+          ))}
+        </div>
+      </main>
+      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t px-4 py-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="w-full rounded-full bg-white px-3 py-2 text-sm font-medium text-slate-700 border active:bg-slate-50"
+        >
+          マイページに戻る
+        </button>
+      </footer>
+    </div>
+  );
+}
+
+// ============================================================
+// メイン問診コンポーネント
+// ============================================================
+
 function IntakePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const fieldId = searchParams.get("fieldId");
+  const urlTemplateId = searchParams.get("templateId");
 
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -108,11 +166,34 @@ function IntakePageInner() {
   const [alreadyAnswered, setAlreadyAnswered] = useState(false);
   const [checkError, setCheckError] = useState<string>("");
 
-  // ★ 動的フォーム定義（SWRで取得、fieldId があれば分野別）
-  const formDefinitionUrl = fieldId
-    ? `/api/intake/form-definition?fieldId=${fieldId}`
-    : "/api/intake/form-definition";
+  // ★ テンプレート選択
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(urlTemplateId);
+
+  // アクティブフォーム一覧を取得（選択画面用）
+  const { data: activeFormsData, isLoading: formsLoading } = useSWR<{ forms: ActiveForm[] }>(
+    "/api/intake/active-forms",
+    swrFetcher,
+  );
+  const activeForms = activeFormsData?.forms ?? [];
+
+  // フォームが1つだけなら自動選択
+  useEffect(() => {
+    if (!selectedTemplateId && activeForms.length === 1) {
+      setSelectedTemplateId(activeForms[0].id);
+    }
+  }, [activeForms, selectedTemplateId]);
+
+  // ★ 動的フォーム定義（SWRで取得）
+  const formDefinitionUrl = selectedTemplateId
+    ? `/api/intake/form-definition?templateId=${selectedTemplateId}`
+    : fieldId
+      ? `/api/intake/form-definition?fieldId=${fieldId}`
+      : selectedTemplateId === null && activeForms.length <= 1
+        ? "/api/intake/form-definition"
+        : null; // 未選択時はフェッチしない
+
   const { data: formData, isLoading: formLoading } = useSWR<{
+    templateId?: string;
     fields?: IntakeFormField[];
     settings?: Partial<IntakeFormSettings>;
   }>(formDefinitionUrl, swrFetcher);
@@ -141,14 +222,14 @@ function IntakePageInner() {
     let next = index + 1;
     while (next < total && !isVisible(questionItems[next])) next++;
     return next;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- isVisibleはanswersに依存するため間接的に含まれる
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [total, questionItems, answers]);
 
   const getPrevIndex = useCallback((index: number) => {
     let prev = index - 1;
     while (prev >= 0 && !isVisible(questionItems[prev])) prev--;
     return prev;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- isVisibleはanswersに依存するため間接的に含まれる
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questionItems, answers]);
 
   const isLastVisible = useMemo(
@@ -244,6 +325,7 @@ const runPidCheck = useCallback(async () => {
             type: "intake",
             answers,
             field_id: fieldId || undefined,
+            template_id: selectedTemplateId || formData?.templateId || undefined,
             submittedAt: new Date().toISOString(),
           }),
         });
@@ -390,8 +472,8 @@ const runPidCheck = useCallback(async () => {
     }
   };
 
-  // ★ 入場時チェック or フォーム定義ロード中
-  if (checking || formLoading) return <CheckingUI />;
+  // ★ 入場時チェック or フォーム一覧ロード中
+  if (checking || formsLoading) return <CheckingUI />;
 
   if (checkError) {
     return <CheckErrorUI message={checkError} onRetry={runPidCheck} onBack={goToMypage} />;
@@ -400,6 +482,20 @@ const runPidCheck = useCallback(async () => {
   if (alreadyAnswered) {
     return <AlreadyAnsweredUI onBack={goToMypage} />;
   }
+
+  // ★ 複数フォームがある場合はテンプレート選択画面を表示
+  if (!selectedTemplateId && activeForms.length > 1) {
+    return (
+      <FormSelectUI
+        forms={activeForms}
+        onSelect={(id) => setSelectedTemplateId(id)}
+        onBack={goToMypage}
+      />
+    );
+  }
+
+  // フォーム定義ロード中
+  if (formLoading) return <CheckingUI />;
 
   // 禁忌に該当した場合の画面（動的メッセージ対応）
   if (blocked) {
