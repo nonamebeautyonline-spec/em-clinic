@@ -12,7 +12,7 @@ export interface DashboardContextValue {
 
   // マイページ設定
   mpColors: { primary: string; primaryHover: string; primaryLight: string; pageBg: string; primaryText: string };
-  mpSections: { showIntake: boolean; showReserveButton: boolean; showReservation: boolean; showOrders: boolean; showReorder: boolean; showHistory: boolean; showSupport: boolean; showPointCard: boolean };
+  mpSections: { showIntake: boolean; showReserveButton: boolean; showReservation: boolean; showOrders: boolean; showReorder: boolean; showHistory: boolean; showSupport: boolean; showPointCard: boolean; showExport: boolean; showFieldSelect: boolean; showFieldBadges: boolean };
   mpContent: { clinicName: string; logoUrl: string; supportMessage: string; supportUrl: string; supportButtonLabel: string; supportNote: string };
   mpLabels: {
     intakeButtonLabel: string; intakeCompleteText: string; intakeGuideText: string; intakeNoteText: string;

@@ -114,7 +114,7 @@ export function OrdersSection() {
 
           <div className="text-sm font-medium text-slate-900 flex items-center gap-1.5">
             <span>{(displayReorder.productCode && productLabels[displayReorder.productCode]) || displayReorder.productLabel}</span>
-            {multiFieldEnabled && <FieldBadge name={displayReorder.fieldName} color={displayReorder.fieldColor} />}
+            {multiFieldEnabled && mpSections.showFieldBadges && <FieldBadge name={displayReorder.fieldName} color={displayReorder.fieldColor} />}
           </div>
 
           {displayReorderStatus === "pending" && (
@@ -184,6 +184,7 @@ export function OrdersSection() {
               order={order}
               productLabels={productLabels}
               multiFieldEnabled={multiFieldEnabled}
+              showFieldBadges={mpSections.showFieldBadges}
               editingAddressOrderId={editingAddressOrderId}
               setEditingAddressOrderId={setEditingAddressOrderId}
               editPostalCode={editPostalCode}
@@ -252,6 +253,7 @@ function OrderCard({
   order,
   productLabels,
   multiFieldEnabled,
+  showFieldBadges,
   editingAddressOrderId,
   setEditingAddressOrderId,
   editPostalCode,
@@ -268,6 +270,7 @@ function OrderCard({
   order: Order;
   productLabels: Record<string, string>;
   multiFieldEnabled: boolean;
+  showFieldBadges: boolean;
   editingAddressOrderId: string | null;
   setEditingAddressOrderId: React.Dispatch<React.SetStateAction<string | null>>;
   editPostalCode: string;
@@ -291,7 +294,7 @@ function OrderCard({
         )}
         <div className="text-[15px] font-medium text-slate-900 flex items-center gap-1.5">
           <span>{(order.productCode && productLabels[order.productCode]) || order.productName || order.productCode}</span>
-          {multiFieldEnabled && <FieldBadge name={order.fieldName} color={order.fieldColor} />}
+          {multiFieldEnabled && showFieldBadges && <FieldBadge name={order.fieldName} color={order.fieldColor} />}
         </div>
         <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
           <div className="flex items-center gap-1">

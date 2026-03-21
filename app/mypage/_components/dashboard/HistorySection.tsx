@@ -103,7 +103,7 @@ export function HistorySection() {
 
                   <div className="text-sm font-medium text-slate-900 flex items-center gap-1.5">
                     <span>{(o.productCode && productLabels[o.productCode]) || o.productName || o.productCode}</span>
-                    {multiFieldEnabled && <FieldBadge name={o.fieldName} color={o.fieldColor} />}
+                    {multiFieldEnabled && mpSections.showFieldBadges && <FieldBadge name={o.fieldName} color={o.fieldColor} />}
                   </div>
 
                   {isRefunded && (

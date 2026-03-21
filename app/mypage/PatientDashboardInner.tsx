@@ -186,7 +186,7 @@ export default function PatientDashboardInner() {
           <HistorySection />
 
           {/* 新しい分野を始める（マルチ分野モード時のみ） */}
-          {multiFieldEnabled && (
+          {multiFieldEnabled && mpSections.showFieldSelect && (
             <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
               <h2 className="text-sm font-semibold text-slate-800 mb-2">新しい診療分野を始める</h2>
               <p className="text-sm text-slate-600 mb-3">
@@ -216,6 +216,7 @@ export default function PatientDashboardInner() {
           </section>
 
           {/* データエクスポート */}
+          {mpSections.showExport && (
           <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5 mb-4">
             <h2 className="text-sm font-semibold text-slate-800 mb-2">データエクスポート</h2>
             <p className="text-sm text-slate-600 mb-3">
@@ -223,6 +224,7 @@ export default function PatientDashboardInner() {
             </p>
             <ExportButton />
           </section>
+          )}
 
           {/* サポート */}
           {mpSections.showSupport && (

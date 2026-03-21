@@ -22,6 +22,9 @@ interface MypageSectionConfig {
   showHistory: boolean;
   showSupport: boolean;
   showPointCard: boolean;
+  showExport: boolean;
+  showFieldSelect: boolean;
+  showFieldBadges: boolean;
 }
 
 interface MypageContentConfig {
@@ -75,6 +78,9 @@ const DEFAULT_CONFIG: MypageConfig = {
     showHistory: true,
     showSupport: true,
     showPointCard: true,
+    showExport: false,
+    showFieldSelect: true,
+    showFieldBadges: true,
   },
   content: {
     clinicName: "",
@@ -112,6 +118,7 @@ const SECTION_LABELS: { key: keyof MypageSectionConfig; label: string }[] = [
   { key: "showHistory", label: "処方履歴" },
   { key: "showSupport", label: "サポート（LINE問い合わせ）" },
   { key: "showPointCard", label: "ポイントカード" },
+  { key: "showExport", label: "データエクスポート（JSONダウンロード）" },
 ];
 
 const COLOR_LABELS: { key: keyof MypageColorConfig; label: string }[] = [
@@ -126,9 +133,16 @@ interface Props {
   onToast: (msg: string, type: "success" | "error") => void;
 }
 
+const MULTI_FIELD_SECTION_LABELS: { key: keyof MypageSectionConfig; label: string }[] = [
+  { key: "showFieldSelect", label: "分野選択セクション（「新しい診療分野を始める」）" },
+  { key: "showFieldBadges", label: "分野バッジ（注文・履歴・予約に表示）" },
+];
+
 export default function MypageSection({ onToast }: Props) {
   const SWR_KEY = "/api/admin/mypage-settings";
   const { data: swrData, isLoading: loading } = useSWR<{ config?: MypageConfig }>(SWR_KEY);
+  const { data: fieldConfigData } = useSWR<{ ok: boolean; config: { multiFieldEnabled: boolean } }>("/api/admin/medical-fields/config");
+  const multiFieldEnabled = fieldConfigData?.config?.multiFieldEnabled ?? false;
   const [config, setConfig] = useState<MypageConfig>(DEFAULT_CONFIG);
   const [configLoaded, setConfigLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -261,6 +275,27 @@ export default function MypageSection({ onToast }: Props) {
               ))}
             </div>
           </div>
+
+          {/* マルチ分野モード表示設定（有効時のみ） */}
+          {multiFieldEnabled && (
+          <div className="bg-white rounded-xl border border-blue-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-blue-100 bg-blue-50/50">
+              <h3 className="text-sm font-bold text-blue-800">マルチ分野モード表示設定</h3>
+              <p className="text-xs text-blue-600 mt-0.5">マルチ分野モード有効時のマイページ表示を制御</p>
+            </div>
+            <div className="px-5 py-2">
+              {MULTI_FIELD_SECTION_LABELS.map(({ key, label }) => (
+                <label key={key} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0 cursor-pointer">
+                  <span className="text-sm text-gray-700">{label}</span>
+                  <button type="button" onClick={() => updateSection(key, !config.sections[key])}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${config.sections[key] ? "bg-blue-500" : "bg-gray-300"}`}>
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${config.sections[key] ? "translate-x-5" : "translate-x-0"}`} />
+                  </button>
+                </label>
+              ))}
+            </div>
+          </div>
+          )}
 
           {/* コンテンツ設定 */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">

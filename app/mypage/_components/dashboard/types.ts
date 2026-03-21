@@ -90,7 +90,7 @@ export interface QueryPatientParams {
 
 // マイページ設定のデフォルト値
 export const DEFAULT_MP_COLORS = { primary: "#ec4899", primaryHover: "#db2777", primaryLight: "#fdf2f8", pageBg: "#FFF8FB", primaryText: "#be185d" };
-export const DEFAULT_MP_SECTIONS = { showIntake: true, showReserveButton: true, showReservation: true, showOrders: true, showReorder: true, showHistory: true, showSupport: true, showPointCard: true };
+export const DEFAULT_MP_SECTIONS = { showIntake: true, showReserveButton: true, showReservation: true, showOrders: true, showReorder: true, showHistory: true, showSupport: true, showPointCard: true, showExport: false, showFieldSelect: true, showFieldBadges: true };
 export const DEFAULT_MP_CONTENT = { clinicName: "", logoUrl: "", supportMessage: "予約やお薬、体調についてご不安な点があれば、LINEからいつでもご相談いただけます。", supportUrl: "", supportButtonLabel: "LINEで問い合わせる", supportNote: "※ 診察中・夜間など、返信までお時間をいただく場合があります。" };
 export const DEFAULT_MP_LABELS = {
   intakeButtonLabel: "問診に進む", intakeCompleteText: "問診はすでに完了しています", intakeGuideText: "問診の入力は不要です。このまま予約にお進みください。", intakeNoteText: "※ 問診の入力が終わると、診察予約画面に進みます。",

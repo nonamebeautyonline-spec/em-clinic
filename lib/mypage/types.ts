@@ -18,6 +18,9 @@ export interface MypageSectionConfig {
   showReorder: boolean;       // 再処方申請
   showHistory: boolean;       // 処方履歴
   showSupport: boolean;       // サポート
+  showExport: boolean;        // データエクスポート
+  showFieldSelect: boolean;   // 分野選択セクション（マルチ分野モード時）
+  showFieldBadges: boolean;   // 分野バッジ（マルチ分野モード時）
 }
 
 /** コンテンツ設定 */
@@ -74,6 +77,9 @@ export const DEFAULT_MYPAGE_CONFIG: MypageConfig = {
     showReorder: true,
     showHistory: true,
     showSupport: true,
+    showExport: false,
+    showFieldSelect: true,
+    showFieldBadges: true,
   },
   content: {
     clinicName: "",

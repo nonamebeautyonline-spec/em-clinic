@@ -78,7 +78,7 @@ export function ReservationSection() {
 
           <div className="mt-1 text-sm text-slate-600 flex items-center gap-1.5">
             <span>{nextReservation.title}</span>
-            {multiFieldEnabled && nextReservation.fieldName && (
+            {multiFieldEnabled && mpSections.showFieldBadges && nextReservation.fieldName && (
               <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
                 {nextReservation.fieldName}
               </span>
