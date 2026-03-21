@@ -48,6 +48,11 @@ export async function buildShippingFlex(
   const label = carrierLabel(primary.carrier);
   const trackingUrl = buildTrackingUrl(primary.carrier, primary.number);
 
+  // LINE Flex APIはurl=""を許可しないため、デフォルト画像にフォールバック
+  const baseUrl = process.env.APP_BASE_URL || "";
+  const truckUrl = shipping.truckImageUrl || `${baseUrl}/images/truck-delivery.png`;
+  const progressUrl = shipping.progressBarUrl || `${baseUrl}/images/progress-bar.png`;
+
   // 追跡番号セクション
   const trackingContents: Record<string, unknown>[] = [
     { type: "text", text: "追跡番号", size: "sm", color: colors.bodyText, align: "center" },
@@ -79,7 +84,7 @@ export async function buildShippingFlex(
           { type: "text", text: "発送", size: "xs", color: colors.bodyText, flex: 1, align: "start", gravity: "bottom" },
           {
             type: "image",
-            url: shipping.truckImageUrl,
+            url: truckUrl,
             size: "full",
             aspectRatio: "3:2",
             aspectMode: "fit",
@@ -93,7 +98,7 @@ export async function buildShippingFlex(
       },
       {
         type: "image",
-        url: shipping.progressBarUrl,
+        url: progressUrl,
         size: "full",
         aspectRatio: "20:2",
         aspectMode: "cover",
