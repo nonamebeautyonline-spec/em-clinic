@@ -263,14 +263,14 @@ function Inner() {
                 value={sei}
                 onChange={(e) => setSei(e.target.value)}
                 placeholder="姓（例：山田）"
-                className="flex-1 px-4 py-3 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/30 focus:border-pink-400 transition-all"
+                className="flex-1 min-w-0 px-3 py-3 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/30 focus:border-pink-400 transition-all"
               />
               <input
                 type="text"
                 value={mei}
                 onChange={(e) => setMei(e.target.value)}
                 placeholder="名（例：太郎）"
-                className="flex-1 px-4 py-3 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/30 focus:border-pink-400 transition-all"
+                className="flex-1 min-w-0 px-3 py-3 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/30 focus:border-pink-400 transition-all"
               />
             </div>
           </div>
@@ -287,14 +287,14 @@ function Inner() {
                 value={seiKana}
                 onChange={(e) => setSeiKana(e.target.value)}
                 placeholder="セイ（例：ヤマダ）"
-                className={`flex-1 px-4 py-3 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 transition-all ${seiKana && !/^[ァ-ヶー]*$/.test(seiKana) ? "border-red-400 focus:ring-red-400/30" : "border-slate-300 focus:ring-pink-400/30 focus:border-pink-400"}`}
+                className={`flex-1 min-w-0 px-3 py-3 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 transition-all ${seiKana && !/^[ァ-ヶー]*$/.test(seiKana) ? "border-red-400 focus:ring-red-400/30" : "border-slate-300 focus:ring-pink-400/30 focus:border-pink-400"}`}
               />
               <input
                 type="text"
                 value={meiKana}
                 onChange={(e) => setMeiKana(e.target.value)}
                 placeholder="メイ（例：タロウ）"
-                className={`flex-1 px-4 py-3 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 transition-all ${meiKana && !/^[ァ-ヶー]*$/.test(meiKana) ? "border-red-400 focus:ring-red-400/30" : "border-slate-300 focus:ring-pink-400/30 focus:border-pink-400"}`}
+                className={`flex-1 min-w-0 px-3 py-3 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 transition-all ${meiKana && !/^[ァ-ヶー]*$/.test(meiKana) ? "border-red-400 focus:ring-red-400/30" : "border-slate-300 focus:ring-pink-400/30 focus:border-pink-400"}`}
               />
             </div>
             {(seiKana && !/^[ァ-ヶー]*$/.test(seiKana)) || (meiKana && !/^[ァ-ヶー]*$/.test(meiKana)) ? (
