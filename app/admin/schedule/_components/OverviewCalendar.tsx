@@ -96,15 +96,21 @@ export default function OverviewCalendar() {
     return map;
   }, [overrides]);
 
-  // 各日の担当医師一覧を計算
+  // 時間を短縮表示 (例: "10:00" → "10", "13:30" → "13:30")
+  function shortTime(t: string): string {
+    const [h, m] = t.slice(0, 5).split(":");
+    return m === "00" ? String(Number(h)) : `${Number(h)}:${m}`;
+  }
+
+  // 各日の担当医師一覧を計算（複数時間帯対応）
   const dayDoctors = useMemo(() => {
-    const result = new Map<string, { doctor: Doctor; status: string; time?: string }[]>();
+    const result = new Map<string, { doctor: Doctor; status: string; times: string[] }[]>();
     for (const d of monthDays) {
       const dateStr = fmt(d);
       if (d.getMonth() + 1 !== month) continue;
       const weekday = d.getDay();
       const dayOverrides = overrideMap.get(dateStr) || [];
-      const activeDoctors: { doctor: Doctor; status: string; time?: string }[] = [];
+      const activeDoctors: { doctor: Doctor; status: string; times: string[] }[] = [];
 
       for (const doc of doctors) {
         const docOverrides = dayOverrides.filter((o) => o.doctor_id === doc.doctor_id);
@@ -114,17 +120,16 @@ export default function OverviewCalendar() {
         if (docOverrides.length > 0) {
           const hasClosed = docOverrides.some((o) => o.type === "closed");
           if (!hasClosed) {
-            const firstOverride = docOverrides[0];
-            const time = firstOverride.start_time && firstOverride.end_time
-              ? `${firstOverride.start_time.slice(0, 5)}-${firstOverride.end_time.slice(0, 5)}`
-              : undefined;
-            activeDoctors.push({ doctor: doc, status: "modified", time });
+            const times = docOverrides
+              .filter((o) => o.start_time && o.end_time)
+              .map((o) => `${shortTime(o.start_time!)}-${shortTime(o.end_time!)}`);
+            activeDoctors.push({ doctor: doc, status: "modified", times });
           }
         } else if (isWeeklyOpen) {
-          const time = weeklyRule
-            ? `${weeklyRule.start_time.slice(0, 5)}-${weeklyRule.end_time.slice(0, 5)}`
-            : undefined;
-          activeDoctors.push({ doctor: doc, status: "open", time });
+          const times = weeklyRule
+            ? [`${shortTime(weeklyRule.start_time)}-${shortTime(weeklyRule.end_time)}`]
+            : [];
+          activeDoctors.push({ doctor: doc, status: "open", times });
         }
       }
       result.set(dateStr, activeDoctors);
@@ -206,7 +211,7 @@ export default function OverviewCalendar() {
               <button
                 key={dateStr}
                 onClick={(e) => isCurrentMonth && handleCellClick(dateStr, e)}
-                className={`relative min-h-[72px] p-1.5 text-left transition ${
+                className={`relative min-h-[80px] p-1 text-left transition ${
                   isCurrentMonth
                     ? isAllClosed
                       ? "bg-slate-50 hover:bg-slate-100"
@@ -214,7 +219,7 @@ export default function OverviewCalendar() {
                     : "bg-slate-50/50"
                 } ${popover?.dateStr === dateStr ? "ring-2 ring-blue-400 z-10" : ""}`}
               >
-                <div className={`text-xs font-medium mb-1 ${
+                <div className={`text-xs font-medium mb-0.5 ${
                   !isCurrentMonth ? "text-slate-300" :
                   isToday ? "w-5 h-5 flex items-center justify-center rounded-full bg-blue-600 text-white" :
                   d.getDay() === 0 ? "text-red-500" :
@@ -223,15 +228,23 @@ export default function OverviewCalendar() {
                 }`}>
                   {d.getDate()}
                 </div>
-                {isCurrentMonth && (
-                  <div className="flex flex-wrap gap-0.5">
-                    {docs.map(({ doctor }) => (
+                {isCurrentMonth && docs.length > 0 && (
+                  <div className="space-y-px">
+                    {docs.map(({ doctor, times }) => (
                       <div
                         key={doctor.doctor_id}
-                        title={doctor.doctor_name}
-                        className="w-3 h-3 rounded-full border border-white shadow-sm"
-                        style={{ backgroundColor: doctor.color || DEFAULT_COLOR }}
-                      />
+                        title={`${doctor.doctor_name} ${times.join(", ")}`}
+                        className="flex items-center gap-0.5 rounded px-0.5 py-px"
+                        style={{ backgroundColor: `${doctor.color || DEFAULT_COLOR}18` }}
+                      >
+                        <span
+                          className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: doctor.color || DEFAULT_COLOR }}
+                        />
+                        <span className="text-[9px] leading-tight text-slate-600 truncate">
+                          {times.length > 0 ? times.join(" ") : doctor.doctor_name}
+                        </span>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -271,14 +284,16 @@ export default function OverviewCalendar() {
               <p className="text-sm text-slate-400">休診日</p>
             ) : (
               <div className="space-y-2">
-                {popoverData.map(({ doctor, time }) => (
+                {popoverData.map(({ doctor, times }) => (
                   <div key={doctor.doctor_id} className="flex items-center gap-2">
                     <div
                       className="w-3 h-3 rounded-full flex-shrink-0"
                       style={{ backgroundColor: doctor.color || DEFAULT_COLOR }}
                     />
                     <span className="text-sm font-medium text-slate-700">{doctor.doctor_name}</span>
-                    {time && <span className="text-xs text-slate-400 ml-auto">{time}</span>}
+                    {times.length > 0 && (
+                      <span className="text-xs text-slate-400 ml-auto">{times.join(", ")}</span>
+                    )}
                   </div>
                 ))}
               </div>

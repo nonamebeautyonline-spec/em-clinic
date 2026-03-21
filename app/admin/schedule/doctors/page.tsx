@@ -129,6 +129,7 @@ export default function DoctorsPage() {
             <tr>
               <th className="px-4 py-3 text-left text-slate-600">ID</th>
               <th className="px-4 py-3 text-left text-slate-600">名前</th>
+              <th className="px-4 py-3 text-center text-slate-600 w-16">色</th>
               <th className="px-4 py-3 text-left text-slate-600">専門</th>
               <th className="px-4 py-3 text-center text-slate-600 w-20">有効</th>
               <th className="px-4 py-3 text-center text-slate-600 w-20">順序</th>
@@ -138,13 +139,13 @@ export default function DoctorsPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                   読み込み中...
                 </td>
               </tr>
             ) : doctors.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                   医師データがありません
                 </td>
               </tr>
@@ -166,6 +167,15 @@ export default function DoctorsPage() {
                         className="border rounded px-2 py-1 text-sm w-full"
                         value={draft?.doctor_name || ""}
                         onChange={(e) => setDraft(draft ? { ...draft, doctor_name: e.target.value } : null)}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <input
+                        type="color"
+                        value={draft?.color || "#6366f1"}
+                        onChange={(e) => setDraft(draft ? { ...draft, color: e.target.value } : null)}
+                        className="w-8 h-8 rounded cursor-pointer border border-slate-200"
+                        title="カレンダー表示色"
                       />
                     </td>
                     <td className="px-4 py-3">
@@ -210,6 +220,13 @@ export default function DoctorsPage() {
                   <tr key={d.doctor_id} className="border-t">
                     <td className="px-4 py-3 font-mono text-slate-700">{d.doctor_id}</td>
                     <td className="px-4 py-3">{d.doctor_name}</td>
+                    <td className="px-4 py-3 text-center">
+                      <div
+                        className="w-6 h-6 rounded-full mx-auto border border-slate-200"
+                        style={{ backgroundColor: d.color || "#6366f1" }}
+                        title={d.color || "#6366f1"}
+                      />
+                    </td>
                     <td className="px-4 py-3 text-xs text-slate-500">{(d.specialties || []).join(", ") || "-"}</td>
                     <td className="px-4 py-3 text-center">
                       {d.is_active ? (
@@ -252,6 +269,15 @@ export default function DoctorsPage() {
                     value={draft.doctor_name}
                     onChange={(e) => setDraft({ ...draft, doctor_name: e.target.value })}
                     placeholder="医師名"
+                  />
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <input
+                    type="color"
+                    value={draft.color || "#6366f1"}
+                    onChange={(e) => setDraft({ ...draft, color: e.target.value })}
+                    className="w-8 h-8 rounded cursor-pointer border border-slate-200"
+                    title="カレンダー表示色"
                   />
                 </td>
                 <td className="px-4 py-3">

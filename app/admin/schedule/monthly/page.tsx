@@ -694,6 +694,30 @@ export default function MonthlySchedulePage() {
                       const isToday = formatDateStr(new Date()) === config.date;
                       const isPasteTarget = pasteTargets.has(config.date);
 
+                      // 時間帯テキストを取得
+                      const timeTexts: string[] = [];
+                      if (isCurrentMonth && config.effectiveStatus !== "closed") {
+                        if (config.overrides.length > 0) {
+                          config.overrides
+                            .filter((o) => o.type !== "closed" && o.start_time && o.end_time)
+                            .forEach((o) => {
+                              const sh = o.start_time!.slice(0, 5).replace(/:00$/, "").replace(/^0/, "");
+                              const eh = o.end_time!.slice(0, 5).replace(/:00$/, "").replace(/^0/, "");
+                              timeTexts.push(`${sh}-${eh}`);
+                            });
+                        } else {
+                          const rule = weeklyMap.get(d.getDay());
+                          if (rule?.enabled && rule.start_time && rule.end_time) {
+                            const sh = rule.start_time.slice(0, 5).replace(/:00$/, "").replace(/^0/, "");
+                            const eh = rule.end_time.slice(0, 5).replace(/:00$/, "").replace(/^0/, "");
+                            timeTexts.push(`${sh}-${eh}`);
+                          }
+                        }
+                      }
+
+                      // 選択中の医師の色
+                      const docColor = doctors.find((doc) => doc.doctor_id === doctorId)?.color || "#6366f1";
+
                       return (
                         <button
                           key={config.date}
@@ -707,35 +731,44 @@ export default function MonthlySchedulePage() {
                           }}
                           disabled={!isCurrentMonth}
                           className={`
-                            aspect-square p-1 rounded-xl text-sm font-medium transition-all relative
+                            min-h-[72px] p-1 rounded-xl text-sm font-medium transition-all relative
                             ${!isCurrentMonth ? "text-slate-300 cursor-default" : "hover:ring-2 hover:ring-blue-300"}
                             ${isSelected ? "ring-2 ring-blue-500 bg-blue-50" : ""}
                             ${isToday && !isSelected ? "ring-2 ring-amber-400" : ""}
                             ${isPasteTarget ? "ring-2 ring-blue-500 bg-blue-100" : ""}
                           `}
                         >
-                          <div className="h-full flex flex-col items-center justify-center">
-                            <span className={`${WEEKDAY_COLORS[d.getDay()]} ${!isCurrentMonth ? "text-slate-300" : ""}`}>
+                          <div className="h-full flex flex-col items-start">
+                            <span className={`text-xs ${WEEKDAY_COLORS[d.getDay()]} ${!isCurrentMonth ? "text-slate-300" : ""}`}>
                               {d.getDate()}
                             </span>
                             {isCurrentMonth && !isPasteTarget && (
-                              <div className="mt-1 flex gap-0.5">
-                                {config.effectiveStatus === "open" && (
-                                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                              <>
+                                {config.effectiveStatus === "closed" ? (
+                                  <span className="mt-0.5 text-[9px] text-slate-400">休診</span>
+                                ) : timeTexts.length > 0 ? (
+                                  <div className="mt-0.5 space-y-px w-full">
+                                    {timeTexts.map((t, i) => (
+                                      <div
+                                        key={i}
+                                        className="flex items-center gap-0.5 rounded px-0.5 py-px"
+                                        style={{ backgroundColor: `${docColor}18` }}
+                                      >
+                                        <span
+                                          className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                          style={{ backgroundColor: docColor }}
+                                        />
+                                        <span className="text-[9px] leading-tight text-slate-600 truncate">{t}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="mt-0.5 w-2 h-2 rounded-full bg-emerald-500" />
                                 )}
-                                {config.effectiveStatus === "closed" && (
-                                  <span className="w-2 h-2 rounded-full bg-slate-400"></span>
-                                )}
-                                {config.effectiveStatus === "modified" && (
-                                  <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                                )}
-                                {config.overrides.length > 1 && (
-                                  <span className="text-[10px] text-slate-500">+{config.overrides.length - 1}</span>
-                                )}
-                              </div>
+                              </>
                             )}
                             {isPasteTarget && (
-                              <svg className="w-4 h-4 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 text-blue-600 mt-0.5 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
                             )}
@@ -748,16 +781,15 @@ export default function MonthlySchedulePage() {
                   {/* 凡例 */}
                   <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-center gap-6 text-xs text-slate-500">
                     <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                      <span>営業</span>
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: doctors.find((doc) => doc.doctor_id === doctorId)?.color || "#6366f1" }}
+                      />
+                      <span>時間帯表示</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-slate-400"></span>
-                      <span>休診</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                      <span>変更あり</span>
+                      <span className="text-[9px] text-slate-400">休診</span>
+                      <span>休診日</span>
                     </div>
                   </div>
                 </div>
