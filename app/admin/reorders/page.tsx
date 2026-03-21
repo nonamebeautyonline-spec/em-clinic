@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import useSWR, { mutate } from "swr";
 import { useRouter } from "next/navigation";
 
@@ -21,21 +21,24 @@ interface Reorder {
   }>;
 }
 
-// 商品コード→商品名マッピング
-const PRODUCT_NAMES: Record<string, string> = {
-  MJL_2_5mg_1m: "マンジャロ 2.5mg 1ヶ月", "MJL_2.5mg_1m": "マンジャロ 2.5mg 1ヶ月",
-  MJL_2_5mg_2m: "マンジャロ 2.5mg 2ヶ月", "MJL_2.5mg_2m": "マンジャロ 2.5mg 2ヶ月",
-  MJL_2_5mg_3m: "マンジャロ 2.5mg 3ヶ月", "MJL_2.5mg_3m": "マンジャロ 2.5mg 3ヶ月",
-  MJL_5mg_1m: "マンジャロ 5mg 1ヶ月", MJL_5mg_2m: "マンジャロ 5mg 2ヶ月", MJL_5mg_3m: "マンジャロ 5mg 3ヶ月",
-  "MJL_7.5mg_1m": "マンジャロ 7.5mg 1ヶ月", "MJL_7.5mg_2m": "マンジャロ 7.5mg 2ヶ月", "MJL_7.5mg_3m": "マンジャロ 7.5mg 3ヶ月",
-  MJL_10mg_1m: "マンジャロ 10mg 1ヶ月", MJL_10mg_2m: "マンジャロ 10mg 2ヶ月", MJL_10mg_3m: "マンジャロ 10mg 3ヶ月",
-};
+// 商品コード→商品名マッピング（APIから動的取得、コンポーネント内で初期化）
 
 export default function ReordersPage() {
   const router = useRouter();
   const [filter, setFilter] = useState<"pending" | "all">("pending");
   const [processing, setProcessing] = useState<string | null>(null);
   const [lineNotifyResult, setLineNotifyResult] = useState<{ id: string; status: "sent" | "no_uid" | "failed" } | null>(null);
+
+  // 商品マスタから商品名マップを動的取得
+  const { data: productsData } = useSWR<{ products: { code: string; title: string }[] }>(
+    "/api/admin/products",
+    { revalidateOnFocus: false }
+  );
+  const PRODUCT_NAMES = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    for (const p of productsData?.products ?? []) map[p.code] = p.title;
+    return map;
+  }, [productsData]);
 
   const swrKey = `/api/admin/reorders?include_all=${filter === "all" ? "true" : "false"}`;
   const { data, error, isLoading: loading, isValidating } = useSWR<{ reorders: Reorder[] }>(swrKey);

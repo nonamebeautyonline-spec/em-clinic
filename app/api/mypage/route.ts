@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { validateBody } from "@/lib/validations/helpers";
 import { mypageDashboardSchema } from "@/lib/validations/mypage";
+import { isMultiFieldEnabled } from "@/lib/medical-fields";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -34,6 +35,8 @@ type OrderForMyPage = {
   address?: string;
   shippingName?: string;
   shippingListCreatedAt?: string;
+  fieldName?: string;
+  fieldColor?: string;
 };
 
 type OrdersFlags = {
@@ -93,6 +96,7 @@ interface OrderDbRow {
   address: string | null;
   shipping_name: string | null;
   shipping_list_created_at: string | null;
+  field_id: string | null;
 }
 
 interface ReorderDbRow {
@@ -101,6 +105,7 @@ interface ReorderDbRow {
   created_at: string | null;
   product_code: string | null;
   reorder_number: number | null;
+  field_id: string | null;
 }
 
 const TRACKING_SWITCH_AT = new Date("2025-12-22T00:00:00+09:00").getTime();
@@ -181,11 +186,11 @@ async function getPatientInfoFromSupabase(
 async function getNextReservationFromSupabase(
   patientId: string,
   tenantId: string | null
-): Promise<{ id: string; datetime: string; title: string; status: string } | null> {
+): Promise<{ id: string; datetime: string; title: string; status: string; field_id?: string } | null> {
   try {
     const { data: rows, error } = await strictWithTenant(supabaseAdmin
       .from("reservations")
-      .select("reserve_id, reserved_date, reserved_time, status")
+      .select("reserve_id, reserved_date, reserved_time, status, field_id")
       .eq("patient_id", patientId)
       .neq("status", "canceled")
       .not("reserved_date", "is", null)
@@ -205,6 +210,7 @@ async function getNextReservationFromSupabase(
       datetime,
       title: "診察予約",
       status: "confirmed",
+      field_id: data.field_id || undefined,
     };
   } catch (err) {
     console.error("[Supabase] getNextReservation error:", err);
@@ -321,6 +327,7 @@ async function getOrdersFromSupabase(patientId: string, tenantId: string | null)
         address: o.address || undefined,
         shippingName: (o.shipping_name && o.shipping_name !== "null") ? o.shipping_name : undefined,
         shippingListCreatedAt: o.shipping_list_created_at || undefined,
+        field_id: o.field_id || undefined,
       };
     });
   } catch (err) {
@@ -339,11 +346,12 @@ async function getReordersFromSupabase(patientId: string, tenantId: string | nul
   productCode: string;
   mg: string;
   months: number | undefined;
+  field_id?: string;
 }[]> {
   try {
     const { data, error } = await strictWithTenant(supabaseAdmin
       .from("reorders")
-      .select("id, status, created_at, product_code, reorder_number")
+      .select("id, status, created_at, product_code, reorder_number, field_id")
       .eq("patient_id", patientId), tenantId)
       .order("created_at", { ascending: false });
 
@@ -365,12 +373,34 @@ async function getReordersFromSupabase(patientId: string, tenantId: string | nul
         productCode,
         mg: mgMatch ? mgMatch[1] : "",
         months: monthsMatch ? Number(monthsMatch[1]) : undefined,
+        field_id: r.field_id || undefined,
       };
     });
   } catch (err) {
     console.error("[Supabase] getReorders error:", err);
     return [];
   }
+}
+
+/**
+ * 分野マスタのマップを取得（field_id → { name, color_theme }）
+ */
+async function getFieldMap(tenantId: string | null): Promise<Map<string, { name: string; color: string }>> {
+  const map = new Map<string, { name: string; color: string }>();
+  if (!tenantId) return map;
+  try {
+    const { data } = await supabaseAdmin
+      .from("medical_fields")
+      .select("id, name, color_theme")
+      .eq("tenant_id", tenantId)
+      .eq("is_active", true);
+    for (const f of data ?? []) {
+      map.set(f.id, { name: f.name, color: f.color_theme || "emerald" });
+    }
+  } catch (e) {
+    console.error("[mypage] getFieldMap error:", e);
+  }
+  return map;
 }
 
 // ─── メインAPI ───
@@ -442,6 +472,10 @@ export async function POST(_req: NextRequest) {
 
     const hasIntake = patientInfo?.hasIntake ?? false;
 
+    // マルチ分野モード: 分野マップを取得して各データに分野名・色を付与
+    const multiField = await isMultiFieldEnabled(tenantId);
+    const fieldMap = multiField ? await getFieldMap(tenantId) : new Map<string, { name: string; color: string }>();
+
     // LINE UID がDBに未保存ならDB更新（非同期・画面は待たせない）
     const existingLineId = patientInfo?.lineId || "";
     const shouldSaveLineId = !!lineUserId && !existingLineId;
@@ -456,17 +490,33 @@ export async function POST(_req: NextRequest) {
       hasAnyPaidOrder,
     };
 
+    // 分野情報を注文に付与するヘルパー
+    const attachField = (o: OrderForMyPage & { field_id?: string }) => {
+      const f = o.field_id ? fieldMap.get(o.field_id) : undefined;
+      const { field_id: _fid, ...rest } = o;
+      return f ? { ...rest, fieldName: f.name, fieldColor: f.color } : rest;
+    };
+
     const payload = {
       ok: true,
+      multiFieldEnabled: multiField,
       patient: {
         id: patientInfo?.id || patientId,
         displayName: patientInfo?.displayName || "",
       },
-      nextReservation,
-      activeOrders: ordersAll.filter((o) => o.refundStatus !== "COMPLETED" && o.refundStatus !== "CANCELLED"),
-      orders: ordersAll,
+      nextReservation: nextReservation ? (() => {
+        const f = nextReservation.field_id ? fieldMap.get(nextReservation.field_id) : undefined;
+        const { field_id: _fid, ...rest } = nextReservation;
+        return f ? { ...rest, fieldName: f.name, fieldColor: f.color } : rest;
+      })() : null,
+      activeOrders: ordersAll.filter((o) => o.refundStatus !== "COMPLETED" && o.refundStatus !== "CANCELLED").map(attachField),
+      orders: ordersAll.map(attachField),
       ordersFlags,
-      reorders,
+      reorders: reorders.map((r) => {
+        const f = r.field_id ? fieldMap.get(r.field_id) : undefined;
+        const { field_id: _fid, ...rest } = r;
+        return f ? { ...rest, fieldName: f.name, fieldColor: f.color } : rest;
+      }),
       history: history.map((h) => ({
         id: h.id,
         date: h.date,

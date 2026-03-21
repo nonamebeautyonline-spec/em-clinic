@@ -3,7 +3,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { IntakeFormField, IntakeFormSettings } from "@/lib/intake-form-defaults";
 import { DEFAULT_INTAKE_FIELDS, DEFAULT_INTAKE_SETTINGS } from "@/lib/intake-form-defaults";
 
@@ -91,6 +91,8 @@ function CheckErrorUI({
 
 export default function IntakePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fieldId = searchParams.get("fieldId");
 
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -106,11 +108,14 @@ export default function IntakePage() {
   const [alreadyAnswered, setAlreadyAnswered] = useState(false);
   const [checkError, setCheckError] = useState<string>("");
 
-  // ★ 動的フォーム定義（SWRで取得）
+  // ★ 動的フォーム定義（SWRで取得、fieldId があれば分野別）
+  const formDefinitionUrl = fieldId
+    ? `/api/intake/form-definition?fieldId=${fieldId}`
+    : "/api/intake/form-definition";
   const { data: formData, isLoading: formLoading } = useSWR<{
     fields?: IntakeFormField[];
     settings?: Partial<IntakeFormSettings>;
-  }>("/api/intake/form-definition", swrFetcher);
+  }>(formDefinitionUrl, swrFetcher);
 
   const questionItems = formData?.fields?.length ? formData.fields : DEFAULT_INTAKE_FIELDS;
   const formSettings = formData?.settings
@@ -238,6 +243,7 @@ const runPidCheck = useCallback(async () => {
           body: JSON.stringify({
             type: "intake",
             answers,
+            field_id: fieldId || undefined,
             submittedAt: new Date().toISOString(),
           }),
         });

@@ -37,7 +37,7 @@ export default function PatientDashboardInner() {
     );
   }
 
-  const { data, mpColors, mpSections, mpContent, mpLabels, hasIntake, intakeStatus, reorders } = contextValue;
+  const { data, mpColors, mpSections, mpContent, mpLabels, hasIntake, intakeStatus, reorders, multiFieldEnabled } = contextValue;
   const { patient, nextReservation, history, ordersFlags } = data;
   const hasHistory = history.length > 0;
   const isNG = intakeStatus === "NG";
@@ -184,6 +184,22 @@ export default function PatientDashboardInner() {
           <ReservationSection />
           <OrdersSection />
           <HistorySection />
+
+          {/* 新しい分野を始める（マルチ分野モード時のみ） */}
+          {multiFieldEnabled && (
+            <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
+              <h2 className="text-sm font-semibold text-slate-800 mb-2">新しい診療分野を始める</h2>
+              <p className="text-sm text-slate-600 mb-3">
+                別の診療分野の問診・診察をご希望の場合はこちらからお手続きください。
+              </p>
+              <Link
+                href="/mypage/field-select"
+                className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium transition border border-[var(--mp-primary)] text-[var(--mp-primary)] bg-white hover:bg-[var(--mp-light)]"
+              >
+                分野を選択する
+              </Link>
+            </section>
+          )}
 
           {/* よくある質問 */}
           <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5 mb-4">

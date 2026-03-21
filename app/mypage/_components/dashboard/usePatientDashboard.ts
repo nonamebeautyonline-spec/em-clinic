@@ -62,11 +62,28 @@ export function usePatientDashboard(): {
   const [showReorderCancelConfirm, setShowReorderCancelConfirm] = useState(false);
   const [cancelingReorder, setCancelingReorder] = useState(false);
   const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
+  const [multiFieldEnabled, setMultiFieldEnabled] = useState(false);
 
   // マイページ設定をSWRで取得
   const { data: settingsData } = useSWR("/api/mypage/settings", swrFetcher, {
     revalidateOnFocus: false,
   });
+
+  // 商品マスタから動的に商品名マップを生成（DBに追加した商品も表示される）
+  const { data: productsData } = useSWR<{ products: { code: string; title: string }[] }>(
+    "/api/mypage/products",
+    swrFetcher,
+    { revalidateOnFocus: false }
+  );
+  const productLabels = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = { ...PRODUCT_LABELS };
+    if (productsData?.products) {
+      for (const p of productsData.products) {
+        map[p.code] = p.title;
+      }
+    }
+    return map;
+  }, [productsData]);
 
   // SWRデータから直接導出
   const mpColors = useMemo(() => settingsData?.config?.colors ?? DEFAULT_MP_COLORS, [settingsData]);
@@ -169,13 +186,14 @@ export function usePatientDashboard(): {
 
       const api = (await mpRes.json()) as {
         ok: boolean;
+        multiFieldEnabled?: boolean;
         patient?: PatientInfo;
         nextReservation?: Reservation | null;
         activeOrders?: Order[];
         orders?: Order[];
         history?: import("./types").PrescriptionHistoryItem[];
         ordersFlags?: import("./types").OrdersFlags;
-        reorders?: { id?: unknown; reorder_number?: unknown; timestamp?: unknown; createdAt?: unknown; product_code?: unknown; productCode?: unknown; status?: unknown; note?: unknown }[];
+        reorders?: { id?: unknown; reorder_number?: unknown; timestamp?: unknown; createdAt?: unknown; product_code?: unknown; productCode?: unknown; status?: unknown; note?: unknown; fieldName?: string; fieldColor?: string }[];
         hasIntake?: boolean;
         intakeId?: string;
         intakeStatus?: string | null;
@@ -185,6 +203,7 @@ export function usePatientDashboard(): {
       const exists = api.hasIntake === true;
       setHasIntake(exists);
       setIntakeStatus(api.intakeStatus ?? null);
+      setMultiFieldEnabled(api.multiFieldEnabled === true);
 
       if (typeof window !== "undefined") {
         if (exists) window.localStorage.setItem("has_intake", "1");
@@ -233,6 +252,8 @@ export function usePatientDashboard(): {
             productLabel: label,
             status: (r.status ?? "pending") as ReorderItem["status"],
             note: r.note ? String(r.note) : undefined,
+            fieldName: r.fieldName,
+            fieldColor: r.fieldColor,
           };
         });
         setReorders(mapped);
@@ -500,6 +521,8 @@ export function usePatientDashboard(): {
         handleReorderCancel,
         handleShowAllHistory,
         showToast,
+        productLabels,
+        multiFieldEnabled,
         displayReorder,
         displayReorderStatus,
       }

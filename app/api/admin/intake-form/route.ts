@@ -1,4 +1,5 @@
 // 問診フォーム定義 管理API (GET / PUT)
+// ?fieldId=xxx で分野別フォームを取得・更新（マルチ分野モード時）
 import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -11,6 +12,7 @@ import {
   DEFAULT_INTAKE_SETTINGS,
 } from "@/lib/intake-form-defaults";
 import { logAudit } from "@/lib/audit";
+import { isMultiFieldEnabled } from "@/lib/medical-fields";
 
 // 問診フォーム定義取得
 export async function GET(req: NextRequest) {
@@ -19,14 +21,23 @@ export async function GET(req: NextRequest) {
     return unauthorized();
 
   const tenantId = resolveTenantIdOrThrow(req);
+  const { searchParams } = new URL(req.url);
+  const fieldId = searchParams.get("fieldId");
+  const multiField = await isMultiFieldEnabled(tenantId);
 
-  const { data, error } = await strictWithTenant(
+  let query = strictWithTenant(
     supabaseAdmin
       .from("intake_form_definitions")
-      .select("id, name, fields, settings, is_active, created_at, updated_at")
+      .select("id, name, fields, settings, is_active, field_id, created_at, updated_at")
       .eq("is_active", true),
     tenantId,
-  ).maybeSingle();
+  );
+
+  if (multiField && fieldId) {
+    query = query.eq("field_id", fieldId);
+  }
+
+  const { data, error } = await query.maybeSingle();
 
   if (error)
     return serverError(error.message);
@@ -40,6 +51,7 @@ export async function GET(req: NextRequest) {
         name: "問診フォーム",
         fields: DEFAULT_INTAKE_FIELDS,
         settings: DEFAULT_INTAKE_SETTINGS,
+        field_id: fieldId || null,
         is_default: true,
       },
     });
@@ -60,11 +72,24 @@ export async function PUT(req: NextRequest) {
 
   const { name, fields, settings } = parsed.data;
 
-  // アクティブなレコードを確認
-  const { data: existing } = await strictWithTenant(
+  // field_id はリクエストボディから取得（Zodスキーマ外なのでraw bodyから）
+  let fieldId: string | null = null;
+  try {
+    const rawBody = await req.clone().json();
+    fieldId = rawBody.field_id || null;
+  } catch { /* ignore */ }
+
+  const multiField = await isMultiFieldEnabled(tenantId);
+
+  // アクティブなレコードを確認（分野フィルタ付き）
+  let existingQuery = strictWithTenant(
     supabaseAdmin.from("intake_form_definitions").select("id").eq("is_active", true),
     tenantId,
-  ).maybeSingle();
+  );
+  if (multiField && fieldId) {
+    existingQuery = existingQuery.eq("field_id", fieldId);
+  }
+  const { data: existing } = await existingQuery.maybeSingle();
 
   if (existing) {
     // UPDATE
@@ -93,6 +118,7 @@ export async function PUT(req: NextRequest) {
         fields,
         settings,
         is_active: true,
+        field_id: fieldId,
       });
 
     if (error)

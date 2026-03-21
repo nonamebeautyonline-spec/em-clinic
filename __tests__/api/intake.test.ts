@@ -91,6 +91,11 @@ vi.mock("@/lib/validations/patient", () => ({
   intakeSchema: {},
 }));
 
+vi.mock("@/lib/medical-fields", () => ({
+  isMultiFieldEnabled: vi.fn().mockResolvedValue(false),
+  getDefaultMedicalField: vi.fn().mockResolvedValue(null),
+}));
+
 // --- ルートインポート ---
 import { POST } from "@/app/api/intake/route";
 import { parseBody } from "@/lib/validations/helpers";

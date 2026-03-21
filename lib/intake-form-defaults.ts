@@ -70,10 +70,10 @@ export const DEFAULT_INTAKE_FIELDS: IntakeFormField[] = [
   {
     id: "glp_history",
     type: "textarea",
-    label: "GLP-1/GIP製剤（マンジャロ、リベルサス、オゼンピックなど）の使用歴があればご記入ください",
+    label: "GLP-1/GIP製剤の使用歴があればご記入ください",
     required: false,
     placeholder:
-      "例）マンジャロ7.5mg 使用中／オゼンピック1mg 2024年8月まで など",
+      "例）7.5mg 使用中／オゼンピック1mg 2024年8月まで など",
     sort_order: 3,
   },
   {
@@ -92,7 +92,7 @@ export const DEFAULT_INTAKE_FIELDS: IntakeFormField[] = [
     type: "textarea",
     label: "上記で「はい」と答えた方は薬剤名をご記入ください",
     description:
-      "常用薬の他、リベルサスやマンジャロなどメディカルダイエット薬も含めてご記入ください",
+      "常用薬の他、メディカルダイエット薬（GLP-1製剤等）も含めてご記入ください",
     required: true,
     sort_order: 5,
     conditional: { when: "med_yesno", value: "yes" },

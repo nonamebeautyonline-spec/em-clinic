@@ -17,6 +17,7 @@ export function ReservationSection() {
     reservationSettings,
     handleChangeReservation,
     setShowCancelConfirm,
+    multiFieldEnabled,
   } = useDashboardContext();
 
   if (!mpSections.showReservation) return null;
@@ -75,8 +76,13 @@ export function ReservationSection() {
             {formatDateTime(nextReservation.datetime)}
           </div>
 
-          <div className="mt-1 text-sm text-slate-600">
-            {nextReservation.title}
+          <div className="mt-1 text-sm text-slate-600 flex items-center gap-1.5">
+            <span>{nextReservation.title}</span>
+            {multiFieldEnabled && nextReservation.fieldName && (
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                {nextReservation.fieldName}
+              </span>
+            )}
           </div>
 
           <p className="mt-2 text-xs text-slate-600 leading-relaxed whitespace-pre-line">

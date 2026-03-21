@@ -16,6 +16,8 @@ export interface Reservation {
   datetime: string; // ISO string
   title: string;
   status: ReservationStatus;
+  fieldName?: string;        // 診療分野名
+  fieldColor?: string;       // 診療分野カラーテーマ
 }
 
 export interface Order {
@@ -36,6 +38,8 @@ export interface Order {
   address?: string;
   shippingName?: string;
   shippingListCreatedAt?: string;
+  fieldName?: string;        // 診療分野名（マルチ分野モード時）
+  fieldColor?: string;       // 診療分野カラーテーマ
 }
 
 export interface PrescriptionHistoryItem {
@@ -43,6 +47,8 @@ export interface PrescriptionHistoryItem {
   date: string; // ISO string
   title: string;
   detail: string;
+  fieldName?: string;        // 診療分野名
+  fieldColor?: string;       // 診療分野カラーテーマ
 }
 
 export interface OrdersFlags {
@@ -60,6 +66,8 @@ export interface ReorderItem {
   productLabel: string;
   status: "pending" | "confirmed" | "canceled" | "paid";
   note?: string;
+  fieldName?: string;        // 診療分野名
+  fieldColor?: string;       // 診療分野カラーテーマ
 }
 
 export interface PatientDashboardData {

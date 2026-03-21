@@ -38,9 +38,36 @@ interface DbProduct {
   discount_until: string | null;
 }
 
+interface FieldsResponse {
+  multiFieldEnabled: boolean;
+  fields: { id: string; slug: string; name: string; color_theme: string }[];
+  defaultFieldId: string | null;
+}
+
 function PurchasePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // マルチ分野モード判定
+  const { data: fieldsData } = useSWR<FieldsResponse>(
+    "/api/mypage/medical-fields",
+    swrFetcher,
+    { revalidateOnFocus: false }
+  );
+  const multiFieldEnabled = fieldsData?.multiFieldEnabled ?? false;
+  const fieldOptions = fieldsData?.fields ?? [];
+
+  // URL から fieldId を取得、なければデフォルト
+  const urlFieldId = searchParams.get("fieldId");
+  const [selectedFieldId, setSelectedFieldId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (urlFieldId) {
+      setSelectedFieldId(urlFieldId);
+    } else if (fieldsData?.defaultFieldId) {
+      setSelectedFieldId(fieldsData.defaultFieldId);
+    }
+  }, [urlFieldId, fieldsData?.defaultFieldId]);
 
   // 設定と商品データをAPI経由で取得
   const { data: settingsData } = useSWR<{ config: PurchaseConfig }>(
@@ -48,7 +75,7 @@ function PurchasePageInner() {
     swrFetcher,
     { revalidateOnFocus: false }
   );
-  const { data: productsData } = useSWR<{ products: DbProduct[] }>(
+  const { data: productsData } = useSWR<{ products: (DbProduct & { field_id?: string | null })[] }>(
     "/api/mypage/products",
     swrFetcher,
     { revalidateOnFocus: false }
@@ -60,23 +87,33 @@ function PurchasePageInner() {
     [settingsData]
   );
 
-  const allProducts = useMemo<DbProduct[]>(
+  const allProducts = useMemo<(DbProduct & { field_id?: string | null })[]>(
     () => productsData?.products ?? [],
     [productsData]
   );
 
-  // グループごとに商品を紐付け
+  // マルチ分野モード: 選択分野の商品のみフィルタ
+  const filteredProducts = useMemo(() => {
+    if (!multiFieldEnabled || !selectedFieldId) return allProducts;
+    return allProducts.filter((p) => p.field_id === selectedFieldId);
+  }, [multiFieldEnabled, selectedFieldId, allProducts]);
+
+  // グループごとに商品を紐付け（マルチ分野モード: fieldIdでもフィルタ）
   const groupedSections = useMemo(() => {
-    return [...config.groups]
+    const groups = multiFieldEnabled && selectedFieldId
+      ? config.groups.filter((g) => !g.fieldId || g.fieldId === selectedFieldId)
+      : config.groups;
+
+    return [...groups]
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((group) => ({
         group,
         products: group.productCodes
-          .map((code) => allProducts.find((p) => p.code === code))
+          .map((code) => filteredProducts.find((p) => p.code === code))
           .filter((p): p is DbProduct => p != null),
       }))
       .filter((s) => s.products.length > 0);
-  }, [config.groups, allProducts]);
+  }, [config.groups, filteredProducts, multiFieldEnabled, selectedFieldId]);
 
   // flow === "reorder" なら再処方モード
   const flow = searchParams.get("flow");
@@ -135,6 +172,30 @@ function PurchasePageInner() {
           </p>
         </div>
       </div>
+
+      {/* 分野セレクタ（マルチ分野モード時のみ表示） */}
+      {multiFieldEnabled && fieldOptions.length > 1 && (
+        <div className="mx-auto max-w-md px-4 pt-3">
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {fieldOptions.map((f) => {
+              const isActive = selectedFieldId === f.id;
+              const themeKey = f.color_theme || "blue";
+              const activeClass = isActive
+                ? `${THEME_CLASSES[themeKey]?.badge ?? "bg-blue-500"} text-white`
+                : "bg-white text-slate-600 border border-slate-200";
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => setSelectedFieldId(f.id)}
+                  className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${activeClass}`}
+                >
+                  {f.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* コンテンツ */}
       <div className="mx-auto max-w-md px-4 pb-6 pt-3 space-y-6">

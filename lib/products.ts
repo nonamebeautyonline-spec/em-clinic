@@ -21,6 +21,7 @@ export type Product = {
   parent_id: string | null;
   stock_alert_threshold: number | null;
   stock_alert_enabled: boolean;
+  field_id: string | null;
 };
 
 // テナントごとに商品が異なるためフォールバックは空（DB障害時は空配列を返す）
@@ -44,12 +45,12 @@ export async function getProducts(tenantId?: string): Promise<Product[]> {
     const { data, error } = await query;
     if (error || !data || data.length === 0) {
       console.warn("[products] DB fetch failed or empty, using fallback:", error?.message);
-      return FALLBACK_PRODUCTS.map((p, i) => ({ ...p, id: `fallback-${i}`, image_url: null, stock_quantity: null, discount_price: null, discount_until: null, description: null, parent_id: null, stock_alert_threshold: null, stock_alert_enabled: false }));
+      return FALLBACK_PRODUCTS.map((p, i) => ({ ...p, id: `fallback-${i}`, image_url: null, stock_quantity: null, discount_price: null, discount_until: null, description: null, parent_id: null, stock_alert_threshold: null, stock_alert_enabled: false, field_id: null }));
     }
     return data;
   } catch (e) {
     console.warn("[products] Exception, using fallback:", e);
-    return FALLBACK_PRODUCTS.map((p, i) => ({ ...p, id: `fallback-${i}`, image_url: null, stock_quantity: null, discount_price: null, discount_until: null, description: null, parent_id: null, stock_alert_threshold: null, stock_alert_enabled: false }));
+    return FALLBACK_PRODUCTS.map((p, i) => ({ ...p, id: `fallback-${i}`, image_url: null, stock_quantity: null, discount_price: null, discount_until: null, description: null, parent_id: null, stock_alert_threshold: null, stock_alert_enabled: false, field_id: null }));
   }
 }
 

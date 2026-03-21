@@ -54,6 +54,10 @@ vi.mock("@/lib/validations/reorder", () => ({
   reorderApplySchema: {},
 }));
 
+vi.mock("@/lib/medical-fields", () => ({
+  isMultiFieldEnabled: vi.fn().mockResolvedValue(false),
+}));
+
 // next/headers の cookies() モック
 vi.mock("next/headers", () => ({
   cookies: vi.fn().mockResolvedValue({

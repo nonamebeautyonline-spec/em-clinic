@@ -13,6 +13,7 @@ export interface PurchaseGroup {
   colorTheme: string;      // "emerald" | "blue" | "purple" 等
   sortOrder: number;
   productCodes: string[];  // 商品マスタのcode
+  fieldId?: string | null; // 診療分野ID（マルチ分野モード時に使用）
 }
 
 /** 再処方確認画面の設定 */

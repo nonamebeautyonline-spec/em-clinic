@@ -13,6 +13,7 @@ import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { acquireLock } from "@/lib/distributed-lock";
+import { isMultiFieldEnabled } from "@/lib/medical-fields";
 import {
   ensureSquareCustomer,
   saveCardOnFile,
@@ -76,17 +77,25 @@ export async function POST(req: NextRequest) {
     }
 
     // NG患者チェック（既存 checkout と同じロジック）
-    const { data: intakeRow } = await withTenant(
+    // マルチ分野モード: 商品の field_id で NG 判定を分離
+    let ngQuery = withTenant(
       supabaseAdmin
         .from("intake")
         .select("status")
         .eq("patient_id", patientId)
         .not("status", "is", null)
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+        .limit(1),
       tenantId,
     );
+    const multiField = tenantId ? await isMultiFieldEnabled(tenantId) : false;
+    if (multiField) {
+      const productForField = await getProductByCode(productCode, tid);
+      if (productForField?.field_id) {
+        ngQuery = ngQuery.eq("field_id", productForField.field_id);
+      }
+    }
+    const { data: intakeRow } = await ngQuery.maybeSingle();
     if (intakeRow?.status === "NG") {
       return forbidden("処方不可と判定されているため、決済できません。再度診察予約をお取りください。");
     }

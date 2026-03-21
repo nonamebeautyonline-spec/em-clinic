@@ -11,12 +11,15 @@ import { getBusinessRules } from "@/lib/business-rules";
 import { extractDose, buildKarteNote } from "@/lib/reorder-karte";
 import { parseBody } from "@/lib/validations/helpers";
 import { reorderApplySchema } from "@/lib/validations/reorder";
+import { isMultiFieldEnabled } from "@/lib/medical-fields";
+import { getProductByCode } from "@/lib/products";
 
 // LINE Flex Message（承認・却下ボタン付き）を送信
 async function sendReorderNotification(
   patientId: string,
   patientName: string,
   productCode: string,
+  productLabel: string,
   reorderNumber: number,
   history: string,
   notifyToken: string,
@@ -28,13 +31,7 @@ async function sendReorderNotification(
   }
 
   try {
-    // 商品名を見やすく
-    const productLabel = productCode
-      .replace("MJL_", "マンジャロ ")
-      .replace("_", " ")
-      .replace("1m", "1ヶ月")
-      .replace("2m", "2ヶ月")
-      .replace("3m", "3ヶ月");
+    // productLabelはパラメータから取得（DB商品マスタのtitle）
 
     const flexMessage = {
       type: "flex",
@@ -211,15 +208,26 @@ export async function POST(req: NextRequest) {
     const { productCode } = parsed.data;
 
     // ★ NG患者は再処方申請不可（statusがnullのレコードを除外）
+    // マルチ分野モード: 商品の field_id で NG 判定を分離
     {
-      const { data: intakeRow } = await strictWithTenant(
+      let ngQuery = strictWithTenant(
         supabaseAdmin
           .from("intake")
           .select("status")
           .eq("patient_id", patientId)
           .not("status", "is", null),
         tenantId
-      )
+      );
+
+      const multiField = await isMultiFieldEnabled(tenantId);
+      if (multiField) {
+        const product = await getProductByCode(productCode, tenantId);
+        if (product?.field_id) {
+          ngQuery = ngQuery.eq("field_id", product.field_id);
+        }
+      }
+
+      const { data: intakeRow } = await ngQuery
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -317,6 +325,10 @@ export async function POST(req: NextRequest) {
 
     const reorderNumber = (maxRow?.reorder_number || 1) + 1;
 
+    // 商品から field_id を取得（reorderレコードに保存）
+    const reorderProduct = await getProductByCode(productCode, tenantId);
+    const reorderFieldId = reorderProduct?.field_id ?? null;
+
     const { data: insertedData, error: dbError } = await supabaseAdmin
       .from("reorders")
       .insert({
@@ -325,6 +337,7 @@ export async function POST(req: NextRequest) {
         status: "pending",
         line_uid: lineUid || null,
         reorder_number: reorderNumber,
+        field_id: reorderFieldId,
         ...tenantPayload(tenantId),
       })
       .select("id")
@@ -398,16 +411,22 @@ export async function POST(req: NextRequest) {
 
           let history = "";
           if (historyData && historyData.length > 0) {
+            // 履歴の商品名はproductsテーブルから取得（フォールバック: product_codeそのまま）
+            const historyCodes = [...new Set(historyData.map(o => o.product_code).filter(Boolean))];
+            const productTitleMap: Record<string, string> = {};
+            for (const code of historyCodes) {
+              const p = await getProductByCode(code!, tenantId);
+              if (p?.title) productTitleMap[code!] = p.title;
+            }
             history = historyData.map(o => {
-              const product = (o.product_code || "")
-                .replace("MJL_", "")
-                .replace("_", " ");
+              const product = productTitleMap[o.product_code || ""] || o.product_code || "";
               const date = o.shipping_date || "";
               return `${date} ${product}`;
             }).join("\n");
           }
 
-          await sendReorderNotification(patientId, patientName, productCode, reorderNumber, history, LINE_NOTIFY_TOKEN, LINE_ADMIN_GROUP_ID);
+          const notifyProductLabel = reorderProduct?.title || productCode;
+          await sendReorderNotification(patientId, patientName, productCode, notifyProductLabel, reorderNumber, history, LINE_NOTIFY_TOKEN, LINE_ADMIN_GROUP_ID);
 
           // 自動承認された場合はその旨も通知
           if (autoApproved) {

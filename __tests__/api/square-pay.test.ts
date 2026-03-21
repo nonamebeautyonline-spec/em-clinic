@@ -72,6 +72,10 @@ vi.mock("@/lib/validations/helpers", () => ({
   parseBody: vi.fn(),
 }));
 
+vi.mock("@/lib/medical-fields", () => ({
+  isMultiFieldEnabled: vi.fn().mockResolvedValue(false),
+}));
+
 // --- ルートインポート ---
 import { POST } from "@/app/api/square/pay/route";
 import { getActiveSquareAccount } from "@/lib/square-account-server";

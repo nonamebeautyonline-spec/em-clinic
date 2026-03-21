@@ -2,7 +2,30 @@
 
 import React from "react";
 import { useDashboardContext } from "./DashboardContext";
-import { formatDateSafe, getTimeSafe, PRODUCT_LABELS } from "./types";
+import { formatDateSafe, getTimeSafe } from "./types";
+
+// 分野バッジ（マルチ分野モード時のみ表示）
+const FIELD_BADGE_COLORS: Record<string, string> = {
+  emerald: "bg-emerald-100 text-emerald-700",
+  blue: "bg-blue-100 text-blue-700",
+  purple: "bg-purple-100 text-purple-700",
+  pink: "bg-pink-100 text-pink-700",
+  amber: "bg-amber-100 text-amber-700",
+  rose: "bg-rose-100 text-rose-700",
+  teal: "bg-teal-100 text-teal-700",
+  indigo: "bg-indigo-100 text-indigo-700",
+  orange: "bg-orange-100 text-orange-700",
+};
+
+function FieldBadge({ name, color }: { name?: string; color?: string }) {
+  if (!name) return null;
+  const cls = FIELD_BADGE_COLORS[color || "blue"] ?? FIELD_BADGE_COLORS.blue;
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`}>
+      {name}
+    </span>
+  );
+}
 
 export function HistorySection() {
   const {
@@ -13,6 +36,8 @@ export function HistorySection() {
     historyLoading,
     historyError,
     handleShowAllHistory,
+    productLabels,
+    multiFieldEnabled,
   } = useDashboardContext();
 
   if (!mpSections.showHistory) return null;
@@ -76,8 +101,9 @@ export function HistorySection() {
                     ) : null}
                   </div>
 
-                  <div className="text-sm font-medium text-slate-900">
-                    {(o.productCode && PRODUCT_LABELS[o.productCode]) || o.productName || o.productCode}
+                  <div className="text-sm font-medium text-slate-900 flex items-center gap-1.5">
+                    <span>{(o.productCode && productLabels[o.productCode]) || o.productName || o.productCode}</span>
+                    {multiFieldEnabled && <FieldBadge name={o.fieldName} color={o.fieldColor} />}
                   </div>
 
                   {isRefunded && (

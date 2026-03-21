@@ -7,6 +7,7 @@ import {
   executeReservationActions,
 } from "@/lib/reservation-flex";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
+import { isMultiFieldEnabled } from "@/lib/medical-fields";
 import { pushMessage } from "@/lib/line-push";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
 import { validateBody } from "@/lib/validations/helpers";
@@ -831,18 +832,25 @@ export async function POST(req: NextRequest) {
 
       console.log(`✓ Reservation created: reserve_id=${reserveId}, booked=${rpcResult?.booked}/${rpcResult?.capacity}`);
 
-      // ★ slot_id, course_id を保存（RPCでINSERTされたレコードにUPDATE）
-      if (createSlotId || createCourseId) {
+      // ★ slot_id, course_id, field_id を保存（RPCでINSERTされたレコードにUPDATE）
+      {
         const updateFields: Record<string, unknown> = {};
         if (createSlotId) updateFields.slot_id = createSlotId;
         if (createCourseId) updateFields.course_id = createCourseId;
-        await strictWithTenant(
-          supabaseAdmin
-            .from("reservations")
-            .update(updateFields)
-            .eq("reserve_id", reserveId),
-          tenantId
-        );
+
+        // マルチ分野モード: リクエストの field_id を保存
+        const reqFieldId = body?.field_id;
+        if (reqFieldId) updateFields.field_id = reqFieldId;
+
+        if (Object.keys(updateFields).length > 0) {
+          await strictWithTenant(
+            supabaseAdmin
+              .from("reservations")
+              .update(updateFields)
+              .eq("reserve_id", reserveId),
+            tenantId
+          );
+        }
       }
 
       // intake テーブルに reserve_id を紐付け（最新1件のみ。全件更新すると重複の原因）

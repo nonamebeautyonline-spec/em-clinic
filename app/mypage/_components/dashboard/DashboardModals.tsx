@@ -20,6 +20,7 @@ export function DashboardModals() {
     handleReorderCancel,
     displayReorder,
     displayReorderStatus,
+    productLabels,
   } = useDashboardContext();
 
   return (
@@ -101,7 +102,7 @@ export function DashboardModals() {
                 : "この再処方申請をキャンセルしますか？"}
             </h3>
             <p className="text-[13px] text-slate-600 mb-4">
-              {displayReorder.productLabel}
+              {(displayReorder.productCode && productLabels[displayReorder.productCode]) || displayReorder.productLabel}
             </p>
 
             <div className="flex gap-2">

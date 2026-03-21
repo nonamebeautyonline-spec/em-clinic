@@ -64,6 +64,12 @@ export interface DashboardContextValue {
   handleShowAllHistory: () => Promise<void>;
   showToast: (msg: string) => void;
 
+  // 商品名マップ（DB商品マスタ連動）
+  productLabels: Record<string, string>;
+
+  // マルチ分野モード
+  multiFieldEnabled: boolean;
+
   // 導出値
   displayReorder: ReorderItem | null;
   displayReorderStatus: "pending" | "confirmed" | undefined;

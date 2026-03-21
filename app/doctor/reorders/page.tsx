@@ -1,7 +1,7 @@
 // app/doctor/reorders/page.tsx
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import useSWR from "swr";
 
 // SWRProviderのスコープ外（Dr向けページ）なのでfetcherを明示指定
@@ -25,17 +25,7 @@ interface DoctorReorder {
   note?: string;
 }
 
-const PRODUCT_LABELS: Record<string, string> = {
-  "MJL_2.5mg_1m": "マンジャロ 2.5mg 1ヶ月",
-  "MJL_2.5mg_2m": "マンジャロ 2.5mg 2ヶ月",
-  "MJL_2.5mg_3m": "マンジャロ 2.5mg 3ヶ月",
-  "MJL_5mg_1m": "マンジャロ 5mg 1ヶ月",
-  "MJL_5mg_2m": "マンジャロ 5mg 2ヶ月",
-  "MJL_5mg_3m": "マンジャロ 5mg 3ヶ月",
-  "MJL_7.5mg_1m": "マンジャロ 7.5mg 1ヶ月",
-  "MJL_7.5mg_2m": "マンジャロ 7.5mg 2ヶ月",
-  "MJL_7.5mg_3m": "マンジャロ 7.5mg 3ヶ月",
-};
+// 商品名マップはAPIから動的取得（useProductLabels で参照）
 
 const formatDateTime = (v: string) => {
   const d = new Date(v);
@@ -88,6 +78,18 @@ const formatDate = (v: string) => {
 export default function DoctorReordersPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [tab, setTab] = useState<TabFilter>("pending");
+
+  // 商品マスタから商品名マップを動的取得
+  const { data: productsData } = useSWR<{ products: { code: string; title: string }[] }>(
+    "/api/admin/products",
+    swrFetcher,
+    { revalidateOnFocus: false }
+  );
+  const productLabels = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    for (const p of productsData?.products ?? []) map[p.code] = p.title;
+    return map;
+  }, [productsData]);
 
   const { data: json, error: swrError, isLoading: loading, mutate } = useSWR<{
     ok?: boolean;
@@ -238,7 +240,7 @@ export default function DoctorReordersPage() {
           <div className="space-y-3">
 {filteredItems.map((item) => {
   const label =
-    PRODUCT_LABELS[item.productCode] || item.productCode;
+    productLabels[item.productCode] || item.productCode;
   const isPending = item.status === "pending";
   const isBusy = busyId === item.id;
 

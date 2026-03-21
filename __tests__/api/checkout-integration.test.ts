@@ -43,6 +43,10 @@ vi.mock("@/lib/validations/checkout", () => ({
   checkoutSchema: {},
 }));
 
+vi.mock("@/lib/medical-fields", () => ({
+  isMultiFieldEnabled: vi.fn().mockResolvedValue(false),
+}));
+
 const mockGetSettingOrEnv = vi.fn().mockResolvedValue("https://example.com");
 vi.mock("@/lib/settings", () => ({
   getSettingOrEnv: (...args: unknown[]) => mockGetSettingOrEnv(...args),
@@ -123,8 +127,11 @@ describe("checkout API 統合テスト", () => {
     vi.mocked(parseBody).mockResolvedValue({
       data: { productCode: "PROD1", mode: "current", patientId: "patient-ng", reorderId: null },
     } as { data: Record<string, unknown> });
-    // withTenantがintakeクエリ結果としてNG statusを返すようにする
-    vi.mocked(withTenant).mockResolvedValueOnce({ data: { status: "NG" }, error: null } as never);
+    // withTenantがintakeクエリチェーンを返し、maybeSingleでNG statusを返す
+    vi.mocked(withTenant).mockReturnValueOnce({
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { status: "NG" }, error: null }),
+    } as never);
 
     const req = createMockRequest();
     const res = await POST(req as unknown as Parameters<typeof POST>[0]);
@@ -143,8 +150,11 @@ describe("checkout API 統合テスト", () => {
     vi.mocked(parseBody).mockResolvedValue({
       data: { productCode: "PROD1", mode: "current", patientId: "patient-ok", reorderId: null },
     } as { data: Record<string, unknown> });
-    // withTenantがintakeクエリ結果としてOK statusを返す
-    vi.mocked(withTenant).mockResolvedValueOnce({ data: { status: "OK" }, error: null } as never);
+    // withTenantがintakeクエリチェーンを返し、maybeSingleでOK statusを返す
+    vi.mocked(withTenant).mockReturnValueOnce({
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { status: "OK" }, error: null }),
+    } as never);
     vi.mocked(getProductByCode).mockResolvedValue({
       code: "PROD1",
       title: "テスト商品",

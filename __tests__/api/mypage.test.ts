@@ -81,6 +81,10 @@ vi.mock("@/lib/validations/mypage", () => ({
   mypageDashboardSchema: {},
 }));
 
+vi.mock("@/lib/medical-fields", () => ({
+  isMultiFieldEnabled: vi.fn().mockResolvedValue(false),
+}));
+
 // ─── ルートインポート ───
 import { POST } from "@/app/api/mypage/route";
 import { redis } from "@/lib/redis";

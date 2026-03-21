@@ -56,6 +56,10 @@ vi.mock("@/lib/menu-auto-rules", () => ({
   evaluateMenuRules: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@/lib/medical-fields", () => ({
+  isMultiFieldEnabled: vi.fn().mockResolvedValue(false),
+}));
+
 // ============================================
 // ヘルパー関数テスト（ロジック再実装）
 // ============================================

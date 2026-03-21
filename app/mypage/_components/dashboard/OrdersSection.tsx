@@ -13,9 +13,31 @@ import {
   buildTrackingUrl,
   normalizeTrackingNumber,
   getTimeSafe,
-  PRODUCT_LABELS,
   type Order,
 } from "./types";
+
+// 分野バッジ（マルチ分野モード時のみ表示）
+const FIELD_BADGE_COLORS: Record<string, string> = {
+  emerald: "bg-emerald-100 text-emerald-700",
+  blue: "bg-blue-100 text-blue-700",
+  purple: "bg-purple-100 text-purple-700",
+  pink: "bg-pink-100 text-pink-700",
+  amber: "bg-amber-100 text-amber-700",
+  rose: "bg-rose-100 text-rose-700",
+  teal: "bg-teal-100 text-teal-700",
+  indigo: "bg-indigo-100 text-indigo-700",
+  orange: "bg-orange-100 text-orange-700",
+};
+
+function FieldBadge({ name, color }: { name?: string; color?: string }) {
+  if (!name) return null;
+  const cls = FIELD_BADGE_COLORS[color || "blue"] ?? FIELD_BADGE_COLORS.blue;
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`}>
+      {name}
+    </span>
+  );
+}
 
 export function OrdersSection() {
   const router = useRouter();
@@ -42,6 +64,8 @@ export function OrdersSection() {
     addressSaving,
     displayReorder,
     displayReorderStatus,
+    productLabels,
+    multiFieldEnabled,
   } = useDashboardContext();
 
   if (!mpSections.showOrders) return null;
@@ -88,8 +112,9 @@ export function OrdersSection() {
               : "再処方申請が許可されました"}
           </div>
 
-          <div className="text-sm font-medium text-slate-900">
-            {displayReorder.productLabel}
+          <div className="text-sm font-medium text-slate-900 flex items-center gap-1.5">
+            <span>{(displayReorder.productCode && productLabels[displayReorder.productCode]) || displayReorder.productLabel}</span>
+            {multiFieldEnabled && <FieldBadge name={displayReorder.fieldName} color={displayReorder.fieldColor} />}
           </div>
 
           {displayReorderStatus === "pending" && (
@@ -157,6 +182,8 @@ export function OrdersSection() {
             <OrderCard
               key={order.id}
               order={order}
+              productLabels={productLabels}
+              multiFieldEnabled={multiFieldEnabled}
               editingAddressOrderId={editingAddressOrderId}
               setEditingAddressOrderId={setEditingAddressOrderId}
               editPostalCode={editPostalCode}
@@ -223,6 +250,8 @@ export function OrdersSection() {
 // 注文カード（内部コンポーネント）
 function OrderCard({
   order,
+  productLabels,
+  multiFieldEnabled,
   editingAddressOrderId,
   setEditingAddressOrderId,
   editPostalCode,
@@ -237,6 +266,8 @@ function OrderCard({
   handleCopyTrackingIfYamato,
 }: {
   order: Order;
+  productLabels: Record<string, string>;
+  multiFieldEnabled: boolean;
   editingAddressOrderId: string | null;
   setEditingAddressOrderId: React.Dispatch<React.SetStateAction<string | null>>;
   editPostalCode: string;
@@ -258,8 +289,9 @@ function OrderCard({
             {formatDateSafe(order.paidAt)}
           </div>
         )}
-        <div className="text-[15px] font-medium text-slate-900">
-          {(order.productCode && PRODUCT_LABELS[order.productCode]) || order.productName || order.productCode}
+        <div className="text-[15px] font-medium text-slate-900 flex items-center gap-1.5">
+          <span>{(order.productCode && productLabels[order.productCode]) || order.productName || order.productCode}</span>
+          {multiFieldEnabled && <FieldBadge name={order.fieldName} color={order.fieldColor} />}
         </div>
         <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
           <div className="flex items-center gap-1">

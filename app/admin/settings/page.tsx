@@ -18,6 +18,7 @@ import ReportSection from "./_components/ReportSection";
 import LegalSection from "./_components/LegalSection";
 import CronSection from "./_components/CronSection";
 import BusinessRulesSection from "./_components/BusinessRulesSection";
+import MedicalFieldsSection from "./_components/MedicalFieldsSection";
 import StaffSection from "./_components/StaffSection";
 
 /* ---------- 共通型（子コンポーネントから参照） ---------- */
@@ -287,6 +288,7 @@ export default function SettingsPage() {
             {activeSection === "mypage" && <MypageSection onToast={handleToast} />}
             {activeSection === "purchase" && <PurchaseSection onToast={handleToast} />}
             {activeSection === "consultation" && <ConsultationSection onToast={handleToast} />}
+            {activeSection === "medical_fields" && <MedicalFieldsSection onToast={handleToast} />}
             {activeSection === "ehr" && <EhrSection onToast={handleToast} />}
             {activeSection === "notification" && <NotificationSection onToast={handleToast} />}
             {activeSection === "business_rules" && <BusinessRulesSection onToast={handleToast} />}

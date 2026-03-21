@@ -9,6 +9,7 @@ import { MERGE_TABLES } from "@/lib/merge-tables";
 import { getBusinessRules } from "@/lib/business-rules";
 import { parseBody } from "@/lib/validations/helpers";
 import { intakeSchema } from "@/lib/validations/patient";
+import { isMultiFieldEnabled, getDefaultMedicalField } from "@/lib/medical-fields";
 
 // ★ Supabase書き込みリトライ機能
 async function retrySupabaseWrite<T>(
@@ -58,6 +59,21 @@ export async function POST(req: NextRequest) {
 
     const answersObj = body.answers || {};
 
+    // ★ field_id（診療分野）の解決
+    // bodyにfield_idがあればそれを使用、なければデフォルト分野
+    let fieldId: string | null = null;
+    try {
+      const rawBody = await req.clone().json();
+      fieldId = rawBody.field_id || null;
+    } catch { /* ignore */ }
+
+    // マルチ分野モードの場合、field_id が必要
+    const multiField = await isMultiFieldEnabled(tenantId);
+    if (!fieldId && multiField) {
+      const defaultField = await getDefaultMedicalField(tenantId);
+      fieldId = defaultField?.id ?? null;
+    }
+
     // ★ デバッグログ：bodyの構造を確認
     console.log("[Intake Debug] patientId:", patientId);
     console.log("[Intake Debug] body keys:", Object.keys(body));
@@ -85,15 +101,20 @@ export async function POST(req: NextRequest) {
         // ★ supabaseAdmin を使う（anon key だと RLS で読めず null になる）
         // ★ 複数 intake レコード対策: 問診本体（reserve_id あり）を優先取得
         //   カルテレコード（note が "再処方" 始まり）の方が created_at が古い場合があるため
-        const { data: intakeRows } = await strictWithTenant(
+        let intakeQuery = strictWithTenant(
           supabaseAdmin
             .from("intake")
-            .select("id, answers, reserve_id, status, note")
+            .select("id, answers, reserve_id, status, note, field_id")
             .eq("patient_id", patientId)
             .order("created_at", { ascending: false })
             .limit(10),
           tenantId
         );
+        // マルチ分野モード: 同じ分野のintakeのみ検索
+        if (multiField && fieldId) {
+          intakeQuery = intakeQuery.eq("field_id", fieldId);
+        }
+        const { data: intakeRows } = await intakeQuery;
         const existingRecord = intakeRows?.find(r => r.reserve_id != null)
           ?? intakeRows?.find(r => !(r.note || "").startsWith("再処方"))
           ?? null;
@@ -149,7 +170,7 @@ export async function POST(req: NextRequest) {
             )
           : await supabaseAdmin
               .from("intake")
-              .insert({ ...tenantPayload(tenantId), patient_id: patientId, ...intakePayload });
+              .insert({ ...tenantPayload(tenantId), patient_id: patientId, ...intakePayload, field_id: fieldId });
 
         if (result.error) {
           throw result.error;
