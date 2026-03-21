@@ -153,6 +153,6 @@ export async function PUT(req: NextRequest) {
     }
   }
 
-  logAudit(req, "intake_form.update", "intake_form", existing?.id ?? "unknown");
+  logAudit(req, "intake_form.update", "intake_form", targetId ?? "unknown");
   return NextResponse.json({ ok: true });
 }

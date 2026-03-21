@@ -19,6 +19,7 @@ interface TemplateItem {
   id: string;
   name: string;
   is_active: boolean;
+  field_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -47,6 +48,8 @@ function createField(type: IntakeFieldType): IntakeFormField {
     ...(hasOpts ? { options: [{ label: "", value: "" }] } : {}),
   };
 }
+
+const TEMPLATES_KEY = "/api/admin/intake-form/templates";
 
 // ============================================================
 // スマホプレビュー
@@ -90,12 +93,6 @@ function IntakePreview({
     if (!current?.required) return true;
     const v = answers[current.id]?.trim();
     return !!v;
-  };
-
-  const getNextIndex = (idx: number) => {
-    let next = idx + 1;
-    while (next < fields.length && (fields[next].type === "heading" || !isVisible(fields[next]))) next++;
-    return next;
   };
 
   const handleNext = () => {
@@ -199,55 +196,113 @@ function IntakePreview({
                 </div>
               </header>
 
-              {/* 進捗バー */}
+              {/* プログレスバー */}
               <div className="h-1 bg-gray-200">
                 <div
-                  className="h-1 bg-blue-500 transition-all"
+                  className="h-full bg-blue-500 transition-all"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
 
-              {/* 本文 */}
-              <main className="flex-1 px-4 py-4 overflow-y-auto">
+              {/* 質問 */}
+              <main className="flex-1 px-4 py-6 overflow-y-auto">
                 <div className="bg-white rounded-xl shadow-sm p-4">
-                  <h2 className="text-sm font-semibold whitespace-pre-line">
-                    {current.label}
-                  </h2>
+                  <p className="text-sm font-medium text-gray-800 mb-1">
+                    {current.label || "（未設定）"}
+                    {current.required && (
+                      <span className="text-red-500 text-xs ml-1">*</span>
+                    )}
+                  </p>
                   {current.description && (
-                    <p className="mt-2 text-[10px] text-gray-600 whitespace-pre-line">
+                    <p className="text-[11px] text-gray-500 mb-3 whitespace-pre-wrap">
                       {current.description}
                     </p>
                   )}
-                  <div className="mt-3">
-                    <PreviewInput
-                      field={current}
+
+                  {/* 入力フィールド */}
+                  {current.type === "text" && (
+                    <input
+                      type="text"
                       value={answers[current.id] || ""}
-                      onChange={(v) =>
-                        setAnswers({ ...answers, [current.id]: v })
+                      onChange={(e) =>
+                        setAnswers((a) => ({ ...a, [current.id]: e.target.value }))
                       }
+                      placeholder={current.placeholder || ""}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                     />
-                  </div>
+                  )}
+                  {current.type === "textarea" && (
+                    <textarea
+                      value={answers[current.id] || ""}
+                      onChange={(e) =>
+                        setAnswers((a) => ({ ...a, [current.id]: e.target.value }))
+                      }
+                      placeholder={current.placeholder || ""}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none"
+                    />
+                  )}
+                  {(current.type === "radio" || current.type === "dropdown") &&
+                    current.options?.map((opt, i) => (
+                      <label
+                        key={i}
+                        className="flex items-center gap-2 py-1.5 text-sm text-gray-700 cursor-pointer"
+                      >
+                        <input
+                          type="radio"
+                          name={current.id}
+                          checked={answers[current.id] === opt.value}
+                          onChange={() =>
+                            setAnswers((a) => ({ ...a, [current.id]: opt.value }))
+                          }
+                          className="accent-blue-500"
+                        />
+                        {opt.label}
+                      </label>
+                    ))}
+                  {current.type === "checkbox" &&
+                    current.options?.map((opt, i) => (
+                      <label
+                        key={i}
+                        className="flex items-center gap-2 py-1.5 text-sm text-gray-700 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={(answers[current.id] || "").split(",").includes(opt.value)}
+                          onChange={(e) => {
+                            const vals = (answers[current.id] || "")
+                              .split(",")
+                              .filter(Boolean);
+                            const next = e.target.checked
+                              ? [...vals, opt.value]
+                              : vals.filter((v) => v !== opt.value);
+                            setAnswers((a) => ({
+                              ...a,
+                              [current.id]: next.join(","),
+                            }));
+                          }}
+                          className="accent-blue-500"
+                        />
+                        {opt.label}
+                      </label>
+                    ))}
                 </div>
               </main>
 
               {/* フッター */}
-              <footer className="bg-white border-t px-4 py-3 flex gap-2">
+              <footer className="px-4 py-3 bg-white border-t flex items-center justify-between">
                 <button
                   onClick={handlePrev}
                   disabled={currentIndex === 0}
-                  className={`flex-1 rounded-full border px-3 py-1.5 text-xs font-medium ${
-                    currentIndex === 0
-                      ? "border-gray-200 text-gray-300 bg-gray-50"
-                      : "border-gray-300 text-gray-700 bg-white"
-                  }`}
+                  className="px-4 py-2 text-xs text-gray-500 border border-gray-200 rounded-lg disabled:opacity-30"
                 >
                   戻る
                 </button>
                 <button
                   onClick={handleNext}
-                  className="flex-1 rounded-full bg-blue-600 px-3 py-1.5 text-xs font-medium text-white"
+                  className="px-6 py-2 text-xs text-white bg-blue-600 rounded-lg"
                 >
-                  {currentIndex >= total - 1 ? "回答を送信する" : "次へ"}
+                  {currentIndex >= total - 1 ? "完了" : "次へ"}
                 </button>
               </footer>
             </>
@@ -258,129 +313,63 @@ function IntakePreview({
   );
 }
 
-function PreviewInput({
-  field,
-  value,
-  onChange,
-}: {
-  field: IntakeFormField;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  switch (field.type) {
-    case "textarea":
-      return (
-        <textarea
-          className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-xs"
-          rows={3}
-          placeholder={field.placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      );
-    case "text":
-      return (
-        <input
-          className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-xs"
-          placeholder={field.placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      );
-    case "radio":
-      return (
-        <div className="flex flex-col gap-1.5">
-          {field.options?.map((opt) => (
-            <label key={opt.value} className="flex items-center gap-2 text-xs">
-              <input
-                type="radio"
-                name={field.id}
-                value={opt.value}
-                checked={value === opt.value}
-                onChange={() => onChange(opt.value)}
-              />
-              <span>{opt.label}</span>
-            </label>
-          ))}
-        </div>
-      );
-    case "dropdown":
-      return (
-        <select
-          className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-xs"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        >
-          <option value="">選択してください</option>
-          {field.options?.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      );
-    case "checkbox":
-      return (
-        <div className="flex flex-col gap-1.5">
-          {field.options?.map((opt) => {
-            const vals = value ? value.split(",") : [];
-            const checked = vals.includes(opt.value);
-            return (
-              <label
-                key={opt.value}
-                className="flex items-center gap-2 text-xs"
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => {
-                    const next = checked
-                      ? vals.filter((v) => v !== opt.value)
-                      : [...vals, opt.value];
-                    onChange(next.filter(Boolean).join(","));
-                  }}
-                />
-                <span>{opt.label}</span>
-              </label>
-            );
-          })}
-        </div>
-      );
-    default:
-      return null;
-  }
-}
-
 // ============================================================
-// テンプレート一覧モーダル
+// テンプレート一覧ビュー（初期画面）
 // ============================================================
 
-function TemplateListModal({
-  open,
-  onClose,
-  onActivated,
+function TemplateListView({
+  onSelect,
 }: {
-  open: boolean;
-  onClose: () => void;
-  onActivated: () => void;
+  onSelect: (id: string) => void;
 }) {
-  const TEMPLATES_KEY = "/api/admin/intake-form/templates";
-  const { data: templatesData, isLoading: loading } = useSWR<{ ok: boolean; templates: TemplateItem[] }>(
-    open ? TEMPLATES_KEY : null
-  );
+  const { data: templatesData, isLoading } = useSWR<{ ok: boolean; templates: TemplateItem[] }>(TEMPLATES_KEY);
   const templates = templatesData?.templates ?? [];
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [showDuplicate, setShowDuplicate] = useState<string | null>(null);
+  const [newName, setNewName] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
 
-  // テンプレート複製
-  const handleDuplicate = async () => {
-    setActionLoading("duplicate");
+  // 新規作成
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+    setActionLoading(true);
     try {
-      const res = await fetch("/api/admin/intake-form/duplicate", {
+      const res = await fetch("/api/admin/intake-form/templates", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
+        body: JSON.stringify({ name: newName.trim() }),
       });
       const data = await res.json();
       if (data.ok) {
+        setNewName("");
+        setShowCreate(false);
+        await mutate(TEMPLATES_KEY);
+      } else {
+        alert("作成に失敗しました: " + (data.message || ""));
+      }
+    } catch {
+      alert("作成に失敗しました");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 複製
+  const handleDuplicate = async (sourceId: string) => {
+    if (!newName.trim()) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/admin/intake-form/duplicate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name: newName.trim(), source_id: sourceId }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setNewName("");
+        setShowDuplicate(null);
         await mutate(TEMPLATES_KEY);
       } else {
         alert("複製に失敗しました: " + (data.message || ""));
@@ -388,41 +377,13 @@ function TemplateListModal({
     } catch {
       alert("複製に失敗しました");
     } finally {
-      setActionLoading(null);
+      setActionLoading(false);
     }
   };
 
-  // テンプレート有効化
-  const handleActivate = async (id: string) => {
-    if (!confirm("このテンプレートを使用中に切り替えますか？\n現在使用中のテンプレートは非アクティブになります。"))
-      return;
-    setActionLoading(id);
-    try {
-      const res = await fetch("/api/admin/intake-form/activate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ id }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        await mutate(TEMPLATES_KEY);
-        onActivated();
-      } else {
-        alert("有効化に失敗しました: " + (data.message || ""));
-      }
-    } catch {
-      alert("有効化に失敗しました");
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  // テンプレート削除
+  // 削除
   const handleDelete = async (id: string) => {
-    if (!confirm("このテンプレートを削除しますか？\nこの操作は取り消せません。"))
-      return;
-    setActionLoading(id);
+    if (!confirm("この問診フォームを削除しますか？\nこの操作は取り消せません。")) return;
     try {
       const res = await fetch("/api/admin/intake-form/templates", {
         method: "DELETE",
@@ -438,146 +399,239 @@ function TemplateListModal({
       }
     } catch {
       alert("削除に失敗しました");
-    } finally {
-      setActionLoading(null);
     }
   };
 
-  if (!open) return null;
+  // 有効化
+  const handleActivate = async (id: string) => {
+    if (!confirm("この問診フォームを使用中に切り替えますか？\n現在使用中のフォームは非アクティブになります。")) return;
+    try {
+      const res = await fetch("/api/admin/intake-form/activate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        await mutate(TEMPLATES_KEY);
+      } else {
+        alert("切り替えに失敗しました: " + (data.message || ""));
+      }
+    } catch {
+      alert("切り替えに失敗しました");
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <div className="w-8 h-8 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
-        {/* ヘッダー */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="text-base font-bold text-gray-800">テンプレート一覧</h2>
-          <button
-            onClick={onClose}
-            className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+    <div className="max-w-3xl mx-auto p-6">
+      {/* ヘッダー */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-bold text-gray-800">問診フォーム設定</h1>
+          <p className="text-xs text-gray-400 mt-0.5">
+            患者が入力する問診フォームを管理できます
+          </p>
         </div>
+        <button
+          onClick={() => { setShowCreate(true); setNewName(""); }}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-1.5"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          新規作成
+        </button>
+      </div>
 
-        {/* テンプレート一覧 */}
-        <div className="flex-1 overflow-y-auto px-5 py-3">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="w-6 h-6 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin" />
-            </div>
-          ) : templates.length === 0 ? (
-            <p className="text-center py-12 text-sm text-gray-400">
-              テンプレートがありません
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {templates.map((t) => (
+      {/* テンプレートカード一覧 */}
+      {templates.length === 0 ? (
+        <div className="text-center py-20 text-gray-400 text-sm">
+          問診フォームがありません。「新規作成」で追加してください。
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {templates.map((t) => (
+            <div
+              key={t.id}
+              className={`bg-white rounded-xl border p-4 transition-colors hover:shadow-sm ${
+                t.is_active ? "border-blue-200 bg-blue-50/30" : "border-gray-200"
+              }`}
+            >
+              <div className="flex items-center justify-between">
                 <div
-                  key={t.id}
-                  className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${
-                    t.is_active
-                      ? "border-blue-200 bg-blue-50/50"
-                      : "border-gray-100 bg-white hover:bg-gray-50"
-                  }`}
+                  className="flex-1 min-w-0 cursor-pointer"
+                  onClick={() => onSelect(t.id)}
                 >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-800 truncate">
-                        {t.name}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-gray-800">{t.name}</span>
+                    {t.is_active && (
+                      <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">
+                        使用中
                       </span>
-                      {t.is_active && (
-                        <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0">
-                          使用中
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[10px] text-gray-400 mt-0.5 block">
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="text-[11px] text-gray-400">
+                      {t.field_count}項目
+                    </span>
+                    <span className="text-[11px] text-gray-400">
                       更新: {new Date(t.updated_at || t.created_at).toLocaleDateString("ja-JP")}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5 ml-3 flex-shrink-0">
-                    {!t.is_active && (
-                      <button
-                        onClick={() => handleActivate(t.id)}
-                        disabled={!!actionLoading}
-                        className="px-2.5 py-1 text-[11px] text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-40"
-                      >
-                        有効化
-                      </button>
-                    )}
-                    {!t.is_active && (
-                      <button
-                        onClick={() => handleDelete(t.id)}
-                        disabled={!!actionLoading}
-                        className="px-2.5 py-1 text-[11px] text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40"
-                      >
-                        削除
-                      </button>
-                    )}
-                  </div>
                 </div>
-              ))}
+                <div className="flex items-center gap-1.5 ml-4 flex-shrink-0">
+                  <button
+                    onClick={() => onSelect(t.id)}
+                    className="px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    編集
+                  </button>
+                  <button
+                    onClick={() => { setShowDuplicate(t.id); setNewName(t.name + "（コピー）"); }}
+                    className="px-3 py-1.5 text-xs text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+                  >
+                    複製
+                  </button>
+                  {!t.is_active && (
+                    <button
+                      onClick={() => handleActivate(t.id)}
+                      className="px-3 py-1.5 text-xs text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors"
+                    >
+                      使用する
+                    </button>
+                  )}
+                  {!t.is_active && (
+                    <button
+                      onClick={() => handleDelete(t.id)}
+                      className="px-3 py-1.5 text-xs text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                    >
+                      削除
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-          )}
+          ))}
         </div>
+      )}
 
-        {/* フッター */}
-        <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100">
-          <button
-            onClick={handleDuplicate}
-            disabled={!!actionLoading || templates.length === 0}
-            className="px-4 py-2 text-sm text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-40 flex items-center gap-1.5"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            {actionLoading === "duplicate" ? "複製中..." : "使用中を複製"}
-          </button>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            閉じる
-          </button>
+      {/* 名前入力モーダル（新規作成） */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+            <h2 className="text-base font-bold text-gray-800 mb-4">新規問診フォーム作成</h2>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">フォーム名</label>
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="例: メディカルダイエット"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 mb-4"
+              autoFocus
+              onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); }}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowCreate(false)}
+                className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={!newName.trim() || actionLoading}
+                className="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-40"
+              >
+                {actionLoading ? "作成中..." : "作成"}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* 名前入力モーダル（複製） */}
+      {showDuplicate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+            <h2 className="text-base font-bold text-gray-800 mb-4">問診フォームを複製</h2>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">新しいフォーム名</label>
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="コピー先の名前を入力"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 mb-4"
+              autoFocus
+              onKeyDown={(e) => { if (e.key === "Enter") handleDuplicate(showDuplicate); }}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowDuplicate(null)}
+                className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={() => handleDuplicate(showDuplicate)}
+                disabled={!newName.trim() || actionLoading}
+                className="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-40"
+              >
+                {actionLoading ? "複製中..." : "複製"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ============================================================
-// メインコンポーネント
+// フォーム編集ビュー
 // ============================================================
 
-const DEFINITION_KEY = "/api/admin/intake-form";
-
-export default function IntakeFormEditorPage() {
+function FormEditorView({
+  templateId,
+  onBack,
+}: {
+  templateId: string;
+  onBack: () => void;
+}) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState<"fields" | "settings" | "preview">("fields");
 
+  const [templateName, setTemplateName] = useState("");
   const [fields, setFields] = useState<IntakeFormField[]>([]);
-  const [settings, setSettings] = useState<IntakeFormSettings>(
-    DEFAULT_INTAKE_SETTINGS,
-  );
+  const [settings, setSettings] = useState<IntakeFormSettings>(DEFAULT_INTAKE_SETTINGS);
   const [expandedField, setExpandedField] = useState<string | null>(null);
-  const [showTemplates, setShowTemplates] = useState(false);
+  const [isActive, setIsActive] = useState(false);
 
-  // SWRでデータ取得
-  const { data: defData, isLoading: loading } = useSWR<{ ok: boolean; definition: { fields: IntakeFormField[]; settings: IntakeFormSettings } }>(DEFINITION_KEY);
+  const DEFINITION_KEY = `/api/admin/intake-form?id=${templateId}`;
+
+  const { data: defData, isLoading: loading } = useSWR<{ ok: boolean; definition: { id: string; name: string; fields: IntakeFormField[]; settings: IntakeFormSettings; is_active: boolean } }>(DEFINITION_KEY);
   const [defInitialized, setDefInitialized] = useState(false);
 
   useEffect(() => {
     if (defData && !defInitialized) {
       if (defData.ok && defData.definition) {
+        setTemplateName(defData.definition.name || "");
         setFields(defData.definition.fields || DEFAULT_INTAKE_FIELDS);
         setSettings({
           ...DEFAULT_INTAKE_SETTINGS,
           ...(defData.definition.settings || {}),
         });
+        setIsActive(defData.definition.is_active || false);
       } else {
         setFields(DEFAULT_INTAKE_FIELDS);
         setSettings(DEFAULT_INTAKE_SETTINGS);
@@ -597,7 +651,7 @@ export default function IntakeFormEditorPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ fields: sorted, settings }),
+        body: JSON.stringify({ id: templateId, name: templateName, fields: sorted, settings }),
       });
       const data = await res.json();
       if (data.ok) {
@@ -605,6 +659,8 @@ export default function IntakeFormEditorPage() {
         setSaved(true);
         setEditing(false);
         setTimeout(() => setSaved(false), 2000);
+        // テンプレート一覧のキャッシュも更新
+        mutate(TEMPLATES_KEY);
       } else {
         alert("保存に失敗しました: " + ((data.message || data.error) || data.details?.join(", ")));
       }
@@ -618,19 +674,8 @@ export default function IntakeFormEditorPage() {
   // リセット
   const handleReset = async () => {
     if (!confirm("問診フォームをデフォルト設定に戻しますか？")) return;
-    try {
-      const res = await fetch("/api/admin/intake-form/reset", {
-        method: "POST",
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setFields(data.fields);
-        setSettings(data.settings);
-      }
-    } catch {
-      alert("リセットに失敗しました");
-    }
+    setFields(DEFAULT_INTAKE_FIELDS);
+    setSettings(DEFAULT_INTAKE_SETTINGS);
   };
 
   // フィールド操作
@@ -720,26 +765,45 @@ export default function IntakeFormEditorPage() {
     <div className="max-w-6xl mx-auto p-6">
       {/* ヘッダー */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-gray-800">問診フォーム設定</h1>
-          <p className="text-xs text-gray-400 mt-0.5">
-            患者が入力する問診項目を管理できます
-          </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            title="一覧に戻る"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div>
+            {editing ? (
+              <input
+                type="text"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                className="text-xl font-bold text-gray-800 bg-transparent border-b-2 border-blue-400 focus:outline-none px-0 py-0"
+                placeholder="フォーム名を入力"
+              />
+            ) : (
+              <h1 className="text-xl font-bold text-gray-800">{templateName}</h1>
+            )}
+            <div className="flex items-center gap-2 mt-0.5">
+              {isActive && (
+                <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">
+                  使用中
+                </span>
+              )}
+              <p className="text-xs text-gray-400">
+                {fields.length}項目
+              </p>
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {saved && <span className="text-sm text-emerald-600 font-medium">保存しました</span>}
-          <button
-            onClick={() => setShowTemplates(true)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-            </svg>
-            テンプレート一覧
-          </button>
           {editing ? (
             <>
-              <button onClick={() => setEditing(false)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+              <button onClick={() => { setEditing(false); setDefInitialized(false); }} className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
                 キャンセル
               </button>
               <button onClick={handleReset} className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
@@ -861,18 +925,8 @@ export default function IntakeFormEditorPage() {
                           className="p-1 text-gray-300 hover:text-gray-500 disabled:opacity-30 transition-colors"
                           title="上へ"
                         >
-                          <svg
-                            className="w-3.5 h-3.5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M5 15l7-7 7 7"
-                            />
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                           </svg>
                         </button>
                         <button
@@ -884,18 +938,8 @@ export default function IntakeFormEditorPage() {
                           className="p-1 text-gray-300 hover:text-gray-500 disabled:opacity-30 transition-colors"
                           title="下へ"
                         >
-                          <svg
-                            className="w-3.5 h-3.5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 9l-7 7-7-7"
-                            />
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                           </svg>
                         </button>
                         <button
@@ -906,18 +950,8 @@ export default function IntakeFormEditorPage() {
                           className="p-1 text-gray-300 hover:text-gray-500 transition-colors"
                           title="コピー"
                         >
-                          <svg
-                            className="w-3.5 h-3.5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                            />
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                           </svg>
                         </button>
                         <button
@@ -928,18 +962,8 @@ export default function IntakeFormEditorPage() {
                           className="p-1 text-gray-300 hover:text-red-500 transition-colors"
                           title="削除"
                         >
-                          <svg
-                            className="w-3.5 h-3.5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
                         </button>
                         <svg
@@ -948,12 +972,7 @@ export default function IntakeFormEditorPage() {
                           stroke="currentColor"
                           viewBox="0 0 24 24"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 9l-7 7-7-7"
-                          />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
                       </div>
                     </div>
@@ -964,18 +983,12 @@ export default function IntakeFormEditorPage() {
                         {/* ラベル */}
                         <div>
                           <label className="text-xs font-medium text-gray-600 mb-1 block">
-                            {field.type === "heading"
-                              ? "見出しテキスト"
-                              : "項目名"}
+                            {field.type === "heading" ? "見出しテキスト" : "項目名"}
                           </label>
                           <input
                             type="text"
                             value={field.label}
-                            onChange={(e) =>
-                              updateField(field.id, {
-                                label: e.target.value,
-                              })
-                            }
+                            onChange={(e) => updateField(field.id, { label: e.target.value })}
                             placeholder="項目名を入力"
                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                           />
@@ -984,16 +997,10 @@ export default function IntakeFormEditorPage() {
                         {/* 説明文 */}
                         {field.type !== "heading" && (
                           <div>
-                            <label className="text-xs font-medium text-gray-600 mb-1 block">
-                              説明文
-                            </label>
+                            <label className="text-xs font-medium text-gray-600 mb-1 block">説明文</label>
                             <textarea
                               value={field.description || ""}
-                              onChange={(e) =>
-                                updateField(field.id, {
-                                  description: e.target.value,
-                                })
-                              }
+                              onChange={(e) => updateField(field.id, { description: e.target.value })}
                               placeholder="項目の補足説明（改行可）"
                               rows={2}
                               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
@@ -1002,20 +1009,13 @@ export default function IntakeFormEditorPage() {
                         )}
 
                         {/* プレースホルダ */}
-                        {(field.type === "text" ||
-                          field.type === "textarea") && (
+                        {(field.type === "text" || field.type === "textarea") && (
                           <div>
-                            <label className="text-xs font-medium text-gray-600 mb-1 block">
-                              プレースホルダ
-                            </label>
+                            <label className="text-xs font-medium text-gray-600 mb-1 block">プレースホルダ</label>
                             <input
                               type="text"
                               value={field.placeholder || ""}
-                              onChange={(e) =>
-                                updateField(field.id, {
-                                  placeholder: e.target.value,
-                                })
-                              }
+                              onChange={(e) => updateField(field.id, { placeholder: e.target.value })}
                               placeholder="入力欄に表示される薄いテキスト"
                               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                             />
@@ -1025,64 +1025,31 @@ export default function IntakeFormEditorPage() {
                         {/* 選択肢 */}
                         {hasChoices(field.type) && (
                           <div>
-                            <label className="text-xs font-medium text-gray-600 mb-1 block">
-                              選択肢
-                            </label>
+                            <label className="text-xs font-medium text-gray-600 mb-1 block">選択肢</label>
                             <div className="space-y-2">
                               {(field.options || []).map((opt, oi) => (
-                                <div
-                                  key={oi}
-                                  className="flex items-center gap-2"
-                                >
-                                  <span className="text-xs text-gray-400 w-5 text-center">
-                                    {oi + 1}
-                                  </span>
+                                <div key={oi} className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-400 w-5 text-center">{oi + 1}</span>
                                   <input
                                     type="text"
                                     value={opt.label}
-                                    onChange={(e) =>
-                                      updateOption(
-                                        field.id,
-                                        oi,
-                                        "label",
-                                        e.target.value,
-                                      )
-                                    }
+                                    onChange={(e) => updateOption(field.id, oi, "label", e.target.value)}
                                     placeholder="表示テキスト"
                                     className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                                   />
                                   <input
                                     type="text"
                                     value={opt.value}
-                                    onChange={(e) =>
-                                      updateOption(
-                                        field.id,
-                                        oi,
-                                        "value",
-                                        e.target.value,
-                                      )
-                                    }
+                                    onChange={(e) => updateOption(field.id, oi, "value", e.target.value)}
                                     placeholder="値"
                                     className="w-32 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                                   />
                                   <button
-                                    onClick={() =>
-                                      removeOption(field.id, oi)
-                                    }
+                                    onClick={() => removeOption(field.id, oi)}
                                     className="p-1 text-gray-300 hover:text-red-500 transition-colors"
                                   >
-                                    <svg
-                                      className="w-3.5 h-3.5"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M6 18L18 6M6 6l12 12"
-                                      />
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                     </svg>
                                   </button>
                                 </div>
@@ -1105,11 +1072,7 @@ export default function IntakeFormEditorPage() {
                               <input
                                 type="checkbox"
                                 checked={field.required}
-                                onChange={(e) =>
-                                  updateField(field.id, {
-                                    required: e.target.checked,
-                                  })
-                                }
+                                onChange={(e) => updateField(field.id, { required: e.target.checked })}
                                 className="rounded border-gray-300"
                               />
                               必須項目にする
@@ -1123,16 +1086,9 @@ export default function IntakeFormEditorPage() {
                                   checked={!!field.conditional}
                                   onChange={(e) => {
                                     if (e.target.checked) {
-                                      updateField(field.id, {
-                                        conditional: {
-                                          when: "",
-                                          value: "",
-                                        },
-                                      });
+                                      updateField(field.id, { conditional: { when: "", value: "" } });
                                     } else {
-                                      updateField(field.id, {
-                                        conditional: undefined,
-                                      });
+                                      updateField(field.id, { conditional: undefined });
                                     }
                                   }}
                                   className="rounded border-gray-300"
@@ -1145,23 +1101,14 @@ export default function IntakeFormEditorPage() {
                                     value={field.conditional.when}
                                     onChange={(e) =>
                                       updateField(field.id, {
-                                        conditional: {
-                                          ...field.conditional!,
-                                          when: e.target.value,
-                                        },
+                                        conditional: { ...field.conditional!, when: e.target.value },
                                       })
                                     }
                                     className="px-2 py-1 border border-gray-200 rounded text-xs"
                                   >
-                                    <option value="">
-                                      対象フィールド
-                                    </option>
+                                    <option value="">対象フィールド</option>
                                     {fields
-                                      .filter(
-                                        (f) =>
-                                          f.id !== field.id &&
-                                          f.type !== "heading",
-                                      )
+                                      .filter((f) => f.id !== field.id && f.type !== "heading")
                                       .map((f) => (
                                         <option key={f.id} value={f.id}>
                                           {f.label || f.id}
@@ -1174,10 +1121,7 @@ export default function IntakeFormEditorPage() {
                                     value={field.conditional.value}
                                     onChange={(e) =>
                                       updateField(field.id, {
-                                        conditional: {
-                                          ...field.conditional!,
-                                          value: e.target.value,
-                                        },
+                                        conditional: { ...field.conditional!, value: e.target.value },
                                       })
                                     }
                                     placeholder="値"
@@ -1197,12 +1141,8 @@ export default function IntakeFormEditorPage() {
                                   onChange={(e) => {
                                     updateField(field.id, {
                                       ng_block: e.target.checked,
-                                      ng_block_value: e.target.checked
-                                        ? ""
-                                        : undefined,
-                                      ng_block_message: e.target.checked
-                                        ? ""
-                                        : undefined,
+                                      ng_block_value: e.target.checked ? "" : undefined,
+                                      ng_block_message: e.target.checked ? "" : undefined,
                                     });
                                   }}
                                   className="rounded border-gray-300"
@@ -1216,29 +1156,17 @@ export default function IntakeFormEditorPage() {
                                     <input
                                       type="text"
                                       value={field.ng_block_value || ""}
-                                      onChange={(e) =>
-                                        updateField(field.id, {
-                                          ng_block_value:
-                                            e.target.value,
-                                        })
-                                      }
+                                      onChange={(e) => updateField(field.id, { ng_block_value: e.target.value })}
                                       placeholder="この値が選ばれたらブロック"
                                       className="flex-1 px-2 py-1 border border-gray-200 rounded text-xs"
                                     />
                                   </div>
                                   <div>
-                                    <label className="text-xs text-gray-600 block mb-1">
-                                      ブロック時メッセージ（任意）:
-                                    </label>
+                                    <label className="text-xs text-gray-600 block mb-1">ブロック時メッセージ（任意）:</label>
                                     <input
                                       type="text"
                                       value={field.ng_block_message || ""}
-                                      onChange={(e) =>
-                                        updateField(field.id, {
-                                          ng_block_message:
-                                            e.target.value,
-                                        })
-                                      }
+                                      onChange={(e) => updateField(field.id, { ng_block_message: e.target.value })}
                                       placeholder="表示設定のメッセージを使用"
                                       className="w-full px-2 py-1 border border-gray-200 rounded text-xs"
                                     />
@@ -1262,29 +1190,21 @@ export default function IntakeFormEditorPage() {
       {tab === "settings" && (
         <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-5">
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">
-              ヘッダータイトル
-            </label>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">ヘッダータイトル</label>
             <input
               type="text"
               value={settings.header_title}
-              onChange={(e) =>
-                setSettings({ ...settings, header_title: e.target.value })
-              }
+              onChange={(e) => setSettings({ ...settings, header_title: e.target.value })}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
             />
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">
-              目安時間テキスト
-            </label>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">目安時間テキスト</label>
             <input
               type="text"
               value={settings.estimated_time || ""}
-              onChange={(e) =>
-                setSettings({ ...settings, estimated_time: e.target.value })
-              }
+              onChange={(e) => setSettings({ ...settings, estimated_time: e.target.value })}
               placeholder="例）平均回答時間 1〜2分程度"
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
             />
@@ -1294,9 +1214,7 @@ export default function IntakeFormEditorPage() {
             <input
               type="checkbox"
               checked={settings.step_by_step}
-              onChange={(e) =>
-                setSettings({ ...settings, step_by_step: e.target.checked })
-              }
+              onChange={(e) => setSettings({ ...settings, step_by_step: e.target.checked })}
               className="rounded border-gray-300"
             />
             ステップバイステップ表示（1問ずつ表示）
@@ -1304,35 +1222,22 @@ export default function IntakeFormEditorPage() {
 
           <hr className="border-gray-100" />
 
-          <h3 className="text-sm font-semibold text-gray-700">
-            NGブロック画面
-          </h3>
+          <h3 className="text-sm font-semibold text-gray-700">NGブロック画面</h3>
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">
-              タイトル
-            </label>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">タイトル</label>
             <input
               type="text"
               value={settings.ng_block_title || ""}
-              onChange={(e) =>
-                setSettings({ ...settings, ng_block_title: e.target.value })
-              }
+              onChange={(e) => setSettings({ ...settings, ng_block_title: e.target.value })}
               placeholder="オンライン処方の対象外です"
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">
-              メッセージ
-            </label>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">メッセージ</label>
             <textarea
               value={settings.ng_block_message || ""}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  ng_block_message: e.target.value,
-                })
-              }
+              onChange={(e) => setSettings({ ...settings, ng_block_message: e.target.value })}
               placeholder="ブロック時に表示されるメッセージ"
               rows={3}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
@@ -1348,18 +1253,31 @@ export default function IntakeFormEditorPage() {
         </div>
       )}
       </div>
+    </div>
+  );
+}
 
-      {/* テンプレート一覧モーダル */}
-      <TemplateListModal
-        open={showTemplates}
-        onClose={() => setShowTemplates(false)}
-        onActivated={() => {
-          // テンプレート切替後にフォームデータを再取得
-          mutate(DEFINITION_KEY);
-          setDefInitialized(false);
-          setEditing(false);
+// ============================================================
+// メインコンポーネント
+// ============================================================
+
+export default function IntakeFormEditorPage() {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  if (selectedId) {
+    return (
+      <FormEditorView
+        key={selectedId}
+        templateId={selectedId}
+        onBack={() => {
+          setSelectedId(null);
+          mutate(TEMPLATES_KEY);
         }}
       />
-    </div>
+    );
+  }
+
+  return (
+    <TemplateListView onSelect={(id) => setSelectedId(id)} />
   );
 }
