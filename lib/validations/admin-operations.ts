@@ -62,6 +62,15 @@ export const mypageSettingsSchema = z
   })
   .passthrough();
 
+/** 購入画面設定 PUT /api/admin/purchase-settings */
+export const purchaseSettingsSchema = z
+  .object({
+    config: z.record(z.string(), z.unknown()).refine((v) => v !== null && typeof v === "object", {
+      message: "configは必須です",
+    }),
+  })
+  .passthrough();
+
 /** 配送設定 PUT /api/admin/shipping/config */
 export const shippingConfigPutSchema = z
   .object({

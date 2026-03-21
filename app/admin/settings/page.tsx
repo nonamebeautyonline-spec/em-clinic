@@ -7,6 +7,7 @@ import GeneralSection from "./_components/GeneralSection";
 import PaymentSection from "./_components/PaymentSection";
 import LineSection from "./_components/LineSection";
 import MypageSection from "./_components/MypageSection";
+import PurchaseSection from "./_components/PurchaseSection";
 import AccountSection from "./_components/AccountSection";
 import SmsSection from "./_components/SmsSection";
 import EhrSection from "./_components/EhrSection";
@@ -284,6 +285,7 @@ export default function SettingsPage() {
             {activeSection === "line" && <LineSection settings={settings} onSaved={handleSaved} />}
             {activeSection === "sms" && <SmsSection settings={settings} onSaved={handleSaved} />}
             {activeSection === "mypage" && <MypageSection onToast={handleToast} />}
+            {activeSection === "purchase" && <PurchaseSection onToast={handleToast} />}
             {activeSection === "consultation" && <ConsultationSection onToast={handleToast} />}
             {activeSection === "ehr" && <EhrSection onToast={handleToast} />}
             {activeSection === "notification" && <NotificationSection onToast={handleToast} />}

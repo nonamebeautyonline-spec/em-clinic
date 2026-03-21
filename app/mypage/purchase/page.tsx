@@ -1,138 +1,120 @@
-// app/mypage/purchase/page.tsx
+// app/mypage/purchase/page.tsx — 購入画面（DB設定連動）
 "use client";
 
-import React, { Suspense } from "react";
+import React, { useMemo, Suspense } from "react";
+import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
+import type { PurchaseConfig, PurchaseGroup } from "@/lib/purchase/types";
+import { DEFAULT_PURCHASE_CONFIG } from "@/lib/purchase/types";
 
-type ProductCode =
-  | "MJL_2.5mg_1m"
-  | "MJL_2.5mg_2m"
-  | "MJL_2.5mg_3m"
-  | "MJL_5mg_1m"
-  | "MJL_5mg_2m"
-  | "MJL_5mg_3m"
-  | "MJL_7.5mg_1m"
-  | "MJL_7.5mg_2m"
-  | "MJL_7.5mg_3m";
+// SWRProviderのスコープ外なのでfetcher明示指定
+const swrFetcher = (url: string) =>
+  fetch(url, { credentials: "include" }).then((r) => {
+    if (!r.ok) throw new Error("API error");
+    return r.json();
+  });
 
-type Product = {
-  code: ProductCode;
-  title: string;
-  mg: "2.5mg" | "5mg" | "7.5mg";
-  months: 1 | 2 | 3;
-  shots: number; // 本数
-  price: number; // 円（税込）
+// カラーテーマ → Tailwindクラスのマッピング（purge対策で静的に列挙）
+const THEME_CLASSES: Record<string, { section: string; badge: string }> = {
+  emerald: { section: "border-emerald-400 bg-emerald-50", badge: "bg-emerald-500" },
+  blue: { section: "border-blue-400 bg-blue-50", badge: "bg-blue-500" },
+  purple: { section: "border-purple-400 bg-purple-50", badge: "bg-purple-500" },
+  pink: { section: "border-pink-400 bg-pink-50", badge: "bg-pink-500" },
+  amber: { section: "border-amber-400 bg-amber-50", badge: "bg-amber-500" },
+  rose: { section: "border-rose-400 bg-rose-50", badge: "bg-rose-500" },
+  teal: { section: "border-teal-400 bg-teal-50", badge: "bg-teal-500" },
+  indigo: { section: "border-indigo-400 bg-indigo-50", badge: "bg-indigo-500" },
+  orange: { section: "border-orange-400 bg-orange-50", badge: "bg-orange-500" },
 };
 
-const PRODUCTS: Product[] = [
-  // 2.5mg
-  {
-    code: "MJL_2.5mg_1m",
-    title: "マンジャロ 2.5mg 1ヶ月",
-    mg: "2.5mg",
-    months: 1,
-    shots: 4,
-    price: 13000,
-  },
-  {
-    code: "MJL_2.5mg_2m",
-    title: "マンジャロ 2.5mg 2ヶ月",
-    mg: "2.5mg",
-    months: 2,
-    shots: 8,
-    price: 25500,
-  },
-  {
-    code: "MJL_2.5mg_3m",
-    title: "マンジャロ 2.5mg 3ヶ月",
-    mg: "2.5mg",
-    months: 3,
-    shots: 12,
-    price: 35000,
-  },
-  // 5mg
-  {
-    code: "MJL_5mg_1m",
-    title: "マンジャロ 5mg 1ヶ月",
-    mg: "5mg",
-    months: 1,
-    shots: 4,
-    price: 22850,
-  },
-  {
-    code: "MJL_5mg_2m",
-    title: "マンジャロ 5mg 2ヶ月",
-    mg: "5mg",
-    months: 2,
-    shots: 8,
-    price: 45500,
-  },
-  {
-    code: "MJL_5mg_3m",
-    title: "マンジャロ 5mg 3ヶ月",
-    mg: "5mg",
-    months: 3,
-    shots: 12,
-    price: 63000,
-  },
-  // 7.5mg
-  {
-    code: "MJL_7.5mg_1m",
-    title: "マンジャロ 7.5mg 1ヶ月",
-    mg: "7.5mg",
-    months: 1,
-    shots: 4,
-    price: 34000,
-  },
-  {
-    code: "MJL_7.5mg_2m",
-    title: "マンジャロ 7.5mg 2ヶ月",
-    mg: "7.5mg",
-    months: 2,
-    shots: 8,
-    price: 65000,
-  },
-  {
-    code: "MJL_7.5mg_3m",
-    title: "マンジャロ 7.5mg 3ヶ月",
-    mg: "7.5mg",
-    months: 3,
-    shots: 12,
-    price: 96000,
-  },
-];
-
-const MG_SECTIONS: { mg: Product["mg"]; label: string }[] = [
-  { mg: "2.5mg", label: "マンジャロ 2.5mg" },
-  { mg: "5mg", label: "マンジャロ 5mg" },
-  { mg: "7.5mg", label: "マンジャロ 7.5mg" },
-];
+interface DbProduct {
+  code: string;
+  title: string;
+  dosage: string | null;
+  duration_months: number | null;
+  quantity: number | null;
+  price: number;
+  discount_price: number | null;
+  discount_until: string | null;
+}
 
 function PurchasePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // 設定と商品データをAPI経由で取得
+  const { data: settingsData } = useSWR<{ config: PurchaseConfig }>(
+    "/api/mypage/purchase-settings",
+    swrFetcher,
+    { revalidateOnFocus: false }
+  );
+  const { data: productsData } = useSWR<{ products: DbProduct[] }>(
+    "/api/mypage/products",
+    swrFetcher,
+    { revalidateOnFocus: false }
+  );
+
+  // 設定（デフォルトフォールバック）
+  const config = useMemo<PurchaseConfig>(
+    () => settingsData?.config ?? DEFAULT_PURCHASE_CONFIG,
+    [settingsData]
+  );
+
+  const allProducts = useMemo<DbProduct[]>(
+    () => productsData?.products ?? [],
+    [productsData]
+  );
+
+  // グループごとに商品を紐付け
+  const groupedSections = useMemo(() => {
+    return [...config.groups]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((group) => ({
+        group,
+        products: group.productCodes
+          .map((code) => allProducts.find((p) => p.code === code))
+          .filter((p): p is DbProduct => p != null),
+      }))
+      .filter((s) => s.products.length > 0);
+  }, [config.groups, allProducts]);
+
   // flow === "reorder" なら再処方モード
   const flow = searchParams.get("flow");
   const isReorderFlow = flow === "reorder";
 
-  const pageTitle = isReorderFlow
-    ? "マンジャロ再処方の申請"
-    : "マンジャロ購入（今回の診察分）";
-
-  const description = isReorderFlow
-    ? "再処方を希望される内容を選択してください。診察内容と前回の経過を踏まえて、Drが再処方可否を判断いたします。"
-    : "本ページは診察後に決定した「今回の処方分」の決済専用です。必ず診察時に医師と決定した用量のみをご選択ください。";
+  const pageTitle = isReorderFlow ? config.reorderTitle : config.pageTitle;
+  const description = isReorderFlow ? config.reorderDescription : config.description;
 
   // 初回決済用：内容確認ページへ
-  const handleCheckoutForCurrentVisit = (product: Product) => {
+  const handleCheckout = (product: DbProduct) => {
     router.push(`/mypage/purchase/confirm?code=${product.code}&mode=current`);
   };
 
   // 再処方用：再処方申請確認ページへ
-  const handleReorderRequest = (product: Product) => {
+  const handleReorder = (product: DbProduct) => {
     router.push(`/mypage/purchase/reorder?code=${product.code}`);
   };
+
+  // 実効価格（割引対応）
+  const getEffectivePrice = (p: DbProduct) => {
+    if (p.discount_price != null && p.discount_until) {
+      const until = new Date(p.discount_until);
+      if (until > new Date()) return p.discount_price;
+    }
+    return p.price;
+  };
+
+  // ローディング
+  if (!settingsData || !productsData) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-pink-500 border-t-transparent" />
+          <p className="mt-2 text-sm text-slate-500">商品一覧を読み込んでいます…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -156,101 +138,100 @@ function PurchasePageInner() {
 
       {/* コンテンツ */}
       <div className="mx-auto max-w-md px-4 pb-6 pt-3 space-y-6">
-        {MG_SECTIONS.map((section) => {
-          const items = PRODUCTS.filter((p) => p.mg === section.mg).sort(
-            (a, b) => a.months - b.months
-          );
-
-          const sectionColor =
-            section.mg === "2.5mg"
-              ? "border-emerald-400 bg-emerald-50"
-              : section.mg === "5mg"
-              ? "border-blue-400 bg-blue-50"
-              : "border-purple-400 bg-purple-50";
-          const badgeColor =
-            section.mg === "2.5mg"
-              ? "bg-emerald-500"
-              : section.mg === "5mg"
-              ? "bg-blue-500"
-              : "bg-purple-500";
+        {groupedSections.map(({ group, products }) => {
+          const theme = THEME_CLASSES[group.colorTheme] ?? THEME_CLASSES.blue;
 
           return (
-            <section key={section.mg} className="space-y-3">
-              <div className={`rounded-xl border-l-4 px-3 py-2.5 ${sectionColor}`}>
+            <section key={group.id} className="space-y-3">
+              <div className={`rounded-xl border-l-4 px-3 py-2.5 ${theme.section}`}>
                 <div className="flex items-center gap-2">
-                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold text-white ${badgeColor}`}>
-                    {section.mg}
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold text-white ${theme.badge}`}>
+                    {group.badgeLabel}
                   </span>
                   <h2 className="text-base font-bold text-slate-900">
-                    {section.label}
+                    {group.displayName}
                   </h2>
                 </div>
                 <p className="mt-1 text-[11px] text-slate-600 ml-0.5">
-                  週1回注射／{items.length}プラン
+                  {group.description}／{products.length}プラン
                 </p>
               </div>
 
               <div className="space-y-3">
-                {items.map((p) => (
-                  <div
-                    key={p.code}
-                    className="w-full rounded-2xl border border-slate-100 px-4 py-3.5 bg-white shadow-sm transition active:scale-[0.99]"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-semibold text-slate-900">
-                            {p.title}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-[11px] text-slate-500">
-                          {p.months}ヶ月分（全{p.shots}本）／週1回
-                        </p>
-                      </div>
-                      <div className="text-right whitespace-nowrap">
-                        <div className="text-[11px] text-slate-400">料金</div>
-                        <div className="text-base font-semibold text-slate-900">
-                          ¥{p.price.toLocaleString()}
-                        </div>
-                        <div className="mt-0.5 text-[10px] text-slate-400">
-                          税込／送料込み
-                        </div>
-                      </div>
-                    </div>
+                {products.map((p) => {
+                  const effectivePrice = getEffectivePrice(p);
+                  const hasDiscount = effectivePrice < p.price;
 
-                    <div className="mt-3">
-                      {isReorderFlow ? (
-                        // ★ 再処方モード：申請に進む
-                        <button
-                          type="button"
-                          onClick={() => handleReorderRequest(p)}
-                          className="w-full rounded-full bg-pink-500 text-white py-1.5 text-[11px] font-semibold disabled:opacity-60"
-                        >
-                          この内容で再処方を申請する
-                        </button>
-                      ) : (
-                        // 初回決済モード：決済確認へ
-                        <button
-                          type="button"
-                          onClick={() => handleCheckoutForCurrentVisit(p)}
-                          className="w-full rounded-full bg-pink-500 text-white py-1.5 text-[11px] font-semibold disabled:opacity-60"
-                        >
-                          この内容で今回の決済に進む
-                        </button>
-                      )}
+                  return (
+                    <div
+                      key={p.code}
+                      className="w-full rounded-2xl border border-slate-100 px-4 py-3.5 bg-white shadow-sm transition active:scale-[0.99]"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold text-slate-900">
+                              {p.title}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-[11px] text-slate-500">
+                            {p.duration_months
+                              ? `${p.duration_months}ヶ月分`
+                              : ""}
+                            {p.quantity
+                              ? `（全${p.quantity}本）`
+                              : ""}
+                            {p.duration_months || p.quantity ? "／週1回" : ""}
+                          </p>
+                        </div>
+                        <div className="text-right whitespace-nowrap">
+                          <div className="text-[11px] text-slate-400">料金</div>
+                          {hasDiscount && (
+                            <div className="text-[10px] text-slate-400 line-through">
+                              ¥{p.price.toLocaleString()}
+                            </div>
+                          )}
+                          <div className={`text-base font-semibold ${hasDiscount ? "text-pink-600" : "text-slate-900"}`}>
+                            ¥{effectivePrice.toLocaleString()}
+                          </div>
+                          <div className="mt-0.5 text-[10px] text-slate-400">
+                            税込／送料込み
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3">
+                        {isReorderFlow ? (
+                          <button
+                            type="button"
+                            onClick={() => handleReorder(p)}
+                            className="w-full rounded-full bg-pink-500 text-white py-1.5 text-[11px] font-semibold disabled:opacity-60"
+                          >
+                            {config.reorderButtonLabel}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleCheckout(p)}
+                            className="w-full rounded-full bg-pink-500 text-white py-1.5 text-[11px] font-semibold disabled:opacity-60"
+                          >
+                            {config.checkoutButtonLabel}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
           );
         })}
 
-        <p className="mt-4 text-[10px] text-slate-400 leading-relaxed">
-          ※ 用量は必ず診察時に医師と確認の上でご選択ください。
-          <br />
-          ※ 再処方を希望される場合は、再処方モードで申請してください。
-        </p>
+        {config.footerNote && (
+          <p className="mt-4 text-[10px] text-slate-400 leading-relaxed whitespace-pre-line">
+            {config.footerNote}
+          </p>
+        )}
       </div>
     </div>
   );

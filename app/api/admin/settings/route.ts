@@ -55,6 +55,9 @@ const SETTING_DEFINITIONS: Record<SettingCategory, SettingDef[]> = {
   mypage: [
     { key: "config", label: "マイページ設定（JSON）" },
   ],
+  purchase: [
+    { key: "config", label: "購入画面設定（JSON）" },
+  ],
   flex: [
     { key: "config", label: "FLEX通知設定（JSON）" },
   ],
