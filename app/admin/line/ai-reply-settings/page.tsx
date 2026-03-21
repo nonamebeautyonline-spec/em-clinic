@@ -8,6 +8,7 @@ interface AiReplySettings {
   is_enabled: boolean;
   mode: string;
   medical_reply_mode: string;
+  greeting_reply_enabled: boolean;
   knowledge_base: string;
   custom_instructions: string;
   min_message_length: number;
@@ -48,6 +49,7 @@ const DEFAULT_SETTINGS: AiReplySettings = {
   is_enabled: false,
   mode: "approval",
   medical_reply_mode: "confirm",
+  greeting_reply_enabled: false,
   knowledge_base: "",
   custom_instructions: "",
   min_message_length: 5,
@@ -296,6 +298,30 @@ export default function AiReplySettingsPage() {
               <div className="text-xs text-gray-400">ナレッジベースを元に具体的に回答</div>
             </div>
           </label>
+        </div>
+      </div>
+
+      {/* 挨拶・お礼への返信 */}
+      <div className="bg-white rounded-lg border p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold text-gray-700">挨拶・お礼への返信</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              「ありがとうございます」「了解しました」等の挨拶メッセージにもAIが返信案を生成します
+            </p>
+          </div>
+          <button
+            onClick={() => setSettings(s => ({ ...s, greeting_reply_enabled: !s.greeting_reply_enabled }))}
+            className={`relative w-12 h-6 rounded-full transition-colors ${
+              settings.greeting_reply_enabled ? "bg-purple-600" : "bg-gray-300"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                settings.greeting_reply_enabled ? "translate-x-6" : ""
+              }`}
+            />
+          </button>
         </div>
       </div>
 
