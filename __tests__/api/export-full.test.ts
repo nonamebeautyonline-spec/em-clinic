@@ -4,8 +4,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- モック設定 ---
 const mockVerifyAdminAuth = vi.fn();
+const mockGetAdminUserId = vi.fn();
 vi.mock("@/lib/admin-auth", () => ({
   verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
+  getAdminUserId: (...args: unknown[]) => mockGetAdminUserId(...args),
 }));
 
 vi.mock("@/lib/tenant", () => ({
@@ -13,6 +15,14 @@ vi.mock("@/lib/tenant", () => ({
   resolveTenantIdOrThrow: vi.fn(() => "test-tenant"),
   withTenant: vi.fn((q: unknown) => q),
   strictWithTenant: vi.fn((q: unknown) => q),
+}));
+
+// bcryptjs モック
+const mockBcryptCompare = vi.fn();
+vi.mock("bcryptjs", () => ({
+  default: {
+    compare: (...args: unknown[]) => mockBcryptCompare(...args),
+  },
 }));
 
 // Supabase モック — チェーンを再帰的に返す
@@ -42,6 +52,12 @@ vi.mock("@/lib/export-worker", () => ({
   executeFullExport: (...args: unknown[]) => mockExecuteFullExport(...args),
 }));
 
+// audit モック
+const mockLogAudit = vi.fn();
+vi.mock("@/lib/audit", () => ({
+  logAudit: (...args: unknown[]) => mockLogAudit(...args),
+}));
+
 // --- リクエスト生成ヘルパー ---
 function createMockRequest(method: string, url: string, body?: unknown) {
   return new Request(url, {
@@ -53,10 +69,27 @@ function createMockRequest(method: string, url: string, body?: unknown) {
 
 import { POST, GET } from "@/app/api/admin/export/full/route";
 
+// パスワード検証を通す共通セットアップ
+function setupValidPasswordFlow() {
+  mockGetAdminUserId.mockResolvedValue("admin-user-id");
+  mockBcryptCompare.mockResolvedValue(true);
+  // admin_usersクエリ → export_jobsクエリの順でsingleが呼ばれる
+  mockSingle
+    .mockResolvedValueOnce({
+      data: { password_hash: "$2a$10$hashedpassword" },
+      error: null,
+    })
+    .mockResolvedValueOnce({
+      data: { id: "job-uuid-123" },
+      error: null,
+    });
+}
+
 describe("テナント全データエクスポートAPI - POST", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockVerifyAdminAuth.mockResolvedValue(true);
+    mockGetAdminUserId.mockResolvedValue("admin-user-id");
   });
 
   it("認証なし → 401", async () => {
@@ -66,13 +99,61 @@ describe("テナント全データエクスポートAPI - POST", () => {
     expect(res.status).toBe(401);
   });
 
-  it("ジョブ作成成功 → jobIdとpendingステータスを返す", async () => {
-    mockSingle.mockResolvedValue({
-      data: { id: "job-uuid-123" },
+  it("パスワードなし → 400", async () => {
+    const req = createMockRequest("POST", "http://localhost/api/admin/export/full", {
+      reason: "月次レポート作成のため",
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.message).toBe("パスワードが必要です");
+  });
+
+  it("理由なし → 400", async () => {
+    const req = createMockRequest("POST", "http://localhost/api/admin/export/full", {
+      password: "mypassword",
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.message).toBe("エクスポート理由が必要です");
+  });
+
+  it("理由が空文字 → 400", async () => {
+    const req = createMockRequest("POST", "http://localhost/api/admin/export/full", {
+      password: "mypassword",
+      reason: "   ",
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.message).toBe("エクスポート理由が必要です");
+  });
+
+  it("パスワード不一致 → 403", async () => {
+    mockBcryptCompare.mockResolvedValue(false);
+    mockSingle.mockResolvedValueOnce({
+      data: { password_hash: "$2a$10$hashedpassword" },
       error: null,
     });
 
-    const req = createMockRequest("POST", "http://localhost/api/admin/export/full");
+    const req = createMockRequest("POST", "http://localhost/api/admin/export/full", {
+      password: "wrongpassword",
+      reason: "月次レポート作成のため",
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(403);
+    const json = await res.json();
+    expect(json.message).toBe("パスワードが一致しません");
+  });
+
+  it("ジョブ作成成功 → jobIdとpendingステータスを返す", async () => {
+    setupValidPasswordFlow();
+
+    const req = createMockRequest("POST", "http://localhost/api/admin/export/full", {
+      password: "correctpassword",
+      reason: "月次レポート作成のため",
+    });
     const res = await POST(req);
     expect(res.status).toBe(200);
     const json = await res.json();
@@ -81,13 +162,39 @@ describe("テナント全データエクスポートAPI - POST", () => {
     expect(mockExecuteFullExport).toHaveBeenCalledWith("job-uuid-123", "test-tenant");
   });
 
-  it("ジョブ作成失敗 → 500", async () => {
-    mockSingle.mockResolvedValue({
-      data: null,
-      error: { message: "DB error" },
-    });
+  it("ジョブ作成成功時に監査ログに理由が記録される", async () => {
+    setupValidPasswordFlow();
 
-    const req = createMockRequest("POST", "http://localhost/api/admin/export/full");
+    const req = createMockRequest("POST", "http://localhost/api/admin/export/full", {
+      password: "correctpassword",
+      reason: "月次レポート作成のため",
+    });
+    await POST(req);
+    expect(mockLogAudit).toHaveBeenCalledWith(
+      expect.anything(),
+      "export.create",
+      "export",
+      "job-uuid-123",
+      { reason: "月次レポート作成のため" },
+    );
+  });
+
+  it("ジョブ作成失敗 → 500", async () => {
+    mockBcryptCompare.mockResolvedValue(true);
+    mockSingle
+      .mockResolvedValueOnce({
+        data: { password_hash: "$2a$10$hashedpassword" },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: "DB error" },
+      });
+
+    const req = createMockRequest("POST", "http://localhost/api/admin/export/full", {
+      password: "correctpassword",
+      reason: "月次レポート作成のため",
+    });
     const res = await POST(req);
     expect(res.status).toBe(500);
     const json = await res.json();

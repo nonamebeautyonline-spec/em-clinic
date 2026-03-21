@@ -1,6 +1,135 @@
 // __tests__/api/delete-patient-data.test.ts
-// 患者データ削除APIのビジネスルールテスト（GDPR対応・誤削除防止）
-import { describe, it, expect } from "vitest";
+// 患者データ削除APIのビジネスルールテスト（GDPR対応・誤削除防止・PII統制）
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// === モック設定 ===
+const mockVerifyAdminAuth = vi.fn().mockResolvedValue(true);
+const mockGetAdminUserId = vi.fn().mockResolvedValue("admin-user-001");
+vi.mock("@/lib/admin-auth", () => ({
+  verifyAdminAuth: mockVerifyAdminAuth,
+  getAdminUserId: mockGetAdminUserId,
+}));
+
+vi.mock("@/lib/tenant", () => ({
+  resolveTenantIdOrThrow: vi.fn(() => "test-tenant"),
+  strictWithTenant: vi.fn((query: unknown) => query),
+}));
+
+vi.mock("@/lib/redis", () => ({
+  invalidateDashboardCache: vi.fn(),
+}));
+
+const mockLogAudit = vi.fn();
+vi.mock("@/lib/audit", () => ({
+  logAudit: mockLogAudit,
+}));
+
+// Supabase モック
+let tableChains: Record<string, Record<string, ReturnType<typeof vi.fn>>> = {};
+
+function createChain(defaultResolve: Record<string, unknown> = { data: null, error: null }) {
+  const chain: Record<string, ReturnType<typeof vi.fn>> = {};
+  ["insert", "update", "delete", "select", "eq", "neq", "order", "limit", "single", "maybeSingle"].forEach(m => {
+    chain[m] = vi.fn().mockReturnValue(chain);
+  });
+  chain.then = vi.fn((resolve: (val: Record<string, unknown>) => unknown) => resolve(defaultResolve));
+  return chain;
+}
+
+function getOrCreateChain(table: string) {
+  if (!tableChains[table]) tableChains[table] = createChain();
+  return tableChains[table];
+}
+
+vi.mock("@/lib/supabase", () => ({
+  supabaseAdmin: {
+    from: vi.fn((table: string) => getOrCreateChain(table)),
+  },
+}));
+
+// bcryptjs モック
+const mockBcryptCompare = vi.fn();
+vi.mock("bcryptjs", () => ({
+  default: { compare: (...args: unknown[]) => mockBcryptCompare(...args) },
+  compare: (...args: unknown[]) => mockBcryptCompare(...args),
+}));
+
+function buildRequest(body: Record<string, unknown>) {
+  return new Request("https://example.com/api/admin/delete-patient-data", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }) as unknown as import("next/server").NextRequest;
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  tableChains = {};
+  mockVerifyAdminAuth.mockResolvedValue(true);
+  mockGetAdminUserId.mockResolvedValue("admin-user-001");
+});
+
+// === POST: PII統制 — パスワード再確認・削除理由 ===
+describe("delete-patient-data PII統制", () => {
+  it("パスワードなしで400エラー", async () => {
+    const { POST } = await import("@/app/api/admin/delete-patient-data/route");
+    const req = buildRequest({ patient_id: "12345678901", reason: "テスト削除" });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+  });
+
+  it("理由なし（空文字）で400エラー", async () => {
+    const { POST } = await import("@/app/api/admin/delete-patient-data/route");
+    const req = buildRequest({ patient_id: "12345678901", password: "secret123", reason: "" });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+  });
+
+  it("パスワード不一致で403エラー", async () => {
+    // admin_usersからパスワードハッシュを返す
+    tableChains["admin_users"] = createChain({ data: { password_hash: "$2a$10$hashedpassword" }, error: null });
+    mockBcryptCompare.mockResolvedValue(false);
+
+    const { POST } = await import("@/app/api/admin/delete-patient-data/route");
+    const req = buildRequest({
+      patient_id: "12345678901",
+      password: "wrong-password",
+      reason: "テスト削除",
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(403);
+    const json = await res.json();
+    expect(json.error).toContain("パスワード");
+  });
+
+  it("正常ケース: パスワード一致 + 理由あり → 削除実行", async () => {
+    // admin_usersからパスワードハッシュを返す
+    tableChains["admin_users"] = createChain({ data: { password_hash: "$2a$10$hashedpassword" }, error: null });
+    mockBcryptCompare.mockResolvedValue(true);
+    // 予約なし
+    tableChains["reservations"] = createChain({ data: [], error: null });
+
+    const { POST } = await import("@/app/api/admin/delete-patient-data/route");
+    const req = buildRequest({
+      patient_id: "12345678901",
+      password: "correct-password",
+      reason: "患者本人からの削除依頼",
+      delete_intake: false,
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.ok).toBe(true);
+    // 監査ログにreasonが含まれることを確認
+    expect(mockLogAudit).toHaveBeenCalledWith(
+      expect.anything(),
+      "patient.delete_data",
+      "patient",
+      "12345678901",
+      expect.objectContaining({ reason: "患者本人からの削除依頼" }),
+    );
+  });
+});
 
 // === POST: 削除対象の制御 ===
 describe("delete-patient-data 削除対象の制御", () => {

@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    console.log(`[admin/reorders/approve] Approved: reorder_num=${id}, patient=${reorderData.patient_id}`);
+    console.log(`[admin/reorders/approve] 承認処理完了: reorder_num=${id}`);
 
     // カルテ自動追加（用量比較付き）
     if (reorderData.patient_id && reorderData.product_code) {
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
           tenantId
         );
 
-        console.log(`[admin/reorders/approve] karte saved: patient=${reorderData.patient_id}, dose=${currentDose}mg, prev=${prevDose}mg`);
+        console.log(`[admin/reorders/approve] カルテ保存完了: dose=${currentDose}mg, prev=${prevDose}mg`);
       } catch (karteErr) {
         console.error("[admin/reorders/approve] karte error:", karteErr);
       }
@@ -201,7 +201,7 @@ export async function POST(req: NextRequest) {
           console.error("[admin/approve] Patient LINE push error:", err);
         }
       } else {
-        console.log(`[admin/approve] No LINE UID for patient ${reorderData.patient_id}, skipping push`);
+        console.log(`[admin/approve] LINE UID未登録のためプッシュをスキップ`);
       }
     }
 

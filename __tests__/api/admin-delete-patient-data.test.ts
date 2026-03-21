@@ -32,6 +32,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/admin-auth", () => ({
   verifyAdminAuth: vi.fn().mockResolvedValue(true),
+  getAdminUserId: vi.fn().mockResolvedValue("admin-001"),
 }));
 
 vi.mock("@/lib/tenant", () => ({
@@ -48,6 +49,10 @@ vi.mock("@/lib/redis", () => ({
 
 vi.mock("@/lib/audit", () => ({
   logAudit: vi.fn(),
+}));
+
+vi.mock("bcryptjs", () => ({
+  default: { compare: vi.fn().mockResolvedValue(true) },
 }));
 
 // parseBody をモック
@@ -76,6 +81,11 @@ describe("患者データ削除API (delete-patient-data/route.ts)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tableChains = {};
+    // パスワード再確認用: admin_usersテーブルのデフォルトモック
+    tableChains["admin_users"] = createChain({
+      data: { password_hash: "$2a$10$hashedpassword" },
+      error: null,
+    });
     vi.mocked(verifyAdminAuth).mockResolvedValue(true);
   });
 
@@ -101,7 +111,7 @@ describe("患者データ削除API (delete-patient-data/route.ts)", () => {
 
     it("予約キャンセル + 問診削除 → 成功", async () => {
       vi.mocked(parseBody).mockResolvedValue({
-        data: { patient_id: "p1", delete_intake: true, delete_reservation: true },
+        data: { patient_id: "p1", password: "pass123", reason: "テスト削除", delete_intake: true, delete_reservation: true },
       });
 
       // テーブルチェーンのセットアップ
@@ -126,7 +136,7 @@ describe("患者データ削除API (delete-patient-data/route.ts)", () => {
 
     it("予約なし → reservation_canceled なし", async () => {
       vi.mocked(parseBody).mockResolvedValue({
-        data: { patient_id: "p1", delete_intake: false, delete_reservation: true },
+        data: { patient_id: "p1", password: "pass123", reason: "テスト削除", delete_intake: false, delete_reservation: true },
       });
 
       // 予約取得: 空
@@ -141,7 +151,7 @@ describe("患者データ削除API (delete-patient-data/route.ts)", () => {
 
     it("予約取得エラー → errors に追加", async () => {
       vi.mocked(parseBody).mockResolvedValue({
-        data: { patient_id: "p1", delete_intake: false, delete_reservation: true },
+        data: { patient_id: "p1", password: "pass123", reason: "テスト削除", delete_intake: false, delete_reservation: true },
       });
 
       tableChains["reservations"] = createChain({ data: null, error: { message: "fetch error" } });
@@ -155,7 +165,7 @@ describe("患者データ削除API (delete-patient-data/route.ts)", () => {
 
     it("問診削除エラー → errors に追加", async () => {
       vi.mocked(parseBody).mockResolvedValue({
-        data: { patient_id: "p1", delete_intake: true, delete_reservation: false },
+        data: { patient_id: "p1", password: "pass123", reason: "テスト削除", delete_intake: true, delete_reservation: false },
       });
 
       tableChains["intake"] = createChain({ data: null, error: { message: "delete error" } });
@@ -169,7 +179,7 @@ describe("患者データ削除API (delete-patient-data/route.ts)", () => {
 
     it("delete_reservation=false → 予約キャンセルスキップ", async () => {
       vi.mocked(parseBody).mockResolvedValue({
-        data: { patient_id: "p1", delete_intake: false, delete_reservation: false },
+        data: { patient_id: "p1", password: "pass123", reason: "テスト削除", delete_intake: false, delete_reservation: false },
       });
 
       const req = createMockRequest("POST", "http://localhost/api/admin/delete-patient-data");

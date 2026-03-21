@@ -400,12 +400,14 @@ describe("deletePatientDataSchema", () => {
   it("正常値でparse成功", () => {
     const result = deletePatientDataSchema.safeParse({
       patient_id: "p_001",
+      password: "test1234",
+      reason: "患者本人からの削除依頼",
     });
     expect(result.success).toBe(true);
   });
 
   it("patient_id 空文字で失敗", () => {
-    const result = deletePatientDataSchema.safeParse({ patient_id: "" });
+    const result = deletePatientDataSchema.safeParse({ patient_id: "", password: "x", reason: "y" });
     expect(result.success).toBe(false);
   });
 });

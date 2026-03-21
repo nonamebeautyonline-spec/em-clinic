@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
       let matchedOrder = null;
       let amountMismatchOrder = null;
 
-      console.log(`\n[Preview] ===== Transfer: ${transfer.description} (¥${transfer.amount}) =====`);
+      console.log(`\n[Preview] ===== 振込照合中: ¥${transfer.amount} =====`);
 
       // 金額と振込名義人で照合
       for (const order of pendingOrdersWithNames) {
@@ -131,12 +131,12 @@ export async function POST(req: NextRequest) {
         if (order.amount === transfer.amount) {
           // 金額一致 + 名義人一致 → 完全マッチ
           matchedOrder = order;
-          console.log(`[Preview] Order ${order.id} (${order.patient_id}): ✅ MATCHED (amount ¥${order.amount}, name "${accountName}")`);
+          console.log(`[Preview] 照合一致: order=${order.id}, amount=¥${order.amount}`);
           break;
         } else if (!amountMismatchOrder) {
           // 名義人一致・金額不一致 → 金額違い候補（最初の1件を記録）
           amountMismatchOrder = order;
-          console.log(`[Preview] Order ${order.id} (${order.patient_id}): ⚠️ Name match but amount mismatch (order ¥${order.amount} vs transfer ¥${transfer.amount})`);
+          console.log(`[Preview] 名義一致・金額不一致: order=${order.id} (注文¥${order.amount} vs 振込¥${transfer.amount})`);
         }
       }
 
@@ -206,21 +206,8 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Preview] Matched: ${matched.length}, AmountMismatch: ${amountMismatchList.length}, Unmatched: ${unmatched.length}`);
 
-    // ★ デバッグ情報を追加
+    // ★ デバッグ情報（PIIを含めない）
     const debugInfo = {
-      csvTransfers: transfers.slice(0, 5).map(t => ({
-        date: t.date,
-        description: t.description,
-        amount: t.amount,
-        descNormalized: normalizeKana(t.description),
-      })),
-      pendingOrders: pendingOrdersWithNames.slice(0, 5).map(o => ({
-        id: o.id,
-        patient_id: o.patient_id,
-        amount: o.amount,
-        account_name: o.account_name,
-        accountNormalized: normalizeKana(o.account_name || ""),
-      })),
       totalTransfers: transfers.length,
       totalPendingOrders: pendingOrdersWithNames.length,
     };

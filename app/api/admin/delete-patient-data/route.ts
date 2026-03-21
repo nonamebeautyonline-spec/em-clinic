@@ -1,9 +1,10 @@
 // 管理者用: 患者データ削除（予約キャンセル + 問診削除）
 import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
-import { verifyAdminAuth } from "@/lib/admin-auth";
+import { verifyAdminAuth, getAdminUserId } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { logAudit } from "@/lib/audit";
 import { parseBody } from "@/lib/validations/helpers";
@@ -21,7 +22,28 @@ export async function POST(req: NextRequest) {
 
     const parsed = await parseBody(req, deletePatientDataSchema);
     if ("error" in parsed) return parsed.error;
-    const { patient_id, delete_intake, delete_reservation } = parsed.data;
+    const { patient_id, password, reason, delete_intake, delete_reservation } = parsed.data;
+
+    // パスワード再確認: 現在のユーザーのパスワードハッシュを取得して検証
+    const adminUserId = await getAdminUserId(req);
+    if (!adminUserId) {
+      return unauthorized();
+    }
+
+    const { data: adminUser, error: adminFetchError } = await supabaseAdmin
+      .from("admin_users")
+      .select("password_hash")
+      .eq("id", adminUserId)
+      .single();
+
+    if (adminFetchError || !adminUser?.password_hash) {
+      return unauthorized();
+    }
+
+    const passwordMatch = await bcrypt.compare(password, adminUser.password_hash);
+    if (!passwordMatch) {
+      return NextResponse.json({ ok: false, error: "パスワードが一致しません" }, { status: 403 });
+    }
 
     const results: {
       reservation_canceled?: boolean;
@@ -56,10 +78,10 @@ export async function POST(req: NextRequest) {
           results.errors.push(`予約キャンセルエラー: ${cancelError.message}`);
         } else {
           results.reservation_canceled = true;
-          console.log(`[admin/delete-patient-data] Canceled ${reservations.length} reservations for patient_id=${patient_id}`);
+          console.log(`[admin/delete-patient-data] Canceled ${reservations.length} reservations`);
         }
       } else {
-        console.log(`[admin/delete-patient-data] No active reservations for patient_id=${patient_id}`);
+        console.log("[admin/delete-patient-data] No active reservations found");
       }
     }
 
@@ -77,14 +99,14 @@ export async function POST(req: NextRequest) {
         results.errors.push(`問診削除エラー: ${intakeError.message}`);
       } else {
         results.intake_deleted = true;
-        console.log(`[admin/delete-patient-data] Deleted intake for patient_id=${patient_id}`);
+        console.log("[admin/delete-patient-data] Deleted intake data");
       }
     }
 
     // 3. キャッシュ削除
     await invalidateDashboardCache(patient_id);
 
-    logAudit(req, "patient.delete_data", "patient", String(patient_id), { delete_intake, delete_reservation, results });
+    logAudit(req, "patient.delete_data", "patient", String(patient_id), { delete_intake, delete_reservation, reason, results });
 
     return NextResponse.json({
       ok: results.errors.length === 0,

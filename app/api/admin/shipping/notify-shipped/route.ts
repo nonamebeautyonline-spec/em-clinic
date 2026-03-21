@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
                   markUpdated++;
                 }
               } catch (e) {
-                console.error(`[notify-shipped] mark update failed for ${p.patient_id}:`, e);
+                console.error(`[notify-shipped] マーク更新失敗:`, e);
               }
             })());
           }
@@ -206,7 +206,7 @@ export async function POST(req: NextRequest) {
                   if (linkRes.ok) menuSwitched++;
                 }
               } catch (e) {
-                console.error(`[notify-shipped] menu switch failed for ${p.patient_id}:`, e);
+                console.error(`[notify-shipped] リッチメニュー切替失敗:`, e);
               }
             })());
           }

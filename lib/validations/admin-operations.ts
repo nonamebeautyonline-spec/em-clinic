@@ -212,6 +212,8 @@ export const patientNoteSchema = z
 export const deletePatientDataSchema = z
   .object({
     patient_id: z.string().min(1, "patient_idは必須です"),
+    password: z.string().min(1, "パスワードは必須です"),
+    reason: z.string().min(1, "削除理由は必須です"),
     delete_intake: z.boolean().optional(),
     delete_reservation: z.boolean().optional(),
   })
