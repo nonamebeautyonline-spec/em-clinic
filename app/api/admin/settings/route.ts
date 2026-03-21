@@ -97,6 +97,9 @@ const SETTING_DEFINITIONS: Record<SettingCategory, SettingDef[]> = {
     { key: "fhir_username", label: "FHIRユーザー名" },
     { key: "fhir_password", label: "FHIRパスワード" },
   ],
+  medical_fields: [
+    { key: "config", label: "マルチ分野設定（JSON）", sensitive: false },
+  ],
   business_rules: [
     { key: "dosage_change_notify", label: "用量変更時の管理者通知", sensitive: false },
     { key: "min_reorder_interval_days", label: "再処方間隔の最低日数", sensitive: false },
