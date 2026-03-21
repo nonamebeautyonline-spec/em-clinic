@@ -55,7 +55,7 @@ function AuthorCard() {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-bold text-gray-900">Lオペ for CLINIC 編集部</p>
-          <p className="mt-0.5 text-[11px] text-gray-400">運営: 株式会社ORDIX</p>
+          <p className="mt-0.5 text-[11px] text-gray-400">運営: <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-gray-600">株式会社ORDIX</a></p>
           <p className="mt-1 text-[12px] leading-relaxed text-gray-500">
             医療DXとLINE公式アカウント運用に関する実践的なノウハウを発信する専門編集チーム。クリニックの予約・問診・患者CRM・配信業務の効率化を支援しています。
           </p>

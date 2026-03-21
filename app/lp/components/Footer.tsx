@@ -30,7 +30,7 @@ export function Footer() {
         <div className="mt-7 flex flex-col items-center justify-between gap-3 border-t border-slate-800 pt-7 text-[11px] md:flex-row">
           <div className="flex gap-5"><Link href="/lp/terms" className="hover:text-white">利用規約</Link><Link href="/lp/privacy" className="hover:text-white">プライバシーポリシー</Link><Link href="/lp/cancel" className="hover:text-white">キャンセル・解約ポリシー</Link></div>
           <div className="text-center md:text-right">
-            <p className="text-slate-500">運営: 株式会社ORDIX</p>
+            <p className="text-slate-500">運営: <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="underline decoration-slate-600 underline-offset-2 transition hover:text-white">株式会社ORDIX</a></p>
             <p className="mt-1">&copy; 2026 株式会社ORDIX. All rights reserved.</p>
           </div>
         </div>
