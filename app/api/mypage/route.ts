@@ -432,9 +432,12 @@ export async function POST(_req: NextRequest) {
     if (!forceRefresh) {
       try {
         const cachedData = await redis.get(cacheKey);
-        if (cachedData) {
+        if (cachedData && typeof cachedData === "object") {
           console.log(`[Cache] Hit: ${cacheKey}`);
-          return NextResponse.json(cachedData, { status: 200, headers: noCacheHeaders });
+          // マルチ分野モード設定はキャッシュに依存せず最新値を返す（設定変更時の即時反映）
+          const currentMultiField = await isMultiFieldEnabled(tenantId);
+          const patched = { ...(cachedData as Record<string, unknown>), multiFieldEnabled: currentMultiField };
+          return NextResponse.json(patched, { status: 200, headers: noCacheHeaders });
         }
       } catch (error) {
         console.error("[Cache] Failed to get cache:", error);

@@ -13,19 +13,33 @@ export async function POST(req: NextRequest) {
 
   const tenantId = resolveTenantIdOrThrow(req);
 
-  // アクティブなテンプレートを取得
-  const { data: active, error: fetchError } = await strictWithTenant(
+  let body: { name?: string; source_id?: string } = {};
+  try {
+    body = await req.json();
+  } catch { /* bodyなしでもOK（後方互換） */ }
+
+  const newName = body.name?.trim();
+
+  // source_id指定があればそのテンプレートを複製、なければアクティブを複製
+  let sourceQuery = strictWithTenant(
     supabaseAdmin
       .from("intake_form_definitions")
-      .select("id, name, fields, settings")
-      .eq("is_active", true),
+      .select("id, name, fields, settings, field_id"),
     tenantId,
-  ).maybeSingle();
+  );
+
+  if (body.source_id) {
+    sourceQuery = sourceQuery.eq("id", body.source_id);
+  } else {
+    sourceQuery = sourceQuery.eq("is_active", true);
+  }
+
+  const { data: source, error: fetchError } = await sourceQuery.maybeSingle();
 
   if (fetchError)
     return serverError(fetchError.message);
 
-  if (!active)
+  if (!source)
     return notFound("コピー元のテンプレートが見つかりません");
 
   // コピーして新レコード作成（is_active = false）
@@ -33,9 +47,10 @@ export async function POST(req: NextRequest) {
     .from("intake_form_definitions")
     .insert({
       ...tenantPayload(tenantId),
-      name: active.name + "（コピー）",
-      fields: active.fields,
-      settings: active.settings,
+      name: newName || (source.name + "（コピー）"),
+      fields: source.fields,
+      settings: source.settings,
+      field_id: source.field_id,
       is_active: false,
     })
     .select("id, name, is_active, created_at")
@@ -44,6 +59,6 @@ export async function POST(req: NextRequest) {
   if (insertError)
     return serverError(insertError.message);
 
-  logAudit(req, "intake_form.duplicate", "intake_form", "unknown");
+  logAudit(req, "intake_form.duplicate", "intake_form", String(inserted.id));
   return NextResponse.json({ ok: true, template: inserted });
 }

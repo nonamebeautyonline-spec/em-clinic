@@ -23,18 +23,25 @@ export async function GET(req: NextRequest) {
   const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);
   const fieldId = searchParams.get("fieldId");
+  const templateId = searchParams.get("id");
   const multiField = await isMultiFieldEnabled(tenantId);
 
   let query = strictWithTenant(
     supabaseAdmin
       .from("intake_form_definitions")
-      .select("id, name, fields, settings, is_active, field_id, created_at, updated_at")
-      .eq("is_active", true),
+      .select("id, name, fields, settings, is_active, field_id, created_at, updated_at"),
     tenantId,
   );
 
-  if (multiField && fieldId) {
-    query = query.eq("field_id", fieldId);
+  if (templateId) {
+    // ID指定: 特定テンプレートを取得（一覧からの編集用）
+    query = query.eq("id", templateId);
+  } else {
+    // デフォルト: アクティブなテンプレートを取得
+    query = query.eq("is_active", true);
+    if (multiField && fieldId) {
+      query = query.eq("field_id", fieldId);
+    }
   }
 
   const { data, error } = await query.maybeSingle();
@@ -72,27 +79,19 @@ export async function PUT(req: NextRequest) {
 
   const { name, fields, settings } = parsed.data;
 
-  // field_id はリクエストボディから取得（Zodスキーマ外なのでraw bodyから）
+  // field_id, id はリクエストボディから取得（Zodスキーマ外なのでraw bodyから）
   let fieldId: string | null = null;
+  let targetId: string | null = null;
   try {
     const rawBody = await req.clone().json();
     fieldId = rawBody.field_id || null;
+    targetId = rawBody.id || null;
   } catch { /* ignore */ }
 
   const multiField = await isMultiFieldEnabled(tenantId);
 
-  // アクティブなレコードを確認（分野フィルタ付き）
-  let existingQuery = strictWithTenant(
-    supabaseAdmin.from("intake_form_definitions").select("id").eq("is_active", true),
-    tenantId,
-  );
-  if (multiField && fieldId) {
-    existingQuery = existingQuery.eq("field_id", fieldId);
-  }
-  const { data: existing } = await existingQuery.maybeSingle();
-
-  if (existing) {
-    // UPDATE
+  if (targetId) {
+    // ID指定: 特定テンプレートを更新（一覧からの編集用）
     const { error } = await strictWithTenant(
       supabaseAdmin
         .from("intake_form_definitions")
@@ -102,27 +101,56 @@ export async function PUT(req: NextRequest) {
           settings,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", existing.id),
+        .eq("id", targetId),
       tenantId,
     );
 
     if (error)
       return serverError(error.message);
   } else {
-    // INSERT（新規作成時はアクティブに設定）
-    const { error } = await supabaseAdmin
-      .from("intake_form_definitions")
-      .insert({
-        ...tenantPayload(tenantId),
-        name: name || "問診フォーム",
-        fields,
-        settings,
-        is_active: true,
-        field_id: fieldId,
-      });
+    // アクティブなレコードを確認（分野フィルタ付き）
+    let existingQuery = strictWithTenant(
+      supabaseAdmin.from("intake_form_definitions").select("id").eq("is_active", true),
+      tenantId,
+    );
+    if (multiField && fieldId) {
+      existingQuery = existingQuery.eq("field_id", fieldId);
+    }
+    const { data: existing } = await existingQuery.maybeSingle();
 
-    if (error)
-      return serverError(error.message);
+    if (existing) {
+      // UPDATE
+      const { error } = await strictWithTenant(
+        supabaseAdmin
+          .from("intake_form_definitions")
+          .update({
+            ...(name ? { name } : {}),
+            fields,
+            settings,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id),
+        tenantId,
+      );
+
+      if (error)
+        return serverError(error.message);
+    } else {
+      // INSERT（新規作成時はアクティブに設定）
+      const { error } = await supabaseAdmin
+        .from("intake_form_definitions")
+        .insert({
+          ...tenantPayload(tenantId),
+          name: name || "問診フォーム",
+          fields,
+          settings,
+          is_active: true,
+          field_id: fieldId,
+        });
+
+      if (error)
+        return serverError(error.message);
+    }
   }
 
   logAudit(req, "intake_form.update", "intake_form", existing?.id ?? "unknown");
