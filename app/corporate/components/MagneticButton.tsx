@@ -23,11 +23,14 @@ export default function MagneticButton({
   strength = 0.3,
   onClick,
 }: MagneticButtonProps) {
-  const ref = useRef<HTMLElement>(null);
+  const aRef = useRef<HTMLAnchorElement>(null);
+  const bRef = useRef<HTMLButtonElement>(null);
+
+  const getEl = () => (href ? aRef.current : bRef.current);
 
   const handleMove = useCallback(
     (e: React.MouseEvent) => {
-      const el = ref.current;
+      const el = getEl();
       if (!el) return;
       const rect = el.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
@@ -36,17 +39,18 @@ export default function MagneticButton({
       const dy = (e.clientY - cy) * strength;
       el.style.transform = `translate(${dx}px, ${dy}px)`;
     },
-    [strength]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [strength, href]
   );
 
   const handleLeave = useCallback(() => {
-    const el = ref.current;
+    const el = getEl();
     if (!el) return;
     el.style.transform = "translate(0, 0)";
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [href]);
 
-  const props = {
-    ref: ref as React.RefObject<HTMLAnchorElement>,
+  const shared = {
     className: `inline-block transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${className}`,
     onMouseMove: handleMove,
     onMouseLeave: handleLeave,
@@ -55,13 +59,13 @@ export default function MagneticButton({
 
   if (href) {
     return (
-      <a {...props} href={href}>
+      <a ref={aRef} {...shared} href={href}>
         {children}
       </a>
     );
   }
   return (
-    <button {...props} type="button" onClick={onClick}>
+    <button ref={bRef} {...shared} type="button" onClick={onClick}>
       {children}
     </button>
   );
