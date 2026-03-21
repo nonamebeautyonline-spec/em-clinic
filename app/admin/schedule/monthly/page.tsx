@@ -553,28 +553,70 @@ export default function MonthlySchedulePage() {
     reservations?: { reserve_id: string; patient_name: string; reserved_time: string; status: string; doctor_id: string }[];
   }>(reservationsKey);
   const dateReservations = (reservationsData?.reservations || []).filter((r) => r.status !== "canceled");
-  const [changingReserveId, setChangingReserveId] = useState<string | null>(null);
+  const [changingSlot, setChangingSlot] = useState<string | null>(null); // "start-end" key
 
-  async function changeDoctorForReservation(reserveId: string, newDoctorId: string) {
-    setChangingReserveId(reserveId);
-    try {
-      const res = await fetch("/api/admin/reservations", {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reserve_id: reserveId, doctor_id: newDoctorId }),
-      });
-      const json = await res.json();
-      if (json.ok) {
-        await mutate(reservationsKey);
-        setMsg({ type: "success", text: "担当医を変更しました" });
-      } else {
-        setMsg({ type: "error", text: json.error || "担当変更に失敗しました" });
+  // 予約を時間帯ごとにグルーピング（editSlots/overrides/weeklyRuleの時間帯に対応）
+  const reservationsBySlot = useMemo(() => {
+    if (!selectedDate || dateReservations.length === 0) return [];
+
+    // この日の時間帯一覧を取得
+    const slots: { start: string; end: string; label: string }[] = [];
+    const dayOverrides = overrides.filter((o) => o.doctor_id === doctorId && o.date === selectedDate);
+    if (dayOverrides.length > 0) {
+      dayOverrides
+        .filter((o) => o.type !== "closed" && o.start_time && o.end_time)
+        .sort((a, b) => (a.start_time || "").localeCompare(b.start_time || ""))
+        .forEach((o) => {
+          const s = o.start_time!.slice(0, 5);
+          const e = o.end_time!.slice(0, 5);
+          slots.push({ start: s, end: e, label: `${s.replace(/:00$/, "").replace(/^0/, "")}-${e.replace(/:00$/, "").replace(/^0/, "")}` });
+        });
+    } else {
+      const rule = weeklyRules.find((r) => r.doctor_id === doctorId && r.weekday === new Date(selectedDate).getDay());
+      if (rule?.enabled) {
+        const s = rule.start_time.slice(0, 5);
+        const e = rule.end_time.slice(0, 5);
+        slots.push({ start: s, end: e, label: `${s.replace(/:00$/, "").replace(/^0/, "")}-${e.replace(/:00$/, "").replace(/^0/, "")}` });
       }
+    }
+
+    // 時間帯がなければ全予約を1グループに
+    if (slots.length === 0) {
+      return [{ start: "00:00", end: "23:59", label: "全予約", reservations: dateReservations }];
+    }
+
+    return slots.map((slot) => {
+      const resvs = dateReservations.filter((r) => {
+        const t = r.reserved_time?.slice(0, 5) || "";
+        return t >= slot.start && t < slot.end;
+      });
+      return { ...slot, reservations: resvs };
+    });
+  }, [selectedDate, dateReservations, overrides, weeklyRules, doctorId]);
+
+  // 時間帯の予約を一括で担当医変更
+  async function changeDoctorForSlot(slotKey: string, reserveIds: string[], newDoctorId: string) {
+    if (reserveIds.length === 0) return;
+    setChangingSlot(slotKey);
+    setMsg(null);
+    try {
+      let successCount = 0;
+      for (const reserveId of reserveIds) {
+        const res = await fetch("/api/admin/reservations", {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reserve_id: reserveId, doctor_id: newDoctorId }),
+        });
+        const json = await res.json();
+        if (json.ok) successCount++;
+      }
+      await mutate(reservationsKey);
+      setMsg({ type: "success", text: `${successCount}件の予約の担当医を変更しました` });
     } catch (e) {
       setMsg({ type: "error", text: (e instanceof Error ? e.message : null) || "担当変更に失敗しました" });
     } finally {
-      setChangingReserveId(null);
+      setChangingSlot(null);
     }
   }
 
@@ -1123,51 +1165,84 @@ export default function MonthlySchedulePage() {
                     )}
                   </div>
 
-                  {/* 担当医変更（この日の予約） */}
+                  {/* 担当医変更（時間帯ごと一括） */}
                   {doctors.length > 1 && (
                     <div className="pt-4 border-t border-slate-100">
                       <div className="flex items-center gap-2 mb-2">
                         <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                         </svg>
-                        <span className="text-xs font-medium text-slate-600">この日の予約 — 担当医変更</span>
+                        <span className="text-xs font-medium text-slate-600">担当医の一括変更</span>
                       </div>
                       {reservationsLoading ? (
                         <div className="text-xs text-slate-400 text-center py-2">読み込み中...</div>
                       ) : dateReservations.length === 0 ? (
                         <div className="text-xs text-slate-400 text-center py-2">この日の予約はありません</div>
                       ) : (
-                        <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                          {dateReservations.map((r) => {
-                            const currentDoc = doctors.find((d) => d.doctor_id === r.doctor_id);
+                        <div className="space-y-3 max-h-[280px] overflow-y-auto">
+                          {reservationsBySlot.map((slot) => {
+                            const slotKey = `${slot.start}-${slot.end}`;
+                            const isChanging = changingSlot === slotKey;
+                            // この時間帯の予約の現在の担当医（最頻値）
+                            const docCounts = new Map<string, number>();
+                            slot.reservations.forEach((r) => {
+                              docCounts.set(r.doctor_id, (docCounts.get(r.doctor_id) || 0) + 1);
+                            });
+                            let currentDoctorId = doctorId;
+                            let maxCount = 0;
+                            docCounts.forEach((count, did) => {
+                              if (count > maxCount) { maxCount = count; currentDoctorId = did; }
+                            });
+
                             return (
-                              <div key={r.reserve_id} className="p-2 bg-slate-50 rounded-lg">
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className="text-xs font-medium text-slate-700">
-                                    {r.reserved_time?.slice(0, 5)} {r.patient_name || "名前なし"}
-                                  </span>
-                                  <span className="text-[10px] text-slate-400">{r.status}</span>
+                              <div key={slotKey} className="p-3 bg-slate-50 rounded-xl">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-sm font-bold text-slate-700">{slot.label}</span>
+                                  <span className="text-xs text-slate-500">{slot.reservations.length}件の予約</span>
                                 </div>
-                                <select
-                                  value={r.doctor_id}
-                                  disabled={changingReserveId === r.reserve_id}
-                                  onChange={(e) => changeDoctorForReservation(r.reserve_id, e.target.value)}
-                                  className="w-full text-xs px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700"
-                                >
-                                  {doctors.map((d) => (
-                                    <option key={d.doctor_id} value={d.doctor_id}>
-                                      {d.doctor_name}
-                                    </option>
-                                  ))}
-                                </select>
-                                {currentDoc && (
-                                  <div className="flex items-center gap-1 mt-1">
-                                    <span
-                                      className="w-2 h-2 rounded-full"
-                                      style={{ backgroundColor: currentDoc.color || "#6366f1" }}
-                                    />
-                                    <span className="text-[10px] text-slate-500">現在: {currentDoc.doctor_name}</span>
-                                  </div>
+                                {slot.reservations.length > 0 ? (
+                                  <>
+                                    {/* 予約一覧（コンパクト） */}
+                                    <div className="mb-2 space-y-0.5">
+                                      {slot.reservations.map((r) => {
+                                        const rDoc = doctors.find((d) => d.doctor_id === r.doctor_id);
+                                        return (
+                                          <div key={r.reserve_id} className="flex items-center gap-1.5 text-xs text-slate-600">
+                                            <span
+                                              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                              style={{ backgroundColor: rDoc?.color || "#6366f1" }}
+                                            />
+                                            <span className="font-mono text-slate-400">{r.reserved_time?.slice(0, 5)}</span>
+                                            <span className="truncate">{r.patient_name || "名前なし"}</span>
+                                            <span className="ml-auto text-[10px] text-slate-400">{rDoc?.doctor_name}</span>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                    {/* 一括変更セレクト */}
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[10px] text-slate-500 flex-shrink-0">一括変更:</span>
+                                      <select
+                                        value={currentDoctorId}
+                                        disabled={isChanging}
+                                        onChange={(e) => {
+                                          const newDoc = e.target.value;
+                                          const ids = slot.reservations.map((r) => r.reserve_id);
+                                          if (confirm(`${slot.label}の${ids.length}件の予約を${doctors.find((d) => d.doctor_id === newDoc)?.doctor_name || newDoc}に変更しますか？`)) {
+                                            changeDoctorForSlot(slotKey, ids, newDoc);
+                                          }
+                                        }}
+                                        className="flex-1 text-xs px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 disabled:opacity-50"
+                                      >
+                                        {doctors.map((d) => (
+                                          <option key={d.doctor_id} value={d.doctor_id}>{d.doctor_name}</option>
+                                        ))}
+                                      </select>
+                                      {isChanging && <span className="text-[10px] text-blue-500">変更中...</span>}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="text-xs text-slate-400">予約なし</div>
                                 )}
                               </div>
                             );

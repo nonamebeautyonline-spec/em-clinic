@@ -215,8 +215,8 @@ describe("NavCards リンク先", () => {
   const CARD_LINKS = [
     "/admin/schedule/doctors",
     "/admin/schedule/monthly",
-    "/admin/schedule/work-hours",
     "/admin/schedule/reservation-settings",
+    "/admin/schedule/work-hours",
   ];
 
   it("4枚のカードがある", () => {
@@ -231,12 +231,12 @@ describe("NavCards リンク先", () => {
     expect(CARD_LINKS[1]).toBe("/admin/schedule/monthly");
   });
 
-  it("業務時間管理のリンク先", () => {
-    expect(CARD_LINKS[2]).toBe("/admin/schedule/work-hours");
+  it("予約設定のリンク先", () => {
+    expect(CARD_LINKS[2]).toBe("/admin/schedule/reservation-settings");
   });
 
-  it("予約設定のリンク先", () => {
-    expect(CARD_LINKS[3]).toBe("/admin/schedule/reservation-settings");
+  it("業務時間管理のリンク先", () => {
+    expect(CARD_LINKS[3]).toBe("/admin/schedule/work-hours");
   });
 });
 
