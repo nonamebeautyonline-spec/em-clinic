@@ -167,7 +167,7 @@ export default function Page() {
 
         <Callout type="point" title="各ツールの立ち位置">
           <ul className="space-y-1 m-0 p-0 ml-4 list-disc text-[14px]">
-            <li><strong>Lオペ</strong> — LINE運用+院内業務効率化のオールインワン。AI自動返信あり</li>
+            <li><strong>Lオペ</strong> — LINE運用+院内業務効率化のオールインワン。予約・決済・発送状況を加味したAI自動返信あり</li>
             <li><strong>メディカルフォース</strong> — 電子カルテ・会計が強み。自由診療のバックオフィス向け</li>
             <li><strong>March</strong> — オンライン診療+物販ECが充実。LINE上の患者体験設計が強い</li>
             <li><strong>medibot</strong> — 予約〜決済までLINE完結。コストパフォーマンスが高い</li>
@@ -185,7 +185,7 @@ export default function Page() {
           <p>
             <strong>院長+事務スタッフ1人で全業務を完結</strong>できる設計が最大の特徴。カルテ連携からLINE配信、決済・配送まで1システムで管理でき、ツール間の連携に悩む必要がありません。
             <strong>LINEビデオ通話によるオンライン診療</strong>にも対応しており、対面＋オンラインのハイブリッド運用が可能。
-            また、<strong>AI自動返信</strong>は5社中唯一の機能で、営業時間外の患者対応を自動化できます。
+            また、<strong>AI自動返信</strong>は5社中唯一の機能で、患者ごとの予約・決済・発送状況を加味した返信を自動生成し、営業時間外の患者対応も自動化できます。
             さらに<strong>LINE通知bot</strong>で予約・決済・AI返信の状況がリアルタイムにプッシュ通知され、スマホのブラウザからトーク画面を操作してAI返信の承認・メッセージ送信・決済確認がどこからでも可能です。保険診療・自由診療の両方に対応。
           </p>
         </div>
