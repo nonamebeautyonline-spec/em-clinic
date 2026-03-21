@@ -300,11 +300,18 @@ export default function AccountingPage() {
                 <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(5)} tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                 <Tooltip
-                  labelFormatter={(d) => String(d)}
-                  formatter={(value, name) => [
-                    `${value}件`,
-                    name === "firstCount" ? "新規処方" : "再処方",
-                  ]}
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null;
+                    const first = payload.find(p => p.dataKey === "firstCount");
+                    const reorder = payload.find(p => p.dataKey === "reorderCount");
+                    return (
+                      <div className="bg-white border border-slate-200 rounded shadow px-3 py-2 text-sm">
+                        <div className="font-medium text-slate-900 mb-1">{String(label)}</div>
+                        {reorder && <div style={{ color: "#10b981" }}>再処方：{reorder.value}件</div>}
+                        {first && <div style={{ color: "#3b82f6" }}>新規処方：{first.value}件</div>}
+                      </div>
+                    );
+                  }}
                 />
                 <Bar dataKey="firstCount" name="firstCount" stackId="orders" fill="#3b82f6" radius={[0, 0, 0, 0]} />
                 <Bar dataKey="reorderCount" name="reorderCount" stackId="orders" fill="#10b981" radius={[4, 4, 0, 0]} />
