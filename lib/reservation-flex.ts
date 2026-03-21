@@ -45,7 +45,7 @@ export async function buildReservationCreatedFlex(dateStr: string, timeStr: stri
         type: "box",
         layout: "vertical",
         contents: [
-          { type: "text", text: reservation.createdHeader, weight: "bold", size: "lg", color: colors.headerText },
+          { type: "text", text: reservation.createdHeader || "予約が確定しました", weight: "bold", size: "lg", color: colors.headerText },
         ],
         backgroundColor: colors.headerBg,
         paddingAll: "16px",
@@ -63,22 +63,23 @@ export async function buildReservationCreatedFlex(dateStr: string, timeStr: stri
             ],
           },
           { type: "separator", margin: "md" },
-          {
-            type: "text",
+          // LINE Flex APIはtext=""を許可しないため、空文字列の要素はスキップ
+          ...(reservation.createdPhoneNotice ? [{
+            type: "text" as const,
             text: reservation.createdPhoneNotice,
-            size: "sm",
+            size: "sm" as const,
             color: colors.bodyText,
             wrap: true,
-            margin: "md",
-          },
-          {
-            type: "text",
+            margin: "md" as const,
+          }] : []),
+          ...(reservation.createdNote ? [{
+            type: "text" as const,
             text: reservation.createdNote,
-            size: "sm",
+            size: "sm" as const,
             color: colors.bodyText,
             wrap: true,
-            margin: "sm",
-          },
+            margin: reservation.createdPhoneNotice ? "sm" as const : "md" as const,
+          }] : []),
         ],
         paddingAll: "16px",
       },
@@ -110,7 +111,7 @@ export async function buildReservationChangedFlex(
         type: "box",
         layout: "vertical",
         contents: [
-          { type: "text", text: reservation.changedHeader, weight: "bold", size: "lg", color: colors.headerText },
+          { type: "text", text: reservation.changedHeader || "予約日時が変更されました", weight: "bold", size: "lg", color: colors.headerText },
         ],
         backgroundColor: colors.headerBg,
         paddingAll: "16px",
@@ -141,14 +142,15 @@ export async function buildReservationChangedFlex(
             margin: "none",
           },
           { type: "separator", margin: "md" },
-          {
-            type: "text",
+          // LINE Flex APIはtext=""を許可しないため、空文字列の要素はスキップ
+          ...(reservation.changedPhoneNotice ? [{
+            type: "text" as const,
             text: reservation.changedPhoneNotice,
-            size: "sm",
+            size: "sm" as const,
             color: colors.bodyText,
             wrap: true,
-            margin: "md",
-          },
+            margin: "md" as const,
+          }] : []),
         ],
         paddingAll: "16px",
       },
@@ -173,7 +175,7 @@ export async function buildReservationCanceledFlex(dateStr: string, timeStr: str
         type: "box",
         layout: "vertical",
         contents: [
-          { type: "text", text: reservation.canceledHeader, weight: "bold", size: "lg", color: colors.headerText },
+          { type: "text", text: reservation.canceledHeader || "予約がキャンセルされました", weight: "bold", size: "lg", color: colors.headerText },
         ],
         backgroundColor: colors.headerBg,
         paddingAll: "16px",
@@ -199,14 +201,15 @@ export async function buildReservationCanceledFlex(dateStr: string, timeStr: str
             ],
           },
           { type: "separator", margin: "md" },
-          {
-            type: "text",
+          // LINE Flex APIはtext=""を許可しないため、空文字列の要素はスキップ
+          ...(reservation.canceledNote ? [{
+            type: "text" as const,
             text: reservation.canceledNote,
-            size: "sm",
+            size: "sm" as const,
             color: colors.bodyText,
             wrap: true,
-            margin: "md",
-          },
+            margin: "md" as const,
+          }] : []),
         ],
         paddingAll: "16px",
       },

@@ -24,7 +24,7 @@ export async function buildPaymentFlex(tenantId?: string) {
         type: "box",
         layout: "vertical",
         contents: [
-          { type: "text", text: payment.header, weight: "bold", size: "lg", color: colors.headerText },
+          { type: "text", text: payment.header || "決済のご案内", weight: "bold", size: "lg", color: colors.headerText },
         ],
         backgroundColor: colors.headerBg,
         paddingAll: "16px",
@@ -35,7 +35,7 @@ export async function buildPaymentFlex(tenantId?: string) {
         contents: [
           {
             type: "text",
-            text: payment.body,
+            text: payment.body || "診療後はマイページより決済が可能となっております。ご確認いただけますと幸いです。",
             size: "sm",
             color: colors.bodyText,
             wrap: true,

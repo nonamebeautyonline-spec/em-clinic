@@ -109,15 +109,21 @@ export async function buildShippingFlex(
     paddingEnd: "0px",
   };
 
+  // LINE Flex APIはtext=""を許可しないため、空文字列の要素はスキップ
+  const deliveryTexts: Record<string, unknown>[] = [
+    ...(shipping.deliveryNotice1 ? [{ type: "text", text: shipping.deliveryNotice1, size: "sm", color: colors.bodyText, wrap: true, margin: "md" }] : []),
+    ...(shipping.deliveryNotice2 ? [{ type: "text", text: shipping.deliveryNotice2, size: "sm", color: colors.bodyText, wrap: true, margin: "sm" }] : []),
+  ];
+  const storageTexts: Record<string, unknown>[] = [
+    ...(shipping.storageNotice1 ? [{ type: "text", text: shipping.storageNotice1, size: "sm", color: colors.bodyText, wrap: true, margin: "md" }] : []),
+    ...(shipping.storageNotice2 ? [{ type: "text", text: shipping.storageNotice2, size: "sm", color: colors.bodyText, wrap: true, margin: "sm" }] : []),
+  ];
+
   const bodyContents: Record<string, unknown>[] = [
     progressSection,
     { type: "box", layout: "vertical", contents: trackingContents, margin: "lg" },
-    { type: "separator", margin: "md" },
-    { type: "text", text: shipping.deliveryNotice1, size: "sm", color: colors.bodyText, wrap: true, margin: "md" },
-    { type: "text", text: shipping.deliveryNotice2, size: "sm", color: colors.bodyText, wrap: true, margin: "sm" },
-    { type: "separator", margin: "md" },
-    { type: "text", text: shipping.storageNotice1, size: "sm", color: colors.bodyText, wrap: true, margin: "md" },
-    { type: "text", text: shipping.storageNotice2, size: "sm", color: colors.bodyText, wrap: true, margin: "sm" },
+    ...(deliveryTexts.length > 0 ? [{ type: "separator", margin: "md" }, ...deliveryTexts] : []),
+    ...(storageTexts.length > 0 ? [{ type: "separator", margin: "md" }, ...storageTexts] : []),
   ];
 
   return {
@@ -129,7 +135,7 @@ export async function buildShippingFlex(
         type: "box",
         layout: "vertical",
         contents: [
-          { type: "text", text: shipping.header, weight: "bold", size: "lg", color: colors.headerText },
+          { type: "text", text: shipping.header || "発送完了のお知らせ", weight: "bold", size: "lg", color: colors.headerText },
         ],
         backgroundColor: colors.headerBg,
         paddingAll: "16px",
@@ -150,13 +156,13 @@ export async function buildShippingFlex(
             color: colors.buttonColor,
             action: {
               type: "uri",
-              label: shipping.buttonLabel,
+              label: shipping.buttonLabel || "配送状況を確認",
               uri: trackingUrl,
             },
           },
           {
             type: "text",
-            text: shipping.footerNote,
+            text: shipping.footerNote || "マイページからも確認が可能です",
             size: "xs",
             color: colors.bodyText,
             align: "center",
