@@ -79,11 +79,10 @@ export async function verifyPatientSession(
       const pid = payload.pid as string | undefined;
       const lid = payload.lid as string | undefined;
       if (pid && lid) {
-        console.log(`[patient-session] JWT認証: pid=${pid}`);
         return { patientId: pid, lineUserId: lid };
       }
     } catch {
-      console.log(`[patient-session] JWT検証失敗 → フォールバック`);
+      // JWT検証失敗 → フォールバックへ
     }
   }
 

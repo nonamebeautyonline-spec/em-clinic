@@ -66,46 +66,30 @@ async function fetchTotalCount(
   effectiveTenantId: string,
   searchName: string,
   searchId: string,
-  tagId: number | null,
-  markFilter: string,
-  lineStatus: string,
 ): Promise<number> {
-  // タグフィルタ指定時: 該当 patient_id を先に取得
-  let tagPatientIds: string[] | null = null;
-  if (tagId) {
-    const { data: tagRows } = await supabaseAdmin
-      .from("patient_tags")
+  // 名前検索時は patients テーブルから該当IDを先に取得
+  // （friend_summaries に FK 未定義で !inner JOIN が使えないため2段階クエリ）
+  let nameFilterIds: string[] | null = null;
+  if (searchName) {
+    const { data: pRows } = await supabaseAdmin
+      .from("patients")
       .select("patient_id")
-      .eq("tag_id", tagId);
-    tagPatientIds = (tagRows || []).map(r => r.patient_id);
-    if (tagPatientIds.length === 0) return 0;
+      .ilike("name", `%${searchName}%`);
+    nameFilterIds = (pRows || []).map(r => r.patient_id);
+    if (nameFilterIds.length === 0) return 0;
   }
 
-  // friend_summaries + patients で count クエリを組み立て
+  // friend_summaries で count クエリ
   let query = supabaseAdmin
     .from("friend_summaries")
-    .select("patient_id, patients!inner(line_id, name)", { count: "exact", head: true })
+    .select("patient_id", { count: "exact", head: true })
     .eq("tenant_id", effectiveTenantId);
 
-  // 名前検索（ilike）
-  if (searchName) {
-    query = query.ilike("patients.name", `%${searchName}%`);
-  }
-  // ID検索（ilike）
   if (searchId) {
     query = query.ilike("patient_id", `%${searchId}%`);
   }
-  // タグフィルタ: patient_id を IN で絞り込み
-  if (tagPatientIds) {
-    query = query.in("patient_id", tagPatientIds);
-  }
-  // マークフィルタ: patient_marks テーブルとの結合が必要なため、別途処理
-  // → count クエリでは mark フィルタは後段で対応（下記参照）
-  // LINE連携フィルタ
-  if (lineStatus === "yes") {
-    query = query.not("patients.line_id", "is", null);
-  } else if (lineStatus === "no") {
-    query = query.is("patients.line_id", null);
+  if (nameFilterIds) {
+    query = query.in("patient_id", nameFilterIds);
   }
 
   const { count, error } = await query;
@@ -114,72 +98,6 @@ async function fetchTotalCount(
     return 0;
   }
 
-  // マークフィルタ時は patient_marks を別途カウント
-  if (markFilter) {
-    // マークフィルタ時は正確な件数を別途取得
-    const markCount = await fetchCountWithMark(effectiveTenantId, searchName, searchId, tagPatientIds, markFilter, lineStatus);
-    return markCount;
-  }
-
-  return count ?? 0;
-}
-
-/**
- * マークフィルタ付きの正確な件数を取得
- */
-async function fetchCountWithMark(
-  effectiveTenantId: string,
-  searchName: string,
-  searchId: string,
-  tagPatientIds: string[] | null,
-  markFilter: string,
-  lineStatus: string,
-): Promise<number> {
-  // patient_marks から該当 patient_id を取得（テナントフィルタ付き）
-  let markQuery = supabaseAdmin
-    .from("patient_marks")
-    .select("patient_id")
-    .eq("mark", markFilter)
-    .eq("tenant_id", effectiveTenantId);
-
-  const { data: markRows } = await markQuery;
-  const markPatientIds = new Set((markRows || []).map(r => r.patient_id));
-
-  if (markPatientIds.size === 0 && markFilter !== "none") return 0;
-
-  // friend_summaries でカウント（mark が "none" の場合は patient_marks にレコードがない患者も含む）
-  let query = supabaseAdmin
-    .from("friend_summaries")
-    .select("patient_id, patients!inner(line_id, name)", { count: "exact", head: true })
-    .eq("tenant_id", effectiveTenantId);
-
-  if (searchName) query = query.ilike("patients.name", `%${searchName}%`);
-  if (searchId) query = query.ilike("patient_id", `%${searchId}%`);
-  if (tagPatientIds) query = query.in("patient_id", tagPatientIds);
-  if (lineStatus === "yes") query = query.not("patients.line_id", "is", null);
-  else if (lineStatus === "no") query = query.is("patients.line_id", null);
-
-  if (markFilter !== "none") {
-    // 特定マークの患者のみ
-    query = query.in("patient_id", [...markPatientIds]);
-  } else {
-    // "none" = patient_marks にレコードがない or mark が "none" の患者
-    // → patient_marks テーブルで mark != "none" の patient_id を除外（テナントフィルタ付き）
-    const { data: nonNoneRows } = await supabaseAdmin
-      .from("patient_marks")
-      .select("patient_id")
-      .neq("mark", "none")
-      .eq("tenant_id", effectiveTenantId);
-    const nonNoneIds = (nonNoneRows || []).map(r => r.patient_id);
-    if (nonNoneIds.length > 0) {
-      // Supabase の not.in は配列が大きい場合に問題になる可能性があるが、
-      // 実用上は問題ない（マーク設定済みの患者数は限定的）
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      query = query.not("patient_id", "in", `(${nonNoneIds.map(id => `"${id}"`).join(",")})` as any);
-    }
-  }
-
-  const { count } = await query;
   return count ?? 0;
 }
 
@@ -325,7 +243,7 @@ export async function GET(req: NextRequest) {
   }
 
   // フィルタなし時: total は別途カウントクエリで取得
-  const total = await fetchTotalCount(effectiveTenantId, searchName, searchId, null, "", "");
+  const total = await fetchTotalCount(effectiveTenantId, searchName, searchId);
   const { hasMore } = result;
 
   return await buildResponse(req, patients, hasMore, total, effectiveTenantId, tenantId, pinIdsRaw, searchId, searchName, offset, t0, tAuth, tRpc, cacheHit, hasFilter);
