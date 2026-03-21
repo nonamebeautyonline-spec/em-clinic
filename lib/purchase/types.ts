@@ -15,6 +15,19 @@ export interface PurchaseGroup {
   productCodes: string[];  // 商品マスタのcode
 }
 
+/** 再処方確認画面の設定 */
+export interface ReorderConfirmConfig {
+  title: string;                 // "再処方の申請内容確認"
+  description: string;           // ヘッダー説明文
+  submitButtonLabel: string;     // "この内容で再処方を申請する"
+  submittingLabel: string;       // "申請を送信しています..."
+  backButtonLabel: string;       // "マイページに戻る"
+  successMessage: string;        // 申請成功時のメッセージ
+  footerNote: string;            // 下部注意書き
+  priceLabel: string;            // "想定ご請求額"
+  priceSuffix: string;           // "税込／送料込み（再処方時に決済）"
+}
+
 /** 購入画面設定全体 */
 export interface PurchaseConfig {
   pageTitle: string;
@@ -25,6 +38,7 @@ export interface PurchaseConfig {
   checkoutButtonLabel: string;
   reorderButtonLabel: string;
   groups: PurchaseGroup[];
+  reorderConfirm: ReorderConfirmConfig;
 }
 
 /** デフォルト設定（現在のハードコード値と一致） */
@@ -39,6 +53,17 @@ export const DEFAULT_PURCHASE_CONFIG: PurchaseConfig = {
     "※ 用量は必ず診察時に医師と確認の上でご選択ください。\n※ 再処方を希望される場合は、再処方モードで申請してください。",
   checkoutButtonLabel: "この内容で今回の決済に進む",
   reorderButtonLabel: "この内容で再処方を申請する",
+  reorderConfirm: {
+    title: "再処方の申請内容確認",
+    description: "下記の内容で再処方の申請を行います。\nDrが処方内容を確認し、処方が可能と判断された後に決済フォームをお送りさせていただきます。",
+    submitButtonLabel: "この内容で再処方を申請する",
+    submittingLabel: "申請を送信しています...",
+    backButtonLabel: "マイページに戻る",
+    successMessage: "再処方の申請を受け付けました。\n\nDrが処方内容を確認し、処方が可能と判断された後に決済フォームをお送りさせていただきます。",
+    footerNote: "※ 再処方の可否は、体調や前回処方後の経過を踏まえてDrが判断いたします。\n※ 再処方が難しい場合には、LINEよりご連絡させていただきます。",
+    priceLabel: "想定ご請求額",
+    priceSuffix: "税込／送料込み（再処方時に決済）",
+  },
   groups: [
     {
       id: "group-2.5mg",

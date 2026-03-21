@@ -15,6 +15,18 @@ interface PurchaseGroup {
   productCodes: string[];
 }
 
+interface ReorderConfirmConfig {
+  title: string;
+  description: string;
+  submitButtonLabel: string;
+  submittingLabel: string;
+  backButtonLabel: string;
+  successMessage: string;
+  footerNote: string;
+  priceLabel: string;
+  priceSuffix: string;
+}
+
 interface PurchaseConfig {
   pageTitle: string;
   reorderTitle: string;
@@ -24,6 +36,7 @@ interface PurchaseConfig {
   checkoutButtonLabel: string;
   reorderButtonLabel: string;
   groups: PurchaseGroup[];
+  reorderConfirm: ReorderConfirmConfig;
 }
 
 interface Product {
@@ -65,6 +78,18 @@ const THEME_COLORS: Record<string, { bg: string; text: string; badge: string; bo
   orange: { bg: "bg-orange-50", text: "text-orange-700", badge: "bg-orange-100 text-orange-700", border: "border-orange-200", button: "bg-orange-600" },
 };
 
+const DEFAULT_REORDER_CONFIRM: ReorderConfirmConfig = {
+  title: "再処方の申請内容確認",
+  description: "下記の内容で再処方の申請を行います。\nDrが処方内容を確認し、処方が可能と判断された後に決済フォームをお送りさせていただきます。",
+  submitButtonLabel: "この内容で再処方を申請する",
+  submittingLabel: "申請を送信しています...",
+  backButtonLabel: "マイページに戻る",
+  successMessage: "再処方の申請を受け付けました。\n\nDrが処方内容を確認し、処方が可能と判断された後に決済フォームをお送りさせていただきます。",
+  footerNote: "※ 再処方の可否は、体調や前回処方後の経過を踏まえてDrが判断いたします。\n※ 再処方が難しい場合には、LINEよりご連絡させていただきます。",
+  priceLabel: "想定ご請求額",
+  priceSuffix: "税込／送料込み（再処方時に決済）",
+};
+
 const DEFAULT_CONFIG: PurchaseConfig = {
   pageTitle: "お薬の購入",
   reorderTitle: "再処方のお申し込み",
@@ -74,10 +99,11 @@ const DEFAULT_CONFIG: PurchaseConfig = {
   checkoutButtonLabel: "購入手続きへ",
   reorderButtonLabel: "再処方を申請する",
   groups: [],
+  reorderConfirm: DEFAULT_REORDER_CONFIRM,
 };
 
 // --- テキスト設定フィールド定義 ---
-const TEXT_FIELDS: { key: keyof Omit<PurchaseConfig, "groups">; label: string; type: "text" | "textarea" }[] = [
+const TEXT_FIELDS: { key: keyof Omit<PurchaseConfig, "groups" | "reorderConfirm">; label: string; type: "text" | "textarea" }[] = [
   { key: "pageTitle", label: "ページタイトル（初回購入）", type: "text" },
   { key: "reorderTitle", label: "ページタイトル（再処方）", type: "text" },
   { key: "description", label: "説明文（初回購入）", type: "textarea" },
@@ -109,8 +135,16 @@ export default function PurchaseSection({ onToast }: Props) {
   const products = swrData?.products ?? [];
 
   // テキストフィールド更新
-  const updateText = (key: keyof Omit<PurchaseConfig, "groups">, value: string) => {
+  const updateText = (key: keyof Omit<PurchaseConfig, "groups" | "reorderConfirm">, value: string) => {
     setConfig(prev => ({ ...prev, [key]: value }));
+  };
+
+  // 再処方確認画面のフィールド更新
+  const updateReorderConfirm = (key: keyof ReorderConfirmConfig, value: string) => {
+    setConfig(prev => ({
+      ...prev,
+      reorderConfirm: { ...(prev.reorderConfirm ?? DEFAULT_REORDER_CONFIRM), [key]: value },
+    }));
   };
 
   // グループ更新
@@ -409,6 +443,46 @@ export default function PurchaseSection({ onToast }: Props) {
                       </div>
                     )}
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 再処方確認画面の設定 */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h3 className="text-sm font-bold text-gray-800">再処方確認画面</h3>
+              <p className="text-xs text-gray-500 mt-0.5">再処方申請の確認画面に表示されるテキストをカスタマイズ</p>
+            </div>
+            <div className="p-5 space-y-4">
+              {([
+                { key: "title" as const, label: "ページタイトル", type: "text" as const },
+                { key: "description" as const, label: "説明文", type: "textarea" as const },
+                { key: "submitButtonLabel" as const, label: "申請ボタンラベル", type: "text" as const },
+                { key: "submittingLabel" as const, label: "申請中ラベル", type: "text" as const },
+                { key: "backButtonLabel" as const, label: "戻るボタンラベル", type: "text" as const },
+                { key: "successMessage" as const, label: "申請成功メッセージ", type: "textarea" as const },
+                { key: "priceLabel" as const, label: "価格ラベル", type: "text" as const },
+                { key: "priceSuffix" as const, label: "価格補足テキスト", type: "text" as const },
+                { key: "footerNote" as const, label: "フッター注記", type: "textarea" as const },
+              ]).map(({ key, label, type }) => (
+                <div key={key}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+                  {type === "textarea" ? (
+                    <textarea
+                      value={(config.reorderConfirm ?? DEFAULT_REORDER_CONFIRM)[key]}
+                      onChange={(e) => updateReorderConfirm(key, e.target.value)}
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none"
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={(config.reorderConfirm ?? DEFAULT_REORDER_CONFIRM)[key]}
+                      onChange={(e) => updateReorderConfirm(key, e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  )}
                 </div>
               ))}
             </div>
