@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       checkRateLimit(`totp-verify:user:${userId}`, 5, 300),
       checkRateLimit(`totp-verify:ip:${ip}`, 10, 300),
     ]);
-    if (!userLimit.allowed || !ipLimit.allowed) {
+    if (userLimit.limited || ipLimit.limited) {
       return tooManyRequests();
     }
 
