@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
         ? `${reasonParts.join(";")}の払戻し`
         : "管理画面からの払戻し";
 
-      const square = new SquarePaymentProvider();
+      const square = new SquarePaymentProvider(tenantId);
       const result = await square.processRefund(order.id, order.amount, refundReason);
 
       if (!result.success) {
