@@ -335,6 +335,7 @@ export default function MenuRulesPage() {
           marks={marks}
           fields={fields}
           menus={menus}
+          products={products}
           onSave={handleSave}
           onClose={() => { setShowEditor(false); setEditRule(null); }}
         />
@@ -350,6 +351,7 @@ function RuleEditor({
   marks,
   fields,
   menus,
+  products,
   onSave,
   onClose,
 }: {
@@ -358,6 +360,7 @@ function RuleEditor({
   marks: MarkDef[];
   fields: FieldDef[];
   menus: RichMenu[];
+  products: { code: string; title: string }[];
   onSave: (r: Partial<MenuAutoRule>) => void;
   onClose: () => void;
 }) {
