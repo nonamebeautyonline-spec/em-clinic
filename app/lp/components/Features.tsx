@@ -24,6 +24,7 @@ const categories = [
       { name: "Flex Messageビルダー", desc: "リッチなカード型メッセージをノーコードで作成・配信。カルーセル・ボタン対応" },
       { name: "チャットボットビルダー", desc: "会話フローをビジュアルで設計。質問・条件分岐・アクションを組み合わせてシナリオ構築" },
       { name: "A/Bテスト", desc: "メッセージの複数バリアントを比較検証。開封率・CV率をデータで最適化" },
+      { name: "LINE通知bot", desc: "予約・決済・AI返信の状況をLINE通知botでリアルタイムにプッシュ通知。スマホからAI返信の承認・メッセージ送信も可能" },
     ],
   },
   {
@@ -355,6 +356,102 @@ export default function Features() {
               <p className="mb-5 text-[14px] leading-[1.9] text-slate-500">予約確定・リマインド・決済完了・発送通知・追跡番号…すべてのステータス変化がLINEに自動通知。患者はLINEを見るだけで状況を把握でき、スタッフの手動連絡も不要です。</p>
               <ul className="space-y-2.5">
                 {["予約→決済→発送の全フローで通知が自動化", "患者はLINEだけで自分の状況を把握", "電話・メールの確認漏れをゼロに"].map((d) => (
+                  <li key={d} className="flex items-start gap-2.5 text-[13px] text-slate-600">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[9px] text-blue-600">&#10003;</span>
+                    {d}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </FadeIn>
+
+        {/* 3.5 スマホでどこからでも管理 — LINE通知bot + モバイル操作 */}
+        <FadeIn>
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-14">
+            <div className="w-full lg:w-[58%]">
+              {/* スマホモック */}
+              <div className="mx-auto flex justify-center gap-4">
+                {/* スマホ1: LINE通知bot */}
+                <div className="w-[180px] rounded-[24px] border-2 border-slate-300 bg-slate-900 p-2 shadow-xl">
+                  <div className="rounded-[18px] bg-white overflow-hidden">
+                    {/* ステータスバー */}
+                    <div className="flex items-center justify-between bg-slate-50 px-3 py-1">
+                      <span className="text-[8px] text-slate-500">9:41</span>
+                      <span className="text-[8px] text-slate-500">LINE</span>
+                    </div>
+                    {/* チャット画面 */}
+                    <div className="px-2 py-2 space-y-1.5" style={{ minHeight: 220 }}>
+                      <div className="text-center text-[7px] text-slate-400 mb-2">Lオペ通知bot</div>
+                      {[
+                        { icon: "📅", text: "新規予約が入りました\n田中 花子 様\n6/15(日) 14:00〜", time: "9:32" },
+                        { icon: "🤖", text: "AI返信が生成されました\n「再処方の件について…」\nタップして確認・送信", time: "9:35" },
+                        { icon: "💳", text: "決済完了\n星野 さくら 様\n¥15,400 クレジット", time: "9:41" },
+                      ].map((m, i) => (
+                        <div key={i} className="rounded-lg bg-[#E8F5E9] px-2 py-1.5">
+                          <div className="flex items-start gap-1">
+                            <span className="text-[10px]">{m.icon}</span>
+                            <div className="flex-1 text-[8px] text-slate-700 leading-[1.4] whitespace-pre-line">{m.text}</div>
+                          </div>
+                          <div className="text-right text-[7px] text-slate-400">{m.time}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                {/* スマホ2: モバイル管理画面 */}
+                <div className="w-[180px] rounded-[24px] border-2 border-slate-300 bg-slate-900 p-2 shadow-xl">
+                  <div className="rounded-[18px] bg-white overflow-hidden">
+                    <div className="flex items-center justify-between bg-blue-600 px-3 py-1.5">
+                      <span className="text-[8px] text-white/80">9:41</span>
+                      <span className="text-[8px] font-bold text-white">Lオペ管理</span>
+                      <span className="text-[8px] text-white/80">...</span>
+                    </div>
+                    <div className="px-2 py-2 space-y-1.5" style={{ minHeight: 220 }}>
+                      {/* AI返信承認 */}
+                      <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-2">
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-[9px]">🤖</span>
+                          <span className="text-[8px] font-bold text-blue-700">AI返信候補</span>
+                        </div>
+                        <div className="rounded bg-white px-1.5 py-1 text-[7px] text-slate-600 leading-[1.4]">再処方のお手続きは、マイページの「再処方申請」から…</div>
+                        <div className="mt-1.5 flex gap-1">
+                          <button className="flex-1 rounded bg-white border border-slate-200 py-1 text-[7px] text-slate-500">修正</button>
+                          <button className="flex-1 rounded bg-blue-500 py-1 text-[7px] font-bold text-white">送信</button>
+                        </div>
+                      </div>
+                      {/* トーク */}
+                      <div className="rounded-lg bg-slate-50 p-2">
+                        <div className="text-[8px] font-bold text-slate-600 mb-1">星野 さくら</div>
+                        <div className="rounded bg-white px-1.5 py-1 text-[7px] text-slate-600">ありがとうございます！</div>
+                        <div className="mt-1 flex gap-1">
+                          <input className="flex-1 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[7px]" placeholder="返信..." readOnly />
+                          <button className="rounded bg-blue-500 px-2 py-0.5 text-[7px] text-white">送</button>
+                        </div>
+                      </div>
+                      {/* 決済サマリ */}
+                      <div className="rounded-lg bg-emerald-50 p-2">
+                        <div className="text-[8px] font-bold text-emerald-700 mb-0.5">本日の決済</div>
+                        <div className="flex justify-between text-[8px]">
+                          <span className="text-slate-500">12件</span>
+                          <span className="font-bold text-emerald-600">¥168,400</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="w-full lg:w-[42%] lg:pt-4">
+              <h4 className="mb-3 text-xl font-extrabold tracking-tight text-slate-900 md:text-2xl">スマホでどこからでも管理</h4>
+              <p className="mb-5 text-[14px] leading-[1.9] text-slate-500">LINE通知botが予約・決済・AI返信の状況をリアルタイムでプッシュ通知。スマホのブラウザからトーク画面を操作し、AI返信の承認・メッセージ送信・決済状況の確認がどこからでも可能です。</p>
+              <ul className="space-y-2.5">
+                {[
+                  "予約・決済・AI返信をLINE通知botでリアルタイム把握",
+                  "スマホからAI返信を確認→ワンタップで承認・送信",
+                  "外出先からメッセージ送信・決済情報を確認",
+                  "PCがなくても患者対応が止まらない",
+                ].map((d) => (
                   <li key={d} className="flex items-start gap-2.5 text-[13px] text-slate-600">
                     <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[9px] text-blue-600">&#10003;</span>
                     {d}
