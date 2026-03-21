@@ -10,10 +10,7 @@ const MouseGradient = dynamic(() => import("../components/MouseGradient"), { ssr
 
 const COMPANY_INFO = [
   { label: "会社名", value: "株式会社ORDIX" },
-  { label: "代表取締役", value: "—" },
-  { label: "設立", value: "—" },
-  { label: "資本金", value: "100万円" },
-  { label: "所在地", value: "〒163-1302\n東京都新宿区西新宿6丁目5-1\n新宿アイランドタワー2階" },
+  { label: "所在地", value: "東京都新宿区西新宿6丁目5-1\n新宿アイランドタワー2階" },
   { label: "メール", value: "contact@ordix.co.jp" },
 ];
 
@@ -58,30 +55,38 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* ── 会社情報 ── */}
+      {/* ── 設立準備中カード ── */}
       <section className="border-t border-slate-100 px-6 py-24 md:px-16 md:py-32">
         <div className="mx-auto max-w-7xl">
-          <div className="grid gap-16 md:grid-cols-[280px_1fr]">
-            <ScrollReveal direction="left">
-              <div>
-                <span className="text-[11px] font-medium tracking-[0.3em] text-slate-400">Company info</span>
-                <h2 className="mt-2 text-2xl font-black text-slate-900">会社概要</h2>
+          <ScrollReveal>
+            <div className="rounded-2xl border border-blue-100 bg-blue-50/50 px-8 py-10 md:px-12 md:py-14">
+              <div className="flex items-center gap-3">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+                </span>
+                <span className="text-[12px] font-bold tracking-[0.15em] text-blue-600">ESTABLISHING</span>
               </div>
-            </ScrollReveal>
-            <div>
-              {COMPANY_INFO.map((item, i) => (
-                <ScrollReveal key={item.label} delay={i * 50}>
-                  <div className="flex flex-col border-b border-slate-100 py-6 last:border-0 md:flex-row md:items-start">
-                    <dt className="w-28 shrink-0 text-[12px] font-bold uppercase tracking-[0.2em] text-slate-400">
-                      {item.label}
-                    </dt>
-                    <dd className="mt-1.5 whitespace-pre-line text-[15px] leading-relaxed text-slate-800 md:mt-0">
-                      {item.value}
-                    </dd>
-                  </div>
-                </ScrollReveal>
-              ))}
+              <h2 className="mt-5 text-2xl font-black text-slate-900">設立準備中</h2>
+              <p className="mt-3 max-w-lg text-sm leading-[1.9] text-slate-500">
+                株式会社ORDIXは現在設立手続き中です。法人登記完了後、会社概要を公開します。
+              </p>
             </div>
+          </ScrollReveal>
+
+          {/* 公開可能な情報 */}
+          <div className="mt-12">
+            {COMPANY_INFO.map((item, i) => (
+              <ScrollReveal key={item.label} delay={i * 50}>
+                <div className="flex flex-col border-b border-slate-100 py-6 last:border-0 md:flex-row md:items-start">
+                  <dt className="w-28 shrink-0 text-[12px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                    {item.label}
+                  </dt>
+                  <dd className="mt-1.5 whitespace-pre-line text-[15px] leading-relaxed text-slate-800 md:mt-0">
+                    {item.value}
+                  </dd>
+                </div>
+              </ScrollReveal>
+            ))}
           </div>
         </div>
       </section>
