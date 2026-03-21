@@ -1,8 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import useSWR from "swr";
+
+type Doctor = {
+  doctor_id: string;
+  doctor_name: string;
+  is_active: boolean;
+  color?: string;
+};
 
 type Override = {
   doctor_id: string;
@@ -104,9 +111,15 @@ export default function MonthlySchedulePage() {
   const monthStr = `${year}-${String(month).padStart(2, "0")}`;
   const monthDisplay = `${year}年${month}月`;
 
+  // コピー&一括適用
+  const [copySource, setCopySource] = useState<Override[] | null>(null);
+  const [pasteTargets, setPasteTargets] = useState<Set<string>>(new Set());
+  const [isPasteMode, setIsPasteMode] = useState(false);
+  const [pasteProgress, setPasteProgress] = useState<{ current: number; total: number } | null>(null);
+
   // 医師一覧取得
-  const { data: doctorsData } = useSWR<{ ok: boolean; doctors: { doctor_id: string; doctor_name: string }[] }>("/api/admin/doctors");
-  const doctors = doctorsData?.doctors || [];
+  const { data: doctorsData } = useSWR<{ ok: boolean; doctors: Doctor[] }>("/api/admin/doctors");
+  const doctors = (doctorsData?.doctors || []).filter((d) => d.is_active);
 
   // スケジュールデータ取得
   const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
@@ -417,6 +430,102 @@ export default function MonthlySchedulePage() {
     }
   }
 
+  // コピー元を設定
+  function copyDaySettings() {
+    if (!selectedDate || editSlots.length === 0) return;
+    setCopySource([...editSlots]);
+    setIsPasteMode(true);
+    setPasteTargets(new Set());
+    setSelectedDate(null);
+    setMsg({ type: "success", text: "設定をコピーしました。適用する日付を選択してください" });
+  }
+
+  // ペースト先をトグル（Shift+クリックで範囲選択）
+  const togglePasteTarget = useCallback((dateStr: string, shiftKey: boolean) => {
+    setPasteTargets((prev) => {
+      const next = new Set(prev);
+      if (shiftKey && prev.size > 0) {
+        // 範囲選択: 最後に追加した日付からdateStrまでの間を全て選択
+        const sorted = Array.from(prev).sort();
+        const lastDate = sorted[sorted.length - 1];
+        const start = lastDate < dateStr ? lastDate : dateStr;
+        const end = lastDate < dateStr ? dateStr : lastDate;
+        // start〜endの日付を全て追加
+        const allDays = monthDays.filter((d) => {
+          const ds = formatDateStr(d);
+          return ds >= start && ds <= end && d.getMonth() + 1 === month;
+        });
+        allDays.forEach((d) => next.add(formatDateStr(d)));
+      } else {
+        if (next.has(dateStr)) next.delete(dateStr);
+        else next.add(dateStr);
+      }
+      return next;
+    });
+  }, [monthDays, month]);
+
+  // 一括適用
+  async function applyPaste() {
+    if (!copySource || pasteTargets.size === 0) return;
+    if (!confirm(`${pasteTargets.size}日に設定を適用しますか？`)) return;
+
+    setSaving(true);
+    setMsg(null);
+    const targets = Array.from(pasteTargets).sort();
+    setPasteProgress({ current: 0, total: targets.length });
+
+    try {
+      for (let i = 0; i < targets.length; i++) {
+        const date = targets[i];
+        setPasteProgress({ current: i + 1, total: targets.length });
+
+        // 既存設定を削除
+        await fetch("/api/admin/date_override", {
+          method: "DELETE",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ doctor_id: doctorId, date, delete_all: true }),
+        });
+
+        // コピー元の設定を適用
+        for (const slot of copySource) {
+          const newSlot = { ...slot, date, doctor_id: doctorId };
+          const res = await fetch("/api/admin/date_override", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ override: newSlot }),
+          });
+          const json = await res.json();
+          if (!json.ok) throw new Error(json.message || json.error || "保存に失敗しました");
+        }
+
+        // ローカル状態を更新
+        setOverrides((prev) => {
+          const filtered = prev.filter((o) => o.date !== date || o.doctor_id !== doctorId);
+          return [...filtered, ...copySource.map((s) => ({ ...s, date, doctor_id: doctorId }))];
+        });
+      }
+
+      setMsg({ type: "success", text: `${targets.length}日に設定を適用しました` });
+      setIsPasteMode(false);
+      setCopySource(null);
+      setPasteTargets(new Set());
+    } catch (e) {
+      setMsg({ type: "error", text: (e instanceof Error ? e.message : null) || "適用に失敗しました" });
+    } finally {
+      setSaving(false);
+      setPasteProgress(null);
+    }
+  }
+
+  // ペーストモードを解除
+  function cancelPaste() {
+    setIsPasteMode(false);
+    setCopySource(null);
+    setPasteTargets(new Set());
+  }
+
   // 月の移動
   function prevMonth() {
     if (month === 1) {
@@ -450,23 +559,34 @@ export default function MonthlySchedulePage() {
             <span>/</span>
             <span className="text-slate-800 font-medium">月別スケジュール</span>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">月別スケジュール設定</h1>
+              <h1 className="text-2xl font-bold text-slate-900">スケジュール設定</h1>
               <p className="text-slate-600 mt-1">
-                医師を選択してからカレンダーで予約枠を設定します
+                カレンダーで予約枠を設定します
               </p>
             </div>
             {doctors.length > 1 && (
-              <select
-                value={doctorId}
-                onChange={(e) => { setDoctorId(e.target.value); setSelectedDate(null); }}
-                className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
+              <div className="flex items-center gap-2">
                 {doctors.map((d) => (
-                  <option key={d.doctor_id} value={d.doctor_id}>{d.doctor_name}</option>
+                  <button
+                    key={d.doctor_id}
+                    onClick={() => { setDoctorId(d.doctor_id); setSelectedDate(null); cancelPaste(); }}
+                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${
+                      doctorId === d.doctor_id
+                        ? "ring-2 ring-offset-2 shadow-sm text-white"
+                        : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                    style={doctorId === d.doctor_id ? { backgroundColor: d.color || "#6366f1" } : undefined}
+                  >
+                    <span
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: d.color || "#6366f1" }}
+                    />
+                    {d.doctor_name}
+                  </button>
                 ))}
-              </select>
+              </div>
             )}
           </div>
         </div>
@@ -533,6 +653,38 @@ export default function MonthlySchedulePage() {
                     ))}
                   </div>
 
+                  {/* ペーストモードバナー */}
+                  {isPasteMode && (
+                    <div className="mb-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                        </svg>
+                        <span className="text-sm font-medium text-blue-800">
+                          適用先を選択中（{pasteTargets.size}日選択）
+                        </span>
+                        <span className="text-xs text-blue-600">Shift+クリックで範囲選択</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={cancelPaste}
+                          className="px-3 py-1 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition"
+                        >
+                          キャンセル
+                        </button>
+                        <button
+                          onClick={applyPaste}
+                          disabled={pasteTargets.size === 0 || saving}
+                          className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+                        >
+                          {pasteProgress
+                            ? `${pasteProgress.current}/${pasteProgress.total} 適用中...`
+                            : `${pasteTargets.size}日に適用`}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* 日付グリッド */}
                   <div className="grid grid-cols-7 gap-1">
                     {dayConfigs.map((config, index) => {
@@ -540,24 +692,33 @@ export default function MonthlySchedulePage() {
                       const isCurrentMonth = d.getMonth() + 1 === month;
                       const isSelected = config.date === selectedDate;
                       const isToday = formatDateStr(new Date()) === config.date;
+                      const isPasteTarget = pasteTargets.has(config.date);
 
                       return (
                         <button
                           key={config.date}
-                          onClick={() => isCurrentMonth && onSelectDate(config.date)}
+                          onClick={(e) => {
+                            if (!isCurrentMonth) return;
+                            if (isPasteMode) {
+                              togglePasteTarget(config.date, e.shiftKey);
+                            } else {
+                              onSelectDate(config.date);
+                            }
+                          }}
                           disabled={!isCurrentMonth}
                           className={`
                             aspect-square p-1 rounded-xl text-sm font-medium transition-all relative
                             ${!isCurrentMonth ? "text-slate-300 cursor-default" : "hover:ring-2 hover:ring-blue-300"}
                             ${isSelected ? "ring-2 ring-blue-500 bg-blue-50" : ""}
-                            ${isToday ? "ring-2 ring-amber-400" : ""}
+                            ${isToday && !isSelected ? "ring-2 ring-amber-400" : ""}
+                            ${isPasteTarget ? "ring-2 ring-blue-500 bg-blue-100" : ""}
                           `}
                         >
                           <div className="h-full flex flex-col items-center justify-center">
                             <span className={`${WEEKDAY_COLORS[d.getDay()]} ${!isCurrentMonth ? "text-slate-300" : ""}`}>
                               {d.getDate()}
                             </span>
-                            {isCurrentMonth && (
+                            {isCurrentMonth && !isPasteTarget && (
                               <div className="mt-1 flex gap-0.5">
                                 {config.effectiveStatus === "open" && (
                                   <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -572,6 +733,11 @@ export default function MonthlySchedulePage() {
                                   <span className="text-[10px] text-slate-500">+{config.overrides.length - 1}</span>
                                 )}
                               </div>
+                            )}
+                            {isPasteTarget && (
+                              <svg className="w-4 h-4 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
                             )}
                           </div>
                         </button>
@@ -862,21 +1028,34 @@ export default function MonthlySchedulePage() {
                     </div>
                   )}
 
-                  {/* 保存ボタン */}
-                  <div className="pt-4 border-t border-slate-100 flex gap-2">
-                    <button
-                      onClick={() => setSelectedDate(null)}
-                      className="flex-1 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition"
-                    >
-                      キャンセル
-                    </button>
-                    <button
-                      onClick={saveDay}
-                      disabled={saving}
-                      className="flex-1 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
-                    >
-                      {saving ? "保存中..." : "保存"}
-                    </button>
+                  {/* 保存・コピーボタン */}
+                  <div className="pt-4 border-t border-slate-100 space-y-2">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSelectedDate(null)}
+                        className="flex-1 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                      >
+                        キャンセル
+                      </button>
+                      <button
+                        onClick={saveDay}
+                        disabled={saving}
+                        className="flex-1 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+                      >
+                        {saving ? "保存中..." : "保存"}
+                      </button>
+                    </div>
+                    {editSlots.length > 0 && (
+                      <button
+                        onClick={copyDaySettings}
+                        className="w-full px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition flex items-center justify-center gap-1.5"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                        </svg>
+                        この設定を他の日にコピー
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : (
