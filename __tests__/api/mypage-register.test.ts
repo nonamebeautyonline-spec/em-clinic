@@ -68,10 +68,10 @@ describe("マイページAPI: HTTPメソッド", () => {
 describe("mypage/identity: 本人確認詳細", () => {
   const file = "app/api/mypage/identity/route.ts";
 
-  it("Cookie から patient_id を取得している", () => {
+  it("verifyPatientSession で患者セッションを検証している", () => {
     if (!fileExists(file)) return;
     const src = readFile(file);
-    expect(src).toContain("patient_id");
+    expect(src).toContain("verifyPatientSession");
   });
 
   it("GET がエクスポートされている", () => {

@@ -119,6 +119,12 @@ vi.mock("@/lib/validations/helpers", () => ({
   parseBody: vi.fn().mockResolvedValue({ data: {} }),
 }));
 
+vi.mock("@/lib/patient-session", () => ({
+  verifyPatientSession: vi.fn().mockResolvedValue({ patientId: "P001", lineUserId: "U123" }),
+  createPatientToken: vi.fn().mockResolvedValue("mock-jwt"),
+  patientSessionCookieOptions: vi.fn().mockReturnValue({ httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 31536000 }),
+}));
+
 vi.mock("@/lib/validations/repair", () => ({
   repairSchema: { parse: vi.fn() },
 }));
@@ -445,8 +451,11 @@ describe("profile", () => {
 // ============================================================
 // 10. repair
 // ============================================================
+import { verifyPatientSession } from "@/lib/patient-session";
+
 describe("repair", () => {
   it("Cookie未設定で401", async () => {
+    vi.mocked(verifyPatientSession).mockResolvedValueOnce(null);
     const { POST } = await import("@/app/api/repair/route");
     const req = makeReq("http://localhost:3000/api/repair", {
       method: "POST",
@@ -543,6 +552,7 @@ describe("verify/check", () => {
 // ============================================================
 describe("register/check", () => {
   it("line_user_id Cookie未設定で needsLineLogin=true", async () => {
+    vi.mocked(verifyPatientSession).mockResolvedValueOnce(null);
     const { GET } = await import("@/app/api/register/check/route");
     const req = makeReq("http://localhost:3000/api/register/check");
     const res = await GET(req);
@@ -590,6 +600,7 @@ describe("intake/form-definition", () => {
 // ============================================================
 describe("intake/has", () => {
   it("Cookie未設定で401", async () => {
+    vi.mocked(verifyPatientSession).mockResolvedValueOnce(null);
     const { GET } = await import("@/app/api/intake/has/route");
     const req = makeReq("http://localhost:3000/api/intake/has?reserveId=R001");
     const res = await GET(req);

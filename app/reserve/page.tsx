@@ -380,7 +380,6 @@ const ReserveInner: React.FC = () => {
         headers: { "Content-Type": "application/json" },
 body: JSON.stringify({
   type: "createReservation",
-  patient_id: patientInfo.patient_id,
   name: patientInfo.name,
   date: selectedDateKey,
   time: selectedSlot.start,

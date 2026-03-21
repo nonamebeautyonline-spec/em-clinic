@@ -2,6 +2,7 @@
 // 予約API（app/api/reservations/route.ts）のテスト
 // ヘルパー関数ユニットテスト + POST/GET APIモックテスト
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { verifyPatientSession } from "@/lib/patient-session";
 
 // === モック設定 ===
 const mockFrom = vi.fn();
@@ -58,6 +59,12 @@ vi.mock("@/lib/menu-auto-rules", () => ({
 
 vi.mock("@/lib/medical-fields", () => ({
   isMultiFieldEnabled: vi.fn().mockResolvedValue(false),
+}));
+
+vi.mock("@/lib/patient-session", () => ({
+  verifyPatientSession: vi.fn().mockResolvedValue({ patientId: "p_001", lineUserId: "U123" }),
+  createPatientToken: vi.fn().mockResolvedValue("mock-jwt"),
+  patientSessionCookieOptions: vi.fn().mockReturnValue({ httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 31536000 }),
 }));
 
 // ============================================
@@ -1384,6 +1391,7 @@ describe("POST createReservation — エッジケース", () => {
   // 31. cookieからpatient_idを取得（body.patient_id省略時）
   // ============================================
   it("cookieからpatient_id取得 → 正常作成", async () => {
+    vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "p_cookie", lineUserId: "U5678" });
     const intakeChain = createChainMock({
       data: [{ patient_id: "p_cookie", status: null, answers: { ng_check: "ok" } }],
       error: null,
@@ -1429,6 +1437,7 @@ describe("POST createReservation — エッジケース", () => {
   // 32. __Host-patient_id cookie優先
   // ============================================
   it("__Host-patient_id cookieが優先される", async () => {
+    vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "p_host", lineUserId: "U9999" });
     const intakeChain = createChainMock({
       data: [{ patient_id: "p_host", status: null, answers: { ng_check: "ok" } }],
       error: null,

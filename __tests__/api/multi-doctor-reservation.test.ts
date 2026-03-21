@@ -4,6 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import { verifyPatientSession } from "@/lib/patient-session";
 
 // === モックヘルパー ===
 function createChainMock(resolvedValue: { data: unknown; error: unknown } = { data: null, error: null }) {
@@ -68,6 +69,12 @@ vi.mock("@/lib/validations/reservation", () => ({
   createReservationSchema: {},
   cancelReservationSchema: {},
   updateReservationSchema: {},
+}));
+
+vi.mock("@/lib/patient-session", () => ({
+  verifyPatientSession: vi.fn().mockResolvedValue({ patientId: "PT-TEST", lineUserId: "U123" }),
+  createPatientToken: vi.fn().mockResolvedValue("mock-jwt"),
+  patientSessionCookieOptions: vi.fn().mockReturnValue({ httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 31536000 }),
 }));
 
 // next/headers の cookies() モック

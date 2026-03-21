@@ -1,12 +1,12 @@
 // app/api/mypage/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { redis, getDashboardCacheKey } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { validateBody } from "@/lib/validations/helpers";
 import { mypageDashboardSchema } from "@/lib/validations/mypage";
 import { isMultiFieldEnabled } from "@/lib/medical-fields";
+import { verifyPatientSession } from "@/lib/patient-session";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -419,28 +419,12 @@ export async function POST(_req: NextRequest) {
       // bodyが空の場合は無視
     }
 
-    const cookieStore = await cookies();
-    const getCookieValue = (name: string): string => cookieStore.get(name)?.value ?? "";
-
-    const patientId = getCookieValue("__Host-patient_id") || getCookieValue("patient_id");
-    if (!patientId) return fail("unauthorized", 401);
+    const session = await verifyPatientSession(_req);
+    if (!session) return fail("unauthorized", 401);
+    const patientId = session.patientId;
+    const lineUserId = session.lineUserId;
 
     const tenantId = resolveTenantIdOrThrow(_req);
-    const lineUserId = getCookieValue("__Host-line_user_id") || getCookieValue("line_user_id");
-
-    // ★ line_user_id と patient_id の整合性チェック（アカウント切替による他人データ表示防止）
-    if (lineUserId && patientId) {
-      const { data: patientCheck } = await strictWithTenant(supabaseAdmin
-        .from("patients")
-        .select("line_id")
-        .eq("patient_id", patientId), tenantId)
-        .maybeSingle();
-
-      if (patientCheck?.line_id && patientCheck.line_id !== lineUserId) {
-        console.log(`[mypage API] PID mismatch: cookie=${patientId} line_id=${patientCheck.line_id} current=${lineUserId}`);
-        return fail("pid_mismatch", 401);
-      }
-    }
 
     // キャッシュチェック（forceRefreshの場合はスキップ）
     const cacheKey = getDashboardCacheKey(patientId);

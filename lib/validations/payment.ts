@@ -4,7 +4,7 @@ import { z } from "zod";
 /** 銀行振込 POST /api/bank-transfer/shipping */
 export const bankTransferShippingSchema = z
   .object({
-    patientId: z.string().min(1, "患者IDは必須です"),
+    patientId: z.string().optional(), // JWT認証でセッションから取得するため任意
     productCode: z.string().min(1, "商品コードは必須です"),
     mode: z.string().optional(),
     reorderId: z.union([z.string(), z.number()]).optional().nullable(),

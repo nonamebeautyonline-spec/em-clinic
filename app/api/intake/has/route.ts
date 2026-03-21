@@ -5,16 +5,12 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { isMultiFieldEnabled } from "@/lib/medical-fields";
+import { verifyPatientSession } from "@/lib/patient-session";
 
 export async function GET(req: NextRequest) {
-  const patientId =
-    req.cookies.get("__Host-patient_id")?.value ||
-    req.cookies.get("patient_id")?.value ||
-    "";
-
-  if (!patientId) {
-    return unauthorized();
-  }
+  const session = await verifyPatientSession(req);
+  if (!session) return unauthorized();
+  const patientId = session.patientId;
 
   const tenantId = resolveTenantIdOrThrow(req);
   const { searchParams } = new URL(req.url);

@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { verifyPatientSession } from "@/lib/patient-session";
 
 /**
  * 個人情報フォームが既に提出済みかチェック
- * - line_user_id cookie から紐づく患者を検索
+ * - JWT セッション or line_user_id cookie から紐づく患者を検索
  * - 氏名が登録済みなら registered: true
  */
 export async function GET(req: NextRequest) {
   const tenantId = resolveTenantId(req);
-  const lineUserId = req.cookies.get("line_user_id")?.value || "";
+
+  // JWT内のlineUserIdを優先、なければ旧Cookie
+  const session = await verifyPatientSession(req);
+  const lineUserId = session?.lineUserId || req.cookies.get("line_user_id")?.value || "";
 
   if (!lineUserId) {
     return NextResponse.json({ registered: false, needsLineLogin: true });

@@ -135,11 +135,12 @@ async function fetchCountWithMark(
   markFilter: string,
   lineStatus: string,
 ): Promise<number> {
-  // patient_marks から該当 patient_id を取得
+  // patient_marks から該当 patient_id を取得（テナントフィルタ付き）
   let markQuery = supabaseAdmin
     .from("patient_marks")
     .select("patient_id")
-    .eq("mark", markFilter);
+    .eq("mark", markFilter)
+    .eq("tenant_id", effectiveTenantId);
 
   const { data: markRows } = await markQuery;
   const markPatientIds = new Set((markRows || []).map(r => r.patient_id));
@@ -163,11 +164,12 @@ async function fetchCountWithMark(
     query = query.in("patient_id", [...markPatientIds]);
   } else {
     // "none" = patient_marks にレコードがない or mark が "none" の患者
-    // → patient_marks テーブルで mark != "none" の patient_id を除外
+    // → patient_marks テーブルで mark != "none" の patient_id を除外（テナントフィルタ付き）
     const { data: nonNoneRows } = await supabaseAdmin
       .from("patient_marks")
       .select("patient_id")
-      .neq("mark", "none");
+      .neq("mark", "none")
+      .eq("tenant_id", effectiveTenantId);
     const nonNoneIds = (nonNoneRows || []).map(r => r.patient_id);
     if (nonNoneIds.length > 0) {
       // Supabase の not.in は配列が大きい場合に問題になる可能性があるが、
@@ -236,11 +238,12 @@ export async function GET(req: NextRequest) {
   let markPatientIds: Set<string> | null = null;
   if (markFilter) {
     if (markFilter === "none") {
-      // "none" = patient_marks にレコードがない or mark が "none"
+      // "none" = patient_marks にレコードがない or mark が "none"（テナントフィルタ付き）
       const { data: nonNoneRows } = await supabaseAdmin
         .from("patient_marks")
         .select("patient_id")
-        .neq("mark", "none");
+        .neq("mark", "none")
+        .eq("tenant_id", effectiveTenantId);
       // "none" マークの患者は除外リストで管理（後段でフィルタ）
       markPatientIds = new Set(); // 空セット = 除外リスト方式
       for (const r of (nonNoneRows || [])) markPatientIds.add(r.patient_id);
@@ -248,7 +251,8 @@ export async function GET(req: NextRequest) {
       const { data: markRows } = await supabaseAdmin
         .from("patient_marks")
         .select("patient_id")
-        .eq("mark", markFilter);
+        .eq("mark", markFilter)
+        .eq("tenant_id", effectiveTenantId);
       markPatientIds = new Set((markRows || []).map(r => r.patient_id));
       if (markPatientIds.size === 0) {
         const tEnd = Date.now();
@@ -370,7 +374,8 @@ async function buildResponse(
         supabaseAdmin
           .from("patient_marks")
           .select("patient_id, mark")
-          .in("patient_id", missingPinIds),
+          .in("patient_id", missingPinIds)
+          .eq("tenant_id", tid),
       ]);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

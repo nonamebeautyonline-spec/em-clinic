@@ -4,6 +4,7 @@
 // ユーティリティ関数（normalize*, inferCarrier*）をテスト
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import { verifyPatientSession } from "@/lib/patient-session";
 
 // ─── モックチェーン ───
 function createChain(defaultResolve = { data: null, error: null }) {
@@ -83,6 +84,12 @@ vi.mock("@/lib/validations/mypage", () => ({
 
 vi.mock("@/lib/medical-fields", () => ({
   isMultiFieldEnabled: vi.fn().mockResolvedValue(false),
+}));
+
+vi.mock("@/lib/patient-session", () => ({
+  verifyPatientSession: vi.fn().mockResolvedValue({ patientId: "pid-001", lineUserId: "U123" }),
+  createPatientToken: vi.fn().mockResolvedValue("mock-jwt"),
+  patientSessionCookieOptions: vi.fn().mockReturnValue({ httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 31536000 }),
 }));
 
 // ─── ルートインポート ───
@@ -203,6 +210,7 @@ describe("POST /api/mypage", () => {
   // ─── 認証テスト ───
   describe("認証", () => {
     it("patient_id Cookieなし → 401 'unauthorized'", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce(null);
       _mockCookieStore.get.mockReturnValue(undefined);
 
       const res = await POST(createRequest());
@@ -233,16 +241,15 @@ describe("POST /api/mypage", () => {
 
   // ─── LINE UID 整合性チェック ───
   describe("LINE UID整合性チェック", () => {
-    it("line_user_id Cookie と patients.line_id が不一致 → 401 'pid_mismatch'", async () => {
+    it("line_user_id が patients.line_id と不一致でも JWT認証済みなら 200（整合性チェックはJWT内で完結）", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "pid-001", lineUserId: "U-different" });
       setupCookies({ patientId: "pid-001", lineUserId: "U-different" });
-      // patients.line_id が別の値
-      setTableChain("patients", createChain({ data: { line_id: "U-original" }, error: null }));
+      setupDefaultTables({
+        patient: { data: { patient_id: "pid-001", name: "太郎", line_id: "U-original" }, error: null },
+      });
 
       const res = await POST(createRequest());
-      const body = await res.json();
-
-      expect(res.status).toBe(401);
-      expect(body.error).toBe("pid_mismatch");
+      expect(res.status).toBe(200);
     });
 
     it("line_user_id Cookie と patients.line_id が一致 → 200", async () => {
@@ -778,9 +785,7 @@ describe("POST /api/mypage", () => {
   // ─── エラーハンドリング ───
   describe("エラーハンドリング", () => {
     it("予期しないエラー発生時は 500 'unexpected_error' を返す", async () => {
-      _mockCookieStore.get.mockImplementation(() => {
-        throw new Error("予期しないエラー");
-      });
+      vi.mocked(verifyPatientSession).mockRejectedValueOnce(new Error("予期しないエラー"));
 
       const res = await POST(createRequest());
       const body = await res.json();

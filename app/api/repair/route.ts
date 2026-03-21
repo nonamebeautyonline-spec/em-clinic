@@ -7,17 +7,13 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { repairSchema } from "@/lib/validations/repair";
+import { verifyPatientSession } from "@/lib/patient-session";
 
 export async function POST(req: NextRequest) {
   try {
-    const patientId =
-      req.cookies.get("__Host-patient_id")?.value ||
-      req.cookies.get("patient_id")?.value ||
-      "";
-
-    if (!patientId) {
-      return unauthorized();
-    }
+    const session = await verifyPatientSession(req);
+    if (!session) return unauthorized();
+    const patientId = session.patientId;
 
     const tenantId = resolveTenantId(req);
 

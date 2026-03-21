@@ -87,6 +87,12 @@ vi.mock("@/lib/validations/helpers", () => ({
   parseBody: vi.fn(),
 }));
 
+vi.mock("@/lib/patient-session", () => ({
+  verifyPatientSession: vi.fn().mockResolvedValue({ patientId: "pid-001", lineUserId: "U123" }),
+  createPatientToken: vi.fn().mockResolvedValue("mock-jwt"),
+  patientSessionCookieOptions: vi.fn().mockReturnValue({ httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 31536000 }),
+}));
+
 vi.mock("@/lib/validations/patient", () => ({
   intakeSchema: {},
 }));
@@ -100,6 +106,7 @@ vi.mock("@/lib/medical-fields", () => ({
 import { POST } from "@/app/api/intake/route";
 import { parseBody } from "@/lib/validations/helpers";
 import { invalidateDashboardCache } from "@/lib/redis";
+import { verifyPatientSession } from "@/lib/patient-session";
 
 // --- ヘルパー ---
 function createRequest(body: Record<string, unknown> = {}, cookies: Record<string, string> = {}) {
@@ -127,7 +134,8 @@ describe("POST /api/intake", () => {
 
   // --- 認証テスト ---
   describe("認証", () => {
-    it("patient_id Cookieがない場合は401を返す", async () => {
+    it("セッションなしの場合は401を返す", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce(null);
       vi.mocked(parseBody).mockResolvedValue({
         data: { answers: {} },
       } as unknown as Awaited<ReturnType<typeof parseBody>>);
@@ -218,6 +226,7 @@ describe("POST /api/intake", () => {
     });
 
     it("intakeレコードがない場合は新規INSERT", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "pid-new", lineUserId: "U123" });
       vi.mocked(parseBody).mockResolvedValue({
         data: {
           answers: { 身長: "170" },
@@ -244,6 +253,7 @@ describe("POST /api/intake", () => {
     });
 
     it("個人情報は空文字の場合、既存値を上書きしない", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "pid-keep", lineUserId: "U123" });
       vi.mocked(parseBody).mockResolvedValue({
         data: {
           answers: { 身長: "180" },
@@ -279,6 +289,7 @@ describe("POST /api/intake", () => {
   // --- LINE_仮レコード統合テスト ---
   describe("LINE_仮レコード統合", () => {
     it("LINE_で始まるpatient_idの場合は仮レコード統合をスキップ", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "LINE_abc123", lineUserId: "U123" });
       vi.mocked(parseBody).mockResolvedValue({
         data: { answers: {} },
       } as unknown as Awaited<ReturnType<typeof parseBody>>);
@@ -299,6 +310,7 @@ describe("POST /api/intake", () => {
     });
 
     it("正規patient_idの場合、LINE_仮レコードがあればマージ・削除", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "pid-real", lineUserId: "U123" });
       vi.mocked(parseBody).mockResolvedValue({
         data: { answers: { 身長: "170" }, name: "太郎" },
       } as unknown as Awaited<ReturnType<typeof parseBody>>);
@@ -345,6 +357,7 @@ describe("POST /api/intake", () => {
   // --- キャッシュ ---
   describe("キャッシュ", () => {
     it("問診送信後にダッシュボードキャッシュが削除される", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "pid-cache", lineUserId: "U123" });
       vi.mocked(parseBody).mockResolvedValue({
         data: { answers: {} },
       } as unknown as Awaited<ReturnType<typeof parseBody>>);
@@ -364,6 +377,7 @@ describe("POST /api/intake", () => {
   // --- エラーハンドリング ---
   describe("エラーハンドリング", () => {
     it("予期しないエラー発生時は500を返す", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "pid-err", lineUserId: "U123" });
       vi.mocked(parseBody).mockRejectedValue(new Error("予期しないエラー"));
 
       const req = createRequest({}, { "__Host-patient_id": "pid-err" });

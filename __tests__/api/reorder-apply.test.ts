@@ -4,6 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import { verifyPatientSession } from "@/lib/patient-session";
 
 // === モックヘルパー ===
 function createChain(defaultResolve = { data: null, error: null }) {
@@ -58,6 +59,12 @@ vi.mock("@/lib/medical-fields", () => ({
   isMultiFieldEnabled: vi.fn().mockResolvedValue(false),
 }));
 
+vi.mock("@/lib/patient-session", () => ({
+  verifyPatientSession: vi.fn().mockResolvedValue({ patientId: "PT-001", lineUserId: "U123" }),
+  createPatientToken: vi.fn().mockResolvedValue("mock-jwt"),
+  patientSessionCookieOptions: vi.fn().mockReturnValue({ httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 31536000 }),
+}));
+
 // next/headers の cookies() モック
 vi.mock("next/headers", () => ({
   cookies: vi.fn().mockResolvedValue({
@@ -105,10 +112,8 @@ describe("POST /api/reorder/apply", () => {
   // ------------------------------------------------------------------
   describe("認証チェック", () => {
     it("patient_idがない場合は401を返す", async () => {
-      // cookies モックを上書き: patient_idなし
-      vi.mocked(cookies).mockResolvedValue({
-        get: vi.fn(() => undefined),
-      });
+      // verifyPatientSession を null に（認証失敗）
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce(null);
 
       const req = new NextRequest("http://localhost/api/reorder/apply", {
         method: "POST",
@@ -188,6 +193,7 @@ describe("POST /api/reorder/apply", () => {
   // ------------------------------------------------------------------
   describe("NG患者ブロック", () => {
     it("NG患者は再処方申請がブロックされる", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "PT-NG", lineUserId: "U123" });
       vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
           if (name === "__Host-patient_id") return { value: "PT-NG" };
@@ -211,6 +217,7 @@ describe("POST /api/reorder/apply", () => {
     });
 
     it("OK患者は通過する", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "PT-OK", lineUserId: "U123" });
       vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
           if (name === "__Host-patient_id") return { value: "PT-OK" };
@@ -241,6 +248,7 @@ describe("POST /api/reorder/apply", () => {
     });
 
     it("statusがnullのintakeは無視される（NG判定しない）", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "PT-NULL", lineUserId: "U123" });
       vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
           if (name === "__Host-patient_id") return { value: "PT-NULL" };
@@ -277,6 +285,7 @@ describe("POST /api/reorder/apply", () => {
   // ------------------------------------------------------------------
   describe("予約必須チェック (reorder_requires_reservation)", () => {
     function setupCookies(pid = "PT-RES") {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: pid, lineUserId: "U123" });
       vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
           if (name === "__Host-patient_id" || name === "patient_id") return { value: pid };
@@ -366,6 +375,7 @@ describe("POST /api/reorder/apply", () => {
   // ------------------------------------------------------------------
   describe("重複申請チェック", () => {
     it("pending状態の既存申請がある場合は400を返す", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "PT-DUP", lineUserId: "U123" });
       vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
           if (name === "__Host-patient_id") return { value: "PT-DUP" };
@@ -397,6 +407,7 @@ describe("POST /api/reorder/apply", () => {
     });
 
     it("重複チェックDBエラーの場合は500を返す", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "PT-ERR", lineUserId: "U123" });
       vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
           if (name === "__Host-patient_id") return { value: "PT-ERR" };
@@ -432,6 +443,7 @@ describe("POST /api/reorder/apply", () => {
   // ------------------------------------------------------------------
   describe("DB挿入", () => {
     function setupDefaultChains() {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "PT-NEW", lineUserId: "U456" });
       vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
           if (name === "__Host-patient_id") return { value: "PT-NEW" };
@@ -473,6 +485,7 @@ describe("POST /api/reorder/apply", () => {
     });
 
     it("DB挿入失敗時は500を返す", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "PT-FAIL", lineUserId: "U123" });
       vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
           if (name === "__Host-patient_id") return { value: "PT-FAIL" };
@@ -508,6 +521,7 @@ describe("POST /api/reorder/apply", () => {
   // ------------------------------------------------------------------
   describe("キャッシュ削除", () => {
     it("挿入成功時にinvalidateDashboardCacheが呼ばれる", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "PT-CACHE", lineUserId: "U123" });
       vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
           if (name === "__Host-patient_id") return { value: "PT-CACHE" };
@@ -609,8 +623,8 @@ describe("POST /api/reorder/apply", () => {
   // ------------------------------------------------------------------
   describe("例外処理", () => {
     it("予期しないエラーは500を返す", async () => {
-      // cookiesでエラーを発生させる
-      vi.mocked(cookies).mockRejectedValue(new Error("unexpected cookies error"));
+      // verifyPatientSessionでエラーを発生させる
+      vi.mocked(verifyPatientSession).mockRejectedValueOnce(new Error("unexpected error"));
 
       const req = new NextRequest("http://localhost/api/reorder/apply", {
         method: "POST",

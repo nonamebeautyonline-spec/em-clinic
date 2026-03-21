@@ -1,6 +1,7 @@
 // __tests__/api/points.test.ts
 // ポイント制度API + ライブラリのテスト
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { verifyPatientSession } from "@/lib/patient-session";
 
 // --- チェーンビルダー ---
 function createChain(defaultResolve: Record<string, unknown> = { data: null, error: null }) {
@@ -45,6 +46,12 @@ vi.mock("@/lib/tenant", () => ({
 
 vi.mock("next/headers", () => ({
   cookies: mockCookies,
+}));
+
+vi.mock("@/lib/patient-session", () => ({
+  verifyPatientSession: vi.fn().mockResolvedValue({ patientId: "PAT001", lineUserId: "U123" }),
+  createPatientToken: vi.fn().mockResolvedValue("mock-jwt"),
+  patientSessionCookieOptions: vi.fn().mockReturnValue({ httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 31536000 }),
 }));
 
 // --- ヘルパー ---
@@ -404,6 +411,7 @@ describe("GET /api/admin/points/[patientId]", () => {
 // =============================================
 describe("GET /api/mypage/points", () => {
   it("patient_idクッキーがない場合401を返す", async () => {
+    vi.mocked(verifyPatientSession).mockResolvedValueOnce(null as any);
     mockCookies.mockResolvedValueOnce({
       get: () => undefined,
     });

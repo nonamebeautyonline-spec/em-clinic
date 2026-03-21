@@ -71,16 +71,12 @@ describe("bankTransferShippingSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("patientIdが空文字でparse失敗", () => {
+  it("patientIdが空文字でもparse成功（optional）", () => {
     const result = bankTransferShippingSchema.safeParse({
       ...validInput,
       patientId: "",
     });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      const msgs = result.error.issues.map((i) => i.message);
-      expect(msgs).toContain("患者IDは必須です");
-    }
+    expect(result.success).toBe(true);
   });
 
   it("productCodeが空文字でparse失敗", () => {

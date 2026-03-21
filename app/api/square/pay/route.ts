@@ -13,6 +13,7 @@ import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { acquireLock } from "@/lib/distributed-lock";
+import { verifyPatientSession } from "@/lib/patient-session";
 import { isMultiFieldEnabled } from "@/lib/medical-fields";
 import {
   ensureSquareCustomer,
@@ -30,17 +31,17 @@ export async function POST(req: NextRequest) {
     const tenantId = resolveTenantId(req);
     const tid = tenantId ?? undefined;
 
-    // セッション検証
-    const cookiePatientId =
-      req.cookies.get("__Host-patient_id")?.value ||
-      req.cookies.get("patient_id")?.value ||
-      "";
+    // セッション検証（JWT）
+    const session = await verifyPatientSession(req);
+    if (!session) return forbidden("認証情報が一致しません");
+    const cookiePatientId = session.patientId;
 
     const parsed = await parseBody(req, inlinePaySchema);
     if ("error" in parsed) return parsed.error;
     const { sourceId, productCode, mode, patientId, reorderId, saveCard, shipping } = parsed.data;
 
-    if (!cookiePatientId || cookiePatientId !== patientId) {
+    // body の patientId とJWTの patientId の一致を検証（多重防御）
+    if (patientId && cookiePatientId !== patientId) {
       return forbidden("認証情報が一致しません");
     }
 

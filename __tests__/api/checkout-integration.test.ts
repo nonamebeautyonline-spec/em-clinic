@@ -43,6 +43,12 @@ vi.mock("@/lib/validations/checkout", () => ({
   checkoutSchema: {},
 }));
 
+vi.mock("@/lib/patient-session", () => ({
+  verifyPatientSession: vi.fn().mockResolvedValue({ patientId: "patient-ok", lineUserId: "U123" }),
+  createPatientToken: vi.fn().mockResolvedValue("mock-jwt"),
+  patientSessionCookieOptions: vi.fn().mockReturnValue({ httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 31536000 }),
+}));
+
 vi.mock("@/lib/medical-fields", () => ({
   isMultiFieldEnabled: vi.fn().mockResolvedValue(false),
 }));
@@ -59,6 +65,8 @@ beforeAll(async () => {
   const mod = await import("@/app/api/checkout/route");
   POST = mod.POST;
 });
+
+import { verifyPatientSession } from "@/lib/patient-session";
 
 // --- テストヘルパー ---
 interface MockRequest {
@@ -124,6 +132,7 @@ describe("checkout API 統合テスト", () => {
     const { parseBody } = await import("@/lib/validations/helpers");
     const { withTenant } = await import("@/lib/tenant");
 
+    vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "patient-ng", lineUserId: "U123" });
     vi.mocked(parseBody).mockResolvedValue({
       data: { productCode: "PROD1", mode: "current", patientId: "patient-ng", reorderId: null },
     } as { data: Record<string, unknown> });
@@ -173,34 +182,15 @@ describe("checkout API 統合テスト", () => {
     expect(json.checkoutUrl).toBe("https://pay.example.com/checkout/123");
   });
 
-  it("5. patientIdなしの場合 → NG判定スキップして正常続行", async () => {
-    const { parseBody } = await import("@/lib/validations/helpers");
-    const { getProductByCode } = await import("@/lib/products");
-    const { getPaymentProvider } = await import("@/lib/payment");
-    const { supabaseAdmin } = await import("@/lib/supabase");
-
-    vi.mocked(parseBody).mockResolvedValue({
-      data: { productCode: "PROD1", mode: "first", patientId: null, reorderId: null },
-    } as { data: Record<string, unknown> });
-    vi.mocked(getProductByCode).mockResolvedValue({
-      code: "PROD1",
-      title: "テスト商品",
-      price: 1000,
-    } as Awaited<ReturnType<typeof getProductByCode>>);
-    const mockProvider: Pick<PaymentProvider, "createCheckoutLink"> = {
-      createCheckoutLink: vi.fn().mockResolvedValue({ checkoutUrl: "https://pay.example.com/checkout/456" }),
-    };
-    vi.mocked(getPaymentProvider).mockResolvedValue(mockProvider as PaymentProvider);
+  it("5. セッションなしの場合 → 401", async () => {
+    vi.mocked(verifyPatientSession).mockResolvedValueOnce(null);
 
     const req = createMockRequest();
     const res = await POST(req as unknown as Parameters<typeof POST>[0]);
     const json = await parseJson(res);
 
-    expect(res.status).toBe(200);
-    expect(json.checkoutUrl).toBe("https://pay.example.com/checkout/456");
-    // supabaseAdmin.from が intake 用に呼ばれていないことを確認
-    // (patientIdがnullなのでintakeクエリはスキップされる)
-    expect(supabaseAdmin.from).not.toHaveBeenCalled();
+    expect(res.status).toBe(401);
+    expect(json.error).toBe("UNAUTHORIZED");
   });
 
   it("6. 無効なmode → 400", async () => {

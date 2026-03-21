@@ -1,6 +1,7 @@
 // app/api/bank-transfer/shipping/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { forbidden, serverError } from "@/lib/api-error";
+import { forbidden, serverError, unauthorized } from "@/lib/api-error";
+import { verifyPatientSession } from "@/lib/patient-session";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { normalizeJPPhone } from "@/lib/phone";
@@ -17,9 +18,15 @@ import { bankTransferShippingSchema } from "@/lib/validations/payment";
 export async function POST(req: NextRequest) {
   try {
     const tenantId = resolveTenantId(req);
+
+    // JWT患者セッション必須
+    const session = await verifyPatientSession(req);
+    if (!session) return unauthorized();
+    const patientId = session.patientId;
+
     const parsed = await parseBody(req, bankTransferShippingSchema);
     if ("error" in parsed) return parsed.error;
-    const { patientId, productCode, mode, reorderId, accountName, shippingName, phoneNumber, email, postalCode, address } = parsed.data;
+    const { productCode, mode, reorderId, accountName, shippingName, phoneNumber, email, postalCode, address } = parsed.data;
 
     // ★ NG患者は決済不可（statusがnullの再処方カルテを除外）
     {

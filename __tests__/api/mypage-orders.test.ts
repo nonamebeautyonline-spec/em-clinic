@@ -2,6 +2,7 @@
 // マイページ注文履歴API (app/api/mypage/orders/route.ts) のテスト
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import { verifyPatientSession } from "@/lib/patient-session";
 
 // ─── Cookieモック ───
 const _mockCookieStore = {
@@ -9,6 +10,12 @@ const _mockCookieStore = {
 };
 vi.mock("next/headers", () => ({
   cookies: vi.fn(() => Promise.resolve(_mockCookieStore)),
+}));
+
+vi.mock("@/lib/patient-session", () => ({
+  verifyPatientSession: vi.fn().mockResolvedValue({ patientId: "pid-001", lineUserId: "U123" }),
+  createPatientToken: vi.fn().mockResolvedValue("mock-jwt"),
+  patientSessionCookieOptions: vi.fn().mockReturnValue({ httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 31536000 }),
 }));
 
 // ─── Supabaseチェーンモック ───
@@ -74,6 +81,7 @@ describe("mypage/orders API (app/api/mypage/orders/route.ts)", () => {
   // === 認証テスト ===
   describe("認証", () => {
     it("patient_id Cookieなし → 401", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce(null);
       setupCookies(undefined);
       const req = createRequest();
       const res = await GET(req);
@@ -84,6 +92,7 @@ describe("mypage/orders API (app/api/mypage/orders/route.ts)", () => {
     });
 
     it("patient_id Cookie空文字 → 401", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce(null);
       _mockCookieStore.get.mockImplementation((name: string) => {
         if (name === "__Host-patient_id") return { value: "" };
         if (name === "patient_id") return { value: "" };
@@ -355,6 +364,7 @@ describe("mypage/orders API (app/api/mypage/orders/route.ts)", () => {
     });
 
     it("POST認証なし → 401", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce(null);
       setupCookies(undefined);
       const req = new NextRequest("http://localhost:3000/api/mypage/orders", {
         method: "POST",

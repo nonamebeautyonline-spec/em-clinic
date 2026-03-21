@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabase, supabaseAdmin } from "@/lib/supabase";
+import { verifyPatientSession } from "@/lib/patient-session";
 import { normalizeJPPhone } from "@/lib/phone";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { MERGE_TABLES } from "@/lib/merge-tables";
@@ -48,14 +49,9 @@ export async function POST(req: NextRequest) {
     if ("error" in parsed) return parsed.error;
     const body = parsed.data;
 
-    const patientId =
-      req.cookies.get("__Host-patient_id")?.value ||
-      req.cookies.get("patient_id")?.value ||
-      "";
-
-    if (!patientId) {
-      return unauthorized();
-    }
+    const session = await verifyPatientSession(req);
+    if (!session) return unauthorized();
+    const patientId = session.patientId;
 
     const answersObj = body.answers || {};
 

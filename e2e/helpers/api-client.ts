@@ -2,17 +2,24 @@
 // Playwright の APIRequestContext を使い、Cookie認証ベースで患者APIを呼び出す
 
 import { APIRequestContext } from "@playwright/test";
+import { SignJWT } from "jose";
 
 /** 患者APIのベースURL */
 const BASE_URL = "http://localhost:3000";
 
 /**
  * 患者IDをCookieに設定したリクエストヘッダーを生成
- * 患者APIは `__Host-patient_id` or `patient_id` Cookie で認証する
- * テスト環境ではHTTPSではないため `patient_id` を使用
+ * 患者APIは `patient_session` JWT Cookie で認証する
+ * 互換性のため旧 `patient_id` Cookie も送信する
  */
-function patientCookie(patientId: string): string {
-  return `patient_id=${patientId}`;
+async function patientCookie(patientId: string, lineUserId = "U_E2E_TEST"): Promise<string> {
+  const secret = process.env.PATIENT_SESSION_SECRET || "e2e-patient-secret-for-testing";
+  const jwt = await new SignJWT({ pid: patientId, lid: lineUserId, tid: null })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("365d")
+    .sign(new TextEncoder().encode(secret));
+  return `patient_session=${jwt}; patient_id=${patientId}`;
 }
 
 /**
@@ -29,9 +36,9 @@ export class PatientApiClient {
   ) {}
 
   /** Cookie付きの共通ヘッダー */
-  private headers() {
+  private async headers() {
     return {
-      Cookie: patientCookie(this.patientId),
+      Cookie: await patientCookie(this.patientId),
       "Content-Type": "application/json",
     };
   }
@@ -65,7 +72,7 @@ export class PatientApiClient {
     answerer_id?: string;
   }) {
     return this.request.post(`${BASE_URL}/api/intake`, {
-      headers: this.headers(),
+      headers: await this.headers(),
       data,
     });
   }
@@ -78,7 +85,7 @@ export class PatientApiClient {
     return this.request.get(
       `${BASE_URL}/api/intake?patient_id=${this.patientId}`,
       {
-        headers: this.headers(),
+        headers: await this.headers(),
       }
     );
   }
@@ -103,7 +110,7 @@ export class PatientApiClient {
    */
   async createReservation(data: { date: string; time: string }) {
     return this.request.post(`${BASE_URL}/api/reservations`, {
-      headers: this.headers(),
+      headers: await this.headers(),
       data: {
         type: "createReservation",
         date: data.date,
@@ -120,7 +127,7 @@ export class PatientApiClient {
    */
   async cancelReservation(reserveId: string) {
     return this.request.post(`${BASE_URL}/api/reservations`, {
-      headers: this.headers(),
+      headers: await this.headers(),
       data: {
         type: "cancelReservation",
         reserveId,
@@ -138,7 +145,7 @@ export class PatientApiClient {
     return this.request.get(
       `${BASE_URL}/api/reservations?date=${date}`,
       {
-        headers: this.headers(),
+        headers: await this.headers(),
       }
     );
   }
@@ -166,7 +173,7 @@ export class PatientApiClient {
     reorderId?: string;
   }) {
     return this.request.post(`${BASE_URL}/api/checkout`, {
-      headers: this.headers(),
+      headers: await this.headers(),
       data: {
         productCode: data.productCode,
         mode: data.mode || "first",

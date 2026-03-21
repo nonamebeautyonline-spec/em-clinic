@@ -4,19 +4,17 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { getActiveSquareAccount } from "@/lib/square-account-server";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { getCardDetails } from "@/lib/payment/square-inline";
+import { verifyPatientSession } from "@/lib/patient-session";
 
 export async function GET(req: NextRequest) {
   const tenantId = resolveTenantId(req);
   const tid = tenantId ?? undefined;
 
-  const patientId =
-    req.cookies.get("__Host-patient_id")?.value ||
-    req.cookies.get("patient_id")?.value ||
-    "";
-
-  if (!patientId) {
+  const session = await verifyPatientSession(req);
+  if (!session) {
     return NextResponse.json({ hasCard: false });
   }
+  const patientId = session.patientId;
 
   // patients テーブルから square_card_id を取得
   const { data: patient } = await withTenant(

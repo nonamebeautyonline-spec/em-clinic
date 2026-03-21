@@ -3,6 +3,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { verifyPatientSessionFromCookies } from "@/lib/patient-session";
 import VerifyInner from "./VerifyInner";
 
 export default async function MypageInitPage() {
@@ -18,11 +19,11 @@ export default async function MypageInitPage() {
   const headerStore = await headers();
   const tenantId = resolveTenantId({ headers: headerStore as unknown as Headers });
 
-  // cookie または line_user_id で患者IDを取得
-  let patientId = cookieStore.get("__Host-patient_id")?.value
-    || cookieStore.get("patient_id")?.value;
+  // JWT セッションまたは旧Cookieで患者IDを取得
+  const session = await verifyPatientSessionFromCookies(cookieStore);
+  let patientId = session?.patientId;
 
-  // cookie がない場合は line_user_id で検索
+  // セッションがない場合は line_user_id で検索（フォールバック）
   if (!patientId && lineUserId) {
     const { data: byLine } = await withTenant(
       supabaseAdmin

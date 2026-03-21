@@ -2,6 +2,7 @@
 // 再処方フロー統合テスト
 // 患者申請 → 管理者一覧取得 → 医師承認/却下 → カルテ生成の一連フローを検証
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { verifyPatientSession } from "@/lib/patient-session";
 
 // --- Supabaseチェーンモック型 ---
 type MockChain = Record<string, ReturnType<typeof vi.fn>> & {
@@ -151,6 +152,12 @@ vi.mock("@/lib/medical-fields", () => ({
 
 vi.mock("next/headers", () => ({
   cookies: mockCookies,
+}));
+
+vi.mock("@/lib/patient-session", () => ({
+  verifyPatientSession: vi.fn().mockResolvedValue({ patientId: "P-TEST-001", lineUserId: "U_LINE_TEST" }),
+  createPatientToken: vi.fn().mockResolvedValue("mock-jwt"),
+  patientSessionCookieOptions: vi.fn().mockReturnValue({ httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 31536000 }),
 }));
 
 vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve("{}") }));
@@ -613,6 +620,7 @@ describe("再処方フロー統合テスト", () => {
   // =============================================
   describe("認証チェック", () => {
     it("未認証の患者は申請できない（cookieなし）", async () => {
+      vi.mocked(verifyPatientSession).mockResolvedValueOnce(null as any);
       mockCookies.mockResolvedValue({
         get: () => undefined,
       });

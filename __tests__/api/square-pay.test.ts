@@ -76,6 +76,12 @@ vi.mock("@/lib/medical-fields", () => ({
   isMultiFieldEnabled: vi.fn().mockResolvedValue(false),
 }));
 
+vi.mock("@/lib/patient-session", () => ({
+  verifyPatientSession: vi.fn().mockResolvedValue({ patientId: "PID_001", lineUserId: "U123" }),
+  createPatientToken: vi.fn().mockResolvedValue("mock-jwt"),
+  patientSessionCookieOptions: vi.fn().mockReturnValue({ httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 31536000 }),
+}));
+
 // --- ルートインポート ---
 import { POST } from "@/app/api/square/pay/route";
 import { getActiveSquareAccount } from "@/lib/square-account-server";
@@ -85,6 +91,7 @@ import { createSquarePayment, ensureSquareCustomer, saveCardOnFile, markReorderP
 import { invalidateDashboardCache } from "@/lib/redis";
 import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { verifyPatientSession } from "@/lib/patient-session";
 
 function setTableChain(table: string, chain: Record<string, unknown>) {
   const g = globalThis as unknown as Record<string, Record<string, Record<string, unknown>>>;
@@ -254,6 +261,7 @@ describe("POST /api/square/pay", () => {
   });
 
   it("Cookie不一致で 403 エラー", async () => {
+    vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "WRONG_PID", lineUserId: "U999" });
     const res = await POST(createRequest(validBody, { patient_id: "WRONG_PID" }));
     const body = await res.json();
 

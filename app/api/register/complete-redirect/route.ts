@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { createPatientToken, patientSessionCookieOptions } from "@/lib/patient-session";
 
 export async function GET(req: NextRequest) {
   const tenantId = resolveTenantId(req);
@@ -23,8 +24,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/register", req.url));
   }
 
+  // JWT生成のためDBからline_idを取得
+  const { data: patientRow } = await withTenant(supabaseAdmin
+    .from("patients")
+    .select("line_id")
+    .eq("patient_id", pid), tenantId)
+    .maybeSingle();
+  const lineUserId = patientRow?.line_id || "";
+
   const res = NextResponse.redirect(new URL("/mypage", req.url));
 
+  // JWT患者セッション Cookie
+  if (lineUserId) {
+    const jwt = await createPatientToken(pid, lineUserId, tenantId ?? undefined);
+    res.cookies.set("patient_session", jwt, patientSessionCookieOptions());
+  }
+  // 旧Cookie（互換性維持）
   res.cookies.set("__Host-patient_id", pid, {
     httpOnly: true,
     secure: true,
@@ -32,7 +47,6 @@ export async function GET(req: NextRequest) {
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
   });
-
   res.cookies.set("patient_id", pid, {
     httpOnly: true,
     secure: true,

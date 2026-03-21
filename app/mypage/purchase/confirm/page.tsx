@@ -264,7 +264,6 @@ function PurchaseConfirmContent() {
         body: JSON.stringify({
           productCode: product.code,
           mode: modeParam,
-          patientId,
           reorderId: reorderIdParam ?? null,
         }),
       });

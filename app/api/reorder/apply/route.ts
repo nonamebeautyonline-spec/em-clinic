@@ -2,7 +2,7 @@
 // DB + LINE完結（GAS同期なし）
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, forbidden, serverError, unauthorized } from "@/lib/api-error";
-import { cookies } from "next/headers";
+import { verifyPatientSession } from "@/lib/patient-session";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
@@ -182,19 +182,10 @@ async function pushTextToAdminGroup(text: string, notifyToken: string, adminGrou
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const patientId =
-      cookieStore.get("__Host-patient_id")?.value ||
-      cookieStore.get("patient_id")?.value ||
-      "";
-    const lineUid =
-      cookieStore.get("__Host-line_user_id")?.value ||
-      cookieStore.get("line_user_id")?.value ||
-      "";
-
-    if (!patientId) {
-      return unauthorized();
-    }
+    const session = await verifyPatientSession(req);
+    if (!session) return unauthorized();
+    const patientId = session.patientId;
+    const lineUid = session.lineUserId;
 
     const tenantId = resolveTenantIdOrThrow(req);
     const tid = tenantId ?? undefined;

@@ -42,9 +42,16 @@ vi.mock("@/lib/payment/square-inline", () => ({
   getCardDetails: vi.fn(),
 }));
 
+vi.mock("@/lib/patient-session", () => ({
+  verifyPatientSession: vi.fn().mockResolvedValue({ patientId: "PID_001", lineUserId: "U123" }),
+  createPatientToken: vi.fn().mockResolvedValue("mock-jwt"),
+  patientSessionCookieOptions: vi.fn().mockReturnValue({ httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 31536000 }),
+}));
+
 import { GET } from "@/app/api/square/saved-card/route";
 import { getActiveSquareAccount } from "@/lib/square-account-server";
 import { getCardDetails } from "@/lib/payment/square-inline";
+import { verifyPatientSession } from "@/lib/patient-session";
 
 function setTableChain(table: string, chain: Record<string, unknown>) {
   (globalThis as Record<string, Record<string, Record<string, unknown>>>).__testTableChains[table] = chain;
@@ -73,7 +80,8 @@ describe("GET /api/square/saved-card", () => {
     });
   });
 
-  it("patient_id Cookie がない場合は hasCard: false", async () => {
+  it("セッションがない場合は hasCard: false", async () => {
+    vi.mocked(verifyPatientSession).mockResolvedValueOnce(null);
     const res = await GET(createRequest());
     const body = await res.json();
     expect(body.hasCard).toBe(false);

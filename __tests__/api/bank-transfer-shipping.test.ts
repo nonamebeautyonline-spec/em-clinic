@@ -56,6 +56,30 @@ vi.mock("@/lib/products", () => ({
   getProductNamesMap: vi.fn().mockResolvedValue({ "AGA-001": "AGA治療薬", "ED-001": "ED治療薬" }),
 }));
 
+vi.mock("@/lib/patient-session", () => ({
+  verifyPatientSession: vi.fn().mockResolvedValue({ patientId: "p1", lineUserId: "U123" }),
+  createPatientToken: vi.fn().mockResolvedValue("mock-jwt"),
+  patientSessionCookieOptions: vi.fn().mockReturnValue({ httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 31536000 }),
+}));
+
+vi.mock("@/lib/api-error", () => ({
+  forbidden: vi.fn((msg: string) => new Response(JSON.stringify({ ok: false, error: "FORBIDDEN", message: msg }), { status: 403 })),
+  serverError: vi.fn((msg: string) => new Response(JSON.stringify({ ok: false, error: "SERVER_ERROR", message: msg }), { status: 500 })),
+  unauthorized: vi.fn(() => new Response(JSON.stringify({ ok: false, error: "UNAUTHORIZED", message: "認証が必要です" }), { status: 401 })),
+}));
+
+vi.mock("@/lib/business-rules", () => ({
+  getBusinessRules: vi.fn().mockResolvedValue({}),
+}));
+
+vi.mock("@/lib/payment-thank-flex", () => ({
+  sendPaymentThankNotification: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/lib/line-push", () => ({
+  pushMessage: vi.fn().mockResolvedValue(undefined),
+}));
+
 // parseBody をモック
 vi.mock("@/lib/validations/helpers", () => ({
   parseBody: vi.fn(),

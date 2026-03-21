@@ -1,6 +1,7 @@
 // app/api/reservations/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { badRequest, conflict, serverError } from "@/lib/api-error";
+import { badRequest, conflict, serverError, unauthorized } from "@/lib/api-error";
+import { verifyPatientSession } from "@/lib/patient-session";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
 import {
@@ -669,10 +670,11 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
-    const patientId =
-      req.cookies.get("__Host-patient_id")?.value ||
-      req.cookies.get("patient_id")?.value ||
-      "";
+
+    // JWT患者セッション必須
+    const session = await verifyPatientSession(req);
+    if (!session) return unauthorized();
+    const patientId = session.patientId;
 
     const tenantId = resolveTenantIdOrThrow(req);
     const type = body?.type as string | undefined;
@@ -686,7 +688,7 @@ export async function POST(req: NextRequest) {
       if ("error" in validated) return validated.error;
       const date = validated.data.date || "";
       const time = validated.data.time || "";
-      const pid = validated.data.patient_id || patientId;
+      const pid = patientId; // JWT認証済みセッションのpatientIdのみ使用（bodyのpatient_idは無視）
       const createDoctorId = validated.data.doctor_id || "dr_default";
       const createSlotId = validated.data.slot_id || null;
       const createCourseId = validated.data.course_id || null;

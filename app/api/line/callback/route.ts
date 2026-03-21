@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { executeActionSteps } from "@/lib/lifecycle-actions";
+import { createPatientToken, patientSessionCookieOptions } from "@/lib/patient-session";
 
 const TOKEN_URL = "https://api.line.me/oauth2/v2.1/token";
 
@@ -193,8 +194,10 @@ export async function GET(req: NextRequest) {
     maxAge: 60 * 60 * 24 * 30,
   });
 
-  // patient_id cookie を常に更新（アカウント切替時に古い cookie が残る問題を防止）
+  // patient_session JWT Cookie を設定（旧Cookieも互換性のため維持）
   if (patientId) {
+    const jwt = await createPatientToken(patientId, lineUserId, tenantId ?? undefined);
+    res.cookies.set("patient_session", jwt, patientSessionCookieOptions());
     res.cookies.set("__Host-patient_id", patientId, {
       httpOnly: true,
       secure: true,
@@ -210,7 +213,8 @@ export async function GET(req: NextRequest) {
       maxAge: 60 * 60 * 24 * 365,
     });
   } else {
-    // 未知の患者 → 古い patient_id cookie をクリア（他人のデータ表示防止）
+    // 未知の患者 → Cookie をクリア（他人のデータ表示防止）
+    res.cookies.set("patient_session", "", { ...patientSessionCookieOptions(), maxAge: 0 });
     res.cookies.set("__Host-patient_id", "", {
       httpOnly: true,
       secure: true,

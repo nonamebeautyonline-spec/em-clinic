@@ -2,6 +2,7 @@
 // 再処方キャンセル API のテスト
 // 対象: app/api/reorder/cancel/route.ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { verifyPatientSession } from "@/lib/patient-session";
 
 import type { Mock } from "vitest";
 
@@ -61,6 +62,12 @@ vi.mock("next/headers", () => ({
   })),
 }));
 
+vi.mock("@/lib/patient-session", () => ({
+  verifyPatientSession: vi.fn().mockResolvedValue({ patientId: "p1", lineUserId: "U123" }),
+  createPatientToken: vi.fn().mockResolvedValue("mock-jwt"),
+  patientSessionCookieOptions: vi.fn().mockReturnValue({ httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 31536000 }),
+}));
+
 function createMockRequest(method: string, url: string, body?: Record<string, unknown>) {
   return {
     method,
@@ -91,6 +98,7 @@ describe("再処方キャンセルAPI (reorder/cancel/route.ts)", () => {
   // 認証テスト（Cookie）
   // ========================================
   it("patient_id Cookie なし → 401", async () => {
+    vi.mocked(verifyPatientSession).mockResolvedValueOnce(null as any);
     mockCookies = {}; // クッキーなし
     const req = createMockRequest("POST", "http://localhost/api/reorder/cancel");
     const res = await POST(req);

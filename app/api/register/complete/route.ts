@@ -10,6 +10,7 @@ import { getSettingOrEnv } from "@/lib/settings";
 import { MERGE_TABLES } from "@/lib/merge-tables";
 import { parseBody } from "@/lib/validations/helpers";
 import { registerCompleteSchema } from "@/lib/validations/register";
+import { createPatientToken, patientSessionCookieOptions } from "@/lib/patient-session";
 
 export async function POST(req: NextRequest) {
   try {
@@ -299,6 +300,10 @@ export async function POST(req: NextRequest) {
     // ============================================================
     const res = NextResponse.json({ ok: true }, { status: 200 });
 
+    // JWT患者セッション Cookie
+    const jwt = await createPatientToken(pid, lineUserId, tenantId ?? undefined);
+    res.cookies.set("patient_session", jwt, patientSessionCookieOptions());
+    // 旧Cookie（互換性維持）
     res.cookies.set("__Host-patient_id", pid, {
       httpOnly: true,
       secure: true,
@@ -306,7 +311,6 @@ export async function POST(req: NextRequest) {
       path: "/",
       maxAge: 60 * 60 * 24 * 365,
     });
-
     res.cookies.set("patient_id", pid, {
       httpOnly: true,
       secure: true,

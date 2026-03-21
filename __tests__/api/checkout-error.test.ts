@@ -43,6 +43,16 @@ vi.mock("@/lib/validations/checkout", () => ({
   checkoutSchema: {},
 }));
 
+vi.mock("@/lib/patient-session", () => ({
+  verifyPatientSession: vi.fn().mockResolvedValue({ patientId: "patient-err", lineUserId: "U123" }),
+  createPatientToken: vi.fn().mockResolvedValue("mock-jwt"),
+  patientSessionCookieOptions: vi.fn().mockReturnValue({ httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 31536000 }),
+}));
+
+vi.mock("@/lib/medical-fields", () => ({
+  isMultiFieldEnabled: vi.fn().mockResolvedValue(false),
+}));
+
 const mockGetSettingOrEnv = vi.fn().mockResolvedValue("https://example.com");
 vi.mock("@/lib/settings", () => ({
   getSettingOrEnv: (...args: unknown[]) => mockGetSettingOrEnv(...args),

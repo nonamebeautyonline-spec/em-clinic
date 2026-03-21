@@ -2,8 +2,9 @@
 "use server";
 
 import { NextRequest, NextResponse } from "next/server";
-import { badRequest, forbidden, serverError } from "@/lib/api-error";
+import { badRequest, forbidden, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
+import { verifyPatientSession } from "@/lib/patient-session";
 import { getProductByCode } from "@/lib/products";
 import { getPaymentProvider } from "@/lib/payment";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -22,9 +23,14 @@ export async function POST(req: NextRequest) {
       return serverError("サーバー設定エラーです。管理者にお問い合わせください。");
     }
 
+    // JWT患者セッション必須
+    const session = await verifyPatientSession(req);
+    if (!session) return unauthorized();
+    const patientId = session.patientId;
+
     const parsed = await parseBody(req, checkoutSchema);
     if ("error" in parsed) return parsed.error;
-    const { productCode, mode, patientId, reorderId } = parsed.data;
+    const { productCode, mode, reorderId } = parsed.data;
 
     // ★ NG患者は決済不可（statusがnullの再処方カルテを除外）
     // マルチ分野モード: 商品の分野で NG 判定を分離
