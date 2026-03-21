@@ -1,7 +1,7 @@
 // app/intake/page.tsx
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { IntakeFormField, IntakeFormSettings } from "@/lib/intake-form-defaults";
@@ -89,7 +89,7 @@ function CheckErrorUI({
   );
 }
 
-export default function IntakePage() {
+function IntakePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const fieldId = searchParams.get("fieldId");
@@ -506,5 +506,13 @@ const runPidCheck = useCallback(async () => {
         </button>
       </footer>
     </div>
+  );
+}
+
+export default function IntakePage() {
+  return (
+    <Suspense fallback={<CheckingUI />}>
+      <IntakePageInner />
+    </Suspense>
   );
 }
