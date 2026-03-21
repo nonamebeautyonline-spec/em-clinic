@@ -574,8 +574,9 @@ export default function AboutPage() {
             <Link href="/lp" className="text-[12px] text-slate-400 hover:text-white transition">製品トップ</Link>
             <Link href="/lp/features" className="text-[12px] text-slate-400 hover:text-white transition">機能一覧</Link>
             <Link href="/lp/column" className="text-[12px] text-slate-400 hover:text-white transition">コラム</Link>
+            <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="text-[12px] text-slate-400 hover:text-white transition">運営会社</a>
           </div>
-          <p className="text-[11px] text-slate-500">&copy; 2026 Lオペ for CLINIC</p>
+          <p className="text-[11px] text-slate-500">&copy; 2026 株式会社ORDIX</p>
         </div>
       </footer>
     </div>

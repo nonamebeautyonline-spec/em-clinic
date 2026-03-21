@@ -333,6 +333,7 @@ export default function ColumnIndex() {
               <Link href="/lp/about" className="text-[13px] text-gray-400 hover:text-blue-600 transition">Lオペとは</Link>
               <Link href="/lp/features" className="text-[13px] text-gray-400 hover:text-blue-600 transition">機能一覧</Link>
               <Link href="/lp/column" className="text-[13px] text-blue-600 font-medium">コラム</Link>
+              <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="text-[13px] text-gray-400 hover:text-blue-600 transition">運営会社</a>
             </div>
           </div>
         </div>

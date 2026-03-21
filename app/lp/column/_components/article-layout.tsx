@@ -353,8 +353,11 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
             <Link href="/lp/about" className="text-[12px] text-slate-400 hover:text-white transition">
               Lオペとは
             </Link>
+            <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="text-[12px] text-slate-400 hover:text-white transition">
+              運営会社
+            </a>
           </div>
-          <p className="mt-6 text-[11px] text-slate-500">&copy; {new Date().getFullYear()} Lオペ for CLINIC. All rights reserved.</p>
+          <p className="mt-6 text-[11px] text-slate-500">&copy; {new Date().getFullYear()} 株式会社ORDIX. All rights reserved.</p>
         </div>
       </footer>
     </div>

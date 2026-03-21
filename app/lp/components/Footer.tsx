@@ -25,6 +25,7 @@ export function Footer() {
             <Link href="/lp/features" className="hover:text-white">機能一覧</Link>
             <Link href="/lp/column" className="hover:text-white">コラム</Link>
             <a href="/lp/contact" className="hover:text-white">お問い合わせ</a>
+            <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="hover:text-white">運営会社</a>
           </nav>
         </div>
         <div className="mt-7 flex flex-col items-center justify-between gap-3 border-t border-slate-800 pt-7 text-[11px] md:flex-row">

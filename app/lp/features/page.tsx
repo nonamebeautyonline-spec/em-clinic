@@ -383,6 +383,7 @@ export default function FeaturesPage() {
           <Link href="/lp/about" className="hover:text-blue-600 transition">Lオペとは</Link>
           <Link href="/lp/column" className="hover:text-blue-600 transition">コラム</Link>
           <Link href="/lp/contact" className="hover:text-blue-600 transition">お問い合わせ</Link>
+          <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 transition">運営会社</a>
         </div>
       </footer>
     </div>
