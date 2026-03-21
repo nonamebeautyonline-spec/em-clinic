@@ -19,7 +19,7 @@ export default function Strengths() {
         <h2 className="mb-5 text-[1.7rem] font-extrabold leading-snug tracking-tight text-white md:text-4xl">Lオペ for CLINIC が選ばれる<br className="md:hidden" />4つの理由</h2>
         <p className="mx-auto mb-16 max-w-2xl text-[14px] leading-relaxed text-slate-400">院長と事務スタッフ1人だけで、カルテ・予約・LINE配信・CRM・決済・配送まですべて回せる。複数ツールの契約も追加人員も不要にする「少人数クリニック起点」の設計思想が、Lオペ最大の差別化です。</p>
       </div>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {cards.map((s, i) => (
           <SlideIn key={s.num} from={i % 2 === 0 ? "left" : "right"} delay={i * 0.1}>
             <div className="rounded-2xl border border-slate-700/50 bg-slate-800/40 p-7 backdrop-blur">
