@@ -23,7 +23,7 @@ export default function LPPage() {
       <Nav />
       <main id="main-content">
         {/* パンくずリスト（視覚表示） */}
-        <nav aria-label="パンくずリスト" className="mx-auto max-w-6xl px-5 pt-[72px] pb-0">
+        <nav aria-label="パンくずリスト" className="mx-auto max-w-6xl px-5 pt-[90px] md:pt-[72px] pb-0">
           <ol className="flex items-center gap-1.5 text-[11px] text-slate-400 list-none m-0 p-0">
             <li><a href="https://l-ope.jp" className="hover:text-blue-600 transition">ホーム</a></li>
             <li aria-hidden="true">/</li>

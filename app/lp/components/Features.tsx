@@ -182,7 +182,7 @@ export default function Features() {
           <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-14">
             <div className="w-full lg:w-[58%]">
               <MockWindow title="LINE管理 — 個別トーク">
-                <div className="flex gap-0 divide-x divide-slate-100" style={{ minHeight: 280 }}>
+                <div className="flex gap-0 divide-x divide-slate-100" style={{ minHeight: 280, minWidth: 520 }}>
                   {/* 友だちリスト */}
                   <div className="w-36 shrink-0 space-y-1 pr-3">
                     <input className="mb-2 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10px] placeholder:text-slate-300" placeholder="検索..." readOnly />

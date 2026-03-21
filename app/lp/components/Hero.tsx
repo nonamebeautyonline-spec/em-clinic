@@ -10,7 +10,7 @@ export default function Hero() {
       {/* 背景blobを浮遊アニメーション化 */}
       <AnimatedBlob className="-top-40 right-0" color="bg-blue-100/40" size={500} />
       <AnimatedBlob className="-bottom-60 -left-40" color="bg-sky-100/30" size={600} />
-      <div className="relative mx-auto max-w-6xl px-5 pt-16 pb-20 md:pt-24 md:pb-28">
+      <div className="relative mx-auto max-w-6xl px-5 pt-20 pb-20 md:pt-24 md:pb-28">
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
           <div>
             <FadeIn>
