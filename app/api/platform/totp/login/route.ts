@@ -118,7 +118,6 @@ export async function POST(req: NextRequest) {
     });
 
     // JWTトークン生成（既存のログインAPIと同じ処理）
-    const ip = getClientIp(req);
     const secret = new TextEncoder().encode(JWT_SECRET);
     const expiresAt = new Date(Date.now() + SESSION_DURATION_SECONDS * 1000);
 
