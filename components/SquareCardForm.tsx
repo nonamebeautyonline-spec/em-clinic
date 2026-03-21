@@ -88,7 +88,9 @@ export default function SquareCardForm({
             return;
           }
           const payments = await window.Square.payments(applicationId, locationId);
-          const card = await payments.card({ postalCode: "0000000" });
+          // ZIPフィールド非表示（日本ではAVS不要）
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const card = await (payments.card as (opts?: any) => Promise<any>)({ postalCode: "0000000" });
           await card.attach(node);
           cardRef.current = card;
           setLoading(false);
