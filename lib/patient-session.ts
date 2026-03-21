@@ -79,11 +79,10 @@ export async function verifyPatientSession(
       const pid = payload.pid as string | undefined;
       const lid = payload.lid as string | undefined;
       if (pid && lid) {
-        console.log(`[patient-session] JWT認証成功: pid=${pid}`);
         return { patientId: pid, lineUserId: lid };
       }
     } catch {
-      console.log(`[patient-session] JWT検証失敗 → フォールバックへ`);
+      // JWT検証失敗 → フォールバックへ
     }
   }
 
@@ -92,7 +91,6 @@ export async function verifyPatientSession(
   const lineUserId = findCookieValue(req, LEGACY_LINE_UID_COOKIES);
   if (!patientId || !lineUserId) return null;
 
-  console.log(`[patient-session] フォールバック: pid=${patientId}`);
   // DB照合: patient_id + line_id の一致を確認（改ざん検出）
   const { data } = await supabaseAdmin
     .from("patients")
