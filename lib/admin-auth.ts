@@ -5,6 +5,7 @@ import { NextRequest } from "next/server";
 import { jwtVerify, type JWTPayload } from "jose";
 import { validateSession, hashToken } from "@/lib/session";
 import { getSessionCache, setSessionCache } from "@/lib/redis";
+import crypto from "crypto";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN;
 if (!JWT_SECRET) {
@@ -51,15 +52,23 @@ export async function verifyAdminAuth(request: NextRequest): Promise<boolean> {
     }
   }
 
-  // 3. Basic認証（Dr用）
+  // 3. Basic認証（Dr用）— タイミングセーフ比較
   if (authHeader?.startsWith("Basic ")) {
     const drUser = process.env.DR_BASIC_USER;
     const drPass = process.env.DR_BASIC_PASS;
     if (drUser && drPass) {
       const decoded = Buffer.from(authHeader.substring(6), "base64").toString();
-      const [u, p] = decoded.split(":");
-      if (u === drUser && p === drPass) {
-        return true;
+      const colonIdx = decoded.indexOf(":");
+      if (colonIdx > 0) {
+        const u = decoded.slice(0, colonIdx);
+        const p = decoded.slice(colonIdx + 1);
+        const userMatch = u.length === drUser.length &&
+          crypto.timingSafeEqual(Buffer.from(u), Buffer.from(drUser));
+        const passMatch = p.length === drPass.length &&
+          crypto.timingSafeEqual(Buffer.from(p), Buffer.from(drPass));
+        if (userMatch && passMatch) {
+          return true;
+        }
       }
     }
   }

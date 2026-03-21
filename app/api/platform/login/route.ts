@@ -19,7 +19,10 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
+const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET または ADMIN_TOKEN 環境変数が未設定です");
+}
 
 // セッション有効期限: 24時間
 const SESSION_DURATION_SECONDS = 24 * 60 * 60;

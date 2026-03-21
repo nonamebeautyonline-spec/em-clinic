@@ -2,14 +2,14 @@
 // ログイン時に2FAが有効な場合、pendingTotpToken + TOTPコードで最終認証
 // 認証不要（pendingTotpTokenで検証）
 import { NextRequest, NextResponse } from "next/server";
-import { badRequest, serverError } from "@/lib/api-error";
+import { badRequest, serverError, tooManyRequests } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { SignJWT } from "jose";
 import { verifyTOTP } from "@/lib/totp";
 import { decrypt } from "@/lib/crypto";
 import { logAudit } from "@/lib/audit";
 import { createSession } from "@/lib/session";
-import { getClientIp } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { redis } from "@/lib/redis";
 import { parseBody } from "@/lib/validations/helpers";
 import { totpLoginSchema } from "@/lib/validations/platform";
@@ -19,7 +19,10 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
+const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET または ADMIN_TOKEN 環境変数が未設定です");
+}
 
 // セッション有効期限: 24時間
 const SESSION_DURATION_SECONDS = 24 * 60 * 60;
@@ -44,6 +47,16 @@ export async function POST(req: NextRequest) {
         { ok: false, error: "認証セッションが期限切れです。再度ログインしてください。" },
         { status: 401 }
       );
+    }
+
+    // TOTP検証のレート制限（ブルートフォース対策: 5回/5分）
+    const ip = getClientIp(req);
+    const [userLimit, ipLimit] = await Promise.all([
+      checkRateLimit(`totp-verify:user:${userId}`, 5, 300),
+      checkRateLimit(`totp-verify:ip:${ip}`, 10, 300),
+    ]);
+    if (!userLimit.allowed || !ipLimit.allowed) {
+      return tooManyRequests();
     }
 
     // ユーザー情報を取得
