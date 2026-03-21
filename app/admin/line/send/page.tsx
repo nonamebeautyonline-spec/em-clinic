@@ -8,6 +8,7 @@ import {
   type StepCondition,
   type TagDef,
   type MarkDef,
+  type ProductDef,
 } from "../_components/ConditionBuilder";
 
 interface Template {
@@ -38,6 +39,14 @@ interface FilterCondition {
   // 行動データフィルタ用（API送信形式）
   value_end?: string;
   date_range?: string;
+  // 最終決済日フィルタ用
+  payment_date_from?: string;
+  payment_date_to?: string;
+  // 商品購入履歴フィルタ用
+  product_codes?: string[];
+  product_match?: string;
+  product_date_from?: string;
+  product_date_to?: string;
 }
 
 interface Broadcast {
@@ -71,10 +80,12 @@ export default function BroadcastSendPage() {
   const { data: broadcastData, isLoading: loadingHistory } = useSWR<{ broadcasts: Broadcast[] }>("/api/admin/line/broadcast");
   const { data: segData } = useSWR<{ segments: { id: string; name: string; includeConditions: FilterCondition[]; excludeConditions: FilterCondition[]; created_at: string }[] }>("/api/admin/line/segments");
   const { data: testAccountData } = useSWR<{ accounts?: { patient_id: string; patient_name: string; has_line_uid: boolean }[]; patient_id?: string; patient_name?: string; has_line_uid?: boolean }>("/api/admin/line/test-account");
+  const { data: productsData } = useSWR<{ products: { code: string; title: string }[] }>("/api/admin/products");
 
   const tags = tagsData?.tags ?? [];
   const marks = marksData?.marks ?? [];
   const templates = templatesData?.templates ?? [];
+  const products: ProductDef[] = (productsData?.products ?? []).map(p => ({ code: p.code, title: p.title }));
 
   // 一斉配信フィルタ
   const [includeConditions, setIncludeConditions] = useState<FilterCondition[]>([]);
@@ -215,7 +226,7 @@ export default function BroadcastSendPage() {
         return { type: "field", field_id: rule.field_id, operator: rule.field_operator, value: rule.field_value };
       }
       // 行動データ条件: behavior_* → API用の operator/value/value_end/date_range に変換
-      if (rule.type === "visit_count" || rule.type === "purchase_amount" || rule.type === "reorder_count") {
+      if (rule.type === "reorder_count") {
         return {
           type: rule.type,
           operator: rule.behavior_operator || ">=",
@@ -224,11 +235,20 @@ export default function BroadcastSendPage() {
           date_range: rule.behavior_date_range || "all",
         };
       }
-      if (rule.type === "last_visit") {
+      if (rule.type === "last_payment_date") {
         return {
-          type: "last_visit",
-          operator: rule.behavior_operator || "within_days",
-          value: rule.behavior_value || "30",
+          type: "last_payment_date",
+          payment_date_from: rule.payment_date_from || "",
+          payment_date_to: rule.payment_date_to || "",
+        };
+      }
+      if (rule.type === "product_purchase") {
+        return {
+          type: "product_purchase",
+          product_codes: rule.product_codes || [],
+          product_match: rule.product_match || "purchased",
+          product_date_from: rule.product_date_from || "",
+          product_date_to: rule.product_date_to || "",
         };
       }
       if (rule.type === "intake_status" || rule.type === "reservation_status") {
@@ -252,7 +272,7 @@ export default function BroadcastSendPage() {
         return { type: "mark" as const, mark_values: c.values || [], mark_match: (c.mark_match || "any_match") as ConditionRule["mark_match"] };
       }
       // 行動データ条件: API用の operator/value → behavior_* に逆変換
-      if (c.type === "visit_count" || c.type === "purchase_amount" || c.type === "reorder_count") {
+      if (c.type === "reorder_count") {
         return {
           type: c.type as ConditionRule["type"],
           behavior_operator: c.operator || ">=",
@@ -261,11 +281,20 @@ export default function BroadcastSendPage() {
           behavior_date_range: c.date_range || "all",
         };
       }
-      if (c.type === "last_visit") {
+      if (c.type === "last_payment_date") {
         return {
-          type: "last_visit" as const,
-          behavior_operator: c.operator || "within_days",
-          behavior_value: c.value || "30",
+          type: "last_payment_date" as const,
+          payment_date_from: c.payment_date_from || "",
+          payment_date_to: c.payment_date_to || "",
+        };
+      }
+      if (c.type === "product_purchase") {
+        return {
+          type: "product_purchase" as const,
+          product_codes: c.product_codes || [],
+          product_match: (c.product_match || "purchased") as "purchased" | "not_purchased",
+          product_date_from: c.product_date_from || "",
+          product_date_to: c.product_date_to || "",
         };
       }
       if (c.type === "intake_status" || c.type === "reservation_status") {
@@ -456,9 +485,8 @@ export default function BroadcastSendPage() {
     const condLabel = (c: FilterCondition): string => {
       const TYPE_LABELS: Record<string, string> = {
         tag: "タグ", mark: "対応マーク", name: "名前", registered_date: "登録日",
-        field: "カスタムフィールド", visit_count: "来院回数", purchase_amount: "購入金額",
-        last_visit: "最終来院日", reorder_count: "再処方回数",
-        intake_status: "診察ステータス", reservation_status: "予約ステータス",
+        field: "カスタムフィールド", last_payment_date: "最終決済日", product_purchase: "商品購入履歴",
+        reorder_count: "再処方回数", intake_status: "診察ステータス", reservation_status: "予約ステータス",
       };
       const label = TYPE_LABELS[c.type] || c.type;
       if (c.type === "intake_status") {
@@ -468,7 +496,20 @@ export default function BroadcastSendPage() {
       if (c.type === "reservation_status") {
         return `${label}: ${c.value === "has" ? "予約あり（今日以降）" : "未予約"}`;
       }
-      if (c.type === "visit_count" || c.type === "purchase_amount" || c.type === "reorder_count") {
+      if (c.type === "last_payment_date") {
+        const from = c.payment_date_from || "";
+        const to = c.payment_date_to || "";
+        if (from && to) return `${label} ${from}〜${to}`;
+        if (from) return `${label} ${from}以降`;
+        if (to) return `${label} ${to}以前`;
+        return label;
+      }
+      if (c.type === "product_purchase") {
+        const count = (c.product_codes || []).length;
+        const action = c.product_match === "not_purchased" ? "未購入" : "購入済み";
+        return `${label} ${count}商品 ${action}`;
+      }
+      if (c.type === "reorder_count") {
         return `${label} ${c.operator || ""} ${c.value || ""}`;
       }
       if (c.type === "registered_date") {
@@ -1213,6 +1254,7 @@ export default function BroadcastSendPage() {
           }}
           tags={tags}
           marks={marks}
+          products={products}
           onSave={handleConditionModalSave}
           onClose={() => setShowConditionModal(null)}
         />

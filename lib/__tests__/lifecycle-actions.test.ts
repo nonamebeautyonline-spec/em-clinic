@@ -541,7 +541,7 @@ describe("evaluateConditionRules", () => {
     });
 
     it("未対応の条件タイプ → true（スキップ）", () => {
-      const rules = [{ type: "visit_count" as const }] as ConditionRule[];
+      const rules = [{ type: "last_payment_date" as const }] as ConditionRule[];
       expect(evaluateConditionRules(rules, ctx)).toBe(true);
     });
 

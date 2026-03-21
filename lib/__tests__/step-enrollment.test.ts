@@ -36,11 +36,11 @@ vi.mock("@/lib/tenant", () => ({
 
 // behavior-filters モック
 vi.mock("@/lib/behavior-filters", () => ({
-  getVisitCounts: vi.fn(async () => new Map()),
-  getPurchaseAmounts: vi.fn(async () => new Map()),
-  getLastVisitDates: vi.fn(async () => new Map()),
+  getLastPaymentDates: vi.fn(async () => new Map()),
   getReorderCounts: vi.fn(async () => new Map()),
+  getProductPurchasePatients: vi.fn(async () => new Set()),
   matchBehaviorCondition: vi.fn(() => true),
+  matchLastPaymentDate: vi.fn(() => true),
 }));
 
 import {
@@ -55,11 +55,11 @@ import {
 } from "@/lib/step-enrollment";
 
 import {
-  getVisitCounts,
-  getPurchaseAmounts,
-  getLastVisitDates,
+  getLastPaymentDates,
   getReorderCounts,
+  getProductPurchasePatients,
   matchBehaviorCondition,
+  matchLastPaymentDate,
 } from "@/lib/behavior-filters";
 
 beforeEach(() => {
@@ -665,28 +665,20 @@ describe("evaluateStepConditions", () => {
     expect(result).toBe(true);
   });
 
-  it("visit_count 条件: matchBehaviorCondition がtrueならtrue", async () => {
-    vi.mocked(getVisitCounts).mockResolvedValue(new Map([["patient-1", 3]]));
-    vi.mocked(matchBehaviorCondition).mockReturnValue(true);
+  it("last_payment_date 条件: matchLastPaymentDate がtrueならtrue", async () => {
+    vi.mocked(getLastPaymentDates).mockResolvedValue(new Map([["patient-1", "2026-02-20T10:00:00Z"]]));
+    vi.mocked(matchLastPaymentDate).mockReturnValue(true);
 
-    const rules = [{ type: "visit_count", behavior_operator: ">=", behavior_value: "2" }];
+    const rules = [{ type: "last_payment_date", payment_date_from: "2026-01-01", payment_date_to: "2026-12-31" }];
     const result = await evaluateStepConditions(rules, "patient-1", "test-tenant");
     expect(result).toBe(true);
   });
 
-  it("purchase_amount 条件: 購入額が条件を満たせばtrue", async () => {
-    vi.mocked(getPurchaseAmounts).mockResolvedValue(new Map([["patient-1", 50000]]));
-    vi.mocked(matchBehaviorCondition).mockReturnValue(true);
+  it("last_payment_date 条件: 決済日なし → false", async () => {
+    vi.mocked(getLastPaymentDates).mockResolvedValue(new Map([["patient-1", null]]));
+    vi.mocked(matchLastPaymentDate).mockReturnValue(false);
 
-    const rules = [{ type: "purchase_amount", behavior_operator: ">=", behavior_value: "30000" }];
-    const result = await evaluateStepConditions(rules, "patient-1", "test-tenant");
-    expect(result).toBe(true);
-  });
-
-  it("last_visit 条件: 来院日なし → false", async () => {
-    vi.mocked(getLastVisitDates).mockResolvedValue(new Map());
-
-    const rules = [{ type: "last_visit", behavior_operator: "within_days", behavior_value: "30" }];
+    const rules = [{ type: "last_payment_date", payment_date_from: "2026-01-01" }];
     const result = await evaluateStepConditions(rules, "patient-1", "test-tenant");
     expect(result).toBe(false);
   });
@@ -732,6 +724,33 @@ describe("evaluateStepConditions", () => {
       { type: "tag", tag_ids: [1], tag_match: "any_include" },
       { type: "mark", mark_values: ["hot", "warm"] },
     ];
+    const result = await evaluateStepConditions(rules, "patient-1", "test-tenant");
+    expect(result).toBe(true);
+  });
+
+  it("product_purchase: 購入済み → true", async () => {
+    vi.mocked(getProductPurchasePatients).mockResolvedValueOnce(new Set(["patient-1"]));
+    const rules = [{ type: "product_purchase", product_codes: ["PROD-A"], product_match: "purchased" }];
+    const result = await evaluateStepConditions(rules, "patient-1", "test-tenant");
+    expect(result).toBe(true);
+  });
+
+  it("product_purchase: 未購入 → true", async () => {
+    vi.mocked(getProductPurchasePatients).mockResolvedValueOnce(new Set());
+    const rules = [{ type: "product_purchase", product_codes: ["PROD-A"], product_match: "not_purchased" }];
+    const result = await evaluateStepConditions(rules, "patient-1", "test-tenant");
+    expect(result).toBe(true);
+  });
+
+  it("product_purchase: 購入済みだが未購入を要求 → false", async () => {
+    vi.mocked(getProductPurchasePatients).mockResolvedValueOnce(new Set(["patient-1"]));
+    const rules = [{ type: "product_purchase", product_codes: ["PROD-A"], product_match: "not_purchased" }];
+    const result = await evaluateStepConditions(rules, "patient-1", "test-tenant");
+    expect(result).toBe(false);
+  });
+
+  it("product_purchase: 空のproduct_codes → true（スキップ）", async () => {
+    const rules = [{ type: "product_purchase", product_codes: [] }];
     const result = await evaluateStepConditions(rules, "patient-1", "test-tenant");
     expect(result).toBe(true);
   });

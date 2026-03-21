@@ -18,11 +18,10 @@ vi.mock("@/lib/tenant", () => ({
 }));
 
 vi.mock("@/lib/behavior-filters", () => ({
-  getVisitCounts: vi.fn().mockResolvedValue(new Map()),
-  getPurchaseAmounts: vi.fn().mockResolvedValue(new Map()),
-  getLastVisitDates: vi.fn().mockResolvedValue(new Map()),
+  getLastPaymentDates: vi.fn().mockResolvedValue(new Map()),
   getReorderCounts: vi.fn().mockResolvedValue(new Map()),
   matchBehaviorCondition: vi.fn().mockReturnValue(false),
+  matchLastPaymentDate: vi.fn().mockReturnValue(false),
 }));
 
 // Supabase モックチェーン（テーブル名ベースで分岐可能）

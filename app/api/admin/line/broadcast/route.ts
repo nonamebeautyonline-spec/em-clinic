@@ -5,8 +5,8 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import {
-  getVisitCounts, getPurchaseAmounts, getLastVisitDates, getReorderCounts,
-  matchBehaviorCondition
+  getLastPaymentDates, getReorderCounts, getProductPurchasePatients,
+  matchBehaviorCondition, matchLastPaymentDate
 } from "@/lib/behavior-filters";
 import { parseBody } from "@/lib/validations/helpers";
 import { broadcastSchema } from "@/lib/validations/line-broadcast";
@@ -39,6 +39,14 @@ interface FilterCondition {
   // 行動データフィルタ用
   value_end?: string;
   date_range?: string;
+  // 最終決済日フィルタ用
+  payment_date_from?: string;
+  payment_date_to?: string;
+  // 商品購入履歴フィルタ用
+  product_codes?: string[];
+  product_match?: string;
+  product_date_from?: string;
+  product_date_to?: string;
 }
 
 interface FilterRules {
@@ -359,43 +367,36 @@ async function applyCondition(
       return targets.filter(t => !t.line_id);
     }
 
-    case "visit_count": {
+    case "last_payment_date": {
       const pids = targets.map(t => t.patient_id);
-      const counts = await getVisitCounts(pids, condition.date_range, tenantId);
-      const matchSet = new Set<string>();
-      for (const [pid, count] of counts) {
-        if (matchBehaviorCondition(count, condition.operator || ">=", condition.value || "0", condition.value_end)) {
-          matchSet.add(pid);
-        }
-      }
-      if (isInclude) return targets.filter(t => matchSet.has(t.patient_id));
-      return targets.filter(t => !matchSet.has(t.patient_id));
-    }
-
-    case "purchase_amount": {
-      const pids = targets.map(t => t.patient_id);
-      const amounts = await getPurchaseAmounts(pids, condition.date_range, tenantId);
-      const matchSet = new Set<string>();
-      for (const [pid, amount] of amounts) {
-        if (matchBehaviorCondition(amount, condition.operator || ">=", condition.value || "0", condition.value_end)) {
-          matchSet.add(pid);
-        }
-      }
-      if (isInclude) return targets.filter(t => matchSet.has(t.patient_id));
-      return targets.filter(t => !matchSet.has(t.patient_id));
-    }
-
-    case "last_visit": {
-      const pids = targets.map(t => t.patient_id);
-      const dates = await getLastVisitDates(pids, tenantId);
+      const dates = await getLastPaymentDates(pids, tenantId);
       const matchSet = new Set<string>();
       for (const [pid, date] of dates) {
-        if (date && matchBehaviorCondition(date, condition.operator || "within_days", condition.value || "30")) {
+        if (matchLastPaymentDate(date, condition.payment_date_from, condition.payment_date_to)) {
           matchSet.add(pid);
         }
       }
       if (isInclude) return targets.filter(t => matchSet.has(t.patient_id));
       return targets.filter(t => !matchSet.has(t.patient_id));
+    }
+
+    case "product_purchase": {
+      const pids = targets.map(t => t.patient_id);
+      const codes = condition.product_codes || [];
+      if (codes.length === 0) return targets; // 商品未選択 → フィルタしない
+      const purchasedSet = await getProductPurchasePatients(
+        pids, codes, tenantId, condition.product_date_from || undefined, condition.product_date_to || undefined
+      );
+      const isPurchased = (condition.product_match || "purchased") === "purchased";
+      if (isInclude) {
+        return isPurchased
+          ? targets.filter(t => purchasedSet.has(t.patient_id))
+          : targets.filter(t => !purchasedSet.has(t.patient_id));
+      }
+      // exclude の場合: isInclude=false → 条件にマッチした人を除外
+      return isPurchased
+        ? targets.filter(t => !purchasedSet.has(t.patient_id))
+        : targets.filter(t => purchasedSet.has(t.patient_id));
     }
 
     case "reorder_count": {

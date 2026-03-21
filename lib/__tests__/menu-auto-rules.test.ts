@@ -268,20 +268,18 @@ const {
   mockGetSetting,
   mockSetSetting,
   mockGetSettingOrEnv,
-  mockGetVisitCounts,
-  mockGetPurchaseAmounts,
-  mockGetLastVisitDates,
+  mockGetLastPaymentDates,
   mockGetReorderCounts,
   mockMatchBehaviorCondition,
+  mockMatchLastPaymentDate,
 } = vi.hoisted(() => ({
   mockGetSetting: vi.fn(),
   mockSetSetting: vi.fn(),
   mockGetSettingOrEnv: vi.fn(),
-  mockGetVisitCounts: vi.fn(),
-  mockGetPurchaseAmounts: vi.fn(),
-  mockGetLastVisitDates: vi.fn(),
+  mockGetLastPaymentDates: vi.fn(),
   mockGetReorderCounts: vi.fn(),
   mockMatchBehaviorCondition: vi.fn(),
+  mockMatchLastPaymentDate: vi.fn(),
 }));
 
 // --- モック ---
@@ -297,11 +295,10 @@ vi.mock("@/lib/tenant", () => ({
 }));
 
 vi.mock("@/lib/behavior-filters", () => ({
-  getVisitCounts: mockGetVisitCounts,
-  getPurchaseAmounts: mockGetPurchaseAmounts,
-  getLastVisitDates: mockGetLastVisitDates,
+  getLastPaymentDates: mockGetLastPaymentDates,
   getReorderCounts: mockGetReorderCounts,
   matchBehaviorCondition: mockMatchBehaviorCondition,
+  matchLastPaymentDate: mockMatchLastPaymentDate,
 }));
 
 // --- Supabase チェーンモック ---
@@ -540,10 +537,10 @@ describe("evaluateMenuRules（エクスポート関数）", () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("行動データ条件あり → getVisitCounts等が呼ばれる", async () => {
+  it("行動データ条件あり → getLastPaymentDates等が呼ばれる", async () => {
     const rules = [makeRule({
       conditions: [
-        { type: "visit_count", behavior_operator: ">=", behavior_value: "3" },
+        { type: "last_payment_date", payment_date_from: "2026-01-01", payment_date_to: "2026-12-31" },
       ],
     })];
     mockGetSetting.mockResolvedValue(JSON.stringify(rules));
@@ -554,13 +551,11 @@ describe("evaluateMenuRules（エクスポート関数）", () => {
     tableChains["patients"] = createChain({ data: { line_id: "U_LINE_300" }, error: null });
 
     // 行動データモック
-    mockGetVisitCounts.mockResolvedValue(new Map([["patient-3", 5]]));
-    mockGetPurchaseAmounts.mockResolvedValue(new Map([["patient-3", 10000]]));
-    mockGetLastVisitDates.mockResolvedValue(new Map([["patient-3", "2026-01-15"]]));
+    mockGetLastPaymentDates.mockResolvedValue(new Map([["patient-3", "2026-06-15T10:00:00Z"]]));
     mockGetReorderCounts.mockResolvedValue(new Map([["patient-3", 2]]));
 
-    // matchBehaviorCondition が true を返す → マッチする
-    mockMatchBehaviorCondition.mockReturnValue(true);
+    // matchLastPaymentDate が true を返す → マッチする
+    mockMatchLastPaymentDate.mockReturnValue(true);
 
     tableChains["rich_menus"] = createChain({
       data: { line_rich_menu_id: "richmenu-behavior" },
@@ -571,16 +566,14 @@ describe("evaluateMenuRules（エクスポート関数）", () => {
     await evaluateMenuRules("patient-3");
 
     // 行動データ取得関数が呼ばれたか確認
-    expect(mockGetVisitCounts).toHaveBeenCalledWith(["patient-3"], undefined, null);
-    expect(mockGetPurchaseAmounts).toHaveBeenCalledWith(["patient-3"], undefined, null);
-    expect(mockGetLastVisitDates).toHaveBeenCalledWith(["patient-3"], null);
+    expect(mockGetLastPaymentDates).toHaveBeenCalledWith(["patient-3"], null);
     expect(mockGetReorderCounts).toHaveBeenCalledWith(["patient-3"], null);
 
     // マッチしたのでfetchが呼ばれる
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("行動データ条件なし → getVisitCounts等は呼ばれない", async () => {
+  it("行動データ条件なし → getLastPaymentDates等は呼ばれない", async () => {
     const rules = [makeRule({
       conditions: [{ type: "tag", tag_ids: [1], tag_match: "any" }],
     })];
@@ -599,9 +592,7 @@ describe("evaluateMenuRules（エクスポート関数）", () => {
     await evaluateMenuRules("patient-4");
 
     // 行動データ取得関数は呼ばれない
-    expect(mockGetVisitCounts).not.toHaveBeenCalled();
-    expect(mockGetPurchaseAmounts).not.toHaveBeenCalled();
-    expect(mockGetLastVisitDates).not.toHaveBeenCalled();
+    expect(mockGetLastPaymentDates).not.toHaveBeenCalled();
     expect(mockGetReorderCounts).not.toHaveBeenCalled();
   });
 

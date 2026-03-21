@@ -77,6 +77,7 @@ export default function ActionsPage() {
   const { data: templatesData } = useSWR<{ templates: Template[] }>("/api/admin/line/templates");
   const { data: marksData } = useSWR<{ marks: MarkDef[] }>("/api/admin/line/marks");
   const { data: richMenusData } = useSWR<{ menus: RichMenu[] }>("/api/admin/line/rich-menus");
+  const { data: productsData } = useSWR<{ products: { code: string; title: string }[] }>("/api/admin/products");
 
   const folders = foldersData?.folders ?? [];
   const actions = actionsData?.actions ?? [];
@@ -84,6 +85,7 @@ export default function ActionsPage() {
   const allTemplates = templatesData?.templates ?? [];
   const allMarks = marksData?.marks ?? [];
   const allRichMenus = richMenusData?.menus ?? [];
+  const allProducts = (productsData?.products || []).map((p: { code: string; title: string }) => ({ code: p.code, title: p.title }));
   const loading = actionsLoading;
 
   // モーダル
@@ -603,6 +605,7 @@ export default function ActionsPage() {
           condition={actionSteps[conditionEditingIndex]?.condition || { enabled: false, rules: [] }}
           tags={allTags}
           marks={allMarks}
+          products={allProducts}
           onSave={(cond) => {
             updateStep(conditionEditingIndex, { condition: cond });
             setConditionEditingIndex(null);

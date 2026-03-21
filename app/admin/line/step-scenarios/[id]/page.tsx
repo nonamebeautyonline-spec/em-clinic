@@ -179,10 +179,12 @@ export default function StepScenarioEditPage() {
   const { data: tagData, isLoading: tagLoading } = useSWR<{ tags: Tag[] }>("/api/admin/line/tags");
   const { data: tplData, isLoading: tplLoading } = useSWR<{ templates: Template[] }>("/api/admin/line/templates");
   const { data: markData, isLoading: markLoading } = useSWR<{ marks: MarkDef[] }>("/api/admin/line/marks");
+  const { data: productsData } = useSWR<{ products: { code: string; title: string }[] }>("/api/admin/products");
 
   const tags = tagData?.tags || [];
   const templates = tplData?.templates || [];
   const marks = markData?.marks || [];
+  const cbProducts = (productsData?.products || []).map(p => ({ code: p.code, title: p.title }));
 
   const loading = detailLoading || tagLoading || tplLoading || markLoading;
 
@@ -662,6 +664,7 @@ export default function StepScenarioEditPage() {
           }}
           tags={cbTags}
           marks={cbMarks}
+          products={cbProducts}
           onSave={(cond) => {
             updateStep(condModalTarget.stepIndex, { [condModalTarget.field]: cond.rules });
             setCondModalTarget(null);
@@ -679,6 +682,7 @@ export default function StepScenarioEditPage() {
           }}
           tags={cbTags}
           marks={cbMarks}
+          products={cbProducts}
           onSave={(cond) => {
             const step = steps[branchCondTarget.stepIndex];
             if (step?.branches) {
@@ -1319,12 +1323,19 @@ function formatConditionSummary(rule: ConditionRule): string {
       return `タグ: ${rule.tag_ids?.length || 0}件 (${rule.tag_match || "any_include"})`;
     case "mark":
       return `マーク: ${rule.mark_values?.join(", ") || "未設定"}`;
-    case "visit_count":
-      return `来院回数 ${rule.behavior_operator || ">="} ${rule.behavior_value || "0"}`;
-    case "purchase_amount":
-      return `購入金額 ${rule.behavior_operator || ">="} ${rule.behavior_value || "0"}円`;
-    case "last_visit":
-      return `最終来院 ${rule.behavior_operator === "before_days" ? "以上前" : "以内"} ${rule.behavior_value || "30"}日`;
+    case "last_payment_date": {
+      const from = rule.payment_date_from || "";
+      const to = rule.payment_date_to || "";
+      if (from && to) return `最終決済日 ${from}〜${to}`;
+      if (from) return `最終決済日 ${from}以降`;
+      if (to) return `最終決済日 ${to}以前`;
+      return "最終決済日";
+    }
+    case "product_purchase": {
+      const count = rule.product_codes?.length || 0;
+      const action = rule.product_match === "not_purchased" ? "未購入" : "購入済み";
+      return `商品 ${count}件 ${action}`;
+    }
     case "reorder_count":
       return `再処方回数 ${rule.behavior_operator || ">="} ${rule.behavior_value || "0"}`;
     default:

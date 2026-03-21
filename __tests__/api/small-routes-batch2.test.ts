@@ -93,11 +93,10 @@ vi.mock("@/lib/settings", () => ({
 }));
 
 vi.mock("@/lib/behavior-filters", () => ({
-  getVisitCounts: vi.fn().mockResolvedValue({}),
-  getPurchaseAmounts: vi.fn().mockResolvedValue({}),
-  getLastVisitDates: vi.fn().mockResolvedValue({}),
+  getLastPaymentDates: vi.fn().mockResolvedValue({}),
   getReorderCounts: vi.fn().mockResolvedValue({}),
   matchBehaviorCondition: vi.fn().mockReturnValue(true),
+  matchLastPaymentDate: vi.fn().mockReturnValue(true),
 }));
 
 // fetchグローバルモック

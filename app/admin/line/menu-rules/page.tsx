@@ -4,7 +4,7 @@ import { useState } from "react";
 import useSWR, { mutate } from "swr";
 
 interface MenuRuleCondition {
-  type: "tag" | "mark" | "field" | "visit_count" | "purchase_amount" | "last_visit" | "reorder_count";
+  type: "tag" | "mark" | "field" | "last_payment_date" | "product_purchase" | "reorder_count";
   tag_ids?: number[];
   tag_match?: "any" | "all";
   mark_values?: string[];
@@ -16,6 +16,14 @@ interface MenuRuleCondition {
   behavior_value?: string;
   behavior_value_end?: string;
   behavior_date_range?: string;
+  // 最終決済日条件
+  payment_date_from?: string;
+  payment_date_to?: string;
+  // 商品購入履歴条件
+  product_codes?: string[];
+  product_match?: string;
+  product_date_from?: string;
+  product_date_to?: string;
 }
 
 interface MenuAutoRule {
@@ -41,12 +49,14 @@ export default function MenuRulesPage() {
   const { data: marksData, isLoading: marksLoading } = useSWR<{ marks: MarkDef[] }>("/api/admin/line/marks?simple=true");
   const { data: fieldsData, isLoading: fieldsLoading } = useSWR<{ fields: FieldDef[] }>("/api/admin/friend-fields");
   const { data: menusData, isLoading: menusLoading } = useSWR<{ menus: RichMenu[] }>("/api/admin/line/rich-menus?simple=true");
+  const { data: productsData } = useSWR<{ products: { code: string; title: string }[] }>("/api/admin/products");
 
   const rules = rulesData?.rules || [];
   const tags = tagsData?.tags || [];
   const marks = marksData?.marks || [];
   const fields = fieldsData?.fields || [];
   const menus = menusData?.menus || [];
+  const products = (productsData?.products || []).map(p => ({ code: p.code, title: p.title }));
   const loading = rulesLoading || tagsLoading || marksLoading || fieldsLoading || menusLoading;
 
   const [syncing, setSyncing] = useState(false);
@@ -112,19 +122,18 @@ export default function MenuRulesPage() {
         const f = fields.find(f => f.id === c.field_id);
         return `${f?.name || "フィールド"} ${c.field_operator} ${c.field_value}`;
       }
-      case "visit_count": {
-        const op = c.behavior_operator === ">=" ? "以上" : c.behavior_operator === "<=" ? "以下" : c.behavior_operator === "=" ? "ちょうど" : c.behavior_operator === "between" ? `${c.behavior_value}〜${c.behavior_value_end}` : c.behavior_operator;
-        const range = c.behavior_date_range === "all" ? "" : ` (${c.behavior_date_range})`;
-        return c.behavior_operator === "between" ? `来院回数 ${op}回${range}` : `来院回数 ${c.behavior_value}回${op}${range}`;
+      case "last_payment_date": {
+        const from = c.payment_date_from || "";
+        const to = c.payment_date_to || "";
+        if (from && to) return `最終決済日 ${from}〜${to}`;
+        if (from) return `最終決済日 ${from}以降`;
+        if (to) return `最終決済日 ${to}以前`;
+        return "最終決済日";
       }
-      case "purchase_amount": {
-        const op = c.behavior_operator === ">=" ? "以上" : c.behavior_operator === "<=" ? "以下" : c.behavior_operator === "=" ? "ちょうど" : c.behavior_operator === "between" ? `${c.behavior_value}〜${c.behavior_value_end}` : c.behavior_operator;
-        const range = c.behavior_date_range === "all" ? "" : ` (${c.behavior_date_range})`;
-        return c.behavior_operator === "between" ? `購入金額 ${op}円${range}` : `購入金額 ¥${c.behavior_value}${op}${range}`;
-      }
-      case "last_visit": {
-        const op = c.behavior_operator === "within_days" ? "以内" : "以上前";
-        return `最終来院 ${c.behavior_value}日${op}`;
+      case "product_purchase": {
+        const count = (c.product_codes || []).length;
+        const action = c.product_match === "not_purchased" ? "未購入" : "購入済み";
+        return `商品 ${count}件 ${action}`;
       }
       case "reorder_count": {
         const op = c.behavior_operator === ">=" ? "以上" : c.behavior_operator === "<=" ? "以下" : c.behavior_operator === "=" ? "ちょうど" : c.behavior_operator;
@@ -363,11 +372,14 @@ function RuleEditor({
     if (type === "tag") { c.tag_ids = []; c.tag_match = "any"; }
     if (type === "mark") { c.mark_values = []; }
     if (type === "field") { c.field_id = fields[0]?.id; c.field_operator = "="; c.field_value = ""; }
-    if (type === "visit_count" || type === "purchase_amount" || type === "reorder_count") {
+    if (type === "reorder_count") {
       c.behavior_operator = ">="; c.behavior_value = "1"; c.behavior_date_range = "all";
     }
-    if (type === "last_visit") {
-      c.behavior_operator = "within_days"; c.behavior_value = "30";
+    if (type === "last_payment_date") {
+      c.payment_date_from = ""; c.payment_date_to = "";
+    }
+    if (type === "product_purchase") {
+      c.product_codes = []; c.product_match = "purchased"; c.product_date_from = ""; c.product_date_to = "";
     }
     setConditions(prev => [...prev, c]);
   };
@@ -546,12 +558,10 @@ function RuleEditor({
                         />
                       </div>
                     )}
-                    {(c.type === "visit_count" || c.type === "purchase_amount" || c.type === "reorder_count") && (
+                    {c.type === "reorder_count" && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded-lg">
-                            {c.type === "visit_count" ? "来院回数" : c.type === "purchase_amount" ? "購入金額" : "再処方回数"}
-                          </span>
+                          <span className="text-xs font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded-lg">再処方回数</span>
                           <select
                             value={c.behavior_operator || ">="}
                             onChange={e => updateCondition(i, { behavior_operator: e.target.value })}
@@ -566,7 +576,7 @@ function RuleEditor({
                             type="number"
                             value={c.behavior_value || ""}
                             onChange={e => updateCondition(i, { behavior_value: e.target.value })}
-                            placeholder={c.type === "purchase_amount" ? "金額(円)" : "回数"}
+                            placeholder="回数"
                             className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1 w-24"
                           />
                           {c.behavior_operator === "between" && (
@@ -576,49 +586,79 @@ function RuleEditor({
                                 type="number"
                                 value={c.behavior_value_end || ""}
                                 onChange={e => updateCondition(i, { behavior_value_end: e.target.value })}
-                                placeholder={c.type === "purchase_amount" ? "金額(円)" : "回数"}
+                                placeholder="回数"
                                 className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1 w-24"
                               />
                             </>
                           )}
                         </div>
-                        {c.type !== "reorder_count" && (
-                          <div className="flex items-center gap-2 ml-0.5">
-                            <span className="text-[11px] text-gray-500">期間:</span>
-                            <select
-                              value={c.behavior_date_range || "all"}
-                              onChange={e => updateCondition(i, { behavior_date_range: e.target.value })}
-                              className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1"
-                            >
-                              <option value="all">全期間</option>
-                              <option value="30d">過去30日</option>
-                              <option value="90d">過去90日</option>
-                              <option value="180d">過去180日</option>
-                              <option value="365d">過去1年</option>
-                            </select>
-                          </div>
-                        )}
                       </div>
                     )}
-                    {c.type === "last_visit" && (
+                    {c.type === "last_payment_date" && (
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded-lg">最終来院</span>
-                        <select
-                          value={c.behavior_operator || "within_days"}
-                          onChange={e => updateCondition(i, { behavior_operator: e.target.value })}
-                          className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1"
-                        >
-                          <option value="within_days">N日以内</option>
-                          <option value="more_than_days">N日以上前</option>
-                        </select>
+                        <span className="text-xs font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded-lg">最終決済日</span>
                         <input
-                          type="number"
-                          value={c.behavior_value || ""}
-                          onChange={e => updateCondition(i, { behavior_value: e.target.value })}
-                          placeholder="日数"
-                          className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1 w-20"
+                          type="date"
+                          value={c.payment_date_from || ""}
+                          onChange={e => updateCondition(i, { payment_date_from: e.target.value })}
+                          className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1"
                         />
-                        <span className="text-xs text-gray-500">日</span>
+                        <span className="text-xs text-gray-400">〜</span>
+                        <input
+                          type="date"
+                          value={c.payment_date_to || ""}
+                          onChange={e => updateCondition(i, { payment_date_to: e.target.value })}
+                          className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1"
+                        />
+                      </div>
+                    )}
+                    {c.type === "product_purchase" && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg">商品購入履歴</span>
+                          <select
+                            value={c.product_match || "purchased"}
+                            onChange={e => updateCondition(i, { product_match: e.target.value })}
+                            className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1"
+                          >
+                            <option value="purchased">購入済み</option>
+                            <option value="not_purchased">未購入</option>
+                          </select>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 ml-0.5">
+                          {products.map(p => (
+                            <label key={p.code} className="flex items-center gap-1 text-xs cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={(c.product_codes || []).includes(p.code)}
+                                onChange={e => {
+                                  const codes = c.product_codes || [];
+                                  updateCondition(i, {
+                                    product_codes: e.target.checked ? [...codes, p.code] : codes.filter(v => v !== p.code),
+                                  });
+                                }}
+                                className="w-3 h-3 rounded border-gray-300 text-teal-500 focus:ring-teal-500/30"
+                              />
+                              <span className="text-[10px] font-medium text-gray-700">{p.title}</span>
+                            </label>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] text-gray-500">期間:</span>
+                          <input
+                            type="date"
+                            value={c.product_date_from || ""}
+                            onChange={e => updateCondition(i, { product_date_from: e.target.value })}
+                            className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1"
+                          />
+                          <span className="text-xs text-gray-400">〜</span>
+                          <input
+                            type="date"
+                            value={c.product_date_to || ""}
+                            onChange={e => updateCondition(i, { product_date_to: e.target.value })}
+                            className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1"
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -643,14 +683,11 @@ function RuleEditor({
                   + フィールド条件
                 </button>
               )}
-              <button onClick={() => addCondition("visit_count")} className="px-3 py-1.5 text-[11px] font-medium text-teal-600 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors">
-                + 来院回数
+              <button onClick={() => addCondition("last_payment_date")} className="px-3 py-1.5 text-[11px] font-medium text-teal-600 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors">
+                + 最終決済日
               </button>
-              <button onClick={() => addCondition("purchase_amount")} className="px-3 py-1.5 text-[11px] font-medium text-teal-600 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors">
-                + 購入金額
-              </button>
-              <button onClick={() => addCondition("last_visit")} className="px-3 py-1.5 text-[11px] font-medium text-teal-600 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors">
-                + 最終来院
+              <button onClick={() => addCondition("product_purchase")} className="px-3 py-1.5 text-[11px] font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors">
+                + 商品購入履歴
               </button>
               <button onClick={() => addCondition("reorder_count")} className="px-3 py-1.5 text-[11px] font-medium text-teal-600 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors">
                 + 再処方回数

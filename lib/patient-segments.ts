@@ -1,13 +1,12 @@
 // lib/patient-segments.ts — 患者セグメント自動分類（RFM分析）
-// behavior-filters.ts の来院回数・購入金額・最終来院日を使用し、
+// behavior-filters.ts の最終決済日・再処方回数を使用し、
 // VIP / アクティブ / 離脱リスク / 休眠 / 新規 の5セグメントに自動分類する
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant, tenantPayload } from "@/lib/tenant";
 import {
-  getVisitCounts,
-  getPurchaseAmounts,
-  getLastVisitDates,
+  getLastPaymentDates,
+  getReorderCounts,
 } from "@/lib/behavior-filters";
 
 // ── セグメント定義 ──────────────────────────────────────────
@@ -48,9 +47,9 @@ export interface RFMScore {
 }
 
 // ── RFMスコア計算 ──────────────────────────────────────────
-// recencyDays: 最終来院からの経過日数（null = 来院なし）
-// frequency: 来院回数
-// monetary: 購入金額（円）
+// recencyDays: 最終決済からの経過日数（null = 決済なし）
+// frequency: 再処方回数
+// monetary: 未使用（互換のため残す、常に0）
 
 export function calculateRFMScore(
   recencyDays: number | null,
@@ -166,25 +165,24 @@ export async function classifyPatients(
     const batch = patientIds.slice(i, i + BATCH_SIZE);
 
     // 行動データを並列取得
-    const [visitCounts, purchaseAmounts, lastVisitDates] = await Promise.all([
-      getVisitCounts(batch, "all", tenantId),
-      getPurchaseAmounts(batch, "all", tenantId),
-      getLastVisitDates(batch, tenantId),
+    const [lastPaymentDates, reorderCounts] = await Promise.all([
+      getLastPaymentDates(batch, tenantId),
+      getReorderCounts(batch, tenantId),
     ]);
 
     const now = new Date();
 
     for (const pid of batch) {
-      const frequency = visitCounts.get(pid) || 0;
-      const monetary = purchaseAmounts.get(pid) || 0;
-      const lastVisit = lastVisitDates.get(pid) || null;
+      const frequency = reorderCounts.get(pid) || 0;
+      const monetary = 0; // オンライン診療では購入金額ベースの分類は不要
+      const lastPayment = lastPaymentDates.get(pid) || null;
 
-      // 最終来院日からの経過日数を計算
+      // 最終決済日からの経過日数を計算
       let recencyDays: number | null = null;
-      if (lastVisit) {
-        const visitDate = new Date(lastVisit);
+      if (lastPayment) {
+        const paymentDate = new Date(lastPayment);
         recencyDays = Math.floor(
-          (now.getTime() - visitDate.getTime()) / (1000 * 60 * 60 * 24),
+          (now.getTime() - paymentDate.getTime()) / (1000 * 60 * 60 * 24),
         );
       }
 

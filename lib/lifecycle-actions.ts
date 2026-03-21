@@ -9,7 +9,7 @@ import { sanitizeFlexContents } from "@/lib/flex-sanitize";
 // 条件ルール型（ConditionBuilder UIと同一構造）
 export interface ConditionRule {
   type: "tag" | "mark" | "name" | "registered_date" | "field"
-    | "visit_count" | "purchase_amount" | "last_visit" | "reorder_count"
+    | "last_payment_date" | "product_purchase" | "reorder_count"
     | "intake_status" | "reservation_status";
   tag_ids?: number[];
   tag_match?: "any_include" | "all_include" | "any_exclude" | "all_exclude";

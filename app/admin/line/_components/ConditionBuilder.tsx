@@ -4,9 +4,14 @@ import { useState } from "react";
 
 // ── 型定義 ──────────────────────────────────────────────
 
+export interface ProductDef {
+  code: string;
+  title: string;
+}
+
 export interface ConditionRule {
   type: "tag" | "mark" | "name" | "registered_date" | "field"
-    | "visit_count" | "purchase_amount" | "last_visit" | "reorder_count"
+    | "last_payment_date" | "product_purchase" | "reorder_count"
     | "intake_status" | "reservation_status";
   // タグ条件
   tag_ids?: number[];
@@ -25,11 +30,19 @@ export interface ConditionRule {
   field_id?: number;
   field_operator?: "=" | "!=" | ">" | ">=" | "<" | "<=" | "contains";
   field_value?: string;
-  // 行動データ条件（来院回数・購入金額・最終来院日・再処方回数）
+  // 行動データ条件（再処方回数）
   behavior_operator?: string;
   behavior_value?: string;
   behavior_value_end?: string;
   behavior_date_range?: string;
+  // 最終決済日条件（日付範囲）
+  payment_date_from?: string;
+  payment_date_to?: string;
+  // 商品購入履歴条件
+  product_codes?: string[];
+  product_match?: "purchased" | "not_purchased";
+  product_date_from?: string;
+  product_date_to?: string;
   // 診察ステータス・予約ステータス
   status_value?: string;
 }
@@ -80,9 +93,8 @@ const CONDITION_TYPES: { type: ConditionRule["type"]; label: string }[] = [
   { type: "name", label: "名前" },
   { type: "registered_date", label: "友だち登録日" },
   { type: "field", label: "友だち情報" },
-  { type: "visit_count", label: "来院回数" },
-  { type: "purchase_amount", label: "購入金額" },
-  { type: "last_visit", label: "最終来院日" },
+  { type: "last_payment_date", label: "最終決済日" },
+  { type: "product_purchase", label: "商品購入履歴" },
   { type: "reorder_count", label: "再処方回数" },
   { type: "intake_status", label: "診察ステータス" },
   { type: "reservation_status", label: "予約ステータス" },
@@ -189,15 +201,18 @@ export function ConditionSummary({
     if (rule.type === "field") {
       parts.push("友だち情報");
     }
-    if (rule.type === "visit_count") {
-      parts.push(`来院回数${rule.behavior_operator || ">="}${rule.behavior_value || "0"}回`);
+    if (rule.type === "last_payment_date") {
+      const from = rule.payment_date_from || "";
+      const to = rule.payment_date_to || "";
+      if (from && to) parts.push(`最終決済日 ${from}〜${to}`);
+      else if (from) parts.push(`最終決済日 ${from}以降`);
+      else if (to) parts.push(`最終決済日 ${to}以前`);
+      else parts.push("最終決済日");
     }
-    if (rule.type === "purchase_amount") {
-      parts.push(`購入金額${rule.behavior_operator || ">="}${rule.behavior_value || "0"}円`);
-    }
-    if (rule.type === "last_visit") {
-      const op = rule.behavior_operator === "within_days" ? "以内" : "以上前";
-      parts.push(`最終来院${rule.behavior_value || "30"}日${op}`);
+    if (rule.type === "product_purchase") {
+      const count = rule.product_codes?.length || 0;
+      const action = rule.product_match === "not_purchased" ? "未購入" : "購入済み";
+      parts.push(`商品${action}(${count}件)`);
     }
     if (rule.type === "reorder_count") {
       parts.push(`再処方${rule.behavior_operator || ">="}${rule.behavior_value || "0"}回`);
@@ -242,6 +257,7 @@ export function ConditionBuilderModal({
   tags,
   marks,
   fields,
+  products,
   onSave,
   onClose,
 }: {
@@ -249,6 +265,7 @@ export function ConditionBuilderModal({
   tags: TagDef[];
   marks: MarkDef[];
   fields?: FieldDef[];
+  products?: ProductDef[];
   onSave: (condition: StepCondition) => void;
   onClose: () => void;
 }) {
@@ -279,14 +296,20 @@ export function ConditionBuilderModal({
       newRule.field_operator = "=";
       newRule.field_value = "";
     }
-    if (type === "visit_count" || type === "purchase_amount" || type === "reorder_count") {
+    if (type === "reorder_count") {
       newRule.behavior_operator = ">=";
       newRule.behavior_value = "1";
       newRule.behavior_date_range = "all";
     }
-    if (type === "last_visit") {
-      newRule.behavior_operator = "within_days";
-      newRule.behavior_value = "30";
+    if (type === "last_payment_date") {
+      newRule.payment_date_from = "";
+      newRule.payment_date_to = "";
+    }
+    if (type === "product_purchase") {
+      newRule.product_codes = [];
+      newRule.product_match = "purchased";
+      newRule.product_date_from = "";
+      newRule.product_date_to = "";
     }
     if (type === "intake_status") {
       newRule.status_value = "none";
@@ -393,32 +416,19 @@ export function ConditionBuilderModal({
                   />
                 )}
 
-                {/* 来院回数条件 */}
-                {rule.type === "visit_count" && (
-                  <NumericBehaviorEditor
-                    label="来院回数"
-                    unit="回"
+                {/* 最終決済日条件 */}
+                {rule.type === "last_payment_date" && (
+                  <LastPaymentDateEditor
                     rule={rule}
-                    showDateRange
                     onUpdate={(updates) => updateRule(i, updates)}
                   />
                 )}
 
-                {/* 購入金額条件 */}
-                {rule.type === "purchase_amount" && (
-                  <NumericBehaviorEditor
-                    label="購入金額"
-                    unit="円"
+                {/* 商品購入履歴条件 */}
+                {rule.type === "product_purchase" && products && (
+                  <ProductPurchaseEditor
                     rule={rule}
-                    showDateRange
-                    onUpdate={(updates) => updateRule(i, updates)}
-                  />
-                )}
-
-                {/* 最終来院日条件 */}
-                {rule.type === "last_visit" && (
-                  <LastVisitEditor
-                    rule={rule}
+                    products={products}
                     onUpdate={(updates) => updateRule(i, updates)}
                   />
                 )}
@@ -858,9 +868,9 @@ function NumericBehaviorEditor({
   );
 }
 
-// ── 最終来院日条件エディタ ──────────────────────────────────
+// ── 最終決済日条件エディタ ──────────────────────────────────
 
-function LastVisitEditor({
+function LastPaymentDateEditor({
   rule,
   onUpdate,
 }: {
@@ -869,27 +879,110 @@ function LastVisitEditor({
 }) {
   return (
     <div className="pl-8">
-      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">最終来院日</span>
+      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">最終決済日</span>
+      <div className="mt-3 flex items-center gap-2">
+        <input
+          type="date"
+          value={rule.payment_date_from || ""}
+          onChange={(e) => onUpdate({ payment_date_from: e.target.value })}
+          className="px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
+        />
+        <span className="text-xs text-gray-400">〜</span>
+        <input
+          type="date"
+          value={rule.payment_date_to || ""}
+          onChange={(e) => onUpdate({ payment_date_to: e.target.value })}
+          className="px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
+        />
+      </div>
+      <p className="mt-1.5 text-[10px] text-gray-400">どちらか片方だけの指定も可能です</p>
+    </div>
+  );
+}
+
+// ── 商品購入履歴条件エディタ ────────────────────────────────
+
+function ProductPurchaseEditor({
+  rule,
+  products,
+  onUpdate,
+}: {
+  rule: ConditionRule;
+  products: ProductDef[];
+  onUpdate: (updates: Partial<ConditionRule>) => void;
+}) {
+  const selectedCodes = rule.product_codes || [];
+
+  const toggleProduct = (code: string) => {
+    const next = selectedCodes.includes(code)
+      ? selectedCodes.filter(c => c !== code)
+      : [...selectedCodes, code];
+    onUpdate({ product_codes: next });
+  };
+
+  return (
+    <div className="pl-8">
+      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">商品購入履歴</span>
+
+      {/* 購入済み / 未購入 */}
       <div className="mt-3 flex items-center gap-2">
         <select
-          value={rule.behavior_operator || "within_days"}
-          onChange={(e) => onUpdate({ behavior_operator: e.target.value })}
+          value={rule.product_match || "purchased"}
+          onChange={(e) => onUpdate({ product_match: e.target.value as "purchased" | "not_purchased" })}
           className="px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
         >
-          <option value="within_days">日以内</option>
-          <option value="before_days">日以上前</option>
+          <option value="purchased">購入したことがある</option>
+          <option value="not_purchased">購入したことがない</option>
         </select>
-        <input
-          type="number"
-          value={rule.behavior_value || ""}
-          onChange={(e) => onUpdate({ behavior_value: e.target.value })}
-          placeholder="日数"
-          min="1"
-          className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
-        />
-        <span className="text-xs text-gray-500">
-          {rule.behavior_operator === "within_days" ? "日以内に来院あり" : "日以上来院なし"}
-        </span>
+      </div>
+
+      {/* 商品選択 */}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {products.map(p => {
+          const selected = selectedCodes.includes(p.code);
+          return (
+            <button
+              key={p.code}
+              type="button"
+              onClick={() => toggleProduct(p.code)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                selected
+                  ? "bg-amber-500 text-white shadow-sm"
+                  : "bg-white border border-gray-200 text-gray-600 hover:border-gray-300"
+              }`}
+            >
+              {selected && (
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+              {p.title}
+            </button>
+          );
+        })}
+        {products.length === 0 && (
+          <p className="text-xs text-gray-400">商品がまだ登録されていません</p>
+        )}
+      </div>
+
+      {/* 期間指定（任意） */}
+      <div className="mt-3">
+        <span className="text-[11px] text-gray-400">購入期間（任意）</span>
+        <div className="mt-1 flex items-center gap-2">
+          <input
+            type="date"
+            value={rule.product_date_from || ""}
+            onChange={(e) => onUpdate({ product_date_from: e.target.value })}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
+          />
+          <span className="text-xs text-gray-400">〜</span>
+          <input
+            type="date"
+            value={rule.product_date_to || ""}
+            onChange={(e) => onUpdate({ product_date_to: e.target.value })}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
+          />
+        </div>
       </div>
     </div>
   );

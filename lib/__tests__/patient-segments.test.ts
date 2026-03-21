@@ -34,9 +34,8 @@ vi.mock("@/lib/tenant", () => ({
 }));
 
 vi.mock("@/lib/behavior-filters", () => ({
-  getVisitCounts: vi.fn(),
-  getPurchaseAmounts: vi.fn(),
-  getLastVisitDates: vi.fn(),
+  getLastPaymentDates: vi.fn(),
+  getReorderCounts: vi.fn(),
 }));
 
 import {
@@ -51,7 +50,7 @@ import {
   type SegmentType,
 } from "@/lib/patient-segments";
 
-import { getVisitCounts, getPurchaseAmounts, getLastVisitDates } from "@/lib/behavior-filters";
+import { getLastPaymentDates, getReorderCounts } from "@/lib/behavior-filters";
 
 // ── RFMスコア計算テスト ──────────────────────────────────────
 
@@ -250,48 +249,40 @@ describe("classifyPatients", () => {
       error: null,
     });
 
-    // 来院回数
-    const visitMap = new Map([
+    // 再処方回数
+    const reorderMap = new Map([
       ["P001", 5],
       ["P002", 1],
       ["P003", 0],
     ]);
-    vi.mocked(getVisitCounts).mockResolvedValue(visitMap);
+    vi.mocked(getReorderCounts).mockResolvedValue(reorderMap);
 
-    // 購入金額
-    const purchaseMap = new Map([
-      ["P001", 150000],
-      ["P002", 5000],
-      ["P003", 0],
-    ]);
-    vi.mocked(getPurchaseAmounts).mockResolvedValue(purchaseMap);
-
-    // 最終来院日（P001: 10日前、P002: 100日前、P003: null）
+    // 最終決済日（P001: 10日前、P002: 100日前、P003: null）
     const now = new Date();
-    const tenDaysAgo = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const hundredDaysAgo = new Date(now.getTime() - 100 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const lastVisitMap = new Map<string, string | null>([
+    const tenDaysAgo = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString();
+    const hundredDaysAgo = new Date(now.getTime() - 100 * 24 * 60 * 60 * 1000).toISOString();
+    const lastPaymentMap = new Map<string, string | null>([
       ["P001", tenDaysAgo],
       ["P002", hundredDaysAgo],
       ["P003", null],
     ]);
-    vi.mocked(getLastVisitDates).mockResolvedValue(lastVisitMap);
+    vi.mocked(getLastPaymentDates).mockResolvedValue(lastPaymentMap);
 
     const results = await classifyPatients(null);
     expect(results).toHaveLength(3);
 
-    // P001: R=5(10日前), F=5(5回), M=5(15万) → VIP
+    // P001: R=5(10日前), F=5(5回), M=1(0円・未使用) → active
+    // recency>=3 AND (frequency>=2 OR monetary>=2) → active
     const p001 = results.find((r) => r.patientId === "P001")!;
-    expect(p001.segment).toBe("vip");
+    expect(p001.segment).toBe("active");
     expect(p001.rfmScore.recency).toBe(5);
     expect(p001.rfmScore.frequency).toBe(5);
-    expect(p001.rfmScore.monetary).toBe(5);
+    expect(p001.rfmScore.monetary).toBe(1);
 
-    // P002: R=2(100日前), F=2(1回), M=1(5000円) → 休眠
-    const p002 = results.find((r) => r.patientId === "P002")!;
-    // R=2(91-180日), F=2(1回), M=1(1万未満)
+    // P002: R=2(100日前), F=2(1回), M=1(0円)
     // newの条件: F<=1 AND M<=1 → F=2なので新規ではない
     // dormantに分類される
+    const p002 = results.find((r) => r.patientId === "P002")!;
     expect(p002.segment).toBe("dormant");
 
     // P003: R=1(null), F=1(0回), M=1(0円) → 新規

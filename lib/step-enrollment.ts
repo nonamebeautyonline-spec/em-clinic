@@ -2,8 +2,8 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant, tenantPayload } from "@/lib/tenant";
 import {
-  getVisitCounts, getPurchaseAmounts, getLastVisitDates, getReorderCounts,
-  matchBehaviorCondition
+  getLastPaymentDates, getReorderCounts, getProductPurchasePatients,
+  matchBehaviorCondition, matchLastPaymentDate
 } from "@/lib/behavior-filters";
 
 /**
@@ -240,6 +240,14 @@ export interface ConditionRule {
   value?: string;
   behavior_value_end?: string;
   value_end?: string;
+  // 最終決済日条件
+  payment_date_from?: string;
+  payment_date_to?: string;
+  // 商品購入履歴条件
+  product_codes?: string[];
+  product_match?: string;
+  product_date_from?: string;
+  product_date_to?: string;
 }
 
 export async function evaluateStepConditions(
@@ -288,23 +296,20 @@ export async function evaluateStepConditions(
         matched = markValues.includes(currentMark);
         break;
       }
-      case "visit_count": {
-        const counts = await getVisitCounts([patientId], rule.behavior_date_range || rule.date_range, tenantId);
-        const count = counts.get(patientId) || 0;
-        matched = matchBehaviorCondition(count, rule.behavior_operator || rule.operator || ">=", rule.behavior_value || rule.value || "0", rule.behavior_value_end || rule.value_end);
-        break;
-      }
-      case "purchase_amount": {
-        const amounts = await getPurchaseAmounts([patientId], rule.behavior_date_range || rule.date_range, tenantId);
-        const amount = amounts.get(patientId) || 0;
-        matched = matchBehaviorCondition(amount, rule.behavior_operator || rule.operator || ">=", rule.behavior_value || rule.value || "0", rule.behavior_value_end || rule.value_end);
-        break;
-      }
-      case "last_visit": {
-        const dates = await getLastVisitDates([patientId], tenantId);
+      case "last_payment_date": {
+        const dates = await getLastPaymentDates([patientId], tenantId);
         const date = dates.get(patientId) || null;
-        if (!date) { matched = false; break; }
-        matched = matchBehaviorCondition(date, rule.behavior_operator || rule.operator || "within_days", rule.behavior_value || rule.value || "30");
+        matched = matchLastPaymentDate(date, rule.payment_date_from, rule.payment_date_to);
+        break;
+      }
+      case "product_purchase": {
+        const codes = rule.product_codes || [];
+        if (codes.length === 0) { matched = true; break; }
+        const purchasedSet = await getProductPurchasePatients(
+          [patientId], codes, tenantId, rule.product_date_from || undefined, rule.product_date_to || undefined
+        );
+        const hasPurchased = purchasedSet.has(patientId);
+        matched = (rule.product_match || "purchased") === "purchased" ? hasPurchased : !hasPurchased;
         break;
       }
       case "reorder_count": {

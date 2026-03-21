@@ -104,12 +104,14 @@ export default function FriendAddSettingsPage() {
   const { data: tagsData } = useSWR<{ tags: TagDef[] }>("/api/admin/tags");
   const { data: richMenusData } = useSWR<{ menus: RichMenu[] }>("/api/admin/line/rich-menus");
   const { data: templatesData } = useSWR<{ templates: Template[] }>("/api/admin/line/templates");
+  const { data: productsData } = useSWR<{ products: { code: string; title: string }[] }>("/api/admin/products");
 
   const settings = settingsData?.settings ?? [];
   const marks = marksData?.marks ?? [];
   const tags = tagsData?.tags ?? [];
   const richMenus = richMenusData?.menus ?? [];
   const templates = templatesData?.templates ?? [];
+  const products = (productsData?.products || []).map((p: { code: string; title: string }) => ({ code: p.code, title: p.title }));
   const loading = settingsLoading;
 
   const [saving, setSaving] = useState(false);
@@ -543,6 +545,7 @@ export default function FriendAddSettingsPage() {
           condition={editSteps[conditionEditingIndex]?.condition || { enabled: false, rules: [] }}
           tags={tags}
           marks={marks}
+          products={products}
           onSave={(cond) => {
             updateStep(conditionEditingIndex, { condition: cond });
             setConditionEditingIndex(null);

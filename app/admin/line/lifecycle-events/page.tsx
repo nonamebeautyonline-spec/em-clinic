@@ -114,6 +114,7 @@ export default function LifecycleEventsPage() {
   const [tags, setTags] = useState<TagDef[]>([]);
   const [richMenus, setRichMenus] = useState<RichMenu[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [products, setProducts] = useState<{ code: string; title: string }[]>([]);
   const [saving, setSaving] = useState(false);
 
   // モーダル用ステート
@@ -130,19 +131,21 @@ export default function LifecycleEventsPage() {
   const fetchModalData = async () => {
     if (modalDataLoaded.current) return;
     setModalLoading(true);
-    const [mRes, tRes, rmRes, tmplRes] = await Promise.all([
+    const [mRes, tRes, rmRes, tmplRes, pRes] = await Promise.all([
       fetch("/api/admin/line/marks", { credentials: "include" }),
       fetch("/api/admin/tags", { credentials: "include" }),
       fetch("/api/admin/line/rich-menus", { credentials: "include" }),
       fetch("/api/admin/line/templates", { credentials: "include" }),
+      fetch("/api/admin/products", { credentials: "include" }),
     ]);
-    const [mData, tData, rmData, tmplData] = await Promise.all([
-      mRes.json(), tRes.json(), rmRes.json(), tmplRes.json(),
+    const [mData, tData, rmData, tmplData, pData] = await Promise.all([
+      mRes.json(), tRes.json(), rmRes.json(), tmplRes.json(), pRes.json(),
     ]);
     if (mData.marks) setMarks(mData.marks);
     if (tData.tags) setTags(tData.tags);
     if (rmData.menus) setRichMenus(rmData.menus);
     if (tmplData.templates) setTemplates(tmplData.templates);
+    if (pData.products) setProducts(pData.products.map((p: { code: string; title: string }) => ({ code: p.code, title: p.title })));
     modalDataLoaded.current = true;
     setModalLoading(false);
   };
@@ -560,6 +563,7 @@ export default function LifecycleEventsPage() {
           condition={editSteps[conditionEditingIndex]?.condition || { enabled: false, rules: [] }}
           tags={tags}
           marks={marks}
+          products={products}
           onSave={(cond) => {
             updateStep(conditionEditingIndex, { condition: cond });
             setConditionEditingIndex(null);
