@@ -127,7 +127,7 @@ export default function MonthlySchedulePage() {
   const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
   const scheduleKey = `/api/admin/schedule?start=${startDate}&end=${endDate}`;
 
-  const { data: scheduleData, isLoading: scheduleLoading } = useSWR<{ ok: boolean; weekly_rules: WeeklyRule[]; overrides: Override[] }>(scheduleKey);
+  const { data: scheduleData, isLoading: scheduleLoading, isValidating: scheduleValidating } = useSWR<{ ok: boolean; weekly_rules: WeeklyRule[]; overrides: Override[] }>(scheduleKey);
 
   useEffect(() => {
     if (scheduleData?.ok) {
@@ -308,6 +308,9 @@ export default function MonthlySchedulePage() {
         return [...filtered, ...editSlots];
       });
 
+      // SWR再検証で最新データを反映
+      await mutate(scheduleKey);
+
       setMsg({ type: "success", text: "設定を保存しました" });
       setSelectedDate(null);
     } catch (e) {
@@ -371,6 +374,7 @@ export default function MonthlySchedulePage() {
 
       // ローカル状態を更新
       setWeeklyRules(editingWeeklyRules);
+      await mutate(scheduleKey);
       setMsg({ type: "success", text: "週間スケジュールを保存しました" });
       setShowWeeklyEditor(false);
     } catch (e) {
@@ -507,6 +511,7 @@ export default function MonthlySchedulePage() {
         });
       }
 
+      await mutate(scheduleKey);
       setMsg({ type: "success", text: `${targets.length}日に設定を適用しました` });
       setIsPasteMode(false);
       setCopySource(null);
@@ -555,6 +560,9 @@ export default function MonthlySchedulePage() {
   const dateReservations = (reservationsData?.reservations || []).filter((r) => r.status !== "canceled");
   const [changingSlot, setChangingSlot] = useState<string | null>(null); // "start-end" key
   const [slotNewDoctor, setSlotNewDoctor] = useState<Map<string, string>>(new Map()); // slotKey → 選択中のdoctor_id
+
+  // カレンダー操作をブロック（保存中・担当変更中・SWR再検証中）
+  const isBusy = saving || !!changingSlot || (scheduleValidating && !scheduleLoading);
 
   // 予約を時間帯ごとにグルーピング（editSlots/overrides/weeklyRuleの時間帯に対応）
   const reservationsBySlot = useMemo(() => {
@@ -708,6 +716,7 @@ export default function MonthlySchedulePage() {
       });
 
       await mutate(reservationsKey);
+      await mutate(scheduleKey);
       setMsg({ type: "success", text: `担当を「${newDocName}」に完全切り替えしました（予約${reserveIds.length}件 + スケジュール変更）` });
       setSelectedDate(null);
     } catch (e) {
@@ -781,7 +790,8 @@ export default function MonthlySchedulePage() {
               <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                 <button
                   onClick={prevMonth}
-                  className="p-2 hover:bg-slate-200 rounded-lg transition"
+                  disabled={isBusy}
+                  className="p-2 hover:bg-slate-200 rounded-lg transition disabled:opacity-50"
                 >
                   <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -799,7 +809,8 @@ export default function MonthlySchedulePage() {
                 </div>
                 <button
                   onClick={nextMonth}
-                  className="p-2 hover:bg-slate-200 rounded-lg transition"
+                  disabled={isBusy}
+                  className="p-2 hover:bg-slate-200 rounded-lg transition disabled:opacity-50"
                 >
                   <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -856,6 +867,15 @@ export default function MonthlySchedulePage() {
                   )}
 
                   {/* 日付グリッド */}
+                  <div className="relative">
+                  {isBusy && (
+                    <div className="absolute inset-0 bg-white/60 z-20 flex items-center justify-center rounded-lg backdrop-blur-[1px]">
+                      <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-lg border border-slate-200">
+                        <div className="w-4 h-4 border-2 border-slate-200 border-t-blue-500 rounded-full animate-spin" />
+                        <span className="text-sm text-slate-600 font-medium">反映中...</span>
+                      </div>
+                    </div>
+                  )}
                   <div className="grid grid-cols-7 gap-1">
                     {dayConfigs.map((config, index) => {
                       const d = monthDays[index];
@@ -894,14 +914,14 @@ export default function MonthlySchedulePage() {
                         <button
                           key={config.date}
                           onClick={(e) => {
-                            if (!isCurrentMonth) return;
+                            if (!isCurrentMonth || isBusy) return;
                             if (isPasteMode) {
                               togglePasteTarget(config.date, e.shiftKey);
                             } else {
                               onSelectDate(config.date);
                             }
                           }}
-                          disabled={!isCurrentMonth}
+                          disabled={!isCurrentMonth || isBusy}
                           className={`
                             min-h-[80px] p-1.5 rounded-xl text-sm font-medium transition-all relative
                             ${!isCurrentMonth ? "text-slate-300 cursor-default" : "hover:ring-2 hover:ring-blue-300"}
@@ -948,6 +968,7 @@ export default function MonthlySchedulePage() {
                         </button>
                       );
                     })}
+                  </div>
                   </div>
 
                   {/* 凡例 */}
