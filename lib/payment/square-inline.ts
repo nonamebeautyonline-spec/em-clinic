@@ -90,7 +90,29 @@ export async function ensureSquareCustomer(
     tenantId,
   ).maybeSingle();
 
-  if (patient?.square_customer_id) return patient.square_customer_id;
+  if (patient?.square_customer_id) {
+    // Square API で有効性を検証（アカウント変更後に旧customer_idが残っている場合の対策）
+    const { ok: custOk, status: custStatus } = await squareFetch(
+      baseUrl, `/v2/customers/${patient.square_customer_id}`, "GET", accessToken
+    );
+    if (custOk) return patient.square_customer_id;
+
+    if (custStatus === 404) {
+      // 旧アカウントの customer_id → クリアして新規作成へ
+      console.warn(`[square-inline] customer ${patient.square_customer_id} not found, recreating`);
+      await withTenant(
+        supabaseAdmin
+          .from("patients")
+          .update({ square_customer_id: null, square_card_id: null })
+          .eq("patient_id", patientId),
+        tenantId,
+      );
+    } else {
+      // ネットワーク障害等 → 既存IDで続行（graceful degradation）
+      console.warn(`[square-inline] customer verify failed (status=${custStatus}), using existing`);
+      return patient.square_customer_id;
+    }
+  }
 
   // 2. Square Customers API で新規作成
   const { ok, json } = await squareFetch(baseUrl, "/v2/customers", "POST", accessToken, {

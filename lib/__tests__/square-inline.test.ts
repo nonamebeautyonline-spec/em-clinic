@@ -52,10 +52,10 @@ function setTableChain(table: string, chain: SupabaseChain) {
   globalStore.__testTableChains[table] = chain;
 }
 
-function mockSquareApi(response: Record<string, unknown>, ok = true) {
+function mockSquareApi(response: Record<string, unknown>, ok = true, status?: number) {
   vi.mocked(fetch).mockResolvedValueOnce({
     ok,
-    status: ok ? 200 : 400,
+    status: status ?? (ok ? 200 : 400),
     json: () => Promise.resolve(response),
   } as unknown as Response);
 }
@@ -69,16 +69,57 @@ describe("ensureSquareCustomer", () => {
     globalStore.__testTableChains = {};
   });
 
-  it("DB に既存 customer_id がある場合はそれを返す", async () => {
+  it("DB に既存 customer_id があり Square API で有効 → そのまま返す", async () => {
     const pChain = createChain({
       data: { square_customer_id: "CUST_EXIST", name: "太郎", tel: "090" },
       error: null,
     });
     setTableChain("patients", pChain);
 
+    // RetrieveCustomer API が200を返す
+    mockSquareApi({ customer: { id: "CUST_EXIST" } });
+
     const result = await ensureSquareCustomer(BASE_URL, TOKEN, "PID_001", "test-tenant");
     expect(result).toBe("CUST_EXIST");
-    expect(fetch).not.toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("DB に既存 customer_id があるが Square API で 404 → 新規作成", async () => {
+    const pChain = createChain({
+      data: { square_customer_id: "CUST_OLD", name: "太郎", tel: "090" },
+      error: null,
+    });
+    setTableChain("patients", pChain);
+
+    // RetrieveCustomer → 404
+    mockSquareApi({}, false, 404);
+    // CreateCustomer → 成功
+    mockSquareApi({ customer: { id: "CUST_NEW" } });
+
+    const result = await ensureSquareCustomer(BASE_URL, TOKEN, "PID_001", "test-tenant");
+    expect(result).toBe("CUST_NEW");
+    expect(fetch).toHaveBeenCalledTimes(2);
+    // 旧customer_id + card_id がクリアされる
+    expect(pChain.update).toHaveBeenCalled();
+    const updateCall = pChain.update.mock.calls[0][0];
+    expect(updateCall).toEqual(
+      expect.objectContaining({ square_customer_id: null, square_card_id: null })
+    );
+  });
+
+  it("DB に既存 customer_id があり Square API でネットワークエラー → 既存IDで続行", async () => {
+    const pChain = createChain({
+      data: { square_customer_id: "CUST_EXIST", name: "太郎", tel: "090" },
+      error: null,
+    });
+    setTableChain("patients", pChain);
+
+    // RetrieveCustomer → 500
+    mockSquareApi({}, false, 500);
+
+    const result = await ensureSquareCustomer(BASE_URL, TOKEN, "PID_001", "test-tenant");
+    expect(result).toBe("CUST_EXIST");
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it("DB に customer_id がない場合は Square API で作成して保存", async () => {
@@ -124,6 +165,8 @@ describe("saveCardOnFile", () => {
     });
     setTableChain("patients", pChain);
 
+    // RetrieveCustomer API（ensureSquareCustomer内）
+    mockSquareApi({ customer: { id: "CUST_001" } });
     // Cards API レスポンス
     mockSquareApi({ card: { id: "ccof:NEW_CARD" } });
 
@@ -140,6 +183,8 @@ describe("saveCardOnFile", () => {
     });
     setTableChain("patients", pChain);
 
+    // RetrieveCustomer API（ensureSquareCustomer内）
+    mockSquareApi({ customer: { id: "CUST_001" } });
     mockSquareApi({ errors: [{ detail: "Invalid nonce" }] }, false);
 
     const result = await saveCardOnFile(BASE_URL, TOKEN, "PID_001", "cnon:BAD_NONCE", "test-tenant");
