@@ -18,7 +18,7 @@ const articles: Article[] = [
   {
     title: "第1条（総則）",
     paragraphs: [
-      "本利用規約（以下「本規約」といいます）は、[運営会社名]（以下「当社」といいます）が提供するクリニック向けSaaSサービス「Lオペ for CLINIC」（以下「本サービス」といいます）の利用に関する条件を定めるものです。",
+      "本利用規約（以下「本規約」といいます）は、株式会社ORDIX（以下「当社」といいます）が提供するクリニック向けSaaSサービス「Lオペ for CLINIC」（以下「本サービス」といいます）の利用に関する条件を定めるものです。",
       "本サービスを利用するすべての法人・個人事業主（以下「利用者」といいます）は、本規約に同意のうえ本サービスを利用するものとします。",
     ],
   },
@@ -166,7 +166,7 @@ export default function TermsPage() {
       {/* 本文 */}
       <div className="mx-auto max-w-3xl px-5 py-12">
         <p className="text-sm leading-relaxed text-slate-600">
-          本利用規約（以下「本規約」といいます）は、[運営会社名]（以下「当社」といいます）が提供する「Lオペ
+          本利用規約（以下「本規約」といいます）は、株式会社ORDIX（以下「当社」といいます）が提供する「Lオペ
           for
           CLINIC」（以下「本サービス」といいます）の利用条件を定めるものです。利用者は本規約に同意のうえ、本サービスをご利用ください。
         </p>
@@ -190,7 +190,7 @@ export default function TermsPage() {
         {/* 施行日 */}
         <div className="mt-16 border-t border-slate-200 pt-8 text-right">
           <p className="text-sm text-slate-500">2026年3月10日 制定・施行</p>
-          <p className="mt-1 text-sm text-slate-500">[運営会社名]</p>
+          <p className="mt-1 text-sm text-slate-500">株式会社ORDIX</p>
         </div>
 
         {/* フッター */}

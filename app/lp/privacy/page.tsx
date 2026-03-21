@@ -22,7 +22,7 @@ export default function PrivacyPolicyPage() {
       {/* 本文 */}
       <div className="mx-auto max-w-3xl px-5 py-12">
         <p className="text-sm leading-relaxed text-slate-600">
-          [運営会社名]（以下「当社」といいます）は、クリニック向けLINE運用プラットフォーム「Lオペ
+          株式会社ORDIX（以下「当社」といいます）は、クリニック向けLINE運用プラットフォーム「Lオペ
           for
           CLINIC」（以下「本サービス」といいます）の提供にあたり、利用者（クリニック事業者および患者を含みます）の個人情報を適切に取り扱うことが社会的責務であると考え、以下のとおりプライバシーポリシー（以下「本ポリシー」といいます）を定めます。
         </p>
@@ -210,10 +210,10 @@ export default function PrivacyPolicyPage() {
         </p>
         <div className="mt-3 rounded-lg border border-slate-200 bg-white p-5 text-sm leading-relaxed text-slate-600">
           <p className="font-semibold text-slate-800">
-            [運営会社名] 個人情報管理責任者
+            株式会社ORDIX 個人情報管理責任者
           </p>
-          <p className="mt-1">メール: [メールアドレス]</p>
-          <p>所在地: [所在地]</p>
+          <p className="mt-1">メール: contact@l-ope.jp</p>
+          <p>所在地: 東京都新宿区西新宿6丁目5-1 新宿アイランドタワー2階</p>
         </div>
 
         {/* 9. ポリシーの改定 */}
@@ -229,7 +229,7 @@ export default function PrivacyPolicyPage() {
           <p className="text-sm text-slate-500">
             制定日: 2026年3月10日
           </p>
-          <p className="mt-1 text-sm text-slate-500">[運営会社名]</p>
+          <p className="mt-1 text-sm text-slate-500">株式会社ORDIX</p>
         </div>
 
         {/* フッター: LPへ戻る */}

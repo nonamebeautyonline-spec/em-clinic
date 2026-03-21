@@ -4,6 +4,7 @@ import type { FlexNode, FlexBubble } from "./types";
 // LINE Flex Bubble レンダラー
 const FLEX_SIZE: Record<string, string> = { xxs: "10px", xs: "12px", sm: "13px", md: "14px", lg: "16px", xl: "18px", xxl: "22px", "3xl": "26px", "4xl": "32px", "5xl": "38px" };
 const FLEX_MARGIN: Record<string, string> = { none: "0", xs: "2px", sm: "4px", md: "8px", lg: "12px", xl: "16px", xxl: "20px" };
+const GRAVITY_MAP: Record<string, string> = { top: "flex-start", center: "center", bottom: "flex-end" };
 
 /** Flex ノードを再帰的にレンダリング（boxレイアウト維持） */
 export function renderFlexNode(node: FlexNode, idx: number, isHeader = false): ReactNode {
@@ -19,7 +20,14 @@ export function renderFlexNode(node: FlexNode, idx: number, isHeader = false): R
     };
     if (mt) s.marginTop = mt;
     if (node.paddingAll) s.padding = node.paddingAll;
-    if (isHorizontal) s.alignItems = "baseline";
+    if (node.paddingStart) s.paddingLeft = node.paddingStart;
+    if (node.paddingEnd) s.paddingRight = node.paddingEnd;
+    if (node.paddingTop) s.paddingTop = node.paddingTop;
+    if (node.paddingBottom) s.paddingBottom = node.paddingBottom;
+    if (node.backgroundColor) s.backgroundColor = node.backgroundColor;
+    if (node.cornerRadius) s.borderRadius = node.cornerRadius;
+    if (isHorizontal) s.alignItems = node.alignItems || "baseline";
+    if (!isHorizontal && node.alignItems) s.alignItems = node.alignItems;
     return (
       <div key={idx} style={s}>
         {(node.contents || []).map((c, i) => renderFlexNode(c, i, isHeader))}
@@ -40,15 +48,24 @@ export function renderFlexNode(node: FlexNode, idx: number, isHeader = false): R
     if (mt) s.marginTop = mt;
     if (node.wrap) { s.whiteSpace = "pre-wrap"; s.wordBreak = "break-word"; } else { s.whiteSpace = "nowrap"; s.overflow = "hidden"; s.textOverflow = "ellipsis"; }
     if (node.flex !== undefined) s.flex = node.flex;
+    if (node.gravity && GRAVITY_MAP[node.gravity]) s.alignSelf = GRAVITY_MAP[node.gravity] as CSSProperties["alignSelf"];
     return <div key={idx} style={s}>{node.text}</div>;
   }
 
   if (node.type === "image") {
-    const s: CSSProperties = { maxWidth: "100%", display: "block" };
-    if (mt) s.marginTop = mt;
+    const wrapS: CSSProperties = {};
+    if (node.flex !== undefined) { wrapS.flex = node.flex; wrapS.minWidth = 0; }
+    if (mt) wrapS.marginTop = mt;
+
+    const s: CSSProperties = { maxWidth: "100%", display: "block", width: "100%" };
     s.objectFit = node.aspectMode === "cover" ? "cover" : "contain";
-    if (node.size === "full") s.width = "100%";
     if (node.aspectRatio) { const [w, h] = node.aspectRatio.split(":").map(Number); if (w && h) s.aspectRatio = `${w}/${h}`; }
+
+    if (node.flex !== undefined) {
+      return <div key={idx} style={wrapS}><img src={node.url} alt="" style={s} loading="lazy" /></div>;
+    }
+    if (node.size === "full") s.width = "100%";
+    if (mt && !node.flex) s.marginTop = mt;
     return <img key={idx} src={node.url} alt="" style={s} loading="lazy" />;
   }
 

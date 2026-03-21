@@ -126,7 +126,14 @@ export interface FlexNode {
   flex?: number;
   layout?: string;
   paddingAll?: string;
+  paddingStart?: string;
+  paddingEnd?: string;
+  paddingTop?: string;
+  paddingBottom?: string;
   spacing?: string;
+  gravity?: string;
+  cornerRadius?: string;
+  alignItems?: string;
 }
 
 /** Flex Bubble の型定義 */

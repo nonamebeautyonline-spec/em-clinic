@@ -22,7 +22,7 @@ export default function CancelPolicyPage() {
       {/* 本文 */}
       <div className="mx-auto max-w-3xl px-5 py-12">
         <p className="text-sm leading-relaxed text-slate-600">
-          本ポリシーは、株式会社[運営会社名]（以下「当社」）が提供するクリニック特化LINE運用プラットフォーム「Lオペ
+          本ポリシーは、株式会社株式会社ORDIX（以下「当社」）が提供するクリニック特化LINE運用プラットフォーム「Lオペ
           for
           CLINIC」（以下「本サービス」）のキャンセル・解約に関する条件を定めるものです。ご契約前に必ずご確認ください。
         </p>
@@ -179,10 +179,10 @@ export default function CancelPolicyPage() {
             Lオペ for CLINIC サポート窓口
           </p>
           <p className="mt-2 text-sm text-slate-600">
-            運営：株式会社[運営会社名]
+            運営：株式会社ORDIX
           </p>
           <p className="mt-1 text-sm text-slate-600">
-            メール：support@[ドメイン]
+            メール：contact@l-ope.jp
           </p>
           <p className="mt-1 text-sm text-slate-600">
             受付時間：平日 10:00〜18:00（土日祝日・年末年始を除く）

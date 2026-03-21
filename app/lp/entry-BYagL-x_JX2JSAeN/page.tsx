@@ -937,7 +937,7 @@ function PolicyAccordion({
 
 function TermsContent() {
   const articles = [
-    { title: "第1条（総則）", paragraphs: ["本利用規約（以下「本規約」といいます）は、[運営会社名]（以下「当社」といいます）が提供するクリニック向けSaaSサービス「Lオペ for CLINIC」（以下「本サービス」といいます）の利用に関する条件を定めるものです。", "本サービスを利用するすべての法人・個人事業主（以下「利用者」といいます）は、本規約に同意のうえ本サービスを利用するものとします。"] },
+    { title: "第1条（総則）", paragraphs: ["本利用規約（以下「本規約」といいます）は、株式会社ORDIX（以下「当社」といいます）が提供するクリニック向けSaaSサービス「Lオペ for CLINIC」（以下「本サービス」といいます）の利用に関する条件を定めるものです。", "本サービスを利用するすべての法人・個人事業主（以下「利用者」といいます）は、本規約に同意のうえ本サービスを利用するものとします。"] },
     { title: "第2条（定義）", paragraphs: ["本規約において、以下の用語は次の意味を有するものとします。", "「本サービス」とは、当社が「Lオペ for CLINIC」の名称で提供する、LINE公式アカウントを活用したクリニック業務支援プラットフォームをいいます。", "「利用契約」とは、本規約に基づき当社と利用者の間で締結されるサービス利用に関する契約をいいます。", "「利用者データ」とは、利用者が本サービスの利用に際して入力・登録・送信・保存した一切のデータをいいます。"] },
     { title: "第3条（サービス内容）", paragraphs: ["当社は、利用者に対し、LINE公式アカウントとの連携による患者CRM、予約管理・問診フォーム、セグメント配信、リッチメニュー作成・管理、会計・決済連携、カルテ管理等の機能を含むクリニック業務支援サービスを提供します。", "当社は、本サービスの機能追加・改善を随時行うことができるものとします。"] },
     { title: "第4条（利用申込・契約成立）", paragraphs: ["本サービスの利用を希望する者は、当社所定の方法により利用申込を行うものとします。当社が利用申込を承諾した時点で利用契約が成立するものとします。"] },
@@ -972,7 +972,7 @@ function TermsContent() {
 function PrivacyContent() {
   return (
     <div className="space-y-4 text-sm text-slate-600">
-      <p className="leading-relaxed">[運営会社名]（以下「当社」）は、「Lオペ for CLINIC」の提供にあたり、個人情報を適切に取り扱います。</p>
+      <p className="leading-relaxed">株式会社ORDIX（以下「当社」）は、「Lオペ for CLINIC」の提供にあたり、個人情報を適切に取り扱います。</p>
 
       <h3 className="font-bold text-slate-800">1. 基本方針</h3>
       <p className="leading-relaxed">当社は、個人情報保護法その他の関連法令を遵守し、医療関連情報については特に慎重な取り扱いを行います。</p>
@@ -996,7 +996,7 @@ function PrivacyContent() {
       <p className="leading-relaxed">Cookieおよびアクセス解析ツールを利用する場合があります。ブラウザ設定でCookieを無効にできますが、一部機能が制限されることがあります。</p>
 
       <h3 className="font-bold text-slate-800">8. お問い合わせ窓口</h3>
-      <p className="leading-relaxed">[運営会社名] 個人情報管理責任者 — メール: [メールアドレス]</p>
+      <p className="leading-relaxed">株式会社ORDIX 個人情報管理責任者 — メール: contact@l-ope.jp</p>
 
       <h3 className="font-bold text-slate-800">9. ポリシーの改定</h3>
       <p className="leading-relaxed">法令やサービス内容の変更により本ポリシーを改定する場合があります。重要な変更は本サービス上でお知らせします。</p>

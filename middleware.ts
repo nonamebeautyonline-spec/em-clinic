@@ -38,7 +38,7 @@ async function resolveSlugToTenantId(slug: string): Promise<string | null> {
 }
 
 // サブドメインとして無視するホスト名プレフィックス
-const RESERVED_SLUGS = new Set(["app", "admin", "www", "localhost", "127", "l-ope"]);
+const RESERVED_SLUGS = new Set(["app", "admin", "www", "localhost", "127", "l-ope", "ordix"]);
 
 // CSRF検証を除外するパス
 const CSRF_EXEMPT_PREFIXES = [
@@ -88,9 +88,22 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const host = req.headers.get("host") || "";
 
+  // === ordix.co.jp → /corporate リライト ===
+  const hostWithoutPort = host.replace(/:\d+$/, "");
+  const isOrdix = hostWithoutPort === "ordix.co.jp" || hostWithoutPort === "www.ordix.co.jp";
+  if (isOrdix) {
+    // /corporate 配下以外へのアクセスは /corporate にリライト
+    if (pathname === "/" || pathname === "") {
+      return NextResponse.rewrite(new URL("/corporate", req.url));
+    }
+    // /about → /corporate/about 等
+    if (!pathname.startsWith("/corporate") && !pathname.startsWith("/_next") && !pathname.startsWith("/api")) {
+      return NextResponse.rewrite(new URL(`/corporate${pathname}`, req.url));
+    }
+  }
+
   // === /lp 配下はルートドメイン(l-ope.jp) と localhost のみ許可 ===
   // テナントサブドメイン（noname-beauty.l-ope.jp 等）では非表示
-  const hostWithoutPort = host.replace(/:\d+$/, "");
   const isRootDomain = hostWithoutPort === "l-ope.jp" || hostWithoutPort === "www.l-ope.jp";
   const isLocalhost = hostWithoutPort === "localhost" || hostWithoutPort.startsWith("localhost");
   if (pathname.startsWith("/lp") && !isLocalhost && !isRootDomain) {
