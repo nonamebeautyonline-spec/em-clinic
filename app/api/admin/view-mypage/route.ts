@@ -4,6 +4,7 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
+import { getMypageConfig } from "@/lib/mypage/config";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -363,13 +364,17 @@ export async function GET(req: NextRequest) {
     }
 
     // ★ 全クエリをPromise.allで並列実行（GAS呼び出し廃止）
-    const [patientInfo, nextReservation, orders, history, reorders] = await Promise.all([
+    const [patientInfo, nextReservationRaw, orders, history, reorders, mpConfig] = await Promise.all([
       getPatientInfoFromSupabase(patientId, tenantId),
       getNextReservationFromSupabase(patientId, tenantId),
       getOrdersFromSupabase(patientId, tenantId),
       getConsultationHistoryFromSupabase(patientId, tenantId),
       getReordersFromSupabase(patientId, tenantId),
+      getMypageConfig(tenantId ?? undefined),
     ]);
+
+    // 顧客マイページと同じロジック: 診察済みなら予約を非表示
+    const nextReservation = history.length > 0 ? null : nextReservationRaw;
 
     const activeOrders = orders.filter((o) => o.refundStatus !== "COMPLETED" && o.refundStatus !== "CANCELLED");
     const isNG = patientInfo.intakeStatus === "NG";
@@ -395,6 +400,7 @@ export async function GET(req: NextRequest) {
       reorders,
       hasIntake: patientInfo.hasIntake,
       intakeStatus: patientInfo.intakeStatus,
+      mpConfig,
     };
 
     return NextResponse.json(

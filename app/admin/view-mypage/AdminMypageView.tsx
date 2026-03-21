@@ -64,6 +64,19 @@ interface ReorderItem {
   note?: string;
 }
 
+interface MpLabels {
+  reservationTitle: string;
+  phoneNotice: string;
+  cancelNotice: string;
+  [key: string]: string;
+}
+
+interface MpConfig {
+  labels?: MpLabels;
+  sections?: Record<string, boolean>;
+  [key: string]: unknown;
+}
+
 interface PatientDashboardData {
   patient: PatientInfo;
   nextReservation?: Reservation | null;
@@ -73,6 +86,7 @@ interface PatientDashboardData {
   ordersFlags?: OrdersFlags;
   reorders?: ReorderItem[];
   hasIntake?: boolean;
+  mpConfig?: MpConfig;
 }
 
 // ------------------------- util -------------------------
@@ -293,6 +307,12 @@ export default function AdminMypageView({ data }: { data: PatientDashboardData &
   const intakeStatus = data.intakeStatus || null;
   const isNG = intakeStatus === "NG";
 
+  const mpLabels = data.mpConfig?.labels ?? {
+    reservationTitle: "次回のご予約",
+    phoneNotice: "",
+    cancelNotice: "",
+  };
+
   // ★ APIから来たordersをマッピング（snake_case → camelCase）
   const mapOrder = (o: Record<string, unknown>): Order => {
     // payment_status: COMPLETED → paid, PENDING → pending, etc.
@@ -451,10 +471,10 @@ export default function AdminMypageView({ data }: { data: PatientDashboardData &
     showInitialPurchase && (ordersFlags?.canPurchaseCurrentCourse ?? true);
 
   const topSectionTitle = nextReservation
-    ? "次回のご予約"
+    ? mpLabels.reservationTitle || "次回のご予約"
     : hasHistory
     ? "初回診察"
-    : "次回のご予約";
+    : mpLabels.reservationTitle || "次回のご予約";
 
   return (
     <div className="min-h-screen bg-[#FFF8FB]">
@@ -601,10 +621,8 @@ export default function AdminMypageView({ data }: { data: PatientDashboardData &
                 {nextReservation.title}
               </div>
 
-              <p className="mt-2 text-xs text-slate-600 leading-relaxed">
-                上記時間内に、<b>090-からはじまる電話番号</b>より携帯電話へお電話いたします。<br />
-                必ずしも開始時刻ちょうどではなく、予約枠（例：12:00〜12:15）の間に医師より順次ご連絡します。<br />
-                前の診療状況により、前後15分程度お時間が前後する場合があります。あらかじめご了承ください。
+              <p className="mt-2 text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                {mpLabels.phoneNotice}
               </p>
 
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">
@@ -626,7 +644,7 @@ export default function AdminMypageView({ data }: { data: PatientDashboardData &
               </div>
 
               <p className="mt-3 text-[11px] text-slate-500 leading-relaxed">
-                ※ 予約の変更・キャンセルは診察予定時刻の1時間前まで可能です。
+                {mpLabels.cancelNotice}
               </p>
             </>
           ) : lastHistory ? (
