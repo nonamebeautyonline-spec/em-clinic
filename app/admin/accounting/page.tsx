@@ -280,16 +280,16 @@ export default function AccountingPage() {
         <div className="bg-white rounded-lg shadow p-6 overflow-visible">
           <h2 className="text-lg font-bold text-slate-900 mb-4 border-b pb-2">新規処方 vs 再処方（日別件数）</h2>
           <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="p-3 bg-blue-50 rounded-lg text-center">
-              <div className="text-blue-600 text-xs mb-1">新規処方</div>
-              <div className="text-xl font-bold text-blue-700">
-                {dailyData.reduce((sum, d) => sum + d.firstCount, 0)}件
-              </div>
-            </div>
             <div className="p-3 bg-emerald-50 rounded-lg text-center">
               <div className="text-emerald-600 text-xs mb-1">再処方</div>
               <div className="text-xl font-bold text-emerald-700">
                 {dailyData.reduce((sum, d) => sum + d.reorderCount, 0)}件
+              </div>
+            </div>
+            <div className="p-3 bg-blue-50 rounded-lg text-center">
+              <div className="text-blue-600 text-xs mb-1">新規処方</div>
+              <div className="text-xl font-bold text-blue-700">
+                {dailyData.reduce((sum, d) => sum + d.firstCount, 0)}件
               </div>
             </div>
           </div>
