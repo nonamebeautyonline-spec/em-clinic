@@ -344,6 +344,7 @@ export async function middleware(req: NextRequest) {
             path: "/",
             maxAge: 365 * 24 * 60 * 60,
           });
+          console.log(`[middleware] JWT自動発行: pid=${pid}`);
           return response;
         } catch {
           // JWT生成失敗 → 通常処理を続行
