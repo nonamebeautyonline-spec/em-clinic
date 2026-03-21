@@ -554,6 +554,7 @@ export default function MonthlySchedulePage() {
   }>(reservationsKey);
   const dateReservations = (reservationsData?.reservations || []).filter((r) => r.status !== "canceled");
   const [changingSlot, setChangingSlot] = useState<string | null>(null); // "start-end" key
+  const [slotNewDoctor, setSlotNewDoctor] = useState<Map<string, string>>(new Map()); // slotKey → 選択中のdoctor_id
 
   // 予約を時間帯ごとにグルーピング（editSlots/overrides/weeklyRuleの時間帯に対応）
   const reservationsBySlot = useMemo(() => {
@@ -594,9 +595,12 @@ export default function MonthlySchedulePage() {
     });
   }, [selectedDate, dateReservations, overrides, weeklyRules, doctorId]);
 
-  // 時間帯の予約を一括で担当医変更
+  // 予約のみ一括変更
   async function changeDoctorForSlot(slotKey: string, reserveIds: string[], newDoctorId: string) {
     if (reserveIds.length === 0) return;
+    const newDocName = doctors.find((d) => d.doctor_id === newDoctorId)?.doctor_name || newDoctorId;
+    if (!confirm(`予約${reserveIds.length}件の担当を「${newDocName}」に変更します。よろしいですか？`)) return;
+
     setChangingSlot(slotKey);
     setMsg(null);
     try {
@@ -615,6 +619,99 @@ export default function MonthlySchedulePage() {
       setMsg({ type: "success", text: `${successCount}件の予約の担当医を変更しました` });
     } catch (e) {
       setMsg({ type: "error", text: (e instanceof Error ? e.message : null) || "担当変更に失敗しました" });
+    } finally {
+      setChangingSlot(null);
+    }
+  }
+
+  // 予約 + スケジュール設定を丸ごと切り替え
+  async function swapDoctorForDay(slotKey: string, slot: { start: string; end: string }, reserveIds: string[], oldDoctorId: string, newDoctorId: string) {
+    const oldDocName = doctors.find((d) => d.doctor_id === oldDoctorId)?.doctor_name || oldDoctorId;
+    const newDocName = doctors.find((d) => d.doctor_id === newDoctorId)?.doctor_name || newDoctorId;
+    if (!confirm(
+      `この日の担当を「${oldDocName}」→「${newDocName}」に完全に切り替えます。\n\n` +
+      `・予約${reserveIds.length}件の担当医を変更\n` +
+      `・${oldDocName}のスケジュール設定を${newDocName}に移行\n\nよろしいですか？`
+    )) return;
+
+    setChangingSlot(slotKey);
+    setMsg(null);
+    try {
+      // 1. 予約の担当医を一括変更
+      for (const reserveId of reserveIds) {
+        await fetch("/api/admin/reservations", {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reserve_id: reserveId, doctor_id: newDoctorId }),
+        });
+      }
+
+      // 2. 旧Drのこの日のoverridesを削除
+      await fetch("/api/admin/date_override", {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ doctor_id: oldDoctorId, date: selectedDate, delete_all: true }),
+      });
+
+      // 3. 新Drのこの日のoverridesも一旦削除
+      await fetch("/api/admin/date_override", {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ doctor_id: newDoctorId, date: selectedDate, delete_all: true }),
+      });
+
+      // 4. 新Drにこの時間帯のoverrideを作成
+      await fetch("/api/admin/date_override", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          override: {
+            doctor_id: newDoctorId,
+            date: selectedDate,
+            type: "open",
+            start_time: slot.start,
+            end_time: slot.end,
+            slot_minutes: 15,
+            capacity: 2,
+          },
+        }),
+      });
+
+      // 5. 旧Drをこの日は休診に設定
+      await fetch("/api/admin/date_override", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          override: {
+            doctor_id: oldDoctorId,
+            date: selectedDate,
+            type: "closed",
+          },
+        }),
+      });
+
+      // ローカルのoverrides状態を更新
+      setOverrides((prev) => {
+        const filtered = prev.filter(
+          (o) => !(o.date === selectedDate && (o.doctor_id === oldDoctorId || o.doctor_id === newDoctorId))
+        );
+        return [
+          ...filtered,
+          { doctor_id: newDoctorId, date: selectedDate!, type: "open" as const, start_time: slot.start, end_time: slot.end },
+          { doctor_id: oldDoctorId, date: selectedDate!, type: "closed" as const },
+        ];
+      });
+
+      await mutate(reservationsKey);
+      setMsg({ type: "success", text: `担当を「${newDocName}」に完全切り替えしました（予約${reserveIds.length}件 + スケジュール変更）` });
+      setSelectedDate(null);
+    } catch (e) {
+      setMsg({ type: "error", text: (e instanceof Error ? e.message : null) || "切り替えに失敗しました" });
     } finally {
       setChangingSlot(null);
     }
@@ -1219,27 +1316,49 @@ export default function MonthlySchedulePage() {
                                         );
                                       })}
                                     </div>
-                                    {/* 一括変更セレクト */}
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-[10px] text-slate-500 flex-shrink-0">一括変更:</span>
+                                    {/* 変更先Dr選択 */}
+                                    <div className="mb-2">
+                                      <span className="text-[10px] text-slate-500">変更先:</span>
                                       <select
-                                        value={currentDoctorId}
+                                        value={slotNewDoctor.get(slotKey) || currentDoctorId}
                                         disabled={isChanging}
-                                        onChange={(e) => {
-                                          const newDoc = e.target.value;
-                                          const ids = slot.reservations.map((r) => r.reserve_id);
-                                          if (confirm(`${slot.label}の${ids.length}件の予約を${doctors.find((d) => d.doctor_id === newDoc)?.doctor_name || newDoc}に変更しますか？`)) {
-                                            changeDoctorForSlot(slotKey, ids, newDoc);
-                                          }
-                                        }}
-                                        className="flex-1 text-xs px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 disabled:opacity-50"
+                                        onChange={(e) => setSlotNewDoctor((prev) => new Map(prev).set(slotKey, e.target.value))}
+                                        className="w-full mt-1 text-xs px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 disabled:opacity-50"
                                       >
                                         {doctors.map((d) => (
                                           <option key={d.doctor_id} value={d.doctor_id}>{d.doctor_name}</option>
                                         ))}
                                       </select>
-                                      {isChanging && <span className="text-[10px] text-blue-500">変更中...</span>}
                                     </div>
+                                    {/* 2ボタン */}
+                                    {(slotNewDoctor.get(slotKey) || currentDoctorId) !== currentDoctorId && (
+                                      <div className="space-y-1.5">
+                                        <button
+                                          onClick={() => {
+                                            const newDoc = slotNewDoctor.get(slotKey) || currentDoctorId;
+                                            changeDoctorForSlot(slotKey, slot.reservations.map((r) => r.reserve_id), newDoc);
+                                          }}
+                                          disabled={isChanging}
+                                          className="w-full px-3 py-2 text-xs font-medium rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-50 transition"
+                                        >
+                                          {isChanging ? "変更中..." : "予約の担当のみ変更"}
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            const newDoc = slotNewDoctor.get(slotKey) || currentDoctorId;
+                                            swapDoctorForDay(slotKey, slot, slot.reservations.map((r) => r.reserve_id), currentDoctorId, newDoc);
+                                          }}
+                                          disabled={isChanging}
+                                          className="w-full px-3 py-2 text-xs font-medium rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-50 transition"
+                                        >
+                                          {isChanging ? "切替中..." : "担当ごと完全に切り替える"}
+                                        </button>
+                                        <p className="text-[10px] text-slate-400 leading-tight">
+                                          「完全に切り替える」は予約の変更に加え、この日のスケジュール設定も入れ替えます
+                                        </p>
+                                      </div>
+                                    )}
+                                    {isChanging && <div className="text-[10px] text-blue-500 mt-1">処理中...</div>}
                                   </>
                                 ) : (
                                   <div className="text-xs text-slate-400">予約なし</div>
