@@ -215,11 +215,12 @@ describe("NavCards リンク先", () => {
   const CARD_LINKS = [
     "/admin/schedule/doctors",
     "/admin/schedule/monthly",
+    "/admin/schedule/work-hours",
     "/admin/schedule/reservation-settings",
   ];
 
-  it("3枚のカードがある", () => {
-    expect(CARD_LINKS.length).toBe(3);
+  it("4枚のカードがある", () => {
+    expect(CARD_LINKS.length).toBe(4);
   });
 
   it("医師マスタのリンク先", () => {
@@ -230,8 +231,12 @@ describe("NavCards リンク先", () => {
     expect(CARD_LINKS[1]).toBe("/admin/schedule/monthly");
   });
 
+  it("業務時間管理のリンク先", () => {
+    expect(CARD_LINKS[2]).toBe("/admin/schedule/work-hours");
+  });
+
   it("予約設定のリンク先", () => {
-    expect(CARD_LINKS[2]).toBe("/admin/schedule/reservation-settings");
+    expect(CARD_LINKS[3]).toBe("/admin/schedule/reservation-settings");
   });
 });
 
@@ -256,5 +261,42 @@ describe("予約受付設定デフォルト値", () => {
   it("デフォルトは変更・キャンセル制限なし", () => {
     expect(DEFAULT_SETTINGS.change_deadline_hours).toBe(0);
     expect(DEFAULT_SETTINGS.cancel_deadline_hours).toBe(0);
+  });
+});
+
+// === 業務時間計算ロジック ===
+describe("業務時間計算", () => {
+  function calcHours(start: string, end: string): number {
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
+    return (eh * 60 + em - sh * 60 - sm) / 60;
+  }
+
+  it("10:00-19:00は9時間", () => {
+    expect(calcHours("10:00", "19:00")).toBe(9);
+  });
+
+  it("10:00-12:00は2時間", () => {
+    expect(calcHours("10:00", "12:00")).toBe(2);
+  });
+
+  it("13:00-17:30は4.5時間", () => {
+    expect(calcHours("13:00", "17:30")).toBe(4.5);
+  });
+
+  it("10:30-12:00は1.5時間", () => {
+    expect(calcHours("10:30", "12:00")).toBe(1.5);
+  });
+
+  it("月間合計: 週5日×9h×4週=180h", () => {
+    const weeklyHours = 5 * 9; // 45h/week
+    const monthlyHours = weeklyHours * 4;
+    expect(monthlyHours).toBe(180);
+  });
+
+  it("修正前後の差分が正しく計算される", () => {
+    const original = 9;
+    const adjusted = 7.5;
+    expect(adjusted - original).toBe(-1.5);
   });
 });

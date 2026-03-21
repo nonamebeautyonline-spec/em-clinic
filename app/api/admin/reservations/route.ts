@@ -14,6 +14,7 @@ interface ReservationRow {
   reserved_time: string | null;
   status: string | null;
   prescription_menu: string | null;
+  doctor_id: string | null;
   created_at: string | null;
 }
 
@@ -261,6 +262,7 @@ export async function GET(req: NextRequest) {
         intake_status: intake?.intake_status || null,
         note: intake?.note || "",
         prescription_menu: row.prescription_menu || "",
+        doctor_id: row.doctor_id || "dr_default",
       };
     });
 

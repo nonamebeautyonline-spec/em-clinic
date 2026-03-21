@@ -30,6 +30,19 @@ const CARDS = [
     ),
   },
   {
+    href: "/admin/schedule/work-hours",
+    label: "業務時間管理",
+    description: "Dr別の月間業務時間集計・修正",
+    gradient: "from-amber-500 to-amber-600",
+    hoverBorder: "hover:border-amber-200",
+    bgAccent: "from-amber-50",
+    icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  {
     href: "/admin/schedule/reservation-settings",
     label: "予約設定",
     description: "受付期間・メニュー・通知設定",
@@ -47,7 +60,7 @@ const CARDS = [
 
 export default function NavCards() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       {CARDS.map((card) => (
         <Link
           key={card.href}
