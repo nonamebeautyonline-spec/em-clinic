@@ -1,6 +1,6 @@
 // middleware.ts — proxy.ts統合 + CSRF検証（Double Submit Cookie パターン）+ 権限チェック
 import { NextRequest, NextResponse } from "next/server";
-import { jwtVerify } from "jose";
+import { jwtVerify, SignJWT } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import { getRequiredPermission, hasPermission } from "@/lib/permissions";
 import { resolveMenuKeyFromPath } from "@/lib/menu-permissions";
@@ -313,6 +313,41 @@ export async function middleware(req: NextRequest) {
         }
         // ページアクセスの場合はダッシュボードにリダイレクト
         return NextResponse.redirect(new URL("/admin/dashboard", req.url));
+      }
+    }
+  }
+
+  // === 患者セッションJWT自動発行（旧Cookie → JWT移行） ===
+  // patient_session がなく、旧Cookie（patient_id + line_user_id）がある場合にJWTを発行
+  const hasPatientSession = !!req.cookies.get("patient_session")?.value;
+  if (!hasPatientSession && !pathname.startsWith("/api/admin/") && !pathname.startsWith("/admin")) {
+    const pid = req.cookies.get("__Host-patient_id")?.value || req.cookies.get("patient_id")?.value;
+    const lid = req.cookies.get("__Host-line_user_id")?.value || req.cookies.get("line_user_id")?.value;
+    if (pid && lid) {
+      const patientSecret = process.env.PATIENT_SESSION_SECRET;
+      if (patientSecret) {
+        try {
+          const secret = new TextEncoder().encode(patientSecret);
+          const jwt = await new SignJWT({ pid, lid, tid: tenantId || null })
+            .setProtectedHeader({ alg: "HS256" })
+            .setIssuedAt()
+            .setExpirationTime(new Date(Date.now() + 365 * 24 * 60 * 60 * 1000))
+            .sign(secret);
+
+          const headers = new Headers(req.headers);
+          if (tenantId) headers.set("x-tenant-id", tenantId);
+          const response = NextResponse.next({ request: { headers } });
+          response.cookies.set("patient_session", jwt, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "none",
+            path: "/",
+            maxAge: 365 * 24 * 60 * 60,
+          });
+          return response;
+        } catch {
+          // JWT生成失敗 → 通常処理を続行
+        }
       }
     }
   }
