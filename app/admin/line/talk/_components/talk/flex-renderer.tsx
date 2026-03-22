@@ -53,6 +53,9 @@ export function renderFlexNode(node: FlexNode, idx: number, isHeader = false): R
   }
 
   if (node.type === "image") {
+    // 空URLの画像は非表示（LINE APIエラー回避）
+    if (!node.url) return null;
+
     const wrapS: CSSProperties = {};
     if (node.flex !== undefined) { wrapS.flex = node.flex; wrapS.minWidth = 0; }
     if (mt) wrapS.marginTop = mt;
@@ -95,6 +98,7 @@ export function renderFlexBubble(bubble: FlexBubble): ReactNode {
 
   const hdrBg = bubble.header?.backgroundColor || "#ec4899";
   const hasHeader = bubble.header && (bubble.header.contents || []).length > 0;
+  const hasHero = bubble.hero && (bubble.hero.type === "image" || (bubble.hero.contents || []).length > 0);
   const hasBody = bubble.body && (bubble.body.contents || []).length > 0;
   const hasFooter = bubble.footer && (bubble.footer.contents || []).length > 0;
 
@@ -105,6 +109,7 @@ export function renderFlexBubble(bubble: FlexBubble): ReactNode {
           {(bubble.header!.contents || []).map((c, i) => renderFlexNode(c, i, true))}
         </div>
       )}
+      {hasHero && renderFlexNode(bubble.hero!, 0)}
       {hasBody && (
         <div style={{ backgroundColor: "#ffffff", padding: bubble.body!.paddingAll || "16px" }}>
           {(bubble.body!.contents || []).map((c, i) => renderFlexNode(c, i))}

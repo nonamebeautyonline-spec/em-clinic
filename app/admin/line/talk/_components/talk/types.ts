@@ -140,6 +140,7 @@ export interface FlexNode {
 export interface FlexBubble {
   type: string;
   header?: FlexNode;
+  hero?: FlexNode;
   body?: FlexNode;
   footer?: FlexNode;
 }

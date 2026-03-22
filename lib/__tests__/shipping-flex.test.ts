@@ -24,6 +24,10 @@ vi.mock("@/lib/tenant", () => ({
   tenantPayload: (tid: string | null) => ({ tenant_id: tid || null }),
 }));
 
+vi.mock("@/lib/settings", () => ({
+  getSettingOrEnv: vi.fn().mockResolvedValue("https://app.noname-beauty.jp"),
+}));
+
 // --- テスト内ヘルパー関数（private関数ロジック再実装） ---
 function formatTrackingNumber(num: string): string {
   const digits = num.replace(/\D/g, "");

@@ -92,8 +92,8 @@ export const DEFAULT_FLEX_CONFIG: FlexMessageConfig = {
     storageNotice2: "冷凍保存を行うと薬液が凍結したり効果が下がってしまいますのでご注意ください。",
     buttonLabel: "配送状況を確認",
     footerNote: "マイページからも確認が可能です",
-    truckImageUrl: `${process.env.APP_BASE_URL || ""}/images/truck-delivery.png`,
-    progressBarUrl: `${process.env.APP_BASE_URL || ""}/images/progress-bar.png`,
+    truckImageUrl: "",
+    progressBarUrl: "",
   },
   payment: {
     header: "決済のご案内",

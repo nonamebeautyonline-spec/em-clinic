@@ -160,8 +160,8 @@ describe("Flex Message 発送通知テキスト", () => {
     expect(DEFAULT_FLEX_CONFIG.shipping.buttonLabel).toBe("配送状況を確認");
   });
 
-  it("画像URLパスが設定されている（APP_BASE_URL未設定時は相対パス）", () => {
-    expect(DEFAULT_FLEX_CONFIG.shipping.truckImageUrl).toContain("/images/truck-delivery.png");
-    expect(DEFAULT_FLEX_CONFIG.shipping.progressBarUrl).toContain("/images/progress-bar.png");
+  it("画像URLデフォルトは空文字（getSettingOrEnvで動的に取得するため）", () => {
+    expect(DEFAULT_FLEX_CONFIG.shipping.truckImageUrl).toBe("");
+    expect(DEFAULT_FLEX_CONFIG.shipping.progressBarUrl).toBe("");
   });
 });

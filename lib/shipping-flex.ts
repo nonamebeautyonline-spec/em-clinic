@@ -6,6 +6,7 @@ import { pushMessage } from "@/lib/line-push";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getFlexConfig } from "@/lib/flex-message/config";
 import { DEFAULT_FLEX_CONFIG, getColorsForTab } from "@/lib/flex-message/types";
+import { getSettingOrEnv } from "@/lib/settings";
 import { tenantPayload } from "@/lib/tenant";
 
 /** 追跡番号をハイフン区切りにフォーマット（12桁 → XXXX-XXXX-XXXX） */
@@ -48,10 +49,15 @@ export async function buildShippingFlex(
   const label = carrierLabel(primary.carrier);
   const trackingUrl = buildTrackingUrl(primary.carrier, primary.number);
 
-  // LINE Flex APIはurl=""を許可しないため、デフォルト画像にフォールバック
-  const baseUrl = process.env.APP_BASE_URL || "";
+  // テナント設定 → 環境変数の順でapp_base_urlを取得（process.env直接参照は不安定）
+  const baseUrl = (await getSettingOrEnv("general", "app_base_url", "APP_BASE_URL", tenantId)) || "";
   const truckUrl = shipping.truckImageUrl || `${baseUrl}/images/truck-delivery.png`;
   const progressUrl = shipping.progressBarUrl || `${baseUrl}/images/progress-bar.png`;
+
+  // 画像URLが絶対URLでない場合はエラー（LINE Flex APIは絶対URL必須）
+  if (!truckUrl.startsWith("https://") || !progressUrl.startsWith("https://")) {
+    throw new Error(`[shipping-flex] 画像URLが不正です: truck=${truckUrl}, progress=${progressUrl}。管理画面のイベント通知設定またはAPP_BASE_URLを確認してください`);
+  }
 
   // 追跡番号セクション
   const trackingContents: Record<string, unknown>[] = [
