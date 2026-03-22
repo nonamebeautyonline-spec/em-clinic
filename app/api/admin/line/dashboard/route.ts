@@ -106,6 +106,7 @@ export async function GET(req: NextRequest) {
 
   const tenantId = resolveTenantIdOrThrow(req);
   const lineToken = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
+  const notifyToken = await getSettingOrEnv("line", "notify_channel_access_token", "LINE_NOTIFY_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
   const period = Number(req.nextUrl.searchParams.get("period")) || 7;
   const validPeriod = [7, 30, 90].includes(period) ? period : 7;
 
@@ -161,6 +162,27 @@ export async function GET(req: NextRequest) {
         }).then(r => r.ok ? r.json() : null).catch(() => null)
       : Promise.resolve(null),
   ]);
+
+  // 通知bot送信数（トークンがある場合のみ）
+  let notifyQuota: { used: number; limit: number | null; remaining: number | null } | null = null;
+  if (notifyToken) {
+    const [nQuota, nConsumption] = await Promise.all([
+      fetch("https://api.line.me/v2/bot/message/quota", {
+        headers: { Authorization: `Bearer ${notifyToken}` },
+      }).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch("https://api.line.me/v2/bot/message/quota/consumption", {
+        headers: { Authorization: `Bearer ${notifyToken}` },
+      }).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]);
+    if (nConsumption) {
+      const nLimit = nQuota?.type === "limited" ? (nQuota.value || 0) : null;
+      notifyQuota = {
+        used: nConsumption.totalUsage || 0,
+        limit: nLimit,
+        remaining: nLimit != null ? nLimit - (nConsumption.totalUsage || 0) : null,
+      };
+    }
+  }
 
   // 3. 最新送信メッセージ10件
   const { data: recentMsgs } = await strictWithTenant(
@@ -408,6 +430,7 @@ export async function GET(req: NextRequest) {
     stats,
     monthlySent: monthlySent || 0,
     messageQuota,
+    notifyQuota,
     dailyStats: mergedDailyStats,
     recentMessages,
     chartData,

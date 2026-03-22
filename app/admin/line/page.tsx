@@ -57,10 +57,17 @@ interface MessageQuota {
   remaining: number | null;
 }
 
+interface NotifyQuota {
+  used: number;
+  limit: number | null;
+  remaining: number | null;
+}
+
 interface DashboardData {
   stats: { followers: number; targetedReaches: number; blocks: number };
   monthlySent: number;
   messageQuota?: MessageQuota;
+  notifyQuota?: NotifyQuota;
   dailyStats: DailyStats[];
   recentMessages: RecentMessage[];
   chartData?: ChartData;
@@ -272,6 +279,33 @@ export default function LineDashboardPage() {
                 className="bg-emerald-500 h-2 rounded-full transition-all"
                 style={{ width: `${Math.min(100, ((data.messageQuota.used / data.messageQuota.limit) * 100))}%` }}
               />
+            </div>
+          )}
+          {/* 通知bot送信数 */}
+          {data.notifyQuota && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+                </div>
+                <span className="text-sm font-semibold text-gray-700">通知bot</span>
+              </div>
+              <div className="text-right">
+                {data.notifyQuota.limit != null ? (
+                  <>
+                    <p className="text-xs text-gray-400">
+                      {data.notifyQuota.limit.toLocaleString()}通中 {data.notifyQuota.used.toLocaleString()}通使用
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900 mt-0.5">
+                      残り <span className="text-blue-600">{(data.notifyQuota.remaining ?? 0).toLocaleString()}</span> 通
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-2xl font-bold text-gray-900">
+                    {data.notifyQuota.used.toLocaleString()} <span className="text-base font-normal text-gray-500">通送信済み</span>
+                  </p>
+                )}
+              </div>
             </div>
           )}
         </div>
