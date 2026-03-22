@@ -206,10 +206,23 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Preview] Matched: ${matched.length}, AmountMismatch: ${amountMismatchList.length}, Unmatched: ${unmatched.length}`);
 
-    // ★ デバッグ情報（PIIを含めない）
+    // ★ デバッグ情報（サンプル最初の5件）
     const debugInfo = {
       totalTransfers: transfers.length,
       totalPendingOrders: pendingOrdersWithNames.length,
+      csvTransfers: transfers.slice(0, 5).map((t) => ({
+        date: t.date,
+        description: t.description,
+        amount: t.amount,
+        descNormalized: normalizeKana(t.description),
+      })),
+      pendingOrders: pendingOrdersWithNames.slice(0, 5).map((o) => ({
+        id: o.id,
+        patient_id: o.patient_id,
+        amount: o.amount,
+        account_name: o.account_name || "",
+        accountNormalized: normalizeKana(o.account_name || ""),
+      })),
     };
 
     // ===== CSV全明細行をbank_statementsに保存 =====

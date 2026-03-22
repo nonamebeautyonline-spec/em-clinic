@@ -541,7 +541,7 @@ export default function BankTransferReconcilePage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {previewResult.debug.csvTransfers.map((t, i) => (
+                          {(previewResult.debug.csvTransfers ?? []).map((t, i) => (
                             <tr key={i} className="border-t">
                               <td className="px-2 py-1">{t.date}</td>
                               <td className="px-2 py-1">{t.description}</td>
@@ -567,7 +567,7 @@ export default function BankTransferReconcilePage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {previewResult.debug.pendingOrders.map((o, i) => (
+                          {(previewResult.debug.pendingOrders ?? []).map((o, i) => (
                             <tr key={i} className="border-t">
                               <td className="px-2 py-1 font-mono">{o.id}</td>
                               <td className="px-2 py-1 font-mono">
