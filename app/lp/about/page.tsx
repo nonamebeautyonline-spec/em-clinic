@@ -4,14 +4,14 @@ import Link from "next/link";
 const SITE_URL = "https://l-ope.jp";
 
 export const metadata: Metadata = {
-  title: "Lオペ for CLINICとは？ — クリニック特化LINE公式アカウント運用プラットフォーム",
+  title: "Lオペとは？ | クリニック特化LINE運用プラットフォーム - Lオペ for CLINIC",
   description:
-    "Lオペ for CLINICはクリニックに特化したLINE公式アカウント運用プラットフォーム。予約管理・オンライン問診・セグメント配信・決済・配送まで、クリニック業務をLINEで一元化。Lステップ等の汎用ツールとの違いも解説。",
-  keywords: "Lオペとは, Lオペ for CLINIC とは, クリニック LINE 運用, LINE公式アカウント クリニック 活用, クリニック DX 導入, Lステップ 違い, Lステップ クリニック 比較, クリニック 業務効率化, 医療DX プラットフォーム, LINE CRM クリニック, 予約管理 LINE, オンライン問診 LINE, クリニック 集患 LINE, 再診率 向上 LINE, 無断キャンセル 防止",
+    "Lオペはクリニックに特化したLINE公式アカウント運用プラットフォーム。Lオペなら予約管理・オンライン問診・セグメント配信・決済・配送まで、クリニック業務をLINEで一元化。Lステップ等の汎用ツールとの違いも解説。",
+  keywords: "Lオペ, Lオペとは, Lオペ for CLINIC とは, クリニック LINE 運用, LINE公式アカウント クリニック 活用, クリニック DX 導入, Lステップ 違い, Lステップ クリニック 比較, クリニック 業務効率化, 医療DX プラットフォーム, LINE CRM クリニック, 予約管理 LINE, オンライン問診 LINE, クリニック 集患 LINE, 再診率 向上 LINE, 無断キャンセル 防止",
   alternates: { canonical: `${SITE_URL}/lp/about` },
   openGraph: {
-    title: "Lオペ for CLINICとは？ — クリニック特化LINE運用プラットフォーム",
-    description: "予約・問診・配信・決済・配送をLINEで一元化。クリニック専用だから、導入したその日から使える。",
+    title: "Lオペとは？ | クリニック特化LINE運用プラットフォーム - Lオペ for CLINIC",
+    description: "Lオペなら予約・問診・配信・決済・配送をLINEで一元化。クリニック専用だから、導入したその日から使える。",
     url: `${SITE_URL}/lp/about`,
     siteName: "Lオペ for CLINIC",
     locale: "ja_JP",
