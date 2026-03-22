@@ -22,6 +22,7 @@ export default function Hero() {
               <h1 className="mb-6 text-[2.2rem] font-extrabold leading-[1.25] tracking-tight md:text-5xl lg:text-[3.2rem]">
                 <span className="bg-gradient-to-r from-blue-600 to-sky-500 bg-clip-text text-transparent">Lオペ for CLINIC</span><br />LINE公式アカウントで<br />クリニック業務をまるごとDX化
               </h1>
+              <p className="sr-only">Lオペ（エルオペ）はクリニック経営に特化したLINE運用プラットフォームです。</p>
             </TextReveal>
             <FadeIn delay={0.2}>
               <p className="mb-8 max-w-lg text-[15px] leading-[1.8] text-slate-500">

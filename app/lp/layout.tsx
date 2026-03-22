@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 
 const SITE_URL = "https://l-ope.jp";
 const LP_URL = `${SITE_URL}/lp`;
-const TITLE = "Lオペ for CLINIC | LINE公式アカウントでクリニック業務をDX化";
+const TITLE = "Lオペ（エルオペ）| クリニック特化LINE運用プラットフォーム - Lオペ for CLINIC";
 const DESCRIPTION =
-  "Lオペ for CLINICは、LINE公式アカウントを活用したクリニック専用の業務DXプラットフォームです。患者CRM・予約管理・セグメント配信・リッチメニュー構築・オンライン問診・AI自動返信・決済・配送管理をオールインワンで提供。初期設定サポート無料・最短2週間で導入。";
+  "Lオペ（エルオペ）は、LINE公式アカウントを活用したクリニック特化の業務DXプラットフォームです。Lオペなら患者CRM・予約管理・セグメント配信・リッチメニュー構築・オンライン問診・AI自動返信・決済・配送管理をオールインワンで提供。初期設定サポート無料・最短2週間で導入。";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -72,7 +72,7 @@ const jsonLd = [
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "Lオペ for CLINIC",
-    alternateName: ["Lオペ", "L-OPE for CLINIC", "L-OPE"],
+    alternateName: ["Lオペ", "エルオペ", "L-OPE for CLINIC", "L-OPE"],
     url: SITE_URL,
     logo: `${SITE_URL}/icon.png`,
     description:
