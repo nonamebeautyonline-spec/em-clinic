@@ -102,6 +102,14 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // === www.l-ope.jp → l-ope.jp 正規化リダイレクト ===
+  if (hostWithoutPort === "www.l-ope.jp") {
+    const url = new URL(req.url);
+    url.host = "l-ope.jp";
+    url.protocol = "https:";
+    return NextResponse.redirect(url, 301);
+  }
+
   // === /lp 配下はルートドメイン(l-ope.jp) と localhost のみ許可 ===
   // テナントサブドメイン（noname-beauty.l-ope.jp 等）では非表示
   const isRootDomain = hostWithoutPort === "l-ope.jp" || hostWithoutPort === "www.l-ope.jp";
