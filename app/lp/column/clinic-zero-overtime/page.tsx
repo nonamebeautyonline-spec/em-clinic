@@ -117,8 +117,8 @@ export default function Page() {
             { label: "シフト管理", value: 25, color: "bg-gray-400" },
           ]}
           unit="分/日"
-          caption="残業原因別の1日あたり平均所要時間（10院の平均値）"
         />
+        <p className="text-xs text-gray-500 text-center -mt-4">残業原因別の1日あたり平均所要時間（10院の平均値）</p>
 
         <Callout type="warning" title="残業が生む悪循環に注意">
           残業が常態化すると「残業増加 → スタッフ疲弊 → 離職 → 人手不足 → さらに残業増加」という悪循環に陥ります。1人が退職すると残されたスタッフへの負荷が増し、連鎖的な離職が発生するケースも珍しくありません。この悪循環を断ち切るには、業務量そのものを減らす構造的な改革が必要です。
@@ -198,8 +198,8 @@ export default function Page() {
             { label: "内科", value: 35, color: "bg-sky-500" },
           ]}
           unit="時間/月"
-          caption="Lオペ導入前の月間残業時間（3院比較）— 導入後はいずれも0時間"
         />
+        <p className="text-xs text-gray-500 text-center -mt-4">Lオペ導入前の月間残業時間（3院比較）— 導入後はいずれも0時間</p>
 
         <DonutChart percentage={92} label="Lオペ導入後のスタッフ満足度 92%" sublabel="導入前の54%から38ポイント向上" />
       </section>
