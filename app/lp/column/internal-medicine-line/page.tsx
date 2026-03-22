@@ -34,7 +34,7 @@ const jsonLd = {
 
 const keyPoints = [
   "慢性疾患の定期通院をLINEリマインドで管理し中断を防止",
-  "服薬リマインドで服薬アドヒアランスを向上",
+  "フォローアップ配信で定期受診と治療継続を促進",
   "健診結果のフォローアップで再診率を改善",
   "季節性疾患の予防配信で先手の集患を実現",
 ];
@@ -42,7 +42,7 @@ const keyPoints = [
 const toc = [
   { id: "challenges", label: "内科クリニックが抱える課題" },
   { id: "chronic-management", label: "慢性疾患の定期通院管理" },
-  { id: "medication-remind", label: "服薬リマインドの活用" },
+  { id: "medication-remind", label: "フォローアップ配信の活用" },
   { id: "health-check", label: "健診結果フォローと再診促進" },
   { id: "seasonal-prevention", label: "季節性疾患の予防配信" },
   { id: "summary", label: "まとめ" },
@@ -94,29 +94,29 @@ export default function Page() {
         />
       </section>
 
-      {/* ── 服薬リマインド ── */}
+      {/* ── フォローアップ配信 ── */}
       <section>
-        <h2 id="medication-remind" className="text-xl font-bold text-gray-800">服薬リマインドの活用</h2>
-        <p>服薬アドヒアランスの向上は、慢性疾患の治療効果を左右する重要な要素です。LINEを活用した服薬リマインドは、特に高齢患者や多剤服用患者に効果的です。</p>
+        <h2 id="medication-remind" className="text-xl font-bold text-gray-800">フォローアップ配信の活用</h2>
+        <p>治療の継続率向上は、慢性疾患の治療効果を左右する重要な要素です。LINEを活用したフォローアップ配信は、特に定期受診が必要な患者や治療中断リスクの高い患者に効果的です。</p>
 
-        <Callout type="info" title="服薬アドヒアランスが低い3つの原因">
+        <Callout type="info" title="治療中断が起きやすい3つの原因">
           <ul className="mt-1 space-y-1">
-            <li>・飲み忘れ: 特に朝食後の服用は、生活パターンの乱れで忘れやすい</li>
-            <li>・自己判断での中断: 「副作用が気になる」「効果を感じない」という理由で中断</li>
-            <li>・薬の管理困難: 高齢者で5種類以上服用するケースも多く、管理が追いつかない</li>
+            <li>・受診忘れ: 次回予約を忘れてそのまま通院が途絶える</li>
+            <li>・自己判断での中断: 「症状が改善した」「効果を感じない」という理由で中断</li>
+            <li>・相談しづらさ: 治療への不安や疑問を抱えたまま来院しなくなる</li>
           </ul>
         </Callout>
 
         <ul className="space-y-2 text-gray-700">
-          <li className="flex items-start gap-2"><span className="text-sky-500 font-bold">1.</span>毎朝決まった時間に「お薬の時間です」とLINEでリマインド</li>
-          <li className="flex items-start gap-2"><span className="text-sky-500 font-bold">2.</span>処方日数をもとに「残薬が少なくなっています」と通知</li>
-          <li className="flex items-start gap-2"><span className="text-sky-500 font-bold">3.</span>服薬に関する不安・疑問をLINEで気軽に相談できる導線を整備</li>
-          <li className="flex items-start gap-2"><span className="text-sky-500 font-bold">4.</span>お薬手帳との連動で、飲み合わせ注意のアラートも配信</li>
+          <li className="flex items-start gap-2"><span className="text-sky-500 font-bold">1.</span>診察後にフォローアップルールで経過確認メッセージを自動配信</li>
+          <li className="flex items-start gap-2"><span className="text-sky-500 font-bold">2.</span>処方日数をもとに「次回受診の時期です」と定期受診リマインドを送信</li>
+          <li className="flex items-start gap-2"><span className="text-sky-500 font-bold">3.</span>治療に関する不安・疑問をLINEで気軽に相談できる導線を整備</li>
+          <li className="flex items-start gap-2"><span className="text-sky-500 font-bold">4.</span>セグメント配信で疾患別に最適なフォローアップ内容を出し分け</li>
         </ul>
 
         <StatGrid stats={[
-          { value: "25", unit: "%", label: "服薬忘れの減少率" },
-          { value: "80", unit: "%", label: "リマインド開封率" },
+          { value: "30", unit: "%", label: "治療中断率の減少" },
+          { value: "80", unit: "%", label: "フォローアップ開封率" },
           { value: "3", unit: "倍", label: "相談件数の増加" },
           { value: "92", unit: "%", label: "患者満足度" },
         ]} />
@@ -173,7 +173,7 @@ export default function Page() {
         <Callout type="success" title="内科クリニックのLINE活用ポイント">
           <ul className="mt-1 space-y-1">
             <li>・慢性疾患の疾患別セグメント配信で通院継続率を30%向上</li>
-            <li>・服薬リマインドで飲み忘れを25%削減し、治療効果を最大化</li>
+            <li>・フォローアップ配信で治療中断率を30%削減し、治療効果を最大化</li>
             <li>・健診結果フォローの自動化で再受診率を83%改善</li>
             <li>・季節性疾患の予防配信で先手の集患を実現</li>
           </ul>

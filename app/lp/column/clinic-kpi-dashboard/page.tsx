@@ -96,7 +96,7 @@ export default function Page() {
         ]} />
         <h3 className="text-lg font-semibold text-gray-700 mt-4">改善アクション</h3>
         <p>LINEの<Link href="/lp/column/segment-delivery-repeat" className="text-blue-600 underline">セグメント配信</Link>を活用し、最終来院日から一定期間経過した患者に自動でフォローメッセージを送信します。</p>
-        <ResultCard before="再診率 45%" after="再診率 70%" metric="+25pt 改善" description="LINEフォローメッセージ導入による再診率の変化" />
+        <ResultCard before="再診率 45%" after="再診率 68%" metric="+23pt 改善" description="LINEフォローメッセージ導入による再診率の変化" />
       </section>
 
       <section>

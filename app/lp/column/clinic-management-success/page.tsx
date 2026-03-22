@@ -160,7 +160,7 @@ export default function Page() {
 
         <ResultCard
           before="複数ツール月15〜30万+人件費"
-          after="Lオペ1本で月15〜20万"
+          after="Lオペ1本で月10〜18万円"
           metric="ツール代＋人件費をまとめて削減。事務スタッフ1人で運用完結"
         />
       </section>

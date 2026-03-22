@@ -123,9 +123,9 @@ export default function Page() {
         <h3 className="text-lg font-semibold text-gray-700 mt-4">成果</h3>
         <p>セグメント配信の具体的なノウハウは<Link href="/lp/column/segment-delivery-repeat" className="text-emerald-700 underline">LINEセグメント配信でリピート率を向上させる方法</Link>で詳しく解説しています。</p>
 
-        <ResultCard before="再診率 45%" after="再診率 70%" metric="再診率25ポイント向上" description="DMハガキの月額5万円コスト削減" />
+        <ResultCard before="再診率 45%" after="再診率 68%" metric="再診率23ポイント向上" description="DMハガキの月額5万円コスト削減" />
 
-        <DonutChart percentage={70} label="再診率 70%達成" sublabel="導入前45%から大幅に改善" />
+        <DonutChart percentage={68} label="再診率 68%達成" sublabel="導入前45%から大幅に改善" />
       </section>
 
       <InlineCTA />
