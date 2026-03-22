@@ -4,7 +4,7 @@
 > 本文書は社内開発・運用目的に限定されます。
 > 当社の書面による事前承諾なく、本文書の全部または一部を複製、共有、開示することを禁じます。
 
-> 最終更新: 2026-03-08
+> 最終更新: 2026-03-22
 
 ---
 
@@ -166,6 +166,7 @@ em-clinic/
 | `/admin/settings` | 一般設定（クリニック名、営業時間等） |
 | `/admin/settings/voice` | AIカルテ設定（医療辞書管理） |
 | `/admin/analytics` | 分析・レポート |
+| `/admin/notification-settings` | 通知テンプレート設定 |
 
 ### 3.4 管理画面 — 患者管理
 
@@ -213,6 +214,9 @@ em-clinic/
 | `/admin/line/ai-reply-settings` | AI返信設定（モード・日次上限・知識ベース・カスタム指示） |
 | `/admin/line/ai-reply-stats` | AI返信統計ダッシュボード |
 | `/admin/line/analytics` | LINE配信分析（ブロードキャスト成功率・CVR等） |
+| `/admin/line/lifecycle-events` | ライフサイクルイベント |
+| `/admin/line/tracking-sources` | 流入元トラッキング |
+| `/admin/line/workflows` | ワークフロー自動化 |
 
 ### 3.6 管理画面 — 問診・カルテ
 
@@ -233,6 +237,11 @@ em-clinic/
 | `/admin/schedule/monthly` | 月間スケジュール |
 | `/admin/schedule/doctors` | 医師マスタ |
 | `/admin/schedule/overrides` | スケジュール例外（臨時休診等） |
+| `/admin/schedule/work-hours` | 業務時間管理（医師別月間稼働時間） |
+| `/admin/schedule/reservation-settings` | 予約受付設定（キャンセル期限・開放日） |
+| `/admin/schedule/actions` | 予約時自動アクション |
+| `/admin/schedule/settings` | スケジュール全般設定 |
+| `/admin/schedule/slots` | 予約スロット・コース管理 |
 
 ### 3.8 管理画面 — 配送管理
 
@@ -450,6 +459,12 @@ em-clinic/
 | `/api/admin/line/followup-rules` | GET/POST | フォローアップルール管理 |
 | `/api/admin/line/followup-rules/[id]` | PATCH/DELETE | フォローアップルール詳細 |
 | `/api/admin/line/analytics` | GET | LINE配信分析 |
+| `/api/admin/line/lifecycle-events` | GET/POST | ライフサイクルイベント管理 |
+| `/api/admin/line/tracking-sources` | GET/POST | 流入元トラッキング管理 |
+| `/api/admin/line/tracking-source-folders` | GET/POST | トラッキングフォルダ管理 |
+| `/api/admin/line/workflows` | GET/POST | ワークフロー自動化管理 |
+| `/api/admin/line/ai-reply-examples` | GET/DELETE | AI返信学習例管理 |
+| `/api/admin/line/ai-compose` | POST | AI文章補助 |
 
 ### 4.8 予約・スケジュール
 
@@ -539,6 +554,11 @@ em-clinic/
 | `/api/admin/tags` | GET/POST | タグマスタ |
 | `/api/admin/invalidate-cache` | POST | キャッシュ無効化 |
 | `/api/admin/refunds` | GET/POST/DELETE | 返金管理 |
+| `/api/admin/role-permissions` | GET/PATCH | ロール権限管理 |
+| `/api/admin/medical-fields` | GET/POST | 診療分野管理 |
+| `/api/admin/notification-settings` | GET/PATCH | 通知設定 |
+| `/api/admin/purchase-settings` | GET/PATCH | 購入画面設定 |
+| `/api/admin/report-settings` | GET/PATCH | レポート設定 |
 
 ### 4.13 銀行振込管理
 
@@ -559,7 +579,17 @@ em-clinic/
 | `/api/forms/[slug]/upload` | POST | ファイルアップロード |
 | `/api/nps/[id]` | GET/POST | NPS回答 |
 
-### 4.15 Cronジョブ
+### 4.15 Square OAuth
+
+| エンドポイント | メソッド | 役割 |
+|---------------|---------|------|
+| `/api/admin/square-oauth/auth` | GET | OAuth認可URL生成 |
+| `/api/admin/square-oauth/callback` | GET | コールバック処理（トークン交換・ロケーション取得） |
+| `/api/admin/square-oauth/locations` | GET/PUT | ロケーション一覧取得・選択 |
+| `/api/admin/square-oauth/revoke` | POST | 接続解除（トークン失効） |
+| `/api/admin/square-accounts` | GET/POST | Squareアカウント管理 |
+
+### 4.16 Cronジョブ
 
 | エンドポイント | メソッド | 頻度 | 役割 |
 |---------------|---------|------|------|
@@ -570,8 +600,14 @@ em-clinic/
 | `/api/cron/send-scheduled` | POST | 日次 | スケジュール配信実行 |
 | `/api/cron/process-steps` | POST | 日次 | ステップシナリオ処理 |
 | `/api/cron/followup` | POST | 日次 | フォローアップメッセージ送信 |
+| `/api/cron/square-token-refresh` | POST | 6時間 | Squareトークン自動更新 |
+| `/api/cron/gcal-sync` | POST | 日次 | Google Calendar双方向同期 |
+| `/api/cron/coupon-distribute` | POST | 日次 | クーポン自動配布 |
+| `/api/cron/send-reports` | POST | 日次 | レポート自動送信 |
+| `/api/cron/archive-audit-logs` | POST | 日次 | 監査ログアーカイブ |
+| `/api/cron/metrics` | POST | 日次 | daily_metrics集計 |
 
-### 4.16 プラットフォーム管理
+### 4.17 プラットフォーム管理
 
 | エンドポイント | メソッド | 役割 |
 |---------------|---------|------|
@@ -613,7 +649,7 @@ em-clinic/
 | `/api/platform/impersonate/exit` | POST | なりすまし終了 |
 | `/api/platform/dashboard-stats` | GET | ダッシュボード統計 |
 
-### 4.17 Undo・その他
+### 4.18 Undo・その他
 
 | エンドポイント | メソッド | 役割 |
 |---------------|---------|------|
@@ -713,6 +749,8 @@ em-clinic/
 | `line_daily_stats` | LINE友だち数日次統計 |
 | `click_tracking_links` | クリック追跡リンク |
 | `click_tracking_events` | クリック追跡イベント |
+| `tracking_sources` | 流入元トラッキング定義 |
+| `tracking_source_folders` | トラッキングフォルダ |
 
 ### 5.9 管理・テナント
 
@@ -733,6 +771,7 @@ em-clinic/
 | テーブル | 用途 | 主要カラム |
 |---------|------|----------|
 | `medical_vocabulary` | 医療辞書（音声認識精度向上・テナント別） | `term`, `reading`, `category`(drug/symptom/procedure/anatomy/lab/general), `specialty`(common/beauty/internal等), `boost_weight`(1.0-3.0), `is_default` |
+| `ai_reply_examples` | AI返信学習例（embedding vector(1536)） | `question`, `answer`, `embedding`, `source`(staff_edit/manual_reply) |
 
 ### 5.11 その他
 
@@ -812,6 +851,8 @@ doctors → 1:N → doctor_date_overrides
 | `lib/payment/stripe.ts` | Stripe実装 | Checkout/Portal/Webhook |
 | `lib/payment/gmo.ts` | GMO実装 | `GmoPaymentProvider` |
 | `lib/payment/types.ts` | 共通型 | `PaymentProvider`, `CheckoutParams`, `WebhookEvent` |
+| `lib/square-oauth.ts` | Square OAuth認可フロー | `buildSquareAuthUrl()`, `exchangeSquareCode()`, `revokeSquareToken()` |
+| `lib/square-account-server.ts` | アクティブSquareアカウント取得 | `getActiveSquareAccount()` |
 
 ### 6.4 LINE連携
 
@@ -888,6 +929,9 @@ doctors → 1:N → doctor_date_overrides
 | チェックアウトリンク | `lib/payment/square.ts` | `connect.squareup.com/v2/online-checkout/payment-links` |
 | Webhook検証 | `lib/payment/square.ts` | HMAC SHA256 署名検証 |
 | 返金 | `lib/payment/square.ts` | `connect.squareup.com/v2/refunds` |
+| OAuth連携 | `lib/square-oauth.ts` | `connect.squareup.com/oauth2/{authorize,token,revoke}` |
+| マーチャント情報取得 | `lib/square-oauth.ts` | `connect.squareup.com/v2/merchants` |
+| ロケーション一覧 | `lib/square-oauth.ts` | `connect.squareup.com/v2/locations` |
 
 ### 7.3 Stripe
 
@@ -971,6 +1015,12 @@ doctors → 1:N → doctor_date_overrides
 
 - エラートラッキング: `lib/logger.ts` で自動送信
 - Next.js自動計測: `next.config.ts` で設定
+
+### 7.14 OpenAI
+
+| 機能 | 実装箇所 | エンドポイント |
+|------|---------|--------------|
+| embedding生成 | `lib/embedding.ts` | `api.openai.com/v1/embeddings`（text-embedding-3-small） |
 
 ---
 
