@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "キャンセル・解約ポリシー | Lオペ for CLINIC",
+  title: "Lオペ キャンセル・解約ポリシー",
   description:
     "Lオペ for CLINIC のキャンセル・解約ポリシーについてご案内します。解約手続き、最低契約期間、データ取扱い、返金ポリシー等をご確認ください。",
   alternates: { canonical: "https://l-ope.jp/lp/cancel" },

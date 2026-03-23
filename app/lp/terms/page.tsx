@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "利用規約 | Lオペ for CLINIC",
+  title: "Lオペ 利用規約",
   description:
     "Lオペ for CLINIC の利用規約です。サービスのご利用条件をご確認ください。",
   alternates: { canonical: "https://l-ope.jp/lp/terms" },

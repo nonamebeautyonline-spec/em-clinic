@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | Lオペ コラム - Lオペ for CLINIC",
-    default: "Lオペ コラム | クリニックLINE活用・DX情報 - Lオペ for CLINIC",
+    template: "%s | Lオペ コラム",
+    default: "Lオペ コラム | クリニックLINE活用・DX情報",
   },
   openGraph: {
     siteName: "Lオペ for CLINIC",
