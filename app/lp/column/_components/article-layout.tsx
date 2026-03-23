@@ -120,13 +120,13 @@ function KeyPoints({ points }: { points: string[] }) {
 export function InlineCTA() {
   return (
     <div className="my-10 overflow-hidden rounded-xl bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 p-6 text-center ring-1 ring-blue-100">
-      <p className="text-[14px] font-bold text-gray-800">クリニックのLINE活用、まずは無料で相談しませんか？</p>
-      <p className="mt-1 text-[12px] text-gray-500">Lオペ for CLINICの機能・料金・導入事例をまとめた資料をお送りします。</p>
+      <p className="text-[14px] font-bold text-gray-800">クリニックのLINE運用を<a href="/lp" className="text-blue-600 underline font-bold">Lオペ</a>でまるごと効率化</p>
+      <p className="mt-1 text-[12px] text-gray-500"><a href="/lp" className="text-gray-600 underline">Lオペ for CLINIC</a>の機能・料金・導入事例をまとめた資料をお送りします。</p>
       <a
         href="/lp#contact"
         className="mt-4 inline-block rounded-lg bg-blue-600 px-6 py-2.5 text-[12px] font-bold text-white transition hover:bg-blue-700 hover:shadow-lg"
       >
-        無料で資料請求
+        Lオペの資料を無料で請求
       </a>
     </div>
   );
