@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 const SITE_URL = "https://l-ope.jp";
 const LP_URL = `${SITE_URL}/lp`;
-const TITLE = "Lオペ — クリニック特化LINE運用プラットフォーム | Lオペ for CLINIC";
+const TITLE = "Lオペ | クリニック特化LINE運用プラットフォーム";
 const DESCRIPTION =
   "Lオペ（Lオペ for CLINIC）は、LINE公式アカウントを活用したクリニック特化の業務DXプラットフォームです。Lオペなら患者CRM・予約管理・セグメント配信・リッチメニュー構築・オンライン問診・AI自動返信・決済・配送管理をオールインワンで提供。初期設定サポート無料・最短2週間で導入。";
 
