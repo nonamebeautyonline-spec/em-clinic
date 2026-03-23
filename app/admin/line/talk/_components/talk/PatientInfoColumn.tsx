@@ -59,9 +59,13 @@ export default function PatientInfoColumn() {
                 {selectedPatient.patient_name?.charAt(0) || selectedPatient.line_display_name?.charAt(0) || "?"}
               </div>
             )}
-            <span className="absolute -top-1 -right-1 bg-gray-700 text-white text-[8px] font-mono px-1 py-0.5 rounded leading-none whitespace-nowrap">
+            <button
+              onClick={() => { navigator.clipboard.writeText(selectedPatient.patient_id); }}
+              title="PIDをコピー"
+              className="absolute -top-2 left-full ml-1 text-[10px] text-gray-400 font-mono leading-none whitespace-nowrap hover:text-gray-600 cursor-pointer"
+            >
               {selectedPatient.patient_id}
-            </span>
+            </button>
           </div>
           <h3 className="font-bold text-gray-900 mt-2.5 text-[15px]">{selectedPatient.patient_id?.startsWith("LINE_") ? "🟧 " : ""}{selectedPatient.patient_name || selectedPatient.line_display_name || "（名前なし）"}</h3>
           {selectedPatient.line_display_name && selectedPatient.line_display_name !== selectedPatient.patient_name && (
