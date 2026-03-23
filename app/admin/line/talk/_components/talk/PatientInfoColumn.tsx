@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTalkContext } from "./TalkContext";
-import { RIGHT_COLUMN_SECTIONS } from "./constants";
+
 
 // セクションラベル
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -50,15 +50,23 @@ export default function PatientInfoColumn() {
       <div className="flex-1 overflow-y-auto overscroll-contain">
         {/* プロフィール */}
         <div className="px-4 pt-5 pb-4 text-center border-b border-gray-100">
-          {selectedPatient.line_picture_url ? (
-            <img src={selectedPatient.line_picture_url} alt="" className="w-14 h-14 rounded-full mx-auto shadow-sm object-cover" />
-          ) : (
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white text-xl font-bold mx-auto shadow-sm">
-              {selectedPatient.patient_name?.charAt(0) || selectedPatient.line_display_name?.charAt(0) || "?"}
-            </div>
-          )}
+          {/* アイコン＋PID */}
+          <div className="relative w-fit mx-auto">
+            {selectedPatient.line_picture_url ? (
+              <img src={selectedPatient.line_picture_url} alt="" className="w-14 h-14 rounded-full shadow-sm object-cover" />
+            ) : (
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white text-xl font-bold shadow-sm">
+                {selectedPatient.patient_name?.charAt(0) || selectedPatient.line_display_name?.charAt(0) || "?"}
+              </div>
+            )}
+            <span className="absolute -top-1 -right-1 bg-gray-700 text-white text-[8px] font-mono px-1 py-0.5 rounded leading-none whitespace-nowrap">
+              {selectedPatient.patient_id}
+            </span>
+          </div>
           <h3 className="font-bold text-gray-900 mt-2.5 text-[15px]">{selectedPatient.patient_id?.startsWith("LINE_") ? "🟧 " : ""}{selectedPatient.patient_name || selectedPatient.line_display_name || "（名前なし）"}</h3>
-          <p className="text-[10px] text-gray-400 font-mono mt-0.5">{selectedPatient.patient_id}</p>
+          {selectedPatient.line_display_name && selectedPatient.line_display_name !== selectedPatient.patient_name && (
+            <p className="text-[10px] text-gray-400 mt-0.5">{selectedPatient.line_display_name}</p>
+          )}
           {selectedPatient.line_id ? (
             <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] text-[#00B900] bg-[#00B900]/5 px-2 py-0.5 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-[#00B900]" />連携済み
@@ -76,41 +84,6 @@ export default function PatientInfoColumn() {
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
               友だち詳細
             </Link>
-            {/* 表示設定 */}
-            <div className="relative ml-auto">
-              <button
-                onClick={() => setShowSectionSettings(!showSectionSettings)}
-                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                title="表示項目の設定"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              </button>
-              {showSectionSettings && (
-                <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1">
-                  <p className="px-3 py-1.5 text-[10px] text-gray-400 font-bold tracking-wider">表示項目</p>
-                  {RIGHT_COLUMN_SECTIONS.map(s => (
-                    <label key={s.key} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isSectionVisible(s.key)}
-                        onChange={() => {
-                          const next = { ...visibleSections, [s.key]: !isSectionVisible(s.key) };
-                          setVisibleSections(next);
-                          fetch("/api/admin/line/column-settings", {
-                            method: "PUT",
-                            credentials: "include",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ sections: next }),
-                          }).catch(() => {});
-                        }}
-                        className="w-3.5 h-3.5 rounded border-gray-300 text-[#06C755] focus:ring-[#06C755]"
-                      />
-                      <span className="text-xs text-gray-700">{s.label}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
             {patientDetail?.registeredAt && (
               <span className="text-[10px] text-gray-400">登録日時：{(() => {
                 try {
