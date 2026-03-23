@@ -207,19 +207,18 @@ export default function FlexSection({ onToast }: Props) {
     revalidateOnFocus: false,
   });
 
-  useEffect(() => {
-    if (configInitialized) return;
-    if (flexData?.config) setFlexConfig(flexData.config);
-  }, [flexData, configInitialized]);
-
   // イベント通知設定読み込み
   const { data: eventData, isLoading: eventLoading } = useSWR<{ settings?: Record<string, string> }>("/api/admin/settings?category=business_rules", {
     revalidateOnFocus: false,
   });
 
+  // 両方のデータが揃ってから一括で初期化（レース条件防止）
   useEffect(() => {
     if (configInitialized) return;
-    if (!eventData) return;
+    if (!flexData || !eventData) return;
+
+    if (flexData.config) setFlexConfig(flexData.config);
+
     if (eventData.settings && typeof eventData.settings === "object") {
       const s = eventData.settings;
       setEventConfig(prev => ({
@@ -247,7 +246,7 @@ export default function FlexSection({ onToast }: Props) {
       }));
     }
     setConfigInitialized(true);
-  }, [eventData, configInitialized]);
+  }, [flexData, eventData, configInitialized]);
 
   const loading = flexLoading || eventLoading;
 
