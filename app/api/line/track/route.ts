@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
         .from("message_log")
         .select("id")
         .eq("patient_id", patientId)
-        .eq("event_type", "system")
+        .eq("event_type", "track")
         .eq("content", content)
         .gte("sent_at", new Date(Date.now() - 5 * 60 * 1000).toISOString())
         .limit(1)
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
             patient_id: patientId,
             line_uid: lineUserId,
             direction: "incoming",
-            event_type: "system",
+            event_type: "track",
             message_type: "event",
             content,
             status: "received",
