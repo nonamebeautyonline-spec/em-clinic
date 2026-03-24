@@ -17,6 +17,7 @@ describe("transformFriendsRow", () => {
     last_incoming_at: null,
     last_template_content: null,
     last_event_content: null,
+    last_event_at: null,
     last_event_type: null,
     last_outgoing_content: null,
     last_outgoing_at: null,
@@ -36,7 +37,11 @@ describe("transformFriendsRow", () => {
   });
 
   it("last_event_type=unfollow → is_blocked=true, last_message=ブロックされました", () => {
-    const result = transformFriendsRow({ ...baseRow, last_event_type: "unfollow" });
+    const result = transformFriendsRow({
+      ...baseRow,
+      last_event_type: "unfollow",
+      last_event_at: "2026-03-01T10:00:00Z",
+    });
     expect(result.is_blocked).toBe(true);
     expect(result.last_message).toBe("ブロックされました");
   });
@@ -45,6 +50,7 @@ describe("transformFriendsRow", () => {
     const result = transformFriendsRow({
       ...baseRow,
       last_event_content: "友だち再追加されました",
+      last_event_at: "2026-03-01T10:00:00Z",
     });
     expect(result.last_message).toBe("友だち再登録");
   });
@@ -53,43 +59,41 @@ describe("transformFriendsRow", () => {
     const result = transformFriendsRow({
       ...baseRow,
       last_event_content: "友だち追加されました",
+      last_event_at: "2026-03-01T10:00:00Z",
     });
     expect(result.last_message).toBe("【友達追加】");
   });
 
-  it("last_msg_content が最優先", () => {
+  it("患者メッセージがイベントより新しい → 患者メッセージ優先", () => {
     const result = transformFriendsRow({
       ...baseRow,
       last_msg_content: "こんにちは",
-      last_template_content: "【テンプレ】内容",
-      last_outgoing_content: "承認通知",
+      last_msg_at: "2026-03-02T10:00:00Z",
       last_event_content: "友だち追加",
+      last_event_at: "2026-03-01T10:00:00Z",
     });
     expect(result.last_message).toBe("こんにちは");
   });
 
-  it("last_template_content の【タイトル】部分が抽出される", () => {
+  it("イベントが患者メッセージより新しい → イベント優先", () => {
+    const result = transformFriendsRow({
+      ...baseRow,
+      last_msg_content: "こんにちは",
+      last_msg_at: "2026-03-01T10:00:00Z",
+      last_event_content: "友だち再追加されました",
+      last_event_at: "2026-03-02T10:00:00Z",
+    });
+    expect(result.last_message).toBe("友だち再登録");
+  });
+
+  it("outgoing系はlast_messageに影響しない", () => {
     const result = transformFriendsRow({
       ...baseRow,
       last_template_content: "【予約確認】本日の予約は10時です",
-    });
-    expect(result.last_message).toBe("【予約確認】");
-  });
-
-  it("last_template_content にタイトルなし → そのまま表示", () => {
-    const result = transformFriendsRow({
-      ...baseRow,
-      last_template_content: "テンプレート本文のみ",
-    });
-    expect(result.last_message).toBe("テンプレート本文のみ");
-  });
-
-  it("last_outgoing_content のみ → last_messageに反映", () => {
-    const result = transformFriendsRow({
-      ...baseRow,
       last_outgoing_content: "承認通知です",
+      last_outgoing_at: "2026-03-03T10:00:00Z",
     });
-    expect(result.last_message).toBe("承認通知です");
+    expect(result.last_message).toBeNull();
   });
 
   it("全てnull → last_message=null", () => {
@@ -97,7 +101,7 @@ describe("transformFriendsRow", () => {
     expect(result.last_message).toBeNull();
   });
 
-  it("last_activity_at は最新のタイムスタンプ", () => {
+  it("last_activity_at は最新のタイムスタンプ（outgoing含む）", () => {
     const result = transformFriendsRow({
       ...baseRow,
       last_msg_at: "2026-03-01T10:00:00Z",
@@ -120,10 +124,23 @@ describe("transformFriendsRow", () => {
     expect(result.last_sent_at).toBe("2026-03-01T10:00:00Z");
   });
 
-  it("last_text_at は last_msg_at を返す", () => {
+  it("last_text_at はincoming最新の日時を返す", () => {
     const result = transformFriendsRow({
       ...baseRow,
+      last_msg_content: "テスト",
       last_msg_at: "2026-03-01T08:00:00Z",
+      last_event_content: "友だち追加",
+      last_event_at: "2026-03-02T10:00:00Z",
+    });
+    expect(result.last_text_at).toBe("2026-03-02T10:00:00Z");
+  });
+
+  it("last_text_at はoutgoingの影響を受けない", () => {
+    const result = transformFriendsRow({
+      ...baseRow,
+      last_msg_content: "テスト",
+      last_msg_at: "2026-03-01T08:00:00Z",
+      last_outgoing_at: "2026-03-03T10:00:00Z",
     });
     expect(result.last_text_at).toBe("2026-03-01T08:00:00Z");
   });
