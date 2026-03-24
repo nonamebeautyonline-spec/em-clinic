@@ -110,6 +110,13 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url, 301);
   }
 
+  // === l-ope.jp のルート → /lp にリダイレクト ===
+  if (hostWithoutPort === "l-ope.jp" && (pathname === "/" || pathname === "")) {
+    const url = new URL(req.url);
+    url.pathname = "/lp";
+    return NextResponse.redirect(url, 301);
+  }
+
   // === /lp 配下はルートドメイン(l-ope.jp) と localhost のみ許可 ===
   // テナントサブドメイン（noname-beauty.l-ope.jp 等）では非表示
   const isRootDomain = hostWithoutPort === "l-ope.jp" || hostWithoutPort === "www.l-ope.jp";
