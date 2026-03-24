@@ -95,6 +95,7 @@ export function useTalkState(props: TalkClientProps) {
   const [mediaSearch, setMediaSearch] = useState("");
   const [mediaLoading, setMediaLoading] = useState(false);
   const [sendingMediaImage, setSendingMediaImage] = useState(false);
+  const [pendingMediaImage, setPendingMediaImage] = useState<{ file_url: string; name: string } | null>(null);
 
   // 添付パネル並び順
   const DEFAULT_ATTACH_ORDER = ["template", "image", "media", "pdf", "call", "action"];
@@ -113,6 +114,7 @@ export function useTalkState(props: TalkClientProps) {
   const [pdfSearch, setPdfSearch] = useState("");
   const [pdfLoading, setPdfLoading] = useState(false);
   const [sendingMediaPdf, setSendingMediaPdf] = useState(false);
+  const [pendingMediaPdf, setPendingMediaPdf] = useState<{ file_url: string; name: string } | null>(null);
 
   // 右カラム
   const [patientTags, setPatientTags] = useState<PatientTag[]>([]);
@@ -255,6 +257,7 @@ export function useTalkState(props: TalkClientProps) {
     mediaSearch, setMediaSearch,
     mediaLoading, setMediaLoading,
     sendingMediaImage, setSendingMediaImage,
+    pendingMediaImage, setPendingMediaImage,
 
     // 添付パネル並び順
     attachPanelOrder, setAttachPanelOrder,
@@ -268,6 +271,7 @@ export function useTalkState(props: TalkClientProps) {
     pdfSearch, setPdfSearch,
     pdfLoading, setPdfLoading,
     sendingMediaPdf, setSendingMediaPdf,
+    pendingMediaPdf, setPendingMediaPdf,
 
     // 右カラム
     patientTags, setPatientTags,

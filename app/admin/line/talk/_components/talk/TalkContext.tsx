@@ -95,6 +95,8 @@ export interface TalkContextValue {
   setMediaSearch: (v: string) => void;
   mediaLoading: boolean;
   sendingMediaImage: boolean;
+  pendingMediaImage: { file_url: string; name: string } | null;
+  setPendingMediaImage: (v: { file_url: string; name: string } | null) => void;
 
   // 添付パネル並び順
   attachPanelOrder: string[];
@@ -114,6 +116,8 @@ export interface TalkContextValue {
   setPdfSearch: (v: string) => void;
   pdfLoading: boolean;
   sendingMediaPdf: boolean;
+  pendingMediaPdf: { file_url: string; name: string } | null;
+  setPendingMediaPdf: (v: { file_url: string; name: string } | null) => void;
 
   // 右カラム
   patientTags: PatientTag[];
@@ -167,8 +171,10 @@ export interface TalkContextValue {
   handleImageSelect: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
   openMediaPicker: () => Promise<void>;
   handleMediaImageSend: (file: { file_url: string; name: string }) => Promise<void>;
+  confirmMediaImage: (file: { file_url: string; name: string }) => void;
   openPdfPicker: () => Promise<void>;
   handleMediaPdfSend: (file: { file_url: string; name: string }) => Promise<void>;
+  confirmMediaPdf: (file: { file_url: string; name: string }) => void;
   openActionPicker: () => Promise<void>;
   executeAction: (actionId: number) => Promise<void>;
   handleSendCallForm: () => Promise<void>;

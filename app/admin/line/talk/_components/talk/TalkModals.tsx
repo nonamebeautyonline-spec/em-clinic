@@ -53,6 +53,66 @@ export default function TalkModals() {
         </div>
       )}
 
+      {/* メディア画像送信確認モーダル */}
+      {ctx.pendingMediaImage && ctx.selectedPatient && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => ctx.setPendingMediaImage(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h3 className="font-bold text-gray-800 text-sm">画像送信確認</h3>
+              <p className="text-[11px] text-gray-400 mt-0.5">「{ctx.pendingMediaImage.name}」を {ctx.selectedPatient.patient_name} に送信しますか？</p>
+            </div>
+            <div className="px-5 py-4 flex justify-center">
+              <img src={ctx.pendingMediaImage.file_url} alt={ctx.pendingMediaImage.name} className="max-w-full max-h-60 rounded-lg object-contain" />
+            </div>
+            <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2">
+              <button
+                onClick={() => ctx.setPendingMediaImage(null)}
+                className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg transition-colors"
+              >キャンセル</button>
+              <button
+                onClick={() => ctx.handleMediaImageSend(ctx.pendingMediaImage!)}
+                disabled={ctx.sendingMediaImage}
+                className="px-4 py-2 bg-[#00B900] text-white text-sm font-medium rounded-lg hover:bg-[#009900] disabled:opacity-50 transition-colors"
+              >{ctx.sendingMediaImage ? "送信中..." : "送信"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PDF送信確認モーダル */}
+      {ctx.pendingMediaPdf && ctx.selectedPatient && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => ctx.setPendingMediaPdf(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h3 className="font-bold text-gray-800 text-sm">PDF送信確認</h3>
+              <p className="text-[11px] text-gray-400 mt-0.5">「{ctx.pendingMediaPdf.name}」を {ctx.selectedPatient.patient_name} に送信しますか？</p>
+            </div>
+            <div className="px-5 py-4">
+              <div className="flex items-center gap-3 bg-orange-50 rounded-xl px-4 py-3">
+                <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800 truncate">{ctx.pendingMediaPdf.name}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">Flex MessageでPDFリンクを送信します</p>
+                </div>
+              </div>
+            </div>
+            <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2">
+              <button
+                onClick={() => ctx.setPendingMediaPdf(null)}
+                className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg transition-colors"
+              >キャンセル</button>
+              <button
+                onClick={() => ctx.handleMediaPdfSend(ctx.pendingMediaPdf!)}
+                disabled={ctx.sendingMediaPdf}
+                className="px-4 py-2 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors"
+              >{ctx.sendingMediaPdf ? "送信中..." : "送信"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 通話フォーム確認モーダル */}
       {ctx.showCallConfirm && ctx.selectedPatient && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => ctx.setShowCallConfirm(false)}>
@@ -148,7 +208,7 @@ export default function TalkModals() {
                     {filtered.map(f => (
                       <button
                         key={f.id}
-                        onClick={() => ctx.handleMediaImageSend(f)}
+                        onClick={() => ctx.confirmMediaImage(f)}
                         disabled={ctx.sendingMediaImage}
                         className="group relative aspect-square rounded-xl overflow-hidden border-2 border-transparent hover:border-indigo-500 transition-all disabled:opacity-50"
                       >
@@ -227,7 +287,7 @@ export default function TalkModals() {
                     {filtered.map(f => (
                       <button
                         key={f.id}
-                        onClick={() => ctx.handleMediaPdfSend(f)}
+                        onClick={() => ctx.confirmMediaPdf(f)}
                         disabled={ctx.sendingMediaPdf}
                         className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 hover:border-orange-400 hover:bg-orange-50/50 transition-all disabled:opacity-50 group"
                       >

@@ -513,6 +513,11 @@ export function useMessageHandlers(
     setPdfLoading(false);
   }, [setShowAttachPanel, setShowPdfPicker, setPdfSearch, setPdfFolderFilter, setPdfLoading, setPdfFiles, setPdfFolders]);
 
+  const confirmMediaPdf = useCallback((file: { file_url: string; name: string }) => {
+    setShowPdfPicker(false);
+    state.setPendingMediaPdf(file);
+  }, [setShowPdfPicker, state]);
+
   const handleMediaPdfSend = useCallback(async (file: { file_url: string; name: string }) => {
     if (!selectedPatient || sendingMediaPdf) return;
     setSendingMediaPdf(true);
@@ -531,7 +536,7 @@ export function useMessageHandlers(
           message_type: "individual", sent_at: data.sentAt || new Date().toISOString(),
           direction: "outgoing",
         }]);
-        setShowPdfPicker(false);
+        state.setPendingMediaPdf(null);
       } else {
         alert((data.message || data.error) || "PDF送信に失敗しました");
       }
@@ -539,7 +544,12 @@ export function useMessageHandlers(
       alert("PDF送信に失敗しました");
     }
     setSendingMediaPdf(false);
-  }, [selectedPatient, sendingMediaPdf, setSendingMediaPdf, shouldScrollToBottom, setMessages, setShowPdfPicker]);
+  }, [selectedPatient, sendingMediaPdf, setSendingMediaPdf, shouldScrollToBottom, setMessages, state]);
+
+  const confirmMediaImage = useCallback((file: { file_url: string; name: string }) => {
+    setShowMediaPicker(false);
+    state.setPendingMediaImage(file);
+  }, [setShowMediaPicker, state]);
 
   const handleMediaImageSend = useCallback(async (file: { file_url: string; name: string }) => {
     if (!selectedPatient || sendingMediaImage) return;
@@ -559,7 +569,7 @@ export function useMessageHandlers(
           message_type: "individual", sent_at: data.sentAt || new Date().toISOString(),
           direction: "outgoing",
         }]);
-        setShowMediaPicker(false);
+        state.setPendingMediaImage(null);
       } else {
         alert((data.message || data.error) || "画像送信に失敗しました");
       }
@@ -567,7 +577,7 @@ export function useMessageHandlers(
       alert("画像送信に失敗しました");
     }
     setSendingMediaImage(false);
-  }, [selectedPatient, sendingMediaImage, setSendingMediaImage, shouldScrollToBottom, setMessages, setShowMediaPicker]);
+  }, [selectedPatient, sendingMediaImage, setSendingMediaImage, shouldScrollToBottom, setMessages, state]);
 
   // アクション
   const openActionPicker = useCallback(async () => {
@@ -877,8 +887,10 @@ export function useMessageHandlers(
     sendTemplate,
     handleImageSelect,
     openMediaPicker,
+    confirmMediaImage,
     handleMediaImageSend,
     openPdfPicker,
+    confirmMediaPdf,
     handleMediaPdfSend,
     saveAttachPanelOrder,
     openActionPicker,

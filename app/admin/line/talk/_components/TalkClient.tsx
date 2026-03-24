@@ -109,6 +109,8 @@ export default function TalkClient(props: TalkClientProps) {
     setMediaSearch: state.setMediaSearch,
     mediaLoading: state.mediaLoading,
     sendingMediaImage: state.sendingMediaImage,
+    pendingMediaImage: state.pendingMediaImage,
+    setPendingMediaImage: state.setPendingMediaImage,
 
     // 添付パネル並び順
     attachPanelOrder: state.attachPanelOrder,
@@ -128,6 +130,8 @@ export default function TalkClient(props: TalkClientProps) {
     setPdfSearch: state.setPdfSearch,
     pdfLoading: state.pdfLoading,
     sendingMediaPdf: state.sendingMediaPdf,
+    pendingMediaPdf: state.pendingMediaPdf,
+    setPendingMediaPdf: state.setPendingMediaPdf,
 
     // 右カラム
     patientTags: state.patientTags,
@@ -183,8 +187,10 @@ export default function TalkClient(props: TalkClientProps) {
     sendTemplate: handlers.sendTemplate,
     handleImageSelect: handlers.handleImageSelect,
     openMediaPicker: handlers.openMediaPicker,
+    confirmMediaImage: handlers.confirmMediaImage,
     handleMediaImageSend: handlers.handleMediaImageSend,
     openPdfPicker: handlers.openPdfPicker,
+    confirmMediaPdf: handlers.confirmMediaPdf,
     handleMediaPdfSend: handlers.handleMediaPdfSend,
     openActionPicker: handlers.openActionPicker,
     executeAction: handlers.executeAction,
