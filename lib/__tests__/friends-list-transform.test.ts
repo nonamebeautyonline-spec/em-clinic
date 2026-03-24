@@ -64,6 +64,24 @@ describe("transformFriendsRow", () => {
     expect(result.last_message).toBe("【友達追加】");
   });
 
+  it("postbackイベント → 実際のイベント内容を表示", () => {
+    const result = transformFriendsRow({
+      ...baseRow,
+      last_event_content: "「マイページ」をタップしました",
+      last_event_at: "2026-03-01T10:00:00Z",
+    });
+    expect(result.last_message).toBe("「マイページ」をタップしました");
+  });
+
+  it("メニュー操作 → 実際のイベント内容を表示", () => {
+    const result = transformFriendsRow({
+      ...baseRow,
+      last_event_content: "メニュー操作",
+      last_event_at: "2026-03-01T10:00:00Z",
+    });
+    expect(result.last_message).toBe("メニュー操作");
+  });
+
   it("患者メッセージがイベントより新しい → 患者メッセージ優先", () => {
     const result = transformFriendsRow({
       ...baseRow,

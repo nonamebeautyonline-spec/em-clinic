@@ -6,7 +6,8 @@ export function transformFriendsRow(row: any) {
   const isBlocked = row.last_event_type === "unfollow";
   const eventDisplay = isBlocked ? "ブロックされました"
     : row.last_event_content?.includes("再追加") ? "友だち再登録"
-    : row.last_event_content ? "【友達追加】" : null;
+    : row.last_event_content?.includes("友だち追加") ? "【友達追加】"
+    : row.last_event_content || null;
 
   // incoming内で最新のものを見出しに表示（outgoingは除外）
   // 候補: 患者メッセージ(last_msg_at), イベント(last_event_at), テンプレ送信は除外
