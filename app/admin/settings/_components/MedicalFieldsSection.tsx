@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import useSWR from "swr";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 const COLOR_OPTIONS = [
   { value: "emerald", label: "エメラルド", class: "bg-emerald-500" },
@@ -33,6 +34,7 @@ interface FieldConfig {
 const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((r) => r.json());
 
 export default function MedicalFieldsSection({ onToast }: { onToast: (msg: string, type: "success" | "error") => void }) {
+  const { confirm, ConfirmDialog } = useConfirmModal();
   const { data: configData, mutate: mutateConfig } = useSWR<{ ok: boolean; config: FieldConfig }>(
     "/api/admin/medical-fields/config",
     fetcher
@@ -134,7 +136,8 @@ export default function MedicalFieldsSection({ onToast }: { onToast: (msg: strin
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("この分野を削除しますか？関連データがある場合は無効化されます。")) return;
+    const ok = await confirm({ title: "分野削除", message: "この分野を削除しますか？関連データがある場合は無効化されます。", variant: "danger", confirmLabel: "削除する" });
+    if (!ok) return;
     setDeleting(id);
     try {
       const res = await fetch(`/api/admin/medical-fields?id=${id}`, {
@@ -356,6 +359,7 @@ export default function MedicalFieldsSection({ onToast }: { onToast: (msg: strin
           </div>
         </div>
       )}
+      <ConfirmDialog />
     </div>
   );
 }

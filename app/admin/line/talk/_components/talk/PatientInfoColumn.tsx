@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useTalkContext } from "./TalkContext";
+import { TagBadge } from "@/components/admin/TagBadge";
 
 
 // セクションラベル
@@ -203,12 +204,13 @@ export default function PatientInfoColumn() {
           ) : (
             <div className="flex flex-wrap gap-1">
               {patientTags.map(t => (
-                <span key={t.tag_id} className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] text-white group cursor-default" style={{ backgroundColor: t.tag_definitions.color }}>
-                  {t.tag_definitions.name}
-                  <button onClick={() => handleRemoveTag(t.tag_id)} className="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5">
-                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                </span>
+                <TagBadge
+                  key={t.tag_id}
+                  name={t.tag_definitions.name}
+                  color={t.tag_definitions.color}
+                  size="sm"
+                  onRemove={() => handleRemoveTag(t.tag_id)}
+                />
               ))}
             </div>
           )}

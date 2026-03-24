@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import useSWR, { mutate } from "swr";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 // --- 型定義 ---
 interface PurchaseGroup {
@@ -127,6 +128,7 @@ interface Props {
 }
 
 export default function PurchaseSection({ onToast }: Props) {
+  const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
   const SWR_KEY = "/api/admin/purchase-settings";
   const { data: swrData, isLoading: loading } = useSWR<ApiResponse>(SWR_KEY);
   const [config, setConfig] = useState<PurchaseConfig>(DEFAULT_CONFIG);
@@ -207,8 +209,9 @@ export default function PurchaseSection({ onToast }: Props) {
   };
 
   // グループ削除
-  const removeGroup = (groupId: string) => {
-    if (!confirm("このグループを削除しますか？")) return;
+  const removeGroup = async (groupId: string) => {
+    const ok = await confirmModal({ title: "グループ削除", message: "このグループを削除しますか？", variant: "danger", confirmLabel: "削除する" });
+    if (!ok) return;
     setConfig(prev => ({
       ...prev,
       groups: prev.groups
@@ -512,6 +515,7 @@ export default function PurchaseSection({ onToast }: Props) {
           <PurchasePreview config={config} products={products} />
         </div>
       </div>
+      <ConfirmDialog />
     </div>
   );
 }

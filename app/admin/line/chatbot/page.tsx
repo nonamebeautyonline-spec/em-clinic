@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import useSWR, { mutate } from "swr";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 import {
   DndContext,
   KeyboardSensor,
@@ -155,6 +156,7 @@ function SortableNodeItem({
 /* ---------- メインページ ---------- */
 
 export default function ChatbotPage() {
+  const { confirm, ConfirmDialog } = useConfirmModal();
   const { data: scenariosData, isLoading: loading } = useSWR<{ scenarios: Scenario[] }>("/api/admin/chatbot/scenarios");
   const scenarios = scenariosData?.scenarios || [];
 
@@ -237,7 +239,8 @@ export default function ChatbotPage() {
   /* ---------- シナリオ削除 ---------- */
 
   const handleDelete = async (id: string) => {
-    if (!confirm("このシナリオを削除しますか？関連ノード・セッションもすべて削除されます。")) return;
+    const ok = await confirm({ title: "シナリオ削除", message: "このシナリオを削除しますか？関連ノード・セッションもすべて削除されます。", variant: "danger", confirmLabel: "削除する" });
+    if (!ok) return;
     const res = await fetch(`/api/admin/chatbot/scenarios/${id}`, {
       method: "DELETE",
       credentials: "include",
@@ -311,7 +314,9 @@ export default function ChatbotPage() {
   /* ---------- ノード削除 ---------- */
 
   const handleDeleteNode = async (nodeId: string) => {
-    if (!selectedScenario || !confirm("このノードを削除しますか？")) return;
+    if (!selectedScenario) return;
+    const ok = await confirm({ title: "ノード削除", message: "このノードを削除しますか？", variant: "danger", confirmLabel: "削除する" });
+    if (!ok) return;
     const res = await fetch(
       `/api/admin/chatbot/scenarios/${selectedScenario.id}/nodes?node_id=${nodeId}`,
       { method: "DELETE", credentials: "include" },
@@ -1074,6 +1079,7 @@ export default function ChatbotPage() {
           </div>
         </div>
       )}
+      <ConfirmDialog />
     </div>
   );
 }

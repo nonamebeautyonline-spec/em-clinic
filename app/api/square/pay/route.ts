@@ -23,6 +23,7 @@ import {
 } from "@/lib/payment/square-inline";
 import { getBusinessRules } from "@/lib/business-rules";
 import { sendPaymentThankNotification } from "@/lib/payment-thank-flex";
+import { evaluateTagAutoRules } from "@/lib/tag-auto-rules";
 
 export const runtime = "nodejs";
 
@@ -266,6 +267,9 @@ export async function POST(req: NextRequest) {
 
     // キャッシュ削除
     await invalidateDashboardCache(patientId);
+
+    // タグ自動付与（fire-and-forget）
+    evaluateTagAutoRules(patientId, "checkout_completed", tid).catch(() => {});
 
     return NextResponse.json({
       success: true,

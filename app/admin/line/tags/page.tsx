@@ -3,6 +3,13 @@
 import { useState } from "react";
 import useSWR, { mutate } from "swr";
 import { ErrorFallback } from "@/components/admin/ErrorFallback";
+import { TagBadge } from "@/components/admin/TagBadge";
+
+interface TagAutoRule {
+  trigger: "reservation_made" | "checkout_completed" | "reorder_approved" | "follow";
+  conditions: [];
+  conditionOperator: "AND" | "OR";
+}
 
 interface Tag {
   id: number;
@@ -10,6 +17,7 @@ interface Tag {
   color: string;
   description: string | null;
   is_auto: boolean;
+  auto_rule: TagAutoRule | null;
   created_at: string;
   patient_count: number;
 }
@@ -21,6 +29,13 @@ interface TagPatient {
 }
 
 const TAGS_KEY = "/api/admin/tags";
+
+const TRIGGER_LABELS: Record<string, string> = {
+  follow: "友だち追加",
+  reservation_made: "予約作成",
+  checkout_completed: "決済完了",
+  reorder_approved: "再処方承認",
+};
 
 const PRESET_COLORS = [
   { hex: "#EF4444", name: "レッド" },
@@ -46,6 +61,8 @@ export default function TagManagementPage() {
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [isAuto, setIsAuto] = useState(false);
+  const [autoTrigger, setAutoTrigger] = useState<TagAutoRule["trigger"]>("follow");
 
   // 該当者一覧モーダル
   const [patientsModal, setPatientsModal] = useState<{ tag: Tag; patients: TagPatient[]; loading: boolean } | null>(null);
@@ -64,11 +81,21 @@ export default function TagManagementPage() {
     const url = editingTag ? `/api/admin/tags/${editingTag.id}` : "/api/admin/tags";
     const method = editingTag ? "PUT" : "POST";
 
+    const autoRule: TagAutoRule | null = isAuto
+      ? { trigger: autoTrigger, conditions: [], conditionOperator: "AND" }
+      : null;
+
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ name: name.trim(), color, description: description.trim() || null }),
+      body: JSON.stringify({
+        name: name.trim(),
+        color,
+        description: description.trim() || null,
+        is_auto: isAuto,
+        auto_rule: autoRule,
+      }),
     });
 
     if (res.ok) {
@@ -109,6 +136,8 @@ export default function TagManagementPage() {
     setName(tag.name);
     setColor(tag.color);
     setDescription(tag.description || "");
+    setIsAuto(tag.is_auto || false);
+    setAutoTrigger(tag.auto_rule?.trigger || "follow");
     setShowModal(true);
   };
 
@@ -118,6 +147,8 @@ export default function TagManagementPage() {
     setName("");
     setColor("#3B82F6");
     setDescription("");
+    setIsAuto(false);
+    setAutoTrigger("follow");
   };
 
   if (error) return <ErrorFallback error={error} retry={() => mutate(TAGS_KEY)} />;
@@ -141,7 +172,7 @@ export default function TagManagementPage() {
             </div>
             <button
               onClick={() => { resetForm(); setShowModal(true); }}
-              className="px-5 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-xl text-sm font-medium hover:from-violet-600 hover:to-purple-700 shadow-lg shadow-violet-500/25 transition-all duration-200 flex items-center gap-2"
+              className="px-5 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-xl text-sm font-medium hover:from-violet-600 hover:to-purple-700 shadow-lg shadow-violet-500/25 transition-all duration-200 flex items-center gap-2 min-h-[44px]"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -203,7 +234,9 @@ export default function TagManagementPage() {
                     <span className="font-semibold text-gray-900 text-[15px]">{tag.name}</span>
                   </div>
                   {tag.is_auto && (
-                    <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-medium border border-amber-100">自動</span>
+                    <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-medium border border-amber-100">
+                      自動{tag.auto_rule?.trigger ? `：${TRIGGER_LABELS[tag.auto_rule.trigger] || tag.auto_rule.trigger}` : ""}
+                    </span>
                   )}
                 </div>
 
@@ -224,12 +257,7 @@ export default function TagManagementPage() {
                 </div>
 
                 <div className="flex items-center justify-between pt-2 border-t border-gray-50">
-                  <span
-                    className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium text-white"
-                    style={{ backgroundColor: tag.color }}
-                  >
-                    {tag.name}
-                  </span>
+                  <TagBadge name={tag.name} color={tag.color} />
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => handleEdit(tag)}
@@ -274,12 +302,7 @@ export default function TagManagementPage() {
             <div className="px-6 py-5 space-y-5">
               {/* プレビュー */}
               <div className="flex justify-center">
-                <span
-                  className="inline-flex items-center px-4 py-1.5 rounded-lg text-sm font-medium text-white shadow-sm transition-all"
-                  style={{ backgroundColor: color }}
-                >
-                  {name || "タグ名"}
-                </span>
+                <TagBadge name={name || "タグ名"} color={color} />
               </div>
 
               {/* タグ名 */}
@@ -331,17 +354,58 @@ export default function TagManagementPage() {
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400 bg-gray-50/50 transition-all"
                 />
               </div>
+
+              {/* 自動付与ルール */}
+              <div className="border-t border-gray-100 pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-sm font-medium text-gray-700">自動付与ルール</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsAuto(!isAuto)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      isAuto ? "bg-violet-500" : "bg-gray-200"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        isAuto ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {isAuto && (
+                  <div className="space-y-3 bg-amber-50/50 rounded-xl p-4 border border-amber-100/50">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">トリガーイベント</label>
+                      <select
+                        value={autoTrigger}
+                        onChange={(e) => setAutoTrigger(e.target.value as TagAutoRule["trigger"])}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400"
+                      >
+                        <option value="follow">友だち追加</option>
+                        <option value="reservation_made">予約作成</option>
+                        <option value="checkout_completed">決済完了</option>
+                        <option value="reorder_approved">再処方承認</option>
+                      </select>
+                    </div>
+                    <div className="text-xs text-gray-400 bg-white/60 rounded-lg px-3 py-2 border border-gray-100">
+                      条件指定は今後対応予定です。現在は上記イベント発生時に無条件でタグが付与されます。
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* モーダルフッター */}
             <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
-              <button onClick={resetForm} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium transition-colors">
+              <button onClick={resetForm} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium transition-colors min-h-[44px] inline-flex items-center justify-center">
                 キャンセル
               </button>
               <button
                 onClick={handleSave}
                 disabled={saving || !name.trim()}
-                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-xl hover:from-violet-600 hover:to-purple-700 disabled:opacity-40 text-sm font-medium shadow-lg shadow-violet-500/25 transition-all"
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-xl hover:from-violet-600 hover:to-purple-700 disabled:opacity-40 text-sm font-medium shadow-lg shadow-violet-500/25 transition-all min-h-[44px] inline-flex items-center justify-center"
               >
                 {saving ? (
                   <span className="flex items-center justify-center gap-2">
@@ -368,12 +432,12 @@ export default function TagManagementPage() {
               <h3 className="font-bold text-gray-900 mb-1">タグを削除</h3>
               <p className="text-sm text-gray-500 mb-5">このタグを削除すると、全患者との関連付けも解除されます。この操作は取り消せません。</p>
               <div className="flex gap-3 w-full">
-                <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium transition-colors">
+                <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium transition-colors min-h-[44px] inline-flex items-center justify-center">
                   キャンセル
                 </button>
                 <button
                   onClick={() => handleDelete(deleteConfirm)}
-                  className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm font-medium shadow-lg shadow-red-500/25 transition-all"
+                  className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm font-medium shadow-lg shadow-red-500/25 transition-all min-h-[44px] inline-flex items-center justify-center"
                 >
                   削除する
                 </button>
@@ -390,12 +454,7 @@ export default function TagManagementPage() {
             <div className="px-6 py-4 border-b border-gray-100">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span
-                    className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium text-white"
-                    style={{ backgroundColor: patientsModal.tag.color }}
-                  >
-                    {patientsModal.tag.name}
-                  </span>
+                  <TagBadge name={patientsModal.tag.name} color={patientsModal.tag.color} />
                   <span className="text-sm font-bold text-gray-700">
                     {patientsModal.patients.length}人
                   </span>

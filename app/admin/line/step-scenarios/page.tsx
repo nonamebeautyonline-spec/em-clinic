@@ -3,6 +3,7 @@
 import { useState } from "react";
 import useSWR, { mutate } from "swr";
 import { useRouter } from "next/navigation";
+import { TagBadge } from "@/components/admin/TagBadge";
 import dynamic from "next/dynamic";
 
 /* ---------- 効果測定パネル（SSR回避: Rechartsはクライアント専用） ---------- */
@@ -112,7 +113,7 @@ export default function StepScenariosPage() {
             </div>
             <button
               onClick={handleCreate}
-              className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl text-sm font-medium hover:from-emerald-600 hover:to-green-700 shadow-lg shadow-emerald-500/25 transition-all duration-200 flex items-center gap-2"
+              className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl text-sm font-medium hover:from-emerald-600 hover:to-green-700 shadow-lg shadow-emerald-500/25 transition-all duration-200 flex items-center gap-2 min-h-[44px]"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -199,12 +200,7 @@ export default function StepScenariosPage() {
                             {TRIGGER_LABELS[s.trigger_type] || s.trigger_type}
                           </span>
                           {s.trigger_type === "tag_add" && s.trigger_tag && (
-                            <span
-                              className="px-1.5 py-0.5 rounded text-[10px] font-medium text-white"
-                              style={{ backgroundColor: s.trigger_tag.color || "#888" }}
-                            >
-                              {s.trigger_tag.name}
-                            </span>
+                            <TagBadge name={s.trigger_tag.name} color={s.trigger_tag.color || "#888"} size="sm" />
                           )}
                           {s.trigger_type === "keyword" && s.trigger_keyword && (
                             <code className="px-1.5 py-0.5 bg-gray-100 rounded text-[10px] text-gray-600 font-mono">

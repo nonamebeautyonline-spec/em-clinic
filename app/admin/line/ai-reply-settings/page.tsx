@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import useSWR, { mutate } from "swr";
 import { AIReplyStatsContent } from "../ai-reply-stats/page";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 interface AiReplySettings {
   is_enabled: boolean;
@@ -586,6 +587,7 @@ interface AiReplyExample {
 }
 
 function AiReplyExamplesTab() {
+  const { confirm, ConfirmDialog } = useConfirmModal();
   const examplesKey = "/api/admin/line/ai-reply-examples";
   const { data: exData, isLoading: loading } = useSWR(examplesKey);
   const examples: AiReplyExample[] = exData?.examples || [];
@@ -593,7 +595,8 @@ function AiReplyExamplesTab() {
   const [deleting, setDeleting] = useState<number | null>(null);
 
   const handleDelete = async (id: number) => {
-    if (!confirm("この学習例を削除しますか？")) return;
+    const ok = await confirm({ title: "学習例削除", message: "この学習例を削除しますか？", variant: "danger", confirmLabel: "削除する" });
+    if (!ok) return;
     setDeleting(id);
     try {
       const res = await fetch("/api/admin/line/ai-reply-examples", {
@@ -665,6 +668,7 @@ function AiReplyExamplesTab() {
           ))}
         </div>
       )}
+      <ConfirmDialog />
     </div>
   );
 }

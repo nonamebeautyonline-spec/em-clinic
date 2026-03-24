@@ -485,6 +485,8 @@ export const tagUpdateSchema = z
     name: z.string().optional(),
     color: z.string().optional(),
     description: z.string().nullable().optional(),
+    is_auto: z.boolean().optional(),
+    auto_rule: z.any().optional(),
   })
   .passthrough();
 

@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from "react";
 import useSWR, { mutate } from "swr";
 import dynamic from "next/dynamic";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 const AreaChart = dynamic(() => import("recharts").then(m => m.AreaChart), { ssr: false });
 const Area = dynamic(() => import("recharts").then(m => m.Area), { ssr: false });
@@ -94,6 +95,7 @@ const IconExternalLink = ({ className = "w-3.5 h-3.5" }: { className?: string })
 // ─── メインコンポーネント ──────────────────────
 
 export default function TrackingSourcesPage() {
+  const { confirm, ConfirmDialog } = useConfirmModal();
   const [selectedFolder, setSelectedFolder] = useState<number | "uncategorized" | null>(null);
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "stats">("list");
@@ -186,7 +188,8 @@ export default function TrackingSourcesPage() {
   };
 
   const deleteFolder = async (id: number) => {
-    if (!confirm("フォルダを削除しますか？中の流入経路は未分類に移動されます。")) return;
+    const ok = await confirm({ title: "フォルダ削除", message: "フォルダを削除しますか？中の流入経路は未分類に移動されます。", variant: "danger", confirmLabel: "削除する" });
+    if (!ok) return;
     await fetch(`/api/admin/line/tracking-source-folders?id=${id}`, { method: "DELETE", credentials: "include" });
     if (selectedFolder === id) setSelectedFolder(null);
     revalidate();
@@ -267,7 +270,8 @@ export default function TrackingSourcesPage() {
   };
 
   const deleteSource = async (id: number) => {
-    if (!confirm("この流入経路を削除しますか？訪問記録も削除されます。")) return;
+    const ok = await confirm({ title: "流入経路削除", message: "この流入経路を削除しますか？訪問記録も削除されます。", variant: "danger", confirmLabel: "削除する" });
+    if (!ok) return;
     await fetch(`/api/admin/line/tracking-sources?id=${id}`, { method: "DELETE", credentials: "include" });
     revalidate();
   };
@@ -1060,6 +1064,7 @@ export default function TrackingSourcesPage() {
           </div>
         </div>
       )}
+      <ConfirmDialog />
     </div>
   );
 }

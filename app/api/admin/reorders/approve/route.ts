@@ -12,6 +12,7 @@ import { getSettingOrEnv } from "@/lib/settings";
 import { getBusinessRules } from "@/lib/business-rules";
 import { logAudit } from "@/lib/audit";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
+import { evaluateTagAutoRules } from "@/lib/tag-auto-rules";
 import { parseBody } from "@/lib/validations/helpers";
 import { adminReorderApproveSchema } from "@/lib/validations/admin-operations";
 
@@ -218,6 +219,9 @@ export async function POST(req: NextRequest) {
 
     // リッチメニュー自動切替（fire-and-forget）
     evaluateMenuRules(reorderData.patient_id, tenantId ?? undefined).catch(() => {});
+
+    // タグ自動付与（fire-and-forget）
+    evaluateTagAutoRules(reorderData.patient_id, "reorder_approved", tenantId ?? undefined).catch(() => {});
 
     return NextResponse.json({ ok: true, lineNotify });
   } catch (error) {

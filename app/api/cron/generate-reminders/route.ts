@@ -10,8 +10,11 @@ import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 import {
   getJSTToday,
   addOneDay,
+  addDays,
   formatReservationTime,
   buildReminderMessage,
+  isInSendWindow,
+  isReservationInHoursWindow,
 } from "@/lib/auto-reminder";
 import { acquireLock } from "@/lib/distributed-lock";
 
@@ -19,7 +22,11 @@ import { acquireLock } from "@/lib/distributed-lock";
 interface ReminderRule {
   id: number;
   tenant_id: string | null;
+  timing_type: "before_hours" | "before_days" | "fixed_time";
+  timing_value: number;
   target_day_offset: number;
+  send_hour: number | null;
+  send_minute: number | null;
   is_enabled: boolean;
   message_format: string;
   message_template: string | null;
@@ -70,17 +77,22 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // ?offset=0（当日）or ?offset=1（前日）でルールを絞り込み
+    // ?type=relative → before_hours/before_days ルールを処理
+    // ?offset=0/1 → fixed_time ルールを処理（後方互換）
+    const typeParam = req.nextUrl.searchParams.get("type");
     const offsetParam = req.nextUrl.searchParams.get("offset");
-    const targetOffset = offsetParam != null ? Number(offsetParam) : null;
 
     let query = supabaseAdmin
       .from("reminder_rules")
       .select("*")
       .eq("is_enabled", true);
 
-    if (targetOffset != null) {
-      query = query.eq("target_day_offset", targetOffset);
+    if (typeParam === "relative") {
+      // before_hours / before_days のみ取得
+      query = query.in("timing_type", ["before_hours", "before_days"]);
+    } else if (offsetParam != null) {
+      // 従来の fixed_time ルール（後方互換）
+      query = query.eq("target_day_offset", Number(offsetParam));
     }
 
     const { data: rules, error: rulesError } = await query;
@@ -96,11 +108,24 @@ export async function GET(req: NextRequest) {
 
     let totalSent = 0;
 
-    for (const rule of rules) {
+    for (const rule of rules as ReminderRule[]) {
       const tenantId: string | null = rule.tenant_id || null;
       try {
-        const targetDate = getTargetDate(rule);
-        totalSent += await sendReminders(rule, tenantId, targetDate);
+        if (rule.timing_type === "before_hours") {
+          // N時間前: 予約日時ベースでフィルタ
+          totalSent += await sendRelativeReminders(rule, tenantId);
+        } else if (rule.timing_type === "before_days") {
+          // N日前: 対象日を計算して送信（send_hour/send_minuteで時刻制御）
+          if (rule.send_hour != null && rule.send_minute != null) {
+            if (!isInSendWindow(rule.send_hour, rule.send_minute)) continue;
+          }
+          const targetDate = addDays(getJSTToday(), rule.timing_value);
+          totalSent += await sendReminders(rule, tenantId, targetDate);
+        } else {
+          // fixed_time: 従来通り offset ベース
+          const targetDate = getTargetDate(rule);
+          totalSent += await sendReminders(rule, tenantId, targetDate);
+        }
       } catch (e) {
         console.error(`[reminders] error rule=${rule.id}:`, (e as Error).message);
       }
@@ -123,7 +148,7 @@ function getTargetDate(rule: ReminderRule): string {
   return rule.target_day_offset === 0 ? today : addOneDay(today);
 }
 
-/** 対象日の予約を取得 → 未送信分を並列送信 */
+/** 対象日の予約を取得 → 未送信分を送信 */
 async function sendReminders(rule: ReminderRule, tenantId: string | null, targetDate: string): Promise<number> {
   const { data: reservations } = await withTenant(
     supabaseAdmin
@@ -151,8 +176,13 @@ async function sendReminders(rule: ReminderRule, tenantId: string | null, target
   const unsent = reservations.filter((r: ReservationRow) => !sentSet.has(r.id));
   if (!unsent.length) return 0;
 
+  return await sendReminderMessages(rule, tenantId, unsent);
+}
+
+/** 未送信予約リストに対してメッセージを作成・送信する共通関数 */
+async function sendReminderMessages(rule: ReminderRule, tenantId: string | null, unsent: ReservationRow[]): Promise<number> {
   // 患者のLINE UID取得
-  const patientIds = [...new Set(unsent.map((r: ReservationRow) => r.patient_id))];
+  const patientIds = [...new Set(unsent.map((r) => r.patient_id))];
   const { data: patients } = await withTenant(
     supabaseAdmin
       .from("patients")
@@ -244,6 +274,49 @@ async function sendReminders(rule: ReminderRule, tenantId: string | null, target
   }
 
   return sent;
+}
+
+/** before_hours用: 予約日時からN時間前がウィンドウ内の予約に送信 */
+async function sendRelativeReminders(rule: ReminderRule, tenantId: string | null): Promise<number> {
+  // 今後1時間以内にN時間前になる予約 = 予約時刻が (now+N時間) 〜 (now+N時間+1時間) の範囲
+  // まず今日と明日の予約をまとめて取得し、時間でフィルタ
+  const today = getJSTToday();
+  const tomorrow = addOneDay(today);
+
+  const { data: reservations } = await withTenant(
+    supabaseAdmin
+      .from("reservations")
+      .select("id, patient_id, patient_name, reserved_date, reserved_time")
+      .in("reserved_date", [today, tomorrow])
+      .neq("status", "canceled"),
+    tenantId
+  );
+
+  if (!reservations?.length) return 0;
+
+  // N時間前ウィンドウでフィルタ
+  const inWindow = reservations.filter((r: ReservationRow) =>
+    isReservationInHoursWindow(r.reserved_date, r.reserved_time, rule.timing_value)
+  );
+
+  if (!inWindow.length) return 0;
+
+  // 送信済みチェック
+  const reservationIds = inWindow.map((r: ReservationRow) => r.id);
+  const { data: sentLogs } = await withTenant(
+    supabaseAdmin
+      .from("reminder_sent_log")
+      .select("reservation_id")
+      .eq("rule_id", rule.id)
+      .in("reservation_id", reservationIds),
+    tenantId
+  );
+  const sentSet = new Set((sentLogs || []).map((l: SentLogRow) => l.reservation_id));
+  const unsent = inWindow.filter((r: ReservationRow) => !sentSet.has(r.id));
+  if (!unsent.length) return 0;
+
+  // 既存のsendReminders内のメッセージ作成・送信ロジックと同じ
+  return await sendReminderMessages(rule, tenantId, unsent);
 }
 
 function formatDateJP(dateStr: string): string {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import useSWR, { mutate } from "swr";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 interface MenuRuleCondition {
   type: "tag" | "mark" | "field" | "last_payment_date" | "product_purchase" | "reorder_count";
@@ -44,6 +45,7 @@ interface RichMenu { id: number; name: string; is_active: boolean }
 
 export { MenuRulesPage };
 export default function MenuRulesPage() {
+  const { confirm, ConfirmDialog } = useConfirmModal();
   const { data: rulesData, isLoading: rulesLoading } = useSWR<{ rules: MenuAutoRule[] }>("/api/admin/line/menu-rules");
   const { data: tagsData, isLoading: tagsLoading } = useSWR<{ tags: TagDef[] }>("/api/admin/tags?simple=true");
   const { data: marksData, isLoading: marksLoading } = useSWR<{ marks: MarkDef[] }>("/api/admin/line/marks?simple=true");
@@ -66,7 +68,8 @@ export default function MenuRulesPage() {
   const [showEditor, setShowEditor] = useState(false);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("このルールを削除しますか？")) return;
+    const ok = await confirm({ title: "ルール削除", message: "このルールを削除しますか？", variant: "danger", confirmLabel: "削除する" });
+    if (!ok) return;
     await fetch(`/api/admin/line/menu-rules?id=${id}`, { method: "DELETE", credentials: "include" });
     mutate("/api/admin/line/menu-rules");
   };
@@ -340,6 +343,7 @@ export default function MenuRulesPage() {
           onClose={() => { setShowEditor(false); setEditRule(null); }}
         />
       )}
+      <ConfirmDialog />
     </div>
   );
 }

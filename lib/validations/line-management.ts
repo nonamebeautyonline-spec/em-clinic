@@ -101,12 +101,26 @@ export const updateAiReplySettingsSchema = z
 
 // ─── クリック計測 ──────────────────────────
 
+/** クリック計測アクションステップのスキーマ */
+const clickTrackActionStepSchema = z.object({
+  type: z.enum(["tag_add", "tag_remove", "scenario_enroll"]),
+  tag_id: z.number().optional(),
+  scenario_id: z.number().optional(),
+});
+
+/** クリック計測アクション設定のスキーマ */
+const clickTrackActionSettingsSchema = z.object({
+  enabled: z.boolean(),
+  steps: z.array(clickTrackActionStepSchema),
+});
+
 /** クリック計測リンク作成 POST /api/admin/line/click-track */
 export const createClickTrackSchema = z
   .object({
     original_url: z.string().min(1, "URLは必須です"),
     label: z.string().optional(),
     broadcast_id: z.union([z.number(), z.string(), z.null()]).optional(),
+    action_settings: clickTrackActionSettingsSchema.optional(),
   })
   .passthrough();
 

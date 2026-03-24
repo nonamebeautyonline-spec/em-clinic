@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { ROLE_LABELS, getMenuItemsBySection, ALL_MENU_KEYS } from "@/lib/menu-permissions";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 // ---------- 型定義 ----------
 interface StaffUser {
@@ -42,6 +43,8 @@ function RoleBadge({ role }: { role: string }) {
 
 // ---------- メインコンポーネント ----------
 export default function StaffSection({ onToast, currentUserId }: StaffSectionProps) {
+  const { confirm, ConfirmDialog } = useConfirmModal();
+
   // スタッフ一覧
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
@@ -109,7 +112,8 @@ export default function StaffSection({ onToast, currentUserId }: StaffSectionPro
 
   // ---------- スタッフ削除 ----------
   const handleDelete = async (userId: string, name: string) => {
-    if (!confirm(`${name} を削除しますか？`)) return;
+    const ok = await confirm({ title: "スタッフ削除", message: `${name} を削除しますか？`, variant: "danger", confirmLabel: "削除する" });
+    if (!ok) return;
     try {
       const res = await fetch("/api/admin/users", {
         method: "DELETE",
@@ -261,7 +265,7 @@ export default function StaffSection({ onToast, currentUserId }: StaffSectionPro
           <h2 className="text-base font-semibold text-gray-900">スタッフ一覧</h2>
           <button
             onClick={openPermModal}
-            className="px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+            className="px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors min-h-[44px] inline-flex items-center justify-center"
           >
             権限設定
           </button>
@@ -379,7 +383,7 @@ export default function StaffSection({ onToast, currentUserId }: StaffSectionPro
             <button
               onClick={handleAddUser}
               disabled={addingUser || !addName.trim() || !addEmail.trim()}
-              className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px] inline-flex items-center justify-center"
             >
               {addingUser ? "追加中..." : "追加する"}
             </button>
@@ -499,14 +503,14 @@ export default function StaffSection({ onToast, currentUserId }: StaffSectionPro
               <div className="flex items-center justify-end gap-3">
                 <button
                   onClick={() => setShowPermModal(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors min-h-[44px] inline-flex items-center justify-center"
                 >
                   キャンセル
                 </button>
                 <button
                   onClick={handleSavePermissions}
                   disabled={savingPerm}
-                  className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px] inline-flex items-center justify-center"
                 >
                   {savingPerm ? "保存中..." : "保存"}
                 </button>
@@ -518,6 +522,7 @@ export default function StaffSection({ onToast, currentUserId }: StaffSectionPro
           </div>
         </div>
       )}
+      <ConfirmDialog />
     </div>
   );
 }

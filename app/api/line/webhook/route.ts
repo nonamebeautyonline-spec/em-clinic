@@ -19,6 +19,7 @@ import { findScenarioByKeyword, getActiveSession, startScenario, processUserInpu
 import { sanitizeFlexContents } from "@/lib/flex-sanitize";
 import { checkIdempotency } from "@/lib/idempotency";
 import { executeLifecycleActions } from "@/lib/lifecycle-actions";
+import { evaluateTagAutoRules } from "@/lib/tag-auto-rules";
 import { notifyWebhookFailure } from "@/lib/notifications/webhook-failure";
 
 /** after()で処理するAI返信の対象患者リスト（リクエスト単位） */
@@ -403,6 +404,11 @@ async function handleFollow(lineUid: string, tenantId: string | null, accessToke
     } catch (e) {
       console.error("[webhook] step enrollment follow error:", e);
     }
+  }
+
+  // タグ自動付与（fire-and-forget）
+  if (patient?.patient_id) {
+    evaluateTagAutoRules(patient.patient_id, "follow", tenantId ?? undefined).catch(() => {});
   }
 }
 

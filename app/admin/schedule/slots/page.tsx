@@ -3,6 +3,7 @@
 import { useState } from "react";
 import useSWR, { mutate } from "swr";
 import Link from "next/link";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 type Slot = {
   id: string;
@@ -28,6 +29,7 @@ const SLOTS_KEY = "/api/admin/reservation-slots";
 const COURSES_KEY = "/api/admin/reservation-courses";
 
 export default function SlotsAndCoursesPage() {
+  const { confirm, ConfirmDialog } = useConfirmModal();
   const [tab, setTab] = useState<Tab>("slots");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -107,7 +109,8 @@ export default function SlotsAndCoursesPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("無効化しますか？（予約枠/コースは論理削除されます）")) return;
+    const ok = await confirm({ title: "無効化確認", message: "無効化しますか？（予約枠/コースは論理削除されます）", variant: "danger", confirmLabel: "無効化する" });
+    if (!ok) return;
     const endpoint = tab === "slots" ? "/api/admin/reservation-slots" : "/api/admin/reservation-courses";
     try {
       const res = await fetch(`${endpoint}/${id}`, {
@@ -219,7 +222,7 @@ export default function SlotsAndCoursesPage() {
             {tab === "slots" && (
               <div className="space-y-4">
                 <div className="flex justify-end">
-                  <button onClick={openCreateModal} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition">
+                  <button onClick={openCreateModal} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition min-h-[44px] inline-flex items-center justify-center">
                     予約枠を追加
                   </button>
                 </div>
@@ -258,7 +261,7 @@ export default function SlotsAndCoursesPage() {
             {tab === "courses" && (
               <div className="space-y-4">
                 <div className="flex justify-end">
-                  <button onClick={openCreateModal} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition">
+                  <button onClick={openCreateModal} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition min-h-[44px] inline-flex items-center justify-center">
                     コースを追加
                   </button>
                 </div>
@@ -350,7 +353,7 @@ export default function SlotsAndCoursesPage() {
                           <button
                             onClick={saveSlotCourses}
                             disabled={linkSaving}
-                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition min-h-[44px] inline-flex items-center justify-center"
                           >
                             {linkSaving ? "保存中..." : "紐づけを保存"}
                           </button>
@@ -393,6 +396,22 @@ export default function SlotsAndCoursesPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">所要時間（分）</label>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {[15, 30, 45, 60, 90].map((min) => (
+                      <button
+                        key={min}
+                        type="button"
+                        onClick={() => setFormDuration(min)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition ${
+                          formDuration === min
+                            ? "bg-sky-50 border-sky-300 text-sky-700"
+                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        {min}分
+                      </button>
+                    ))}
+                  </div>
                   <input
                     type="number"
                     min={5}
@@ -413,13 +432,13 @@ export default function SlotsAndCoursesPage() {
                 </div>
               </div>
               <div className="mt-6 flex justify-end gap-3">
-                <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition">
+                <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition min-h-[44px] inline-flex items-center justify-center">
                   キャンセル
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={saving || !formTitle}
-                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition min-h-[44px] inline-flex items-center justify-center"
                 >
                   {saving ? "保存中..." : "保存"}
                 </button>
@@ -427,6 +446,7 @@ export default function SlotsAndCoursesPage() {
             </div>
           </div>
         )}
+        <ConfirmDialog />
       </div>
     </div>
   );

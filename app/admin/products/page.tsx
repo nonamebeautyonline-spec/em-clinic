@@ -21,6 +21,7 @@ import { ContextMenu } from "./_components/ContextMenu";
 import { FolderEditModal } from "./_components/FolderEditModal";
 import { ProductEditModal } from "./_components/ProductEditModal";
 import type { Product, ProductCategory, DragItem } from "./_components/types";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 type ViewMode = "grid" | "list";
 type SortKey = "name" | "price" | "date" | "sort_order";
@@ -305,6 +306,7 @@ const PRODUCTS_KEY = "/api/admin/products";
 
 // ─── メインページ ───
 export default function ProductsPage() {
+  const { confirm, ConfirmDialog } = useConfirmModal();
   const { data: catData, error: catError, isLoading: catLoading } = useSWR<{ categories: ProductCategory[] }>(CATEGORIES_KEY);
   const { data: prodData, error: prodError, isLoading: prodLoading } = useSWR<{ products: Product[] }>(PRODUCTS_KEY);
   const categories = catData?.categories ?? [];
@@ -541,7 +543,8 @@ export default function ProductsPage() {
   };
 
   const handleDeleteFolder = async (id: string) => {
-    if (!confirm("このフォルダを削除しますか？配下のサブフォルダも削除されます。商品はルートに移動します。")) return;
+    const ok = await confirm({ title: "フォルダ削除", message: "このフォルダを削除しますか？配下のサブフォルダも削除されます。商品はルートに移動します。", variant: "danger", confirmLabel: "削除する" });
+    if (!ok) return;
     const res = await fetch(`/api/admin/product-categories?id=${id}`, {
       method: "DELETE",
       credentials: "include",
@@ -1049,6 +1052,7 @@ export default function ProductsPage() {
         onSave={revalidateAll}
         onClose={() => setProductModal({ open: false, editing: null })}
       />
+      <ConfirmDialog />
     </div>
   );
 }

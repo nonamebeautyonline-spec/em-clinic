@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
   const tenantId = resolveTenantIdOrThrow(req);
   const parsed = await parseBody(req, createClickTrackSchema);
   if ("error" in parsed) return parsed.error;
-  const { original_url, label, broadcast_id } = parsed.data;
+  const { original_url, label, broadcast_id, action_settings } = parsed.data;
 
   const trackingCode = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
 
@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
       original_url,
       label: label || null,
       broadcast_id: broadcast_id || null,
+      action_settings: action_settings || { enabled: false, steps: [] },
     })
     .select()
     .single();

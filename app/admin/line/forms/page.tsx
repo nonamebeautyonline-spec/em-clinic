@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR, { mutate } from "swr";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 interface Folder {
   id: number;
@@ -24,6 +25,7 @@ interface Form {
 const FOLDERS_KEY = "/api/admin/line/form-folders";
 
 export default function FormsPage() {
+  const { confirm, ConfirmDialog } = useConfirmModal();
   const router = useRouter();
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null);
   const [search, setSearch] = useState("");
@@ -82,7 +84,8 @@ export default function FormsPage() {
   };
 
   const deleteFolder = async (id: number) => {
-    if (!confirm("フォルダを削除しますか？中のフォームは未分類に移動されます。")) return;
+    const ok = await confirm({ title: "フォルダ削除", message: "フォルダを削除しますか？中のフォームは未分類に移動されます。", variant: "danger", confirmLabel: "削除する" });
+    if (!ok) return;
     const res = await fetch(`/api/admin/line/form-folders?id=${id}`, { method: "DELETE", credentials: "include" });
     if (!res.ok) {
       alert("エラーが発生しました");
@@ -118,7 +121,8 @@ export default function FormsPage() {
   };
 
   const deleteForm = async (id: number) => {
-    if (!confirm("このフォームを削除しますか？回答データも削除されます。")) return;
+    const ok = await confirm({ title: "フォーム削除", message: "このフォームを削除しますか？回答データも削除されます。", variant: "danger", confirmLabel: "削除する" });
+    if (!ok) return;
     const res = await fetch(`/api/admin/line/forms/${id}`, { method: "DELETE", credentials: "include" });
     if (!res.ok) {
       alert("エラーが発生しました");
@@ -343,6 +347,7 @@ export default function FormsPage() {
           </div>
         </div>
       )}
+      <ConfirmDialog />
     </div>
   );
 }

@@ -84,12 +84,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const parsed = await parseBody(req, tagUpdateSchema);
   if ("error" in parsed) return parsed.error;
-  const { name, color, description } = parsed.data;
+  const { name, color, description, is_auto, auto_rule } = parsed.data;
+
+  const updatePayload: Record<string, unknown> = {};
+  if (name !== undefined) updatePayload.name = name;
+  if (color !== undefined) updatePayload.color = color;
+  if (description !== undefined) updatePayload.description = description;
+  if (is_auto !== undefined) updatePayload.is_auto = is_auto;
+  if (auto_rule !== undefined) updatePayload.auto_rule = auto_rule;
 
   const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("tag_definitions")
-      .update({ name, color, description })
+      .update(updatePayload)
       .eq("id", Number(id)),
     tenantId
   ).select().single();

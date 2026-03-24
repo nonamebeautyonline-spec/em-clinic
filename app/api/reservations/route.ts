@@ -11,6 +11,7 @@ import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { isMultiFieldEnabled } from "@/lib/medical-fields";
 import { pushMessage } from "@/lib/line-push";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
+import { evaluateTagAutoRules } from "@/lib/tag-auto-rules";
 import { validateBody } from "@/lib/validations/helpers";
 import {
   createReservationSchema,
@@ -935,6 +936,11 @@ export async function POST(req: NextRequest) {
         try {
           await evaluateMenuRules(pid, tenantId ?? undefined);
         } catch {}
+      }
+
+      // タグ自動付与（fire-and-forget）
+      if (pid) {
+        evaluateTagAutoRules(pid, "reservation_made", tenantId ?? undefined).catch(() => {});
       }
 
       return NextResponse.json({

@@ -8,6 +8,7 @@ import { pushMessage } from "@/lib/line-push";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
+import { evaluateTagAutoRules } from "@/lib/tag-auto-rules";
 import { parseBody } from "@/lib/validations/helpers";
 import { doctorReorderApproveSchema } from "@/lib/validations/doctor";
 
@@ -117,6 +118,11 @@ export async function POST(req: NextRequest) {
     // リッチメニュー自動切替（fire-and-forget）
     if (reorderData.patient_id) {
       evaluateMenuRules(reorderData.patient_id, tenantId ?? undefined).catch(() => {});
+    }
+
+    // タグ自動付与（fire-and-forget）
+    if (reorderData.patient_id) {
+      evaluateTagAutoRules(reorderData.patient_id, "reorder_approved", tenantId ?? undefined).catch(() => {});
     }
 
     return NextResponse.json({ ok: true, lineNotify }, { status: 200 });

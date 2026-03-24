@@ -332,14 +332,14 @@ export default function BroadcastsPage() {
               <button
                 onClick={() => setConfirmAction(null)}
                 disabled={actionLoading}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 min-h-[44px] inline-flex items-center justify-center"
               >
                 キャンセル
               </button>
               <button
                 onClick={handlePauseResume}
                 disabled={actionLoading}
-                className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 ${
+                className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 min-h-[44px] inline-flex items-center justify-center ${
                   confirmAction.action === "pause"
                     ? "bg-amber-500 hover:bg-amber-600"
                     : "bg-blue-500 hover:bg-blue-600"

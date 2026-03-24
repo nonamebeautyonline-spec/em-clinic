@@ -269,7 +269,7 @@ export default function ReminderRulesPage() {
             </div>
             <button
               onClick={handleCreate}
-              className="px-5 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-xl text-sm font-medium hover:from-sky-600 hover:to-blue-700 shadow-lg shadow-sky-500/25 transition-all duration-200 flex items-center gap-2"
+              className="px-5 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-xl text-sm font-medium hover:from-sky-600 hover:to-blue-700 shadow-lg shadow-sky-500/25 transition-all duration-200 flex items-center gap-2 min-h-[44px]"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -734,13 +734,13 @@ export default function ReminderRulesPage() {
             </div>
 
             <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
-              <button onClick={closeModal} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium transition-colors">
+              <button onClick={closeModal} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium transition-colors min-h-[44px] inline-flex items-center justify-center">
                 キャンセル
               </button>
               <button
                 onClick={handleSave}
                 disabled={isSaveDisabled}
-                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-xl hover:from-sky-600 hover:to-blue-700 disabled:opacity-40 text-sm font-medium shadow-lg shadow-sky-500/25 transition-all"
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-xl hover:from-sky-600 hover:to-blue-700 disabled:opacity-40 text-sm font-medium shadow-lg shadow-sky-500/25 transition-all min-h-[44px] inline-flex items-center justify-center"
               >
                 {saving ? (
                   <span className="flex items-center justify-center gap-2">
