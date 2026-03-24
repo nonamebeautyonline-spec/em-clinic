@@ -67,6 +67,7 @@ const SETTING_DEFINITIONS: Record<SettingCategory, SettingDef[]> = {
     { key: "verify_sid", label: "Twilio Verify SID", envFallback: "TWILIO_VERIFY_SID" },
   ],
   dashboard: [],
+  talk: [],
   feature_flags: [],
   consultation: [
     { key: "type", label: "診察モード", sensitive: false },
