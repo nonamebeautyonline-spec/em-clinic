@@ -96,6 +96,25 @@ export interface TalkContextValue {
   mediaLoading: boolean;
   sendingMediaImage: boolean;
 
+  // 添付パネル並び順
+  attachPanelOrder: string[];
+  setAttachPanelOrder: React.Dispatch<React.SetStateAction<string[]>>;
+  attachEditMode: boolean;
+  setAttachEditMode: (v: boolean) => void;
+  saveAttachPanelOrder: (order: string[]) => void;
+
+  // PDFピッカー
+  showPdfPicker: boolean;
+  setShowPdfPicker: (v: boolean) => void;
+  pdfFiles: { id: number; name: string; file_url: string; file_type: string; mime_type: string; file_size: number; folder_id: number | null; created_at: string; media_folders: { name: string } | null }[];
+  pdfFolders: { id: number; name: string; file_count: number }[];
+  pdfFolderFilter: number | null;
+  setPdfFolderFilter: (v: number | null) => void;
+  pdfSearch: string;
+  setPdfSearch: (v: string) => void;
+  pdfLoading: boolean;
+  sendingMediaPdf: boolean;
+
   // 右カラム
   patientTags: PatientTag[];
   patientMark: string;
@@ -148,6 +167,8 @@ export interface TalkContextValue {
   handleImageSelect: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
   openMediaPicker: () => Promise<void>;
   handleMediaImageSend: (file: { file_url: string; name: string }) => Promise<void>;
+  openPdfPicker: () => Promise<void>;
+  handleMediaPdfSend: (file: { file_url: string; name: string }) => Promise<void>;
   openActionPicker: () => Promise<void>;
   executeAction: (actionId: number) => Promise<void>;
   handleSendCallForm: () => Promise<void>;

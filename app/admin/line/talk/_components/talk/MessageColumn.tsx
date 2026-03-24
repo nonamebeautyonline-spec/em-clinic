@@ -1,7 +1,37 @@
 "use client";
 
+import { type ReactNode } from "react";
+import {
+  DndContext,
+  closestCenter,
+  type DragEndEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useTalkContext } from "./TalkContext";
 import MessageItem from "./MessageItem";
+
+function SortableAttachButton({ id, children }: { id: string; children: ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+      {children}
+    </div>
+  );
+}
 
 export default function MessageColumn() {
   const ctx = useTalkContext();
@@ -97,64 +127,7 @@ export default function MessageColumn() {
 
           {/* 添付パネル */}
           {ctx.showAttachPanel && (
-            <div className="flex-shrink-0 bg-white border-t border-gray-100 px-3 pt-2">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={ctx.openTemplatePicker}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors group"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-[#00B900]/10 flex items-center justify-center group-hover:bg-[#00B900]/20 transition-colors">
-                    <svg className="w-4 h-4 text-[#00B900]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                  </div>
-                  <span className="text-xs font-medium text-gray-700">テンプレート送信</span>
-                </button>
-                <button
-                  onClick={() => { ctx.setShowAttachPanel(false); ctx.imageInputRef.current?.click(); }}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors group"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
-                    <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                  </div>
-                  <span className="text-xs font-medium text-gray-700">画像送信</span>
-                </button>
-                <button
-                  onClick={ctx.openMediaPicker}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors group"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center group-hover:bg-indigo-500/20 transition-colors">
-                    <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                  </div>
-                  <span className="text-xs font-medium text-gray-700">メディアから選択</span>
-                </button>
-                {ctx.lineCallEnabled && (
-                <button
-                  onClick={() => { ctx.setShowAttachPanel(false); ctx.setShowCallConfirm(true); }}
-                  disabled={!ctx.lineCallUrl}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-colors group ${
-                    ctx.lineCallUrl
-                      ? "bg-gray-50 hover:bg-gray-100 border-gray-200"
-                      : "bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed"
-                  }`}
-                >
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500/20 transition-colors">
-                    <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                  </div>
-                  <span className="text-xs font-medium text-gray-700">
-                    {ctx.lineCallUrl ? "通話フォーム" : "通話フォーム（URL未設定）"}
-                  </span>
-                </button>
-                )}
-                <button
-                  onClick={ctx.openActionPicker}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors group"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
-                    <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                  </div>
-                  <span className="text-xs font-medium text-gray-700">アクション実行</span>
-                </button>
-              </div>
-            </div>
+            <AttachPanel />
           )}
 
           {/* ブロック警告 */}
@@ -319,6 +292,154 @@ export default function MessageColumn() {
             )}
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+// 添付パネルのボタン定義
+const ATTACH_BUTTONS: Record<string, { label: string; color: string; bgColor: string; icon: ReactNode }> = {
+  template: {
+    label: "テンプレート送信",
+    color: "text-[#00B900]",
+    bgColor: "bg-[#00B900]/10 group-hover:bg-[#00B900]/20",
+    icon: <svg className="w-4 h-4 text-[#00B900]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
+  },
+  image: {
+    label: "画像送信",
+    color: "text-blue-500",
+    bgColor: "bg-blue-500/10 group-hover:bg-blue-500/20",
+    icon: <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
+  },
+  media: {
+    label: "メディアから選択",
+    color: "text-indigo-500",
+    bgColor: "bg-indigo-500/10 group-hover:bg-indigo-500/20",
+    icon: <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>,
+  },
+  pdf: {
+    label: "PDF送信",
+    color: "text-orange-500",
+    bgColor: "bg-orange-500/10 group-hover:bg-orange-500/20",
+    icon: <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>,
+  },
+  call: {
+    label: "通話フォーム",
+    color: "text-emerald-500",
+    bgColor: "bg-emerald-500/10 group-hover:bg-emerald-500/20",
+    icon: <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>,
+  },
+  action: {
+    label: "アクション実行",
+    color: "text-purple-500",
+    bgColor: "bg-purple-500/10 group-hover:bg-purple-500/20",
+    icon: <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
+  },
+};
+
+function AttachPanel() {
+  const ctx = useTalkContext();
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  const handleClick = (id: string) => {
+    if (ctx.attachEditMode) return;
+    switch (id) {
+      case "template": ctx.openTemplatePicker(); break;
+      case "image": ctx.setShowAttachPanel(false); ctx.imageInputRef.current?.click(); break;
+      case "media": ctx.openMediaPicker(); break;
+      case "pdf": ctx.openPdfPicker(); break;
+      case "call": ctx.setShowAttachPanel(false); ctx.setShowCallConfirm(true); break;
+      case "action": ctx.openActionPicker(); break;
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = ctx.attachPanelOrder.indexOf(String(active.id));
+    const newIndex = ctx.attachPanelOrder.indexOf(String(over.id));
+    const newOrder = arrayMove(ctx.attachPanelOrder, oldIndex, newIndex);
+    ctx.saveAttachPanelOrder(newOrder);
+  };
+
+  // 通話フォームが無効ならフィルタ
+  const visibleOrder = ctx.attachPanelOrder.filter(id => {
+    if (id === "call" && !ctx.lineCallEnabled) return false;
+    return true;
+  });
+
+  return (
+    <div className="flex-shrink-0 bg-white border-t border-gray-100 px-3 pt-2">
+      <div className="flex items-center gap-1 mb-1">
+        <button
+          onClick={() => ctx.setAttachEditMode(!ctx.attachEditMode)}
+          className={`p-1 rounded-lg transition-colors ${
+            ctx.attachEditMode
+              ? "bg-blue-100 text-blue-600"
+              : "text-gray-300 hover:text-gray-500 hover:bg-gray-100"
+          }`}
+          title={ctx.attachEditMode ? "並び替え完了" : "並び順を変更"}
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </button>
+        {ctx.attachEditMode && (
+          <span className="text-[10px] text-blue-500 font-medium">ドラッグで並び替え</span>
+        )}
+      </div>
+      {ctx.attachEditMode ? (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={visibleOrder} strategy={horizontalListSortingStrategy}>
+            <div className="flex items-center gap-2 flex-wrap">
+              {visibleOrder.map(id => {
+                const def = ATTACH_BUTTONS[id];
+                if (!def) return null;
+                return (
+                  <SortableAttachButton key={id} id={id}>
+                    <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-50 border-2 border-blue-200 border-dashed transition-colors group select-none">
+                      <div className={`w-8 h-8 rounded-lg ${def.bgColor} flex items-center justify-center transition-colors`}>
+                        {def.icon}
+                      </div>
+                      <span className="text-xs font-medium text-gray-700">{def.label}</span>
+                      <svg className="w-3 h-3 text-gray-300 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" /></svg>
+                    </div>
+                  </SortableAttachButton>
+                );
+              })}
+            </div>
+          </SortableContext>
+        </DndContext>
+      ) : (
+        <div className="flex items-center gap-2 flex-wrap">
+          {visibleOrder.map(id => {
+            const def = ATTACH_BUTTONS[id];
+            if (!def) return null;
+            const isCallDisabled = id === "call" && !ctx.lineCallUrl;
+            return (
+              <button
+                key={id}
+                onClick={() => handleClick(id)}
+                disabled={isCallDisabled}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-colors group ${
+                  isCallDisabled
+                    ? "bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed"
+                    : "bg-gray-50 hover:bg-gray-100 border-gray-200"
+                }`}
+              >
+                <div className={`w-8 h-8 rounded-lg ${def.bgColor} flex items-center justify-center transition-colors`}>
+                  {def.icon}
+                </div>
+                <span className="text-xs font-medium text-gray-700">
+                  {id === "call" && !ctx.lineCallUrl ? "通話フォーム（URL未設定）" : def.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       )}
     </div>
   );

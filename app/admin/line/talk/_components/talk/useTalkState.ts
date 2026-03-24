@@ -96,6 +96,24 @@ export function useTalkState(props: TalkClientProps) {
   const [mediaLoading, setMediaLoading] = useState(false);
   const [sendingMediaImage, setSendingMediaImage] = useState(false);
 
+  // 添付パネル並び順
+  const DEFAULT_ATTACH_ORDER = ["template", "image", "media", "pdf", "call", "action"];
+  const { data: attachOrderData } = useSWR<{ order: string[] }>("/api/admin/line/attach-panel-order");
+  const [attachPanelOrder, setAttachPanelOrder] = useState<string[]>(DEFAULT_ATTACH_ORDER);
+  const [attachEditMode, setAttachEditMode] = useState(false);
+  useEffect(() => {
+    if (attachOrderData?.order) setAttachPanelOrder(attachOrderData.order);
+  }, [attachOrderData]);
+
+  // PDFピッカー
+  const [showPdfPicker, setShowPdfPicker] = useState(false);
+  const [pdfFiles, setPdfFiles] = useState<{ id: number; name: string; file_url: string; file_type: string; mime_type: string; file_size: number; folder_id: number | null; created_at: string; media_folders: { name: string } | null }[]>([]);
+  const [pdfFolders, setPdfFolders] = useState<{ id: number; name: string; file_count: number }[]>([]);
+  const [pdfFolderFilter, setPdfFolderFilter] = useState<number | null>(null);
+  const [pdfSearch, setPdfSearch] = useState("");
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [sendingMediaPdf, setSendingMediaPdf] = useState(false);
+
   // 右カラム
   const [patientTags, setPatientTags] = useState<PatientTag[]>([]);
   const [patientMark, setPatientMark] = useState("none");
@@ -237,6 +255,19 @@ export function useTalkState(props: TalkClientProps) {
     mediaSearch, setMediaSearch,
     mediaLoading, setMediaLoading,
     sendingMediaImage, setSendingMediaImage,
+
+    // 添付パネル並び順
+    attachPanelOrder, setAttachPanelOrder,
+    attachEditMode, setAttachEditMode,
+
+    // PDFピッカー
+    showPdfPicker, setShowPdfPicker,
+    pdfFiles, setPdfFiles,
+    pdfFolders, setPdfFolders,
+    pdfFolderFilter, setPdfFolderFilter,
+    pdfSearch, setPdfSearch,
+    pdfLoading, setPdfLoading,
+    sendingMediaPdf, setSendingMediaPdf,
 
     // 右カラム
     patientTags, setPatientTags,

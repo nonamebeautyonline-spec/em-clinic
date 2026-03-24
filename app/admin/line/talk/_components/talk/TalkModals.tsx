@@ -176,6 +176,88 @@ export default function TalkModals() {
         </div>
       )}
 
+      {/* PDFピッカーモーダル */}
+      {ctx.showPdfPicker && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => ctx.setShowPdfPicker(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col" style={{ maxHeight: "80vh" }} onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                  <svg className="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                </div>
+                PDF送信
+              </h3>
+              <button onClick={() => ctx.setShowPdfPicker(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+              <select
+                value={ctx.pdfFolderFilter ?? ""}
+                onChange={e => ctx.setPdfFolderFilter(e.target.value ? parseInt(e.target.value) : null)}
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+              >
+                <option value="">すべてのフォルダ</option>
+                {ctx.pdfFolders.map(f => (
+                  <option key={f.id} value={f.id}>{f.name} ({f.file_count})</option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={ctx.pdfSearch}
+                onChange={e => ctx.setPdfSearch(e.target.value)}
+                placeholder="ファイル名で検索"
+                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+              />
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {ctx.pdfLoading ? (
+                <div className="text-center py-12 text-gray-400 text-sm">読み込み中...</div>
+              ) : (() => {
+                const filtered = ctx.pdfFiles.filter(f => {
+                  if (f.file_type !== "pdf") return false;
+                  if (ctx.pdfFolderFilter && f.folder_id !== ctx.pdfFolderFilter) return false;
+                  if (ctx.pdfSearch && !f.name.toLowerCase().includes(ctx.pdfSearch.toLowerCase())) return false;
+                  return true;
+                });
+                return filtered.length === 0 ? (
+                  <div className="text-center py-12 text-gray-300 text-sm">PDFファイルがありません</div>
+                ) : (
+                  <div className="space-y-2">
+                    {filtered.map(f => (
+                      <button
+                        key={f.id}
+                        onClick={() => ctx.handleMediaPdfSend(f)}
+                        disabled={ctx.sendingMediaPdf}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 hover:border-orange-400 hover:bg-orange-50/50 transition-all disabled:opacity-50 group"
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0 group-hover:bg-orange-200 transition-colors">
+                          <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                        </div>
+                        <div className="flex-1 min-w-0 text-left">
+                          <p className="text-sm font-medium text-gray-800 truncate group-hover:text-orange-700 transition-colors">{f.name}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">
+                            {f.media_folders?.name || "未分類"} / {(f.file_size / 1024).toFixed(0)}KB
+                          </p>
+                        </div>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                          <span className="text-xs font-medium text-orange-600 bg-orange-100 px-2.5 py-1 rounded-lg">送信</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+            {ctx.sendingMediaPdf && (
+              <div className="px-5 py-3 border-t border-gray-100 text-center">
+                <span className="text-sm text-orange-600 font-medium">送信中...</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* アクション選択モーダル */}
       {ctx.showActionPicker && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => ctx.setShowActionPicker(false)}>

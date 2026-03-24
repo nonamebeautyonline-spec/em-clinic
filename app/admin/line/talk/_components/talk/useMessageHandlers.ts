@@ -62,6 +62,13 @@ export function useMessageHandlers(
     mediaSearch, setMediaSearch,
     mediaLoading, setMediaLoading,
     sendingMediaImage, setSendingMediaImage,
+    showPdfPicker, setShowPdfPicker,
+    pdfFiles, setPdfFiles,
+    pdfFolders, setPdfFolders,
+    pdfFolderFilter, setPdfFolderFilter,
+    pdfSearch, setPdfSearch,
+    pdfLoading, setPdfLoading,
+    sendingMediaPdf, setSendingMediaPdf,
     patientTags, setPatientTags,
     patientMark, setPatientMark,
     patientFields, setPatientFields,
@@ -471,6 +478,69 @@ export function useMessageHandlers(
     setMediaLoading(false);
   }, [setShowAttachPanel, setShowMediaPicker, setMediaSearch, setMediaFolderFilter, setMediaLoading, setMediaFiles, setMediaFolders]);
 
+  // 添付パネル並び順保存
+  const saveAttachPanelOrder = useCallback(async (order: string[]) => {
+    state.setAttachPanelOrder(order);
+    try {
+      await fetch("/api/admin/line/attach-panel-order", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ order }),
+      });
+    } catch { /* ignore */ }
+  }, [state]);
+
+  // PDFピッカー
+  const openPdfPicker = useCallback(async () => {
+    setShowAttachPanel(false);
+    setShowPdfPicker(true);
+    setPdfSearch("");
+    setPdfFolderFilter(null);
+    setPdfLoading(true);
+    try {
+      const [filesRes, foldersRes] = await Promise.all([
+        fetch("/api/admin/line/media?file_type=pdf", { credentials: "include" }),
+        fetch("/api/admin/line/media-folders", { credentials: "include" }),
+      ]);
+      const filesData = await filesRes.json();
+      const foldersData = await foldersRes.json();
+      if (filesData.files) setPdfFiles(filesData.files);
+      if (foldersData.folders) setPdfFolders(foldersData.folders);
+    } catch {
+      // エラー時は空表示
+    }
+    setPdfLoading(false);
+  }, [setShowAttachPanel, setShowPdfPicker, setPdfSearch, setPdfFolderFilter, setPdfLoading, setPdfFiles, setPdfFolders]);
+
+  const handleMediaPdfSend = useCallback(async (file: { file_url: string; name: string }) => {
+    if (!selectedPatient || sendingMediaPdf) return;
+    setSendingMediaPdf(true);
+    try {
+      const res = await fetch("/api/admin/line/send-media-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ patient_id: selectedPatient.patient_id, pdf_url: file.file_url, pdf_name: file.name }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        shouldScrollToBottom.current = true;
+        setMessages(prev => [...prev, {
+          id: data.messageId ?? Date.now(), content: `[PDF] ${file.name}`, status: "sent",
+          message_type: "individual", sent_at: data.sentAt || new Date().toISOString(),
+          direction: "outgoing",
+        }]);
+        setShowPdfPicker(false);
+      } else {
+        alert((data.message || data.error) || "PDF送信に失敗しました");
+      }
+    } catch {
+      alert("PDF送信に失敗しました");
+    }
+    setSendingMediaPdf(false);
+  }, [selectedPatient, sendingMediaPdf, setSendingMediaPdf, shouldScrollToBottom, setMessages, setShowPdfPicker]);
+
   const handleMediaImageSend = useCallback(async (file: { file_url: string; name: string }) => {
     if (!selectedPatient || sendingMediaImage) return;
     setSendingMediaImage(true);
@@ -808,6 +878,9 @@ export function useMessageHandlers(
     handleImageSelect,
     openMediaPicker,
     handleMediaImageSend,
+    openPdfPicker,
+    handleMediaPdfSend,
+    saveAttachPanelOrder,
     openActionPicker,
     executeAction,
     handleSendCallForm,
