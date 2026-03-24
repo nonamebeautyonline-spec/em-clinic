@@ -34,10 +34,7 @@ export function transformFriendsRow(row: any) {
     last_message: latestIncoming,
     last_sent_at: (row.last_incoming_at || null) as string | null,
     last_text_at: latestIncomingAt,
-    last_activity_at: ([row.last_msg_at, row.last_incoming_at, row.last_outgoing_at]
-      .filter(Boolean)
-      .sort()
-      .pop() || null) as string | null,
+    last_activity_at: (row.last_incoming_at || null) as string | null,
   };
 }
 

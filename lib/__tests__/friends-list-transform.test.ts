@@ -101,12 +101,12 @@ describe("transformFriendsRow", () => {
     expect(result.last_message).toBeNull();
   });
 
-  it("last_activity_at は最新のタイムスタンプ（outgoing含む）", () => {
+  it("last_activity_at は last_incoming_at を返す（outgoing除外）", () => {
     const result = transformFriendsRow({
       ...baseRow,
       last_msg_at: "2026-03-01T10:00:00Z",
       last_incoming_at: "2026-03-02T10:00:00Z",
-      last_outgoing_at: "2026-03-01T12:00:00Z",
+      last_outgoing_at: "2026-03-03T12:00:00Z",
     });
     expect(result.last_activity_at).toBe("2026-03-02T10:00:00Z");
   });

@@ -281,7 +281,7 @@ async function buildResponse(
       const [fsRes, ptRes, pmRes] = await Promise.all([
         supabaseAdmin
           .from("friend_summaries")
-          .select("patient_id, last_msg_content, last_msg_at, last_incoming_at, last_template_content, last_event_content, last_event_type, last_outgoing_content, last_outgoing_at")
+          .select("patient_id, last_msg_content, last_msg_at, last_incoming_at, last_template_content, last_event_content, last_event_type, last_event_at, last_outgoing_content, last_outgoing_at")
           .in("patient_id", missingPinIds)
           .eq("tenant_id", tid),
         supabaseAdmin
@@ -322,6 +322,7 @@ async function buildResponse(
           last_template_content: fs.last_template_content,
           last_event_content: fs.last_event_content,
           last_event_type: fs.last_event_type,
+          last_event_at: fs.last_event_at,
           last_outgoing_content: fs.last_outgoing_content,
           last_outgoing_at: fs.last_outgoing_at,
         }));
@@ -345,6 +346,7 @@ async function buildResponse(
           last_template_content: null,
           last_event_content: null,
           last_event_type: null,
+          last_event_at: null,
           last_outgoing_content: null,
           last_outgoing_at: null,
         }));
