@@ -124,7 +124,7 @@ describe("transformFriendsRow", () => {
     expect(result.last_sent_at).toBe("2026-03-01T10:00:00Z");
   });
 
-  it("last_text_at はincoming最新の日時を返す", () => {
+  it("last_text_at は last_msg_at を返す（未読判定は患者メッセージのみ）", () => {
     const result = transformFriendsRow({
       ...baseRow,
       last_msg_content: "テスト",
@@ -132,17 +132,17 @@ describe("transformFriendsRow", () => {
       last_event_content: "友だち追加",
       last_event_at: "2026-03-02T10:00:00Z",
     });
-    expect(result.last_text_at).toBe("2026-03-02T10:00:00Z");
+    expect(result.last_text_at).toBe("2026-03-01T08:00:00Z");
   });
 
-  it("last_text_at はoutgoingの影響を受けない", () => {
+  it("last_text_at はイベント・outgoingの影響を受けない", () => {
     const result = transformFriendsRow({
       ...baseRow,
-      last_msg_content: "テスト",
-      last_msg_at: "2026-03-01T08:00:00Z",
+      last_event_content: "友だち追加",
+      last_event_at: "2026-03-02T10:00:00Z",
       last_outgoing_at: "2026-03-03T10:00:00Z",
     });
-    expect(result.last_text_at).toBe("2026-03-01T08:00:00Z");
+    expect(result.last_text_at).toBeNull();
   });
 
   it("patient_name が空 → 空文字", () => {
