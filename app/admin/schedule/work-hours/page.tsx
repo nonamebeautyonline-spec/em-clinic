@@ -72,7 +72,14 @@ export default function WorkHoursPage() {
   const { data: bookingOpenData, isLoading: bookingLoading } = useSWR<{ ok: boolean; is_open: boolean }>(
     `/api/admin/booking-open?month=${monthStr}`
   );
-  const isMonthOpen = bookingOpenData?.ok ? bookingOpenData.is_open : false;
+  // 過去の月（当月以前）はbooking open状態に関係なく業務時間を表示する
+  const isPastOrCurrentMonth = (() => {
+    const today = new Date();
+    const targetDate = new Date(year, month - 1, 1);
+    const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    return targetDate <= currentMonthStart;
+  })();
+  const isMonthOpen = isPastOrCurrentMonth || (bookingOpenData?.ok ? bookingOpenData.is_open : false);
 
   const doctors = scheduleData?.ok ? (scheduleData.doctors || []).filter((d) => d.is_active) : [];
   const weeklyRules = scheduleData?.ok ? scheduleData.weekly_rules || [] : [];
