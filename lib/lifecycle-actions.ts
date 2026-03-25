@@ -20,7 +20,7 @@ async function logOutgoingMessage(params: {
     patient_id: params.patientId,
     line_uid: params.lineUserId,
     direction: "outgoing",
-    event_type: "system",
+    event_type: "auto_reply",
     message_type: params.messageType,
     content: params.content,
     status: "sent",
