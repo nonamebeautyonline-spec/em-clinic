@@ -771,32 +771,61 @@ export async function handleImplicitAiFeedback(
       tenantId
     );
 
-    if (!pendingDrafts || pendingDrafts.length === 0) return;
+    if (pendingDrafts && pendingDrafts.length > 0) {
+      // pending ドラフトを expired（暗黙の却下）に更新
+      const draftIds = pendingDrafts.map((d: { id: number }) => d.id);
+      await supabaseAdmin
+        .from("ai_reply_drafts")
+        .update({
+          status: "expired",
+          reject_category: "other",
+          reject_reason: "スタッフが手動返信（暗黙の却下）",
+        })
+        .in("id", draftIds);
 
-    // pending ドラフトを expired（暗黙の却下）に更新
-    const draftIds = pendingDrafts.map((d: { id: number }) => d.id);
-    await supabaseAdmin
-      .from("ai_reply_drafts")
-      .update({
-        status: "expired",
-        reject_category: "other",
-        reject_reason: "スタッフが手動返信（暗黙の却下）",
-      })
-      .in("id", draftIds);
+      // 全pendingドラフトの元メッセージ + スタッフ返信を学習例として保存（embedding付き）
+      // ※ 同一患者に複数pendingがある場合も全件保存（Qが異なるため）
+      for (const draft of pendingDrafts) {
+        if (draft.original_message && staffReply) {
+          await saveAiReplyExample({
+            tenantId,
+            question: draft.original_message,
+            answer: staffReply,
+            source: "manual_reply",
+            draftId: draft.id,
+          });
+        }
+      }
 
-    // 直近のドラフトの元メッセージ + スタッフ返信を学習例として保存（embedding付き）
-    const latestDraft = pendingDrafts[0];
-    if (latestDraft?.original_message && staffReply) {
-      await saveAiReplyExample({
-        tenantId,
-        question: latestDraft.original_message,
-        answer: staffReply,
-        source: "manual_reply",
-        draftId: latestDraft.id,
-      });
+      console.log(`[AI Reply] 暗黙フィードバック: patient=${patientId}, drafts=${draftIds.length}件をexpired化`);
+    } else {
+      // ドラフトなし（AI提案が未生成 or 既に処理済み）→ 患者の直近メッセージを取得して学習
+      const { data: recentMessages } = await withTenant(
+        supabaseAdmin
+          .from("message_log")
+          .select("content, direction")
+          .eq("patient_id", patientId)
+          .eq("direction", "incoming")
+          .order("sent_at", { ascending: false })
+          .limit(3),
+        tenantId
+      );
+
+      const patientMessage = recentMessages
+        ?.map((m: { content: string }) => m.content)
+        .reverse()
+        .join("\n");
+
+      if (patientMessage && staffReply) {
+        await saveAiReplyExample({
+          tenantId,
+          question: patientMessage,
+          answer: staffReply,
+          source: "manual_reply",
+        });
+        console.log(`[AI Reply] ドラフトなし直接返信を学習: patient=${patientId}`);
+      }
     }
-
-    console.log(`[AI Reply] 暗黙フィードバック: patient=${patientId}, drafts=${draftIds.length}件をexpired化`);
   } catch (err) {
     // fire-and-forget: エラーがあっても送信処理を止めない
     console.error("[AI Reply] 暗黙フィードバックエラー:", err);

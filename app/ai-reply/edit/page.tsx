@@ -35,6 +35,7 @@ function EditContent() {
   const [state, setState] = useState<PageState>("loading");
   const [draft, setDraft] = useState<DraftData | null>(null);
   const [instruction, setInstruction] = useState("");
+  const [instructionHistory, setInstructionHistory] = useState<string[]>([]);
   const [errorMsg, setErrorMsg] = useState("");
   const [doneMsg, setDoneMsg] = useState("");
 
@@ -77,7 +78,7 @@ function EditContent() {
       const res = await fetch(`/api/ai-reply/${draftId}/regenerate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ instruction: instruction.trim(), sig, exp: Number(exp) }),
+        body: JSON.stringify({ instruction: instruction.trim(), pastInstructions: instructionHistory, sig, exp: Number(exp) }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -85,13 +86,14 @@ function EditContent() {
       }
       const { newReply } = await res.json();
       setDraft((prev) => prev ? { ...prev, draftReply: newReply } : prev);
+      setInstructionHistory((prev) => [...prev, instruction.trim()]);
       setInstruction("");
       setState("regenerated");
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "再生成に失敗しました");
       setState("idle");
     }
-  }, [draftId, sig, exp, instruction]);
+  }, [draftId, sig, exp, instruction, instructionHistory]);
 
   // 送信
   const handleSend = useCallback(async () => {
@@ -194,6 +196,21 @@ function EditContent() {
           </p>
           <p className="text-sm text-gray-800 whitespace-pre-wrap">{draft.draftReply}</p>
         </div>
+
+        {/* 修正指示の履歴 */}
+        {instructionHistory.length > 0 && (
+          <div className="bg-blue-50 rounded-lg shadow p-4">
+            <p className="text-xs text-blue-600 font-bold mb-2">修正指示の履歴</p>
+            <ul className="space-y-1">
+              {instructionHistory.map((h, i) => (
+                <li key={i} className="text-xs text-gray-700 flex gap-2">
+                  <span className="text-blue-400 shrink-0">{i + 1}.</span>
+                  <span className="whitespace-pre-wrap">{h}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* 再生成後: 送信・却下・再修正 */}
         {state === "regenerated" && (

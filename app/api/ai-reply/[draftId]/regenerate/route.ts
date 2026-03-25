@@ -7,7 +7,8 @@ import { verifyDraftSignature } from "@/lib/ai-reply-sign";
 import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
-import { buildSystemPrompt, getAiReplyModel } from "@/lib/ai-reply";
+import { buildSystemPrompt, getAiReplyModel, type RejectedDraftEntry } from "@/lib/ai-reply";
+import { searchSimilarExamples } from "@/lib/embedding";
 import { parseBody } from "@/lib/validations/helpers";
 import { aiReplyRegenerateSchema } from "@/lib/validations/ai-reply";
 
@@ -23,7 +24,7 @@ export async function POST(
 
   const parsed = await parseBody(request, aiReplyRegenerateSchema);
   if ("error" in parsed) return parsed.error;
-  const { instruction, sig, exp } = parsed.data;
+  const { instruction, pastInstructions, sig, exp } = parsed.data;
 
   if (!verifyDraftSignature(draftId, exp, sig)) {
     return forbidden("署名が無効または期限切れです");
@@ -58,15 +59,37 @@ export async function POST(
   );
   const modelId = settings?.model_id || "claude-sonnet-4-6";
 
+  // 却下パターン・類似学習例を取得（初回生成と同等の品質を維持）
+  const { data: rejectedDrafts } = await withTenant(
+    supabaseAdmin
+      .from("ai_reply_drafts")
+      .select("original_message, draft_reply, reject_category, reject_reason")
+      .eq("status", "rejected")
+      .order("rejected_at", { ascending: false })
+      .limit(10),
+    draft.tenant_id
+  );
+  const similarExamples = await searchSimilarExamples(
+    draft.original_message,
+    draft.tenant_id,
+    5,
+    0.5
+  );
+
   // Claude API再呼び出し（修正指示付き）
   const client = new Anthropic({ apiKey });
   const systemPrompt = buildSystemPrompt(
     settings?.knowledge_base || "",
     settings?.custom_instructions || "",
-    undefined,
-    undefined,
+    (rejectedDrafts as RejectedDraftEntry[] | null) ?? undefined,
+    similarExamples,
     settings?.medical_reply_mode || "confirm"
   );
+
+  // 過去の修正指示を含めて累積的にAIに伝える
+  const pastSection = pastInstructions && pastInstructions.length > 0
+    ? `\n## これまでの修正指示（すべて反映済みの状態を維持してください）\n${pastInstructions.map((p, i) => `${i + 1}. ${p}`).join("\n")}\n`
+    : "";
 
   const userMessage = `以下のAI返信案をスタッフの修正指示に従って改善してください。
 
@@ -75,10 +98,11 @@ ${draft.original_message}
 
 ## 現在のAI返信案
 ${draft.draft_reply}
-
-## スタッフからの修正指示
+${pastSection}
+## 今回の修正指示
 ${instruction}
 
+重要: これまでの修正指示で反映した内容は維持したまま、今回の修正指示も追加で反映してください。
 修正後の返信テキストのみを出力してください。JSON形式は不要です。`;
 
   try {

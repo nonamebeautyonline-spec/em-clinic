@@ -47,6 +47,7 @@ export type AiReplyRejectInput = z.infer<typeof aiReplyRejectSchema>;
 export const aiReplyRegenerateSchema = z
   .object({
     instruction: z.string().min(1, "修正指示は必須です"),
+    pastInstructions: z.array(z.string()).optional().default([]),
     sig: z.string().min(1, "署名は必須です"),
     exp: z.number({ message: "期限は数値で指定してください" }),
   })
