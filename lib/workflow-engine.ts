@@ -345,14 +345,45 @@ async function executeSendMessage(
           ],
           tenantId ?? undefined,
         );
+        await supabaseAdmin.from("message_log").insert({
+          ...tenantPayload(tenantId),
+          patient_id: triggerData.patient_id || null,
+          line_uid: lineUserId,
+          direction: "outgoing",
+          event_type: "auto_reply",
+          message_type: "flex",
+          content: tmpl.content || "Flexメッセージ",
+          flex_json: tmpl.flex_content,
+          status: "sent",
+        });
       } else {
         const text = replaceVariables(tmpl.content || "", triggerData);
         await pushMessage(lineUserId, [{ type: "text", text }], tenantId ?? undefined);
+        await supabaseAdmin.from("message_log").insert({
+          ...tenantPayload(tenantId),
+          patient_id: triggerData.patient_id || null,
+          line_uid: lineUserId,
+          direction: "outgoing",
+          event_type: "auto_reply",
+          message_type: "text",
+          content: text,
+          status: "sent",
+        });
       }
     } else if (config.text) {
       // 直接テキスト送信
       const text = replaceVariables(config.text, triggerData);
       await pushMessage(lineUserId, [{ type: "text", text }], tenantId ?? undefined);
+      await supabaseAdmin.from("message_log").insert({
+        ...tenantPayload(tenantId),
+        patient_id: triggerData.patient_id || null,
+        line_uid: lineUserId,
+        direction: "outgoing",
+        event_type: "auto_reply",
+        message_type: "text",
+        content: text,
+        status: "sent",
+      });
     } else {
       return { success: false, error: "メッセージの内容が設定されていません" };
     }

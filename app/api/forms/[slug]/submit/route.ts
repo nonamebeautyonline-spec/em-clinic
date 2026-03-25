@@ -33,6 +33,16 @@ async function executeFormAction(actionId: number, patientId: string, lineUid: s
         case "send_text":
           if (step.content && lineUid) {
             await pushMessage(lineUid, [{ type: "text", text: step.content }], tenantId ?? undefined);
+            await supabaseAdmin.from("message_log").insert({
+              ...tenantPayload(tenantId),
+              patient_id: patientId,
+              line_uid: lineUid,
+              direction: "outgoing",
+              event_type: "auto_reply",
+              message_type: "text",
+              content: step.content,
+              status: "sent",
+            });
           }
           break;
 
@@ -48,6 +58,16 @@ async function executeFormAction(actionId: number, patientId: string, lineUid: s
             );
             if (tpl?.content) {
               await pushMessage(lineUid, [{ type: "text", text: tpl.content }], tenantId ?? undefined);
+              await supabaseAdmin.from("message_log").insert({
+                ...tenantPayload(tenantId),
+                patient_id: patientId,
+                line_uid: lineUid,
+                direction: "outgoing",
+                event_type: "auto_reply",
+                message_type: "text",
+                content: tpl.content,
+                status: "sent",
+              });
             }
           }
           break;
