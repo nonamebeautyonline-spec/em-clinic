@@ -65,6 +65,13 @@ function PurchaseConfirmContent() {
   const [showCardForm, setShowCardForm] = useState(false);
   const [paymentMode, setPaymentMode] = useState<"saved_card" | "new_card">("new_card");
   const [cardFormKey, setCardFormKey] = useState(0); // エラー時にカードフォーム再マウント用
+  const [couponCode, setCouponCode] = useState("");
+  const [couponValidation, setCouponValidation] = useState<{
+    valid: boolean;
+    coupon?: { name: string; discount_type: string; discount_value: number };
+    error?: string;
+  } | null>(null);
+  const [couponChecking, setCouponChecking] = useState(false);
   const [shipping, setShipping] = useState<ShippingData>({
     name: "",
     postalCode: "",
@@ -265,6 +272,7 @@ function PurchaseConfirmContent() {
           productCode: product.code,
           mode: modeParam,
           reorderId: reorderIdParam ?? null,
+          couponCode: couponValidation?.valid ? couponCode.trim() : undefined,
         }),
       });
 
@@ -414,6 +422,63 @@ function PurchaseConfirmContent() {
               <div className="mt-0.5 text-[10px] text-slate-400">税込/送料込み</div>
             </div>
           </div>
+        </div>
+
+        {/* クーポンコード入力 */}
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm px-4 py-3">
+          <div className="text-[11px] font-medium text-slate-700 mb-2">クーポンコード</div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={couponCode}
+              onChange={(e) => {
+                setCouponCode(e.target.value.toUpperCase());
+                setCouponValidation(null);
+              }}
+              placeholder="クーポンコードを入力"
+              className="flex-1 px-3 py-1.5 text-sm border border-slate-300 rounded-lg font-mono"
+              disabled={submitting}
+            />
+            <button
+              onClick={async () => {
+                if (!couponCode.trim() || !patientId) return;
+                setCouponChecking(true);
+                try {
+                  const res = await fetch("/api/coupon/validate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({ code: couponCode.trim(), patient_id: patientId }),
+                  });
+                  const data = await res.json();
+                  setCouponValidation(data);
+                } catch {
+                  setCouponValidation({ valid: false, error: "検証に失敗しました" });
+                } finally {
+                  setCouponChecking(false);
+                }
+              }}
+              disabled={!couponCode.trim() || couponChecking || submitting}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                !couponCode.trim() || couponChecking
+                  ? "bg-slate-200 text-slate-400"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
+            >
+              {couponChecking ? "確認中..." : "適用"}
+            </button>
+          </div>
+          {couponValidation && (
+            <div className={`mt-2 text-[11px] ${couponValidation.valid ? "text-green-600" : "text-red-600"}`}>
+              {couponValidation.valid
+                ? `${couponValidation.coupon?.name} — ${
+                    couponValidation.coupon?.discount_type === "percent"
+                      ? `${couponValidation.coupon?.discount_value}%OFF`
+                      : `${couponValidation.coupon?.discount_value?.toLocaleString()}円引き`
+                  } が適用されます`
+                : couponValidation.error}
+            </div>
+          )}
         </div>
 
         {/* 注意書き */}

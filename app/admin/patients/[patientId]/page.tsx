@@ -9,6 +9,7 @@ import { emptySoapNote, noteToSoap, soapToNote } from "@/lib/soap-parser";
 import { KarteNoteEditor } from "@/components/karte/KarteNoteEditor";
 import { VoiceRecordButton } from "@/components/voice-record-button";
 import { VoiceKarteButton } from "@/components/voice-karte-button";
+import { PatientDiscountSection } from "./_components/PatientDiscountSection";
 
 type Patient = {
   id: string;
@@ -501,6 +502,9 @@ export default function PatientDetailPage({
               </div>
             </div>
           )}
+
+          {/* 個別割引セクション */}
+          <PatientDiscountSection patientId={patientId} />
         </div>
       </div>
     </div>

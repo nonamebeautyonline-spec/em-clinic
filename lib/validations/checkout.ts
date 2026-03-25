@@ -8,6 +8,7 @@ export const checkoutSchema = z.object({
   }).optional(),
   patientId: z.string().optional(),
   reorderId: z.union([z.string(), z.null()]).optional(),
+  couponCode: z.string().optional(),
 }).passthrough();
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;

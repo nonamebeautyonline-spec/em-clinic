@@ -48,6 +48,9 @@ const MOBILE_MENU_ITEMS: { href: string; icon: string; label: string; feature?: 
   { href: "/admin/schedule", icon: "🗓️", label: "予約設定", menuKey: "schedule" },
   { href: "/admin/notification-settings", icon: "📩", label: "イベント通知", menuKey: "notification_settings" },
   { href: "/admin/products", icon: "💊", label: "商品管理", menuKey: "products" },
+  { href: "/admin/campaigns", icon: "🎯", label: "キャンペーン", menuKey: "campaigns" },
+  { href: "/admin/coupons", icon: "🎟️", label: "クーポン", menuKey: "coupons" },
+  { href: "/admin/subscription-plans", icon: "🔄", label: "定期プラン", menuKey: "subscription_plans" },
   { href: "/admin/inventory", icon: "📦", label: "在庫", menuKey: "inventory" },
   { href: "/admin/settings", icon: "⚙️", label: "設定", menuKey: "settings" },
   { href: "/admin/help", icon: "❓", label: "ヘルプ", menuKey: "help" },
@@ -560,6 +563,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/products"}
             menuKey="products"
+            allowedMenuKeys={allowedMenuKeys}
+          />
+          <MenuItem
+            href="/admin/campaigns"
+            icon="🎯"
+            label="キャンペーン"
+            isOpen={isSidebarOpen}
+            isActive={pathname?.startsWith("/admin/campaigns")}
+            menuKey="campaigns"
+            allowedMenuKeys={allowedMenuKeys}
+          />
+          <MenuItem
+            href="/admin/coupons"
+            icon="🎟️"
+            label="クーポン"
+            isOpen={isSidebarOpen}
+            isActive={pathname?.startsWith("/admin/coupons")}
+            menuKey="coupons"
+            allowedMenuKeys={allowedMenuKeys}
+          />
+          <MenuItem
+            href="/admin/subscription-plans"
+            icon="🔄"
+            label="定期プラン"
+            isOpen={isSidebarOpen}
+            isActive={pathname?.startsWith("/admin/subscription-plans")}
+            menuKey="subscription_plans"
             allowedMenuKeys={allowedMenuKeys}
           />
           <MenuItem

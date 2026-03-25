@@ -20,6 +20,7 @@ import { Breadcrumb } from "./_components/Breadcrumb";
 import { ContextMenu } from "./_components/ContextMenu";
 import { FolderEditModal } from "./_components/FolderEditModal";
 import { ProductEditModal } from "./_components/ProductEditModal";
+import { CsvImportModal } from "./_components/CsvImportModal";
 import type { Product, ProductCategory, DragItem } from "./_components/types";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
@@ -329,6 +330,7 @@ export default function ProductsPage() {
     open: false,
     editing: null,
   });
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
 
   // コンテキストメニュー
   const [contextMenu, setContextMenu] = useState<{
@@ -811,6 +813,15 @@ export default function ProductsPage() {
         </div>
         <div className="flex items-center gap-3">
           <button
+            onClick={() => setCsvImportOpen(true)}
+            className="px-4 py-2 bg-slate-600 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            CSVインポート
+          </button>
+          <button
             onClick={() => setFolderModal({ open: true, editing: null })}
             className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-2"
           >
@@ -1053,6 +1064,14 @@ export default function ProductsPage() {
         onClose={() => setProductModal({ open: false, editing: null })}
       />
       <ConfirmDialog />
+
+      {/* CSVインポートモーダル */}
+      <CsvImportModal
+        isOpen={csvImportOpen}
+        existingProducts={products}
+        onComplete={revalidateAll}
+        onClose={() => setCsvImportOpen(false)}
+      />
     </div>
   );
 }
