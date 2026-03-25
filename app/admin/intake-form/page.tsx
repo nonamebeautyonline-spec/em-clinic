@@ -489,6 +489,12 @@ function TemplateListView({
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 ml-4 flex-shrink-0">
+                  <a
+                    href={`/admin/intake-responses?template_id=${t.id}`}
+                    className="px-3 py-1.5 text-xs text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                  >
+                    回答一覧
+                  </a>
                   <button
                     onClick={() => onSelect(t.id)}
                     className="px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
