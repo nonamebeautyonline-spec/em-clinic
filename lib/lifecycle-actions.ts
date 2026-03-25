@@ -6,6 +6,31 @@ import { linkRichMenuToUser } from "@/lib/line-richmenu";
 import { withTenant, tenantPayload } from "@/lib/tenant";
 import { sanitizeFlexContents } from "@/lib/flex-sanitize";
 
+/** 送信メッセージを message_log に記録（個別トーク画面に表示するため） */
+async function logOutgoingMessage(params: {
+  patientId: string;
+  lineUserId: string;
+  tenantId: string | null;
+  messageType: string;
+  content: string;
+  flexJson?: unknown;
+}) {
+  const payload: Record<string, unknown> = {
+    ...tenantPayload(params.tenantId),
+    patient_id: params.patientId,
+    line_uid: params.lineUserId,
+    direction: "outgoing",
+    event_type: "system",
+    message_type: params.messageType,
+    content: params.content,
+    status: "sent",
+  };
+  if (params.flexJson) {
+    payload.flex_json = params.flexJson;
+  }
+  await supabaseAdmin.from("message_log").insert(payload);
+}
+
 // 条件ルール型（ConditionBuilder UIと同一構造）
 export interface ConditionRule {
   type: "tag" | "mark" | "name" | "registered_date" | "field"
@@ -199,6 +224,7 @@ export async function executeLifecycleActions(params: {
           .replace(/\{name\}/g, patientName || "")
           .replace(/\{patient_id\}/g, patientId);
         await pushMessage(lineUserId, [{ type: "text", text }], tenantId ?? undefined);
+        await logOutgoingMessage({ patientId, lineUserId, tenantId, messageType: "text", content: text });
         actionDetails.push(`テキスト送信`);
         break;
       }
@@ -220,11 +246,18 @@ export async function executeLifecycleActions(params: {
               altText: tmpl.content || "メッセージ",
               contents: sanitizeFlexContents(tmpl.flex_content) as Record<string, unknown>,
             }], tenantId ?? undefined);
+            await logOutgoingMessage({
+              patientId, lineUserId, tenantId,
+              messageType: "flex",
+              content: tmpl.content || "Flexメッセージ",
+              flexJson: tmpl.flex_content,
+            });
           } else {
             const text = (tmpl.content || "")
               .replace(/\{name\}/g, patientName || "")
               .replace(/\{patient_id\}/g, patientId);
             await pushMessage(lineUserId, [{ type: "text", text }], tenantId ?? undefined);
+            await logOutgoingMessage({ patientId, lineUserId, tenantId, messageType: "text", content: text });
           }
           actionDetails.push(`テンプレート送信`);
         }
@@ -323,6 +356,7 @@ export async function executeActionSteps(params: {
           .replace(/\{name\}/g, patientName || "")
           .replace(/\{patient_id\}/g, patientId);
         await pushMessage(lineUserId, [{ type: "text", text }], tenantId ?? undefined);
+        await logOutgoingMessage({ patientId, lineUserId, tenantId, messageType: "text", content: text });
         actionDetails.push(`テキスト送信`);
         break;
       }
@@ -343,11 +377,18 @@ export async function executeActionSteps(params: {
               altText: tmpl.content || "メッセージ",
               contents: sanitizeFlexContents(tmpl.flex_content) as Record<string, unknown>,
             }], tenantId ?? undefined);
+            await logOutgoingMessage({
+              patientId, lineUserId, tenantId,
+              messageType: "flex",
+              content: tmpl.content || "Flexメッセージ",
+              flexJson: tmpl.flex_content,
+            });
           } else {
             const text = (tmpl.content || "")
               .replace(/\{name\}/g, patientName || "")
               .replace(/\{patient_id\}/g, patientId);
             await pushMessage(lineUserId, [{ type: "text", text }], tenantId ?? undefined);
+            await logOutgoingMessage({ patientId, lineUserId, tenantId, messageType: "text", content: text });
           }
           actionDetails.push(`テンプレート送信`);
         }
