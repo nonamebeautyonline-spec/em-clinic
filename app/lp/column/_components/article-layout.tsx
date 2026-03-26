@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { articles, getArticleTags } from "../articles";
+import { categories } from "../categories";
 import ArticleThumbnail from "./article-thumbnail";
 import { ReadingProgress, TableOfContents, ShareButtons } from "./article-client";
 
@@ -150,6 +151,10 @@ const categoryColors: Record<string, { bg: string; text: string }> = {
 
 export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, children }: ArticleLayoutProps) {
   const self = articles.find((a) => a.slug === slug)!;
+  /* カテゴリ情報（パンくず用） */
+  const catDef = categories.find((c) => c.matchValues.includes(self.category));
+  const catSlug = catDef?.slug ?? "guide";
+  const catLabel = catDef?.label ?? self.category;
   /* 関連記事: 同カテゴリ優先 → 残りから補完して4件 */
   const others = articles.filter((a) => a.slug !== slug);
   const sameCategory = others.filter((a) => a.category === self.category);
@@ -181,15 +186,17 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
         </div>
       </header>
 
-      {/* パンくず */}
+      {/* パンくず（4階層: トップ > コラム > カテゴリ > 記事タイトル） */}
       <div className="border-b border-gray-200/60 bg-white">
         <nav aria-label="パンくずリスト" className="mx-auto max-w-6xl px-6 py-3">
-          <ol className="flex items-center gap-2 text-[12px] text-gray-400 list-none m-0 p-0">
+          <ol className="flex flex-wrap items-center gap-1.5 text-[12px] text-gray-400 list-none m-0 p-0">
             <li><Link href="/lp" className="hover:text-blue-600 transition">トップ</Link></li>
             <li aria-hidden="true" className="text-gray-300">/</li>
             <li><Link href="/lp/column" className="hover:text-blue-600 transition">コラム</Link></li>
             <li aria-hidden="true" className="text-gray-300">/</li>
-            <li className="text-gray-700 font-medium">{breadcrumbLabel}</li>
+            <li><Link href={`/lp/column/category/${catSlug}`} className="hover:text-blue-600 transition">{catLabel}</Link></li>
+            <li aria-hidden="true" className="text-gray-300">/</li>
+            <li className="text-gray-700 font-medium truncate max-w-[300px]">{self.title}</li>
           </ol>
         </nav>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
@@ -198,7 +205,8 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
           itemListElement: [
             { "@type": "ListItem", position: 1, name: "トップ", item: "https://l-ope.jp/lp" },
             { "@type": "ListItem", position: 2, name: "コラム", item: "https://l-ope.jp/lp/column" },
-            { "@type": "ListItem", position: 3, name: breadcrumbLabel, item: `https://l-ope.jp/lp/column/${slug}` },
+            { "@type": "ListItem", position: 3, name: catLabel, item: `https://l-ope.jp/lp/column/category/${catSlug}` },
+            { "@type": "ListItem", position: 4, name: self.title, item: `https://l-ope.jp/lp/column/${slug}` },
           ],
         }) }} />
       </div>

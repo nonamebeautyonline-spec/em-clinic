@@ -144,6 +144,15 @@ export default async function CategoryPage({ params }: Props) {
               <li className="text-gray-700 font-medium">{cat.label}</li>
             </ol>
           </nav>
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "トップ", item: "https://l-ope.jp/lp" },
+              { "@type": "ListItem", position: 2, name: "コラム", item: "https://l-ope.jp/lp/column" },
+              { "@type": "ListItem", position: 3, name: cat.label, item: `https://l-ope.jp/lp/column/category/${cat.slug}` },
+            ],
+          }) }} />
         </div>
 
         {/* ページヒーロー */}
