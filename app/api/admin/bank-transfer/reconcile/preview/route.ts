@@ -254,12 +254,6 @@ export async function POST(req: NextRequest) {
     // ===== CSV全明細行をbank_statementsに保存 =====
     const allTransactions = parseAllTransactions(parsedRows, csvFormat);
     if (allTransactions.length > 0) {
-      // 1) 今回プレビューでマッチした注文（pending_confirmation → これから確定する分）
-      const matchedMap = new Map<string, string>();
-      for (const m of matched) {
-        matchedMap.set(`${m.transfer.date}|${m.transfer.description}`, m.order.id);
-      }
-
       const csvFilename = file.name || "unknown.csv";
       const tid = tenantId || "00000000-0000-0000-0000-000000000001";
 
@@ -284,8 +278,6 @@ export async function POST(req: NextRequest) {
           if (existingKeys.has(key)) return null; // 既存行はスキップ
 
           const monthStr = dateNormalized.substring(0, 7);
-          const matchKey = `${t.date}|${t.description}`;
-          const matchedOrderId = matchedMap.get(matchKey) || null;
           return {
             tenant_id: tid,
             transaction_date: dateNormalized,
@@ -294,8 +286,8 @@ export async function POST(req: NextRequest) {
             withdrawal: t.withdrawal,
             balance: t.balance,
             month: monthStr,
-            reconciled: !!matchedOrderId,
-            matched_order_id: matchedOrderId,
+            reconciled: false,
+            matched_order_id: null,
             csv_filename: csvFilename,
           };
         })
@@ -312,27 +304,9 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // ★ 既存行でマッチしたものを reconciled=true に更新
-      const matchedDates = matched.map((m) => ({
-        date: m.transfer.date.replace(/\//g, "-"),
-        description: m.transfer.description,
-        amount: m.transfer.amount,
-        orderId: m.order.id,
-      }));
-      for (const md of matchedDates) {
-        await strictWithTenant(
-          supabase
-            .from("bank_statements")
-            .update({ reconciled: true, matched_order_id: md.orderId })
-            .eq("transaction_date", md.date)
-            .eq("description", md.description)
-            .eq("deposit", md.amount)
-            .eq("reconciled", false),
-          tenantId
-        );
-      }
+      // ★ reconciled=true への更新は confirm 時のみ行う（プレビューでは変更しない）
 
-      console.log(`[Preview] Saved ${newRows.length} new transactions (${allTransactions.length - newRows.length} duplicates skipped), updated ${matchedDates.length} existing matched rows`);
+      console.log(`[Preview] Saved ${newRows.length} new transactions (${allTransactions.length - newRows.length} duplicates skipped)`);
     }
 
     logAudit(req, "bank_transfer_reconcile.preview", "order", "preview");
