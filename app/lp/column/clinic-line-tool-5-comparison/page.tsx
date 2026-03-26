@@ -43,7 +43,7 @@ const jsonLd = [
       {
         "@type": "Question",
         name: "MarchとLオペ for CLINICの違いは？",
-        acceptedAnswer: { "@type": "Answer", text: "Marchは医療機関向けのオンライン診療・集患SaaSで、LINE上での予約・問診・オンライン診療・決済・物販・CRM・配信を幅広くカバーしています。Lオペ for CLINICもLINEビデオ通話によるオンライン診療に対応しており、さらに院内カルテ連携やAI自動返信など院内業務の効率化にも強みがあります。" },
+        acceptedAnswer: { "@type": "Answer", text: "Marchは医療機関向けのオンライン診療・集患SaaSで、LINE上での予約・問診・オンライン診療・決済・物販・CRM・配信を幅広くカバーしています。Lオペ for CLINICは予約管理・問診・配信・決済・配送をLINEで一元管理でき、さらに問診データのダッシュボード一元管理やAI自動返信など院内業務の効率化にも強みがあります。" },
       },
       {
         "@type": "Question",
@@ -109,8 +109,8 @@ export default function Page() {
         <h2 id="5-tools">5社の特徴を1分で把握</h2>
         <h3>1. Lオペ for CLINIC</h3>
         <p>
-          LINE公式アカウントを起点に、<strong>予約・問診・オンライン診療・カルテ・CRM・セグメント配信・決済・配送管理</strong>までワンストップで提供するクリニック特化プラットフォーム。
-          LINEビデオ通話によるオンライン診療にも対応。AI自動返信で24時間患者対応が可能。院長と事務スタッフ1人で全業務を回せる設計が特徴。保険診療・自由診療の両方に対応。
+          LINE公式アカウントを起点に、<strong>予約・問診・CRM・セグメント配信・決済・配送管理</strong>までワンストップで提供するクリニック特化プラットフォーム。
+          予約管理・問診・配信・決済・配送をLINEで一元管理。AI自動返信で24時間患者対応が可能。院長と事務スタッフ1人で全業務を回せる設計が特徴。保険診療・自由診療の両方に対応。
         </p>
 
         <h3>2. メディカルフォース（medicalforce）</h3>
@@ -152,8 +152,8 @@ export default function Page() {
           rows={[
             ["LINE予約管理", "◎", "○", "◎", "◎", "×"],
             ["オンライン問診", "◎", "○", "◎", "◎", "×"],
-            ["電子カルテ", "◎", "◎", "△", "△", "×"],
-            ["オンライン診療", "◎", "○", "◎", "◎", "×"],
+            ["電子カルテ", "△", "◎", "△", "△", "×"],
+            ["オンライン診療", "×", "○", "◎", "◎", "×"],
             ["セグメント配信", "◎", "○", "◎", "◎", "◎"],
             ["患者CRM・タグ管理", "◎", "○", "◎", "◎", "◎"],
             ["決済", "◎", "○", "◎", "◎", "×"],
@@ -183,8 +183,8 @@ export default function Page() {
         <div className="rounded-2xl bg-blue-50 border-2 border-blue-200 p-6 mb-6">
           <h3 className="text-blue-700 mt-0">Lオペ for CLINICの強み</h3>
           <p>
-            <strong>院長+事務スタッフ1人で全業務を完結</strong>できる設計が最大の特徴。カルテ連携からLINE配信、決済・配送まで1システムで管理でき、ツール間の連携に悩む必要がありません。
-            <strong>LINEビデオ通話によるオンライン診療</strong>にも対応しており、対面＋オンラインのハイブリッド運用が可能。
+            <strong>院長+事務スタッフ1人で全業務を完結</strong>できる設計が最大の特徴。問診データのダッシュボード一元管理からLINE配信、決済・配送まで1システムで管理でき、ツール間の連携に悩む必要がありません。
+            <strong>予約管理・問診・配信・決済・配送をLINEで一元管理</strong>でき、対面＋オンラインのハイブリッド運用が可能。
             また、<strong>AI自動返信</strong>は5社中唯一の機能で、患者ごとの予約・決済・発送状況を加味した返信を自動生成し、営業時間外の患者対応も自動化できます。
             さらに<strong>LINE通知bot</strong>で予約・決済・AI返信の状況がリアルタイムにプッシュ通知され、スマホのブラウザからトーク画面を操作してAI返信の承認・メッセージ送信・決済確認がどこからでも可能です。保険診療・自由診療の両方に対応。
           </p>
@@ -313,7 +313,7 @@ export default function Page() {
             <summary className="cursor-pointer px-6 py-4 text-[15px] font-bold text-gray-800">MarchとLオペ for CLINICの違いは？</summary>
             <div className="border-t border-emerald-100 px-6 py-4 text-[14px] leading-relaxed text-gray-600">
               Marchは医療機関向けオンライン診療・集患SaaSで、LINE上の予約・問診・ビデオ診療・決済・物販EC・配送管理まで幅広くカバーしています。
-              Lオペ for CLINICもLINEビデオ通話によるオンライン診療に対応しており、さらに院内カルテ連携やAI自動返信など院内業務の効率化にも強みがあります。物販EC機能を重視するか、院内業務効率化を重視するかが判断のポイントです。
+              Lオペ for CLINICは予約管理・問診・配信・決済・配送をLINEで一元管理でき、さらに問診データのダッシュボード一元管理やAI自動返信など院内業務の効率化にも強みがあります。物販EC機能を重視するか、院内業務効率化を重視するかが判断のポイントです。
             </div>
           </details>
           <details className="rounded-xl border border-amber-100 bg-amber-50/30 shadow-sm transition-all hover:shadow-md">
@@ -340,7 +340,7 @@ export default function Page() {
           クリニック向けLINEツール5社を比較しました。いずれも優れたサービスであり、「どれが最良か」は自院の規模・診療形態・優先したい業務によって異なります。
         </p>
         <ul className="ml-6 list-disc space-y-2 text-[15px] text-gray-700 mt-4">
-          <li><strong>LINE運用+オンライン診療+院内効率化をまるごと</strong> → Lオペ for CLINIC</li>
+          <li><strong>LINE運用+予約・問診・配信・決済・配送の一元管理</strong> → Lオペ for CLINIC</li>
           <li><strong>電子カルテ・会計中心で自由診療特化</strong> → メディカルフォース</li>
           <li><strong>オンライン診療+物販ECを展開</strong> → March</li>
           <li><strong>予約〜決済をLINE完結+コスパ重視</strong> → medibot</li>

@@ -57,7 +57,7 @@ export default function Page() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
-        「クリニック開業には数千万円の資金が必要」——そんな常識が、オンライン診療の普及で変わりつつあります。ワンルームマンション（月10万円程度）を診察室として活用すれば、<strong>初期費用100万円以下、月間固定費20〜28万円</strong>でオンライン診療クリニックを開業できます。本記事では、AGA・ED・ピル・美容内服・GLP-1ダイエットなど<strong>自費診療メニュー別の収益モデルと、患者数に応じた詳細な収支シミュレーション</strong>を解説します。
+        「クリニック開業には数千万円の資金が必要」——そんな常識が、オンライン診療の普及で変わりつつあります。ワンルームマンション（月10万円程度）を診察室として活用すれば、<strong>初期費用100万円以下、月間固定費20〜28万円</strong>でオンライン診療クリニックを開業できます。本記事では、AGA・ED・ピル・美容内服・メディカルダイエット（GLP-1）など<strong>自費診療メニュー別の収益モデルと、患者数に応じた詳細な収支シミュレーション</strong>を解説します。
       </p>
 
       {/* ── セクション1: 初期費用の内訳 ── */}
@@ -231,7 +231,7 @@ export default function Page() {
           美容内服は<strong>メニューの組み合わせで単価を上げやすい</strong>のが特徴。トラネキサム酸、ビタミンC、Lシステインなどのセット処方で月10,000〜15,000円のプランを提案できます。Lオペのリッチメニューを活用して<strong>患者自身がメニューを選択・追加できる導線</strong>を設計すれば、アップセルも自然に促進できます。詳細は<Link href="/lp/column/beauty-supplements-online-lope" className="text-sky-600 underline hover:text-sky-800">美容内服のオンライン診療ガイド</Link>もご参照ください。
         </p>
 
-        <h3 className="text-lg font-semibold text-gray-700 mt-4">GLP-1ダイエット</h3>
+        <h3 className="text-lg font-semibold text-gray-700 mt-4">メディカルダイエット（GLP-1）</h3>
         <ComparisonTable
           headers={["項目", "数値", "備考"]}
           rows={[
@@ -242,7 +242,7 @@ export default function Page() {
           ]}
         />
         <p>
-          GLP-1ダイエットは<strong>1患者あたりの単価が突出して高い</strong>カテゴリです。リベルサス（経口薬）は月30,000〜50,000円、オゼンピック・マンジャロ（注射薬）は月50,000〜80,000円が相場。薬剤原価は高めですが、<strong>少ない患者数でも大きな売上を確保</strong>できます。Lオペのダッシュボードで体重推移のフォローアップを行い、治療継続のモチベーション維持を支援できます。詳しくは<Link href="/lp/column/diet-glp1-online-clinic-lope" className="text-sky-600 underline hover:text-sky-800">GLP-1ダイエットのオンライン診療ガイド</Link>をご覧ください。
+          メディカルダイエット（GLP-1）は<strong>1患者あたりの単価が突出して高い</strong>カテゴリです。リベルサス（経口薬）は月30,000〜50,000円、オゼンピック・マンジャロ（注射薬）は月50,000〜80,000円が相場。薬剤原価は高めですが、<strong>少ない患者数でも大きな売上を確保</strong>できます。Lオペのダッシュボードで体重推移のフォローアップを行い、治療継続のモチベーション維持を支援できます。詳しくは<Link href="/lp/column/diet-glp1-online-clinic-lope" className="text-sky-600 underline hover:text-sky-800">メディカルダイエット（GLP-1）のオンライン診療ガイド</Link>をご覧ください。
         </p>
 
         <Callout type="point" title="複数メニューの組み合わせが収益安定のカギ">
@@ -332,7 +332,7 @@ export default function Page() {
           ]}
         />
         <p>
-          GLP-1ダイエットの比率を高めれば、<strong>より少ない患者数で200〜300万円の月間利益</strong>を実現できます。例えばGLP-1を30%（平均単価55,000円）に引き上げた場合、加重平均単価は約22,000円に上昇。患者250人でも営業利益200万円超が見込めます。
+          メディカルダイエット（GLP-1）の比率を高めれば、<strong>より少ない患者数で200〜300万円の月間利益</strong>を実現できます。例えばGLP-1を30%（平均単価55,000円）に引き上げた場合、加重平均単価は約22,000円に上昇。患者250人でも営業利益200万円超が見込めます。
         </p>
 
         <BarChart
@@ -445,7 +445,7 @@ export default function Page() {
         </Callout>
 
         <p>
-          ワンルームマンションでのオンライン診療開業は、<strong>従来のクリニック開業とは比較にならない低リスク</strong>で始められます。初期費用100万円以下、月間固定費20〜28万円という超低コスト構造に加え、AGA・ED・ピル・美容内服・GLP-1ダイエットなどの自費診療メニューは<strong>高い利益率とリピート率</strong>を誇ります。
+          ワンルームマンションでのオンライン診療開業は、<strong>従来のクリニック開業とは比較にならない低リスク</strong>で始められます。初期費用100万円以下、月間固定費20〜28万円という超低コスト構造に加え、AGA・ED・ピル・美容内服・メディカルダイエット（GLP-1）などの自費診療メニューは<strong>高い利益率とリピート率</strong>を誇ります。
         </p>
 
         <p>

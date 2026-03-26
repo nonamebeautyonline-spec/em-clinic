@@ -97,7 +97,7 @@ export default function Page() {
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">LTV（Life Time Value / 顧客生涯価値）</h3>
 
-        <p>1人の患者が通院期間全体を通じて支払う総額です。自費クリニックのLTVは診療科によって大きく異なり、美容皮膚科で10〜40万円、AGA治療で20〜50万円、GLP-1ダイエットで15〜30万円が一般的な目安です。LTVは「平均来院単価 × 年間来院回数 × 平均通院年数」で算出できます。</p>
+        <p>1人の患者が通院期間全体を通じて支払う総額です。自費クリニックのLTVは診療科によって大きく異なり、美容皮膚科で10〜40万円、AGA治療で20〜50万円、メディカルダイエット（GLP-1）で15〜30万円が一般的な目安です。LTVは「平均来院単価 × 年間来院回数 × 平均通院年数」で算出できます。</p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">ROI（Return On Investment / 投資収益率）</h3>
 
@@ -142,7 +142,7 @@ export default function Page() {
             { label: "医療脱毛", value: 1200, color: "bg-rose-500" },
             { label: "美容皮膚科（注入系）", value: 800, color: "bg-sky-500" },
             { label: "AGA治療", value: 600, color: "bg-emerald-500" },
-            { label: "GLP-1ダイエット", value: 500, color: "bg-violet-500" },
+            { label: "メディカルダイエット（GLP-1）", value: 500, color: "bg-violet-500" },
             { label: "ピル処方", value: 300, color: "bg-amber-500" },
           ]}
           unit="円（平均CPC上限・都心部）"

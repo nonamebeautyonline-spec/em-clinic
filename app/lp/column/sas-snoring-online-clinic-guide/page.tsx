@@ -294,18 +294,11 @@ export default function Page() {
         </p>
 
         <ResultCard
-          before="CPAP 1年継続率: 65%（業界平均）"
-          after="Lオペ導入後: 85%（フォローアップ自動化）"
-          metric="CPAP継続率が31%改善"
+          before="CPAP 1年継続率が低い"
+          after="Lオペ導入後: CPAP継続率が大幅に改善（フォローアップ自動化）"
+          metric="CPAP継続率の大幅改善が期待"
           description="フォローアップルール・セグメント配信・LINE予約リマインドの3点セットで離脱を防止"
         />
-
-        <StatGrid stats={[
-          { value: "78", unit: "%", label: "CPAP 1年継続率（導入後）" },
-          { value: "85", unit: "%", label: "フォロー後の月次再診率" },
-          { value: "90", unit: "%", label: "LINE問診の回答完了率" },
-          { value: "5〜10", unit: "分", label: "定期フォローの診察時間" },
-        ]} />
 
         <InlineCTA />
       </section>

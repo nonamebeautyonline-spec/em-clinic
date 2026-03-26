@@ -158,7 +158,7 @@ export default function Page() {
             { label: "AGA治療（サブスク型）", value: 450000, color: "bg-sky-500" },
             { label: "美容皮膚科（注入系）", value: 360000, color: "bg-rose-500" },
             { label: "医療脱毛", value: 300000, color: "bg-violet-500" },
-            { label: "GLP-1ダイエット", value: 240000, color: "bg-emerald-500" },
+            { label: "メディカルダイエット（GLP-1）", value: 240000, color: "bg-emerald-500" },
             { label: "美容内服", value: 180000, color: "bg-amber-500" },
             { label: "ピル処方", value: 105000, color: "bg-cyan-500" },
           ]}

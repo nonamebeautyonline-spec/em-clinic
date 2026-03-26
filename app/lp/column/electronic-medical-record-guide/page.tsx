@@ -157,7 +157,7 @@ export default function Page() {
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: LINE連携を前提に電子カルテを選ぶ時代</h2>
         <p>電子カルテ選びは「カルテ入力の効率化」だけでなく、<strong>患者コミュニケーション全体の効率化</strong>という視点が重要です。LINE連携に対応した電子カルテを選ぶことで、問診・予約・リマインド・フォローアップまで一気通貫の業務効率化が実現します。Web問診の導入についてさらに詳しく知りたい方は<Link href="/lp/column/online-questionnaire-guide" className="text-sky-600 underline hover:text-sky-800">オンライン問診導入ガイド</Link>も参考にしてください。また、クリニック全体のDX推進については<Link href="/lp/column/clinic-dx-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>で体系的に解説しています。</p>
-        <p>Lオペ for CLINICは、主要なクラウド型電子カルテとの連携に対応。LINE上での問診データをカルテに自動転記する機能や、来院データに基づく自動フォローメッセージなど、<strong>電子カルテとLINEの架け橋</strong>となるプラットフォームです。<Link href="/lp/features#予約・診察" className="text-sky-600 underline hover:text-sky-800">予約・診察カテゴリの全機能</Link>もご確認ください。</p>
+        <p>Lオペ for CLINICは、LINE上の問診データをダッシュボードで一元管理し、カルテ入力時の参照に活用可能です。来院データに基づく自動フォローメッセージなど、<strong>問診データ活用とLINE運用の架け橋</strong>となるプラットフォームです。<Link href="/lp/features#予約・診察" className="text-sky-600 underline hover:text-sky-800">予約・診察カテゴリの全機能</Link>もご確認ください。</p>
       </section>
     </ArticleLayout>
   );

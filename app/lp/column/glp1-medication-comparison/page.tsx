@@ -245,7 +245,7 @@ export default function Page() {
         />
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">価格設計のポイント</h3>
-        <p>GLP-1ダイエットの患者は<strong>月額2〜5万円</strong>の価格帯に最もボリュームゾーンがあるとされています。リベルサス7mg（月額12,000〜18,000円）が「まず試してみる」層の入り口として最も選ばれやすく、効果を実感した患者がオゼンピックやマンジャロにステップアップするパターンが一般的です。</p>
+        <p>メディカルダイエット（GLP-1）の患者は<strong>月額2〜5万円</strong>の価格帯に最もボリュームゾーンがあるとされています。リベルサス7mg（月額12,000〜18,000円）が「まず試してみる」層の入り口として最も選ばれやすく、効果を実感した患者がオゼンピックやマンジャロにステップアップするパターンが一般的です。</p>
 
         <p>まとめ購入割引（3ヶ月パックで5〜10%オフ）や、初回トライアル価格の設定も有効です。ただし、安売り競争に巻き込まれると利益率が急速に悪化するため、<strong>フォロー体制の充実で差別化</strong>する戦略が長期的に有効です。</p>
       </section>
@@ -254,7 +254,7 @@ export default function Page() {
       <section>
         <h2 id="online-operation" className="text-xl font-bold text-gray-800">オンライン処方の運用 — LINE活用で継続フォローを自動化</h2>
 
-        <p>GLP-1ダイエット薬のオンライン処方は、<strong>初回診察での禁忌確認</strong>と<strong>増量フェーズのフォロー</strong>が運用の要です。対面と同等の安全性を担保しながら、LINEを活用して効率的なフォロー体制を構築します。</p>
+        <p>GLP-1受容体作動薬のオンライン処方は、<strong>初回診察での禁忌確認</strong>と<strong>増量フェーズのフォロー</strong>が運用の要です。対面と同等の安全性を担保しながら、LINEを活用して効率的なフォロー体制を構築します。</p>
 
         <FlowSteps steps={[
           { title: "LINE予約・事前問診", desc: "BMI・既往歴・膵炎歴・甲状腺疾患歴・服薬状況・ダイエット目的を事前収集。" },
@@ -277,7 +277,7 @@ export default function Page() {
           { value: "5", unit: "分/人", label: "フォロー1回の所要時間" },
         ]} />
 
-        <p><Link href="/lp/column/diet-glp1-online-clinic-lope" className="text-emerald-700 underline">GLP-1ダイエットのオンライン診療ガイド</Link>や<Link href="/lp/column/diet-online-clinic-winning-strategy" className="text-emerald-700 underline">メディカルダイエットクリニックの運営戦略</Link>も参考に、安全性と効率性を両立するオンライン処方体制を構築してください。</p>
+        <p><Link href="/lp/column/diet-glp1-online-clinic-lope" className="text-emerald-700 underline">メディカルダイエット（GLP-1）のオンライン診療ガイド</Link>や<Link href="/lp/column/diet-online-clinic-winning-strategy" className="text-emerald-700 underline">メディカルダイエットクリニックの運営戦略</Link>も参考に、安全性と効率性を両立するオンライン処方体制を構築してください。</p>
       </section>
 
       {/* ── セクション9: まとめ ── */}

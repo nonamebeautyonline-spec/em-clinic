@@ -73,7 +73,7 @@ export default function Page() {
             { label: "美容皮膚科（注入・レーザー）", value: 45, color: "bg-sky-500" },
             { label: "AGA・薄毛治療", value: 55, color: "bg-emerald-500" },
             { label: "医療脱毛", value: 60, color: "bg-violet-500" },
-            { label: "GLP-1ダイエット", value: 40, color: "bg-amber-500" },
+            { label: "メディカルダイエット（GLP-1）", value: 40, color: "bg-amber-500" },
             { label: "歯科矯正・審美歯科", value: 35, color: "bg-cyan-500" },
           ]}
           unit="%（成約率の業界平均）"

@@ -106,7 +106,7 @@ export default function Page() {
       <section>
         <h2 id="prescription-type" className="text-xl font-bold text-gray-800">定期処方型（AGA・ピル・内服）の設計</h2>
 
-        <p>定期処方型は、<strong>最もシンプルで成功率が高いサブスクモデル</strong>です。AGA治療薬、低用量ピル、美容内服（ビタミンC、トラネキサム酸、グルタチオンなど）、GLP-1ダイエット薬など、毎月消費する薬剤を定期的に処方・配送する仕組みです。</p>
+        <p>定期処方型は、<strong>最もシンプルで成功率が高いサブスクモデル</strong>です。AGA治療薬、低用量ピル、美容内服（ビタミンC、トラネキサム酸、グルタチオンなど）、GLP-1受容体作動薬など、毎月消費する薬剤を定期的に処方・配送する仕組みです。</p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">プラン設計のポイント</h3>
 

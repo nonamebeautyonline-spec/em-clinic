@@ -1,7 +1,7 @@
 import { generateColumnOGP, ogpSize } from "../_components/ogp-helper";
 
 export const runtime = "edge";
-export const alt = "GLP-1ダイエット・メディカルダイエットオンラインクリニックの勝ち方 — Lオペ for CLINIC コラム";
+export const alt = "メディカルダイエット（GLP-1）オンラインクリニックの勝ち方 — Lオペ for CLINIC コラム";
 export const size = ogpSize;
 export const contentType = "image/png";
 

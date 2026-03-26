@@ -203,7 +203,7 @@ export default function Page() {
 
         {/* ── セクション6: 集患戦略 ── */}
         <section>
-          <h2 id="marketing" className="text-xl font-bold text-gray-800">集患戦略 — GLP-1ダイエットの患者獲得</h2>
+          <h2 id="marketing" className="text-xl font-bold text-gray-800">集患戦略 — メディカルダイエット（GLP-1）の患者獲得</h2>
 
           <p>GLP-1メディカルダイエットの集患は、検索需要の高さとSNS拡散力を活かした戦略が有効です。対面クリニックとの差別化ポイントを明確にし、オンライン診療ならではの利便性を訴求しましょう。</p>
 
