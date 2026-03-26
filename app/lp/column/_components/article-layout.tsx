@@ -302,7 +302,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
                       className="group flex items-start gap-4 py-4 transition"
                     >
                       {/* サムネイル */}
-                      <div className="shrink-0 w-24 overflow-hidden rounded-md">
+                      <div className="shrink-0 w-44 overflow-hidden rounded-md">
                         <ArticleThumbnail slug={a.slug} title={a.title} category={a.category} size="sm" />
                       </div>
                       <div className="min-w-0 flex-1 pt-0.5">
