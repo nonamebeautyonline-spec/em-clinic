@@ -180,6 +180,8 @@ const jsonLd = [
         name: "スタンダードプラン",
         description: "予約・カルテ・問診まで診療業務をカバー。全機能利用可・ユーザー数無制限。",
         availability: "https://schema.org/InStock",
+        price: "0",
+        priceCurrency: "JPY",
         url: `${SITE_URL}/lp/contact`,
       },
       {
@@ -187,6 +189,8 @@ const jsonLd = [
         name: "プロプラン",
         description: "決済・配送・分析まで業務をまるごとDX化。全機能利用可・ユーザー数無制限。",
         availability: "https://schema.org/InStock",
+        price: "0",
+        priceCurrency: "JPY",
         url: `${SITE_URL}/lp/contact`,
       },
     ],

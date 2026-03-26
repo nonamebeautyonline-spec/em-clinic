@@ -110,7 +110,9 @@ const jsonLd = [
       "@type": "Offer",
       availability: "https://schema.org/InStock",
       url: LP_URL,
-      description: "貴院の規模・運用体制に合わせた最適プランをご提案",
+      price: "0",
+      priceCurrency: "JPY",
+      description: "初期相談・資料請求は無料。貴院の規模・運用体制に合わせた最適プランをご提案",
     },
     featureList:
       "患者CRM, セグメント配信, リッチメニュービルダー, オンライン問診, 予約管理, AI自動返信, 決済管理, 配送管理, ダッシュボード分析",

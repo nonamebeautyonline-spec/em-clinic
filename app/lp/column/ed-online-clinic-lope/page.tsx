@@ -35,7 +35,7 @@ const jsonLd = {
   "@type": "Article",
   headline: self.title,
   description: self.description,
-  datePublished: self.date,
+  datePublished: `${self.date}T00:00:00+09:00`,
   image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
   author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
   publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
