@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 
 interface AiDraft {
   id: number;
@@ -34,19 +35,46 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
   const [rejecting, setRejecting] = useState(false);
   const [done, setDone] = useState<"sent" | "rejected" | null>(null);
   const [error, setError] = useState("");
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+
+  // ボタン位置からポップオーバー座標を計算
+  const updatePosition = useCallback(() => {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const popoverW = 360;
+    // ボタンの下に表示、左寄せ（画面端に収まるよう調整）
+    let left = rect.left;
+    if (left + popoverW > window.innerWidth - 16) {
+      left = window.innerWidth - popoverW - 16;
+    }
+    if (left < 16) left = 16;
+    setPopoverPos({ top: rect.bottom + 6, left });
+  }, []);
 
   // 外側クリックで閉じる
   useEffect(() => {
     if (!open) return;
+    updatePosition();
     function handleClick(e: MouseEvent) {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+      if (
+        popoverRef.current && !popoverRef.current.contains(e.target as Node) &&
+        buttonRef.current && !buttonRef.current.contains(e.target as Node)
+      ) {
         setOpen(false);
       }
     }
+    function handleScroll() { updatePosition(); }
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
+    window.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [open, updatePosition]);
 
   // ドラフト取得
   const fetchDraft = useCallback(async () => {
@@ -160,9 +188,10 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
   };
 
   return (
-    <div className="relative inline-flex" ref={popoverRef}>
+    <>
       {/* AIボタン */}
       <button
+        ref={buttonRef}
         onClick={handleOpen}
         className={`w-7 h-7 rounded-full flex items-center justify-center transition-all text-[11px] font-bold ${
           open
@@ -174,9 +203,13 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
         AI
       </button>
 
-      {/* ポップオーバー */}
-      {open && (
-        <div className="absolute left-0 top-full mt-1.5 w-[340px] bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
+      {/* ポップオーバー（portal で body 直下にレンダリング） */}
+      {open && createPortal(
+        <div
+          ref={popoverRef}
+          className="w-[360px] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden"
+          style={{ position: "fixed", top: popoverPos.top, left: popoverPos.left, zIndex: 9999 }}
+        >
           {/* ヘッダー */}
           <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-3 py-2 flex items-center justify-between">
             <span className="text-white text-xs font-bold flex items-center gap-1.5">
@@ -313,8 +346,9 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
