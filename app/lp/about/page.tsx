@@ -6,12 +6,12 @@ const SITE_URL = "https://l-ope.jp";
 export const metadata: Metadata = {
   title: "Lオペ for CLINICとは？ — AI搭載クリニック特化LINE運用プラットフォーム",
   description:
-    "Lオペ for CLINICはClaude AI・RAG自動学習・音声カルテを搭載したクリニック特化LINE運用プラットフォーム。予約管理・オンライン問診・セグメント配信・決済・配送まで、クリニック業務をLINEで一元化。",
-  keywords: "Lオペ, Lオペとは, Lオペ for CLINIC とは, クリニック LINE AI, Claude AI クリニック, RAG 自動学習, 音声カルテ AI, クリニック DX 導入, Lステップ 違い, クリニック 業務効率化, 医療DX プラットフォーム, LINE CRM クリニック",
+    "Lオペ for CLINICはClaude AI・RAG自動学習・追跡番号自動配信を搭載したクリニック特化LINE運用プラットフォーム。予約管理・オンライン問診・セグメント配信・決済・配送まで、クリニック業務をLINEで一元化。",
+  keywords: "Lオペ, Lオペとは, Lオペ for CLINIC とは, クリニック LINE AI, Claude AI クリニック, RAG 自動学習, 追跡番号 自動配信, クリニック DX 導入, Lステップ 違い, クリニック 業務効率化, 医療DX プラットフォーム, LINE CRM クリニック",
   alternates: { canonical: `${SITE_URL}/lp/about` },
   openGraph: {
     title: "Lオペ for CLINICとは？ — AI搭載クリニック特化LINE運用プラットフォーム",
-    description: "Claude AI・RAG自動学習・音声カルテ搭載。予約・問診・配信・決済・配送をLINEで一元化するクリニック専用プラットフォーム。",
+    description: "Claude AI・RAG自動学習・追跡番号自動配信搭載。予約・問診・配信・決済・配送をLINEで一元化するクリニック専用プラットフォーム。",
     url: `${SITE_URL}/lp/about`,
     siteName: "Lオペ for CLINIC",
     locale: "ja_JP",
@@ -44,7 +44,7 @@ const jsonLd = [
     mainEntity: [
       { q: "LオペのAI自動返信はどのAIモデルを使っていますか？", a: "Anthropic社のClaude（最新モデル）を標準搭載しています。管理画面からGPTなど他モデルへの切替も可能で、用途やコストに応じて最適なモデルを選択できます。" },
       { q: "AI自動返信の精度はどのように向上しますか？", a: "RAG（検索拡張生成）方式を採用しています。スタッフが修正した返信や手動で送信したメッセージをAIが自動学習し、クリニック固有のナレッジベースを構築。使い込むほど精度が向上します。" },
-      { q: "音声カルテとは何ですか？", a: "診察中の会話をAIがリアルタイムに解析し、SOAP形式のカルテを自動生成する機能です。医療用語の自動抽出・構造化に対応し、カルテ記入時間を大幅に短縮します。" },
+      { q: "追跡番号のLINE配信はどのように行われますか？", a: "決済完了した注文を発送リストから選択し、配送会社のラベルをCSV出力。発送後は追跡番号がLINEで患者に自動配信されます。ヤマト運輸・日本郵便に対応しています。" },
       { q: "汎用LINE配信ツール（Lステップ等）との違いは？", a: "Lステップ等はLINE配信に特化した汎用ツールです。Lオペはクリニック専用設計で、予約・問診・カルテ・決済・配送・AI自動返信・音声カルテまで一気通貫で対応。クリニック業務全体をLINE上で完結できます。" },
       { q: "患者の個人情報のセキュリティは大丈夫ですか？", a: "SSL暗号化通信、データの暗号化保存、アクセス権限管理、監査ログ機能を標準搭載。医療情報を扱うサービスとして、セキュリティを最優先に設計しています。" },
     ].map((f) => ({
@@ -97,15 +97,15 @@ const aiTechStack = [
     ],
   },
   {
-    icon: "mic",
-    badge: "Voice AI",
-    title: "音声カルテ自動生成",
-    desc: "診察中の会話をAIがリアルタイムに解析し、SOAP形式のカルテを自動生成。医療用語の自動抽出・構造化に対応し、カルテ記入にかかる時間を大幅に短縮します。",
+    icon: "label",
+    badge: "自動化",
+    title: "発送ラベル自動生成から追跡番号配信まで",
+    desc: "決済完了した注文を一覧から選択し、大手配送会社の送り状ラベルをCSV出力。発送後は追跡番号をLINEで患者に自動配信。発送業務の手間を大幅に削減します。",
     details: [
-      "診察会話 → SOAP形式カルテを自動生成",
-      "医療用語の自動認識・構造化",
-      "処方内容・検査指示の自動抽出",
-      "生成後の手動編集にも対応",
+      "決済済み注文の一括選択・ラベルCSV出力",
+      "ヤマト運輸・日本郵便に対応",
+      "追跡番号を患者にLINEで自動配信",
+      "発送ステータスをリアルタイム管理",
     ],
   },
   {
@@ -125,7 +125,7 @@ const aiTechStack = [
 const aiTechIcons: Record<string, React.ReactNode> = {
   sparkles: <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" strokeLinecap="round" strokeLinejoin="round" /></svg>,
   brain: <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" strokeLinecap="round" strokeLinejoin="round" /></svg>,
-  mic: <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" strokeLinecap="round" strokeLinejoin="round" /></svg>,
+  label: <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" strokeLinecap="round" strokeLinejoin="round" /><path d="M6 6h.008v.008H6V6z" strokeLinecap="round" strokeLinejoin="round" /></svg>,
   flow: <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" strokeLinecap="round" strokeLinejoin="round" /></svg>,
 };
 
@@ -168,7 +168,7 @@ const comparisonItems = [
   { label: "クリニック専用設計", lope: true, generic: false },
   { label: "AI自動返信（Claude搭載）", lope: true, generic: false },
   { label: "RAG自動学習", lope: true, generic: false },
-  { label: "音声カルテ自動生成", lope: true, generic: false },
+  { label: "追跡番号LINE自動配信", lope: true, generic: false },
   { label: "AIモデル選択（Claude/GPT）", lope: true, generic: false },
   { label: "予約管理", lope: true, generic: false },
   { label: "オンライン問診", lope: true, generic: false },
@@ -185,18 +185,18 @@ const comparisonItems = [
 const philosophies = [
   {
     num: "01",
-    title: "クリニック専用だから、すぐ使える",
-    desc: "汎用ツールのように自分でカスタマイズする必要はありません。クリニック業務に必要な機能がすべて最初から組み込まれています。導入設定もサポートチームが代行します。",
+    title: "院長＋事務1人で全業務が回る",
+    desc: "予約・問診・決済・配送・患者対応をすべてLINEに集約。バラバラだったツールの契約・管理コストを削減し、最小人数でクリニック運営を完結できます。ツール代も人件費もまるごと削減。",
   },
   {
     num: "02",
-    title: "最新AIを、医療現場に最適化",
-    desc: "Claude・GPTなどの最新AIモデルをクリニック業務に特化してチューニング。患者対応の自動化から診察カルテの自動生成まで、AIが現場の負担を大幅に軽減します。",
+    title: "使うほど賢くなるプラットフォーム",
+    desc: "自動学習エンジンにより、スタッフの対応がそのままAIの学習データに。クリニックごとの言い回し・対応方針をAIが自動で習得し、返信精度が日々向上します。",
   },
   {
     num: "03",
-    title: "使うほど賢くなるプラットフォーム",
-    desc: "自動学習エンジンにより、スタッフの対応がそのままAIの学習データに。クリニックごとの言い回し・対応方針をAIが自動で習得し、返信精度が日々向上します。",
+    title: "クリニック専用だから、すぐ使える",
+    desc: "汎用ツールのように自分でカスタマイズする必要はありません。クリニック業務に必要な機能がすべて最初から組み込まれています。導入設定もサポートチームが代行します。",
   },
   {
     num: "04",
@@ -411,6 +411,25 @@ export default function AboutPage() {
                         {/* メッセージエリア */}
                         <div className="relative flex-1 overflow-hidden">
                         <div className="absolute inset-0 space-y-3 overflow-y-auto bg-[#7494C0]/15 p-3">
+                          {/* Flex: 決済のご案内 — 右寄せ（管理側から送信） */}
+                          <div className="flex items-end justify-end gap-1.5">
+                              <span className="text-[7px] text-gray-400">10:44</span>
+                              <div className="max-w-[75%] overflow-hidden rounded-lg bg-white shadow-sm">
+                                <div className="bg-[#06C755] px-3 py-2 text-[10px] font-bold text-white">決済のご案内</div>
+                                <div className="p-3">
+                                  <p className="text-[9px] leading-relaxed text-gray-700">診療後はマイページより決済が可能となっております。ご確認いただけますと幸いです。</p>
+                                </div>
+                              </div>
+                          </div>
+
+                          {/* アクション通知 — 中央 */}
+                          <div className="text-center">
+                            <span className="text-[8px] text-gray-400">23:17</span>
+                            <div className="mt-0.5">
+                              <span className="rounded-full bg-gray-200/80 px-3 py-0.5 text-[8px] text-gray-500">「マイページ」をタップしました</span>
+                            </div>
+                          </div>
+
                           {/* Flex: 決済完了 — 右寄せ（管理側から送信） */}
                           <div className="flex items-end justify-end gap-1.5">
                               <span className="text-[7px] text-gray-400">6:50</span>
@@ -651,37 +670,323 @@ export default function AboutPage() {
             </p>
 
             <div className="mt-12 space-y-8">
-              {aiTechStack.map((tech, i) => (
-                <div key={tech.title} className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/60 transition hover:ring-violet-200 hover:shadow-lg">
-                  <div className="flex flex-col md:flex-row">
-                    {/* 左 — アイコン＋概要 */}
-                    <div className={`flex flex-col justify-center p-8 md:w-1/2 ${i % 2 === 0 ? "bg-gradient-to-br from-violet-50/50 to-blue-50/50" : "bg-gradient-to-br from-blue-50/50 to-cyan-50/50"}`}>
-                      <div className="flex items-center gap-3">
-                        <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${i % 2 === 0 ? "bg-violet-100 text-violet-600" : "bg-blue-100 text-blue-600"}`}>
-                          {aiTechIcons[tech.icon]}
-                        </div>
-                        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${i % 2 === 0 ? "bg-violet-100 text-violet-700" : "bg-blue-100 text-blue-700"}`}>
-                          {tech.badge}
-                        </span>
-                      </div>
-                      <h3 className="mt-4 text-[18px] font-bold text-gray-900">{tech.title}</h3>
-                      <p className="mt-3 text-[14px] leading-relaxed text-gray-500">{tech.desc}</p>
+              {/* ── 1. Claude AI自動返信 ── */}
+              <div className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/60 transition hover:ring-violet-200 hover:shadow-lg">
+                <div className="flex flex-col md:flex-row">
+                  <div className="flex flex-col justify-center p-8 md:w-1/2 bg-gradient-to-br from-violet-50/50 to-blue-50/50">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-100 text-violet-600">{aiTechIcons.sparkles}</div>
+                      <span className="rounded-full px-2.5 py-0.5 text-[11px] font-bold bg-violet-100 text-violet-700">LLM</span>
                     </div>
-                    {/* 右 — 詳細リスト */}
-                    <div className="flex flex-col justify-center p-8 md:w-1/2">
-                      <p className="text-[12px] font-bold tracking-widest text-gray-400 uppercase">特長</p>
-                      <ul className="mt-4 space-y-3">
-                        {tech.details.map((d) => (
-                          <li key={d} className="flex items-start gap-2.5 text-[13px] text-gray-600">
-                            <svg className="mt-0.5 h-4 w-4 shrink-0 text-violet-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                            {d}
-                          </li>
-                        ))}
-                      </ul>
+                    <h3 className="mt-4 text-[18px] font-bold text-gray-900">{aiTechStack[0].title}</h3>
+                    <p className="mt-3 text-[14px] leading-relaxed text-gray-500">{aiTechStack[0].desc}</p>
+                  </div>
+                  {/* 右 — AI返信設定画面モック */}
+                  <div className="p-6 md:w-1/2">
+                    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                      {/* タブ */}
+                      <div className="flex border-b border-gray-100 text-[9px]">
+                        <span className="border-b-2 border-purple-600 px-3 py-2 font-bold text-purple-600">設定</span>
+                        <span className="px-3 py-2 text-gray-400">学習例</span>
+                        <span className="px-3 py-2 text-gray-400">統計</span>
+                      </div>
+                      <div className="space-y-3 p-4">
+                        {/* AI返信トグル */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-gray-700">AI返信機能</span>
+                          <div className="relative h-5 w-9 rounded-full bg-purple-600">
+                            <div className="absolute right-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow" />
+                          </div>
+                        </div>
+                        {/* 動作モード */}
+                        <div>
+                          <p className="text-[9px] font-bold text-gray-500">動作モード</p>
+                          <div className="mt-1 flex gap-3">
+                            <label className="flex items-center gap-1 text-[9px] text-gray-600">
+                              <span className="flex h-3 w-3 items-center justify-center rounded-full border-2 border-purple-600"><span className="h-1.5 w-1.5 rounded-full bg-purple-600" /></span>
+                              承認制
+                            </label>
+                            <label className="flex items-center gap-1 text-[9px] text-gray-400">
+                              <span className="h-3 w-3 rounded-full border-2 border-gray-300" />
+                              自動送信
+                            </label>
+                          </div>
+                        </div>
+                        {/* AIモデル選択 */}
+                        <div>
+                          <p className="text-[9px] font-bold text-gray-500">AIモデル</p>
+                          <div className="mt-1 space-y-1">
+                            <label className="flex items-center gap-1.5 rounded-md border border-purple-200 bg-purple-50/50 px-2 py-1 text-[9px] text-purple-700">
+                              <span className="flex h-3 w-3 items-center justify-center rounded-full border-2 border-purple-600"><span className="h-1.5 w-1.5 rounded-full bg-purple-600" /></span>
+                              Claude Sonnet 4.6 <span className="ml-auto rounded bg-purple-100 px-1 text-[7px]">推奨</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 px-2 py-1 text-[9px] text-gray-400">
+                              <span className="h-3 w-3 rounded-full border-2 border-gray-300" />
+                              Claude Haiku 4.5
+                            </label>
+                            <label className="flex items-center gap-1.5 px-2 py-1 text-[9px] text-gray-400">
+                              <span className="h-3 w-3 rounded-full border-2 border-gray-300" />
+                              Claude Opus 4.6
+                            </label>
+                          </div>
+                        </div>
+                        {/* ナレッジベース */}
+                        <div>
+                          <p className="text-[9px] font-bold text-gray-500">ナレッジベース</p>
+                          <div className="mt-1 rounded-md border border-gray-200 bg-gray-50 p-2 text-[8px] leading-relaxed text-gray-400">
+                            ■ 営業時間: 月〜金 10:00-19:00<br />
+                            ■ 休診日: 土日祝<br />
+                            ■ 予約変更: LINEメニューから可能<br />
+                            ■ 処方後の配送: 通常2-3営業日
+                          </div>
+                        </div>
+                        {/* 保存ボタン */}
+                        <div className="flex justify-end">
+                          <span className="rounded-lg bg-purple-600 px-4 py-1.5 text-[9px] font-bold text-white">保存</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              ))}
+              </div>
+
+              {/* ── 2. 自動学習エンジン ── */}
+              <div className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/60 transition hover:ring-violet-200 hover:shadow-lg">
+                <div className="flex flex-col md:flex-row">
+                  {/* 左 — 学習例モック */}
+                  <div className="p-6 md:w-1/2 md:order-1">
+                    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                      <div className="flex border-b border-gray-100 text-[9px]">
+                        <span className="px-3 py-2 text-gray-400">設定</span>
+                        <span className="border-b-2 border-purple-600 px-3 py-2 font-bold text-purple-600">学習例</span>
+                        <span className="px-3 py-2 text-gray-400">統計</span>
+                      </div>
+                      <div className="divide-y divide-gray-100">
+                        {/* 学習例1 */}
+                        <div className="p-3">
+                          <div className="flex items-center gap-2">
+                            <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[7px] font-bold text-blue-700">修正送信</span>
+                            <span className="text-[7px] text-gray-400">2026/03/25 14:32</span>
+                            <span className="ml-auto text-[7px] text-gray-400">品質: <span className="font-bold text-green-600">92</span></span>
+                          </div>
+                          <div className="mt-2 rounded-lg bg-gray-50 p-2">
+                            <p className="text-[8px] text-gray-500">患者:</p>
+                            <p className="text-[9px] text-gray-700">処方薬はいつ届きますか？</p>
+                          </div>
+                          <div className="mt-1.5 rounded-lg bg-purple-50 p-2">
+                            <p className="text-[8px] text-purple-500">スタッフ修正:</p>
+                            <p className="text-[9px] text-gray-700">通常2〜3営業日でお届けいたします。発送後に追跡番号をLINEでお知らせいたします。</p>
+                          </div>
+                        </div>
+                        {/* 学習例2 */}
+                        <div className="p-3">
+                          <div className="flex items-center gap-2">
+                            <span className="rounded bg-green-100 px-1.5 py-0.5 text-[7px] font-bold text-green-700">手動返信</span>
+                            <span className="text-[7px] text-gray-400">2026/03/25 10:15</span>
+                            <span className="ml-auto text-[7px] text-gray-400">使用: <span className="font-bold text-blue-600">3回</span></span>
+                          </div>
+                          <div className="mt-2 rounded-lg bg-gray-50 p-2">
+                            <p className="text-[8px] text-gray-500">患者:</p>
+                            <p className="text-[9px] text-gray-700">予約の変更はできますか？</p>
+                          </div>
+                          <div className="mt-1.5 rounded-lg bg-purple-50 p-2">
+                            <p className="text-[8px] text-purple-500">スタッフ回答:</p>
+                            <p className="text-[9px] text-gray-700">LINEメニューの「予約変更」からお手続きいただけます。ご不明点はお気軽にご連絡ください。</p>
+                          </div>
+                        </div>
+                        {/* 学習例3 (一部表示) */}
+                        <div className="p-3 opacity-50">
+                          <div className="flex items-center gap-2">
+                            <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[7px] font-bold text-blue-700">修正送信</span>
+                            <span className="text-[7px] text-gray-400">2026/03/24 16:08</span>
+                          </div>
+                          <div className="mt-2 rounded-lg bg-gray-50 p-2">
+                            <p className="text-[9px] text-gray-700">決済方法を教えてください</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* 右 — 説明 */}
+                  <div className="flex flex-col justify-center p-8 md:w-1/2 md:order-2 bg-gradient-to-br from-blue-50/50 to-cyan-50/50">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 text-blue-600">{aiTechIcons.brain}</div>
+                      <span className="rounded-full px-2.5 py-0.5 text-[11px] font-bold bg-blue-100 text-blue-700">RAG</span>
+                    </div>
+                    <h3 className="mt-4 text-[18px] font-bold text-gray-900">{aiTechStack[1].title}</h3>
+                    <p className="mt-3 text-[14px] leading-relaxed text-gray-500">{aiTechStack[1].desc}</p>
+                    <ul className="mt-4 space-y-2">
+                      {aiTechStack[1].details.map((d) => (
+                        <li key={d} className="flex items-start gap-2 text-[13px] text-gray-600">
+                          <svg className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                          {d}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── 3. 追跡番号配信 ── */}
+              <div className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/60 transition hover:ring-violet-200 hover:shadow-lg">
+                <div className="flex flex-col md:flex-row">
+                  <div className="flex flex-col justify-center p-8 md:w-1/2 bg-gradient-to-br from-violet-50/50 to-blue-50/50">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-100 text-violet-600">{aiTechIcons.label}</div>
+                      <span className="rounded-full px-2.5 py-0.5 text-[11px] font-bold bg-violet-100 text-violet-700">{aiTechStack[2].badge}</span>
+                    </div>
+                    <h3 className="mt-4 text-[18px] font-bold text-gray-900">{aiTechStack[2].title}</h3>
+                    <p className="mt-3 text-[14px] leading-relaxed text-gray-500">{aiTechStack[2].desc}</p>
+                  </div>
+                  {/* 右 — 発送リスト画面モック（実装に即した形） */}
+                  <div className="p-6 md:w-1/2">
+                    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                      {/* ヘッダー */}
+                      <div className="border-b border-gray-100 px-4 py-3">
+                        <p className="text-[11px] font-bold text-gray-800">発送リスト</p>
+                        <p className="mt-0.5 text-[8px] text-gray-400">発送する注文を選択・編集して、送り状ラベルを出力します</p>
+                      </div>
+                      {/* 操作バー */}
+                      <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 px-4 py-2">
+                        <span className="text-[8px] text-gray-500">合計 12件 / 選択 5件</span>
+                        <span className="rounded border border-gray-200 px-2 py-0.5 text-[8px] text-gray-500">同じ氏名を統合</span>
+                        <span className="rounded border border-gray-200 px-2 py-0.5 text-[8px] text-gray-500">並び替え</span>
+                        <div className="ml-auto flex items-center gap-1.5">
+                          <span className="rounded-full bg-amber-400 px-2.5 py-1 text-[8px] font-bold text-white">🔗 共有リンク（5件）</span>
+                          <span className="rounded-full bg-blue-600 px-2.5 py-1 text-[8px] font-bold text-white">📦 ヤマトラベル発行（5件）</span>
+                        </div>
+                      </div>
+                      {/* テーブル */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-[8px]">
+                          <thead>
+                            <tr className="bg-gray-50 text-gray-500">
+                              <th className="px-2 py-1.5 text-left"><input type="checkbox" className="h-2.5 w-2.5" checked readOnly /></th>
+                              <th className="px-2 py-1.5 text-left font-medium">決済日時</th>
+                              <th className="px-2 py-1.5 text-left font-medium">氏名</th>
+                              <th className="px-2 py-1.5 text-left font-medium">住所</th>
+                              <th className="hidden px-2 py-1.5 text-left font-medium md:table-cell">商品名</th>
+                              <th className="px-2 py-1.5 text-right font-medium">金額</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-50">
+                            {[
+                              { date: "2026/03/26", name: "山田 花子", addr: "東京都○○区△△1-2-3", product: "内服薬A 12シート", price: "¥25,500", checked: true },
+                              { date: "2026/03/26", name: "佐藤 太郎", addr: "大阪府○○市□□2-4-6", product: "内服薬A 12シート", price: "¥25,500", checked: true },
+                              { date: "2026/03/26", name: "高橋 美紀", addr: "愛知県○○市△△3-5-7", product: "内服薬B 4本", price: "¥13,000", checked: true },
+                              { date: "2026/03/26", name: "伊藤 翔太", addr: "福岡県○○市□□8-1-2", product: "内服薬B 4本", price: "¥13,000", checked: true },
+                              { date: "2026/03/26", name: "渡辺 さやか", addr: "神奈川県○○市△△5-9", product: "内服薬A 6シート", price: "¥13,000", checked: true },
+                            ].map((r) => (
+                              <tr key={r.name} className="bg-yellow-50/60">
+                                <td className="px-2 py-2"><input type="checkbox" className="h-2.5 w-2.5" checked={r.checked} readOnly /></td>
+                                <td className="px-2 py-2 text-gray-600">{r.date}</td>
+                                <td className="px-2 py-2 font-bold text-gray-800">{r.name}</td>
+                                <td className="px-2 py-2 text-gray-600">{r.addr}</td>
+                                <td className="hidden px-2 py-2 text-gray-600 md:table-cell">{r.product}</td>
+                                <td className="px-2 py-2 text-right font-bold text-gray-800">{r.price}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {/* 日本郵便ボタンも追加 */}
+                      <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-4 py-2">
+                        <span className="rounded-full bg-red-500 px-2.5 py-1 text-[8px] font-bold text-white">〒 日本郵便ラベル発行</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── 4. フロービルダー & 自動アクション ── */}
+              <div className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/60 transition hover:ring-violet-200 hover:shadow-lg">
+                <div className="flex flex-col md:flex-row">
+                  {/* 左 — フロービルダーモック */}
+                  <div className="p-6 md:w-1/2 md:order-1">
+                    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                      {/* ツールバー */}
+                      <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded bg-gray-100 px-2 py-0.5 text-[8px] font-bold text-gray-600">初診フォロー</span>
+                          <span className="text-[7px] text-gray-400">▼</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="rounded bg-emerald-50 px-2 py-0.5 text-[7px] font-bold text-emerald-600">テスト</span>
+                          <span className="rounded bg-indigo-50 px-2 py-0.5 text-[7px] font-bold text-indigo-600">検証</span>
+                          <span className="rounded bg-[#06C755] px-2.5 py-0.5 text-[7px] font-bold text-white">保存</span>
+                        </div>
+                      </div>
+                      {/* フローエディタ */}
+                      <div className="relative bg-gray-50/80 p-6" style={{ height: "260px", backgroundImage: "radial-gradient(circle, #ddd 1px, transparent 1px)", backgroundSize: "16px 16px" }}>
+                        {/* ノード: 友だち追加 */}
+                        <div className="absolute left-1/2 top-3 -translate-x-1/2">
+                          <div className="w-[120px] rounded-lg border border-green-200 bg-white shadow-sm">
+                            <div className="rounded-t-lg bg-green-500 px-2 py-1 text-center text-[8px] font-bold text-white">🎯 トリガー</div>
+                            <div className="px-2 py-1.5 text-center text-[8px] text-gray-600">友だち追加</div>
+                          </div>
+                        </div>
+                        {/* 線 */}
+                        <div className="absolute left-1/2 top-[58px] h-5 w-px -translate-x-1/2 bg-gray-300" />
+                        {/* ノード: 待機 */}
+                        <div className="absolute left-1/2 top-[74px] -translate-x-1/2">
+                          <div className="w-[120px] rounded-lg border border-gray-200 bg-white shadow-sm">
+                            <div className="rounded-t-lg bg-gray-500 px-2 py-1 text-center text-[8px] font-bold text-white">⏱️ 待機</div>
+                            <div className="px-2 py-1.5 text-center text-[8px] text-gray-600">7日後</div>
+                          </div>
+                        </div>
+                        {/* 線 */}
+                        <div className="absolute left-1/2 top-[128px] h-5 w-px -translate-x-1/2 bg-gray-300" />
+                        {/* ノード: 条件分岐 */}
+                        <div className="absolute left-1/2 top-[145px] -translate-x-1/2">
+                          <div className="w-[120px] rounded-lg border border-yellow-200 bg-white shadow-sm">
+                            <div className="rounded-t-lg bg-yellow-500 px-2 py-1 text-center text-[8px] font-bold text-white">〰️ 条件分岐</div>
+                            <div className="px-2 py-1.5 text-center text-[8px] text-gray-600">予約あり？</div>
+                          </div>
+                        </div>
+                        {/* 分岐線 — True */}
+                        <div className="absolute left-[calc(50%-50px)] top-[200px] h-4 w-px bg-green-400" />
+                        <div className="absolute left-[calc(50%-70px)] top-[199px] h-px w-[20px] bg-green-400" />
+                        {/* 分岐線 — False */}
+                        <div className="absolute left-[calc(50%+50px)] top-[200px] h-4 w-px bg-red-400" />
+                        <div className="absolute left-[calc(50%+50px)] top-[199px] h-px w-[20px] bg-red-400" />
+                        {/* True ノード */}
+                        <div className="absolute left-[calc(50%-110px)] top-[214px]">
+                          <div className="w-[100px] rounded-lg border border-blue-200 bg-white shadow-sm">
+                            <div className="rounded-t-lg bg-blue-500 px-2 py-0.5 text-center text-[7px] font-bold text-white">📧 送信</div>
+                            <div className="px-1.5 py-1 text-center text-[7px] text-gray-600">来院お礼</div>
+                          </div>
+                          <div className="mt-0.5 text-center text-[7px] font-bold text-green-500">True</div>
+                        </div>
+                        {/* False ノード */}
+                        <div className="absolute left-[calc(50%+10px)] top-[214px]">
+                          <div className="w-[100px] rounded-lg border border-blue-200 bg-white shadow-sm">
+                            <div className="rounded-t-lg bg-blue-500 px-2 py-0.5 text-center text-[7px] font-bold text-white">📧 送信</div>
+                            <div className="px-1.5 py-1 text-center text-[7px] text-gray-600">予約リマインド</div>
+                          </div>
+                          <div className="mt-0.5 text-center text-[7px] font-bold text-red-500">False</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* 右 — 説明 */}
+                  <div className="flex flex-col justify-center p-8 md:w-1/2 md:order-2 bg-gradient-to-br from-blue-50/50 to-cyan-50/50">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 text-blue-600">{aiTechIcons.flow}</div>
+                      <span className="rounded-full px-2.5 py-0.5 text-[11px] font-bold bg-blue-100 text-blue-700">自動化</span>
+                    </div>
+                    <h3 className="mt-4 text-[18px] font-bold text-gray-900">{aiTechStack[3].title}</h3>
+                    <p className="mt-3 text-[14px] leading-relaxed text-gray-500">{aiTechStack[3].desc}</p>
+                    <ul className="mt-4 space-y-2">
+                      {aiTechStack[3].details.map((d) => (
+                        <li key={d} className="flex items-start gap-2 text-[13px] text-gray-600">
+                          <svg className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                          {d}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -720,25 +1025,250 @@ export default function AboutPage() {
             </h2>
 
             <div className="mt-12 space-y-14">
-              {featureGroups.map((group) => (
-                <div key={group.tag}>
-                  <div className="flex items-center gap-3">
-                    <span className={`rounded-full px-3 py-1 text-[11px] font-bold ring-1 ${group.tagColor}`}>{group.tag}</span>
-                    <h3 className="text-[16px] font-bold text-gray-900">{group.title}</h3>
+              {/* ── LINE運用 + セグメント配信モック ── */}
+              <div>
+                <div className="flex items-center gap-3">
+                  <span className={`rounded-full px-3 py-1 text-[11px] font-bold ring-1 ${featureGroups[0].tagColor}`}>{featureGroups[0].tag}</span>
+                  <h3 className="text-[16px] font-bold text-gray-900">{featureGroups[0].title}</h3>
+                </div>
+                {/* セグメント配信画面モック */}
+                <div className="mt-5 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                  <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
+                    <p className="text-[10px] font-bold text-gray-700">一斉配信 — セグメント条件設定</p>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-blue-50 px-2 py-0.5 text-[8px] font-bold text-blue-600">対象: 128人</span>
+                      <span className="rounded bg-[#06C755] px-2.5 py-0.5 text-[8px] font-bold text-white">テスト送信</span>
+                    </div>
                   </div>
-                  <div className="mt-5 grid gap-4 md:grid-cols-3">
-                    {group.features.map((f) => (
-                      <div key={f.name} className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-200/60 transition hover:ring-blue-200 hover:shadow-md hover:-translate-y-0.5">
-                        <div className="flex items-center gap-3">
-                          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-50 text-[16px]">{f.icon}</span>
-                          <p className="text-[14px] font-bold text-gray-900">{f.name}</p>
+                  <div className="flex flex-col md:flex-row">
+                    {/* 左: 配信条件 */}
+                    <div className="border-b border-gray-100 p-4 md:w-1/2 md:border-b-0 md:border-r">
+                      <p className="text-[9px] font-bold text-gray-500">含む条件</p>
+                      <div className="mt-2 space-y-1.5">
+                        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50/50 px-3 py-1.5">
+                          <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[8px] font-bold text-blue-700">タグ</span>
+                          <span className="text-[9px] text-gray-700">処方ずみ</span>
+                          <span className="ml-auto text-[8px] text-gray-400">×</span>
                         </div>
-                        <p className="mt-3 text-[13px] leading-relaxed text-gray-500">{f.desc}</p>
+                        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50/50 px-3 py-1.5">
+                          <span className="rounded bg-green-100 px-1.5 py-0.5 text-[8px] font-bold text-green-700">最終決済日</span>
+                          <span className="text-[9px] text-gray-700">30日以上前</span>
+                          <span className="ml-auto text-[8px] text-gray-400">×</span>
+                        </div>
+                        <button className="flex items-center gap-1 text-[8px] font-bold text-blue-600">＋ 条件を追加</button>
                       </div>
-                    ))}
+                      <p className="mt-3 text-[9px] font-bold text-gray-500">除外条件</p>
+                      <div className="mt-2">
+                        <div className="flex items-center gap-2 rounded-lg border border-red-100 bg-red-50/50 px-3 py-1.5">
+                          <span className="rounded bg-red-100 px-1.5 py-0.5 text-[8px] font-bold text-red-700">マーク</span>
+                          <span className="text-[9px] text-gray-700">不通</span>
+                          <span className="ml-auto text-[8px] text-gray-400">×</span>
+                        </div>
+                      </div>
+                    </div>
+                    {/* 右: メッセージプレビュー */}
+                    <div className="p-4 md:w-1/2">
+                      <p className="text-[9px] font-bold text-gray-500">メッセージ</p>
+                      <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 p-3 text-[9px] leading-relaxed text-gray-600">
+                        <p>{"{patient_name}"}様</p>
+                        <p className="mt-1">前回の処方から1ヶ月が経過しました。お体の調子はいかがですか？</p>
+                        <p className="mt-1">再処方をご希望の場合は、下記メニューからお手続きいただけます。</p>
+                      </div>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="rounded border border-gray-200 px-2 py-0.5 text-[8px] text-gray-400">{"{patient_name}"}</span>
+                        <span className="rounded border border-gray-200 px-2 py-0.5 text-[8px] text-gray-400">{"{phone}"}</span>
+                        <span className="ml-auto text-[8px] text-gray-400">48 / 500文字</span>
+                      </div>
+                      <div className="mt-3 flex items-center gap-2">
+                        <button className="flex items-center gap-1 rounded bg-purple-50 px-2 py-1 text-[8px] font-bold text-purple-600">
+                          <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                          AI文面生成
+                        </button>
+                        <span className="rounded border border-gray-200 px-2 py-1 text-[8px] text-gray-400">テンプレート</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              ))}
+                <div className="mt-5 grid gap-4 md:grid-cols-3">
+                  {featureGroups[0].features.map((f) => (
+                    <div key={f.name} className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-200/60 transition hover:ring-blue-200 hover:shadow-md hover:-translate-y-0.5">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-50 text-[16px]">{f.icon}</span>
+                        <p className="text-[14px] font-bold text-gray-900">{f.name}</p>
+                      </div>
+                      <p className="mt-3 text-[13px] leading-relaxed text-gray-500">{f.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── 業務管理 + 予約カレンダーモック ── */}
+              <div>
+                <div className="flex items-center gap-3">
+                  <span className={`rounded-full px-3 py-1 text-[11px] font-bold ring-1 ${featureGroups[1].tagColor}`}>{featureGroups[1].tag}</span>
+                  <h3 className="text-[16px] font-bold text-gray-900">{featureGroups[1].title}</h3>
+                </div>
+                {/* 予約カレンダーモック */}
+                <div className="mt-5 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                  <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
+                    <div className="flex items-center gap-3">
+                      <p className="text-[10px] font-bold text-gray-700">予約リスト</p>
+                      <div className="flex rounded-lg border border-gray-200 text-[8px]">
+                        <span className="rounded-l-lg bg-white px-2 py-0.5 font-medium text-gray-900 shadow-sm">スケジュール</span>
+                        <span className="rounded-r-lg px-2 py-0.5 text-gray-400">カレンダー</span>
+                      </div>
+                    </div>
+                    <span className="text-[9px] text-gray-500">2026年3月27日（金）</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[9px]">
+                      <thead>
+                        <tr className="bg-gray-50 text-gray-500">
+                          <th className="px-3 py-2 text-left font-medium">時間</th>
+                          <th className="px-3 py-2 text-left font-medium">患者名</th>
+                          <th className="px-3 py-2 text-left font-medium">予約メニュー</th>
+                          <th className="px-3 py-2 text-center font-medium">ステータス</th>
+                          <th className="px-3 py-2 text-center font-medium">対応</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        <tr className="bg-emerald-50/30">
+                          <td className="px-3 py-2 text-gray-700">10:00</td>
+                          <td className="px-3 py-2 font-bold text-gray-800">中村 あおい</td>
+                          <td className="px-3 py-2 text-gray-600">初診 — GLP-1相談</td>
+                          <td className="px-3 py-2 text-center"><span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[8px] font-bold text-emerald-700">診察済</span></td>
+                          <td className="px-3 py-2 text-center"><span className="text-blue-500">📋</span></td>
+                        </tr>
+                        <tr className="bg-emerald-50/30">
+                          <td className="px-3 py-2 text-gray-700">11:30</td>
+                          <td className="px-3 py-2 font-bold text-gray-800">小林 はな</td>
+                          <td className="px-3 py-2 text-gray-600">再診 — マンジャロ5mg</td>
+                          <td className="px-3 py-2 text-center"><span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[8px] font-bold text-emerald-700">診察済</span></td>
+                          <td className="px-3 py-2 text-center"><span className="text-blue-500">📋</span></td>
+                        </tr>
+                        <tr>
+                          <td className="px-3 py-2 text-gray-700">14:00</td>
+                          <td className="px-3 py-2 font-bold text-gray-800">加藤 りこ</td>
+                          <td className="px-3 py-2 text-gray-600">初診 — ダイエット外来</td>
+                          <td className="px-3 py-2 text-center"><span className="rounded bg-amber-100 px-1.5 py-0.5 text-[8px] font-bold text-amber-700">待機中</span></td>
+                          <td className="px-3 py-2 text-center"><span className="text-gray-400">—</span></td>
+                        </tr>
+                        <tr>
+                          <td className="px-3 py-2 text-gray-700">15:30</td>
+                          <td className="px-3 py-2 font-bold text-gray-800">吉田 める</td>
+                          <td className="px-3 py-2 text-gray-600">再診 — 経過フォロー</td>
+                          <td className="px-3 py-2 text-center"><span className="rounded bg-amber-100 px-1.5 py-0.5 text-[8px] font-bold text-amber-700">待機中</span></td>
+                          <td className="px-3 py-2 text-center"><span className="text-gray-400">—</span></td>
+                        </tr>
+                        <tr className="bg-rose-50/30">
+                          <td className="px-3 py-2 text-gray-700">16:45</td>
+                          <td className="px-3 py-2 font-bold text-gray-800">松本 ゆい</td>
+                          <td className="px-3 py-2 text-gray-600">再診 — マンジャロ7.5mg</td>
+                          <td className="px-3 py-2 text-center"><span className="rounded bg-gray-100 px-1.5 py-0.5 text-[8px] font-bold text-gray-500">不通</span></td>
+                          <td className="px-3 py-2 text-center"><span className="text-red-400">📞</span></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div className="mt-5 grid gap-4 md:grid-cols-3">
+                  {featureGroups[1].features.map((f) => (
+                    <div key={f.name} className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-200/60 transition hover:ring-blue-200 hover:shadow-md hover:-translate-y-0.5">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-50 text-[16px]">{f.icon}</span>
+                        <p className="text-[14px] font-bold text-gray-900">{f.name}</p>
+                      </div>
+                      <p className="mt-3 text-[13px] leading-relaxed text-gray-500">{f.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── 分析 + ダッシュボードモック ── */}
+              <div>
+                <div className="flex items-center gap-3">
+                  <span className={`rounded-full px-3 py-1 text-[11px] font-bold ring-1 ${featureGroups[2].tagColor}`}>{featureGroups[2].tag}</span>
+                  <h3 className="text-[16px] font-bold text-gray-900">{featureGroups[2].title}</h3>
+                </div>
+                {/* ダッシュボードモック */}
+                <div className="mt-5 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                  <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
+                    <p className="text-[10px] font-bold text-gray-700">ダッシュボード</p>
+                    <div className="flex items-center gap-2 text-[8px] text-gray-500">
+                      <span>2026/03/01</span>
+                      <span>〜</span>
+                      <span>2026/03/27</span>
+                    </div>
+                  </div>
+                  {/* KPIカード群 */}
+                  <div className="grid grid-cols-2 gap-3 p-4 md:grid-cols-4">
+                    <div className="rounded-lg bg-blue-50/60 p-3 ring-1 ring-blue-100/60">
+                      <p className="text-[8px] text-blue-500">📅 予約件数</p>
+                      <p className="mt-1 text-[20px] font-extrabold text-gray-900">142</p>
+                      <p className="text-[8px] text-gray-400">診察済 128 / 未診察 14</p>
+                    </div>
+                    <div className="rounded-lg bg-green-50/60 p-3 ring-1 ring-green-100/60">
+                      <p className="text-[8px] text-green-500">📦 配送件数</p>
+                      <p className="mt-1 text-[20px] font-extrabold text-gray-900">98</p>
+                      <p className="text-[8px] text-gray-400">新規 67 / 再処方 31</p>
+                    </div>
+                    <div className="rounded-lg bg-purple-50/60 p-3 ring-1 ring-purple-100/60">
+                      <p className="text-[8px] text-purple-500">💰 純売上</p>
+                      <p className="mt-1 text-[20px] font-extrabold text-gray-900">¥3.2<span className="text-[12px]">M</span></p>
+                      <p className="text-[8px] text-gray-400">カード ¥2.4M / 振込 ¥0.8M</p>
+                    </div>
+                    <div className="rounded-lg bg-orange-50/60 p-3 ring-1 ring-orange-100/60">
+                      <p className="text-[8px] text-orange-500">🔄 リピート率</p>
+                      <p className="mt-1 text-[20px] font-extrabold text-gray-900">68<span className="text-[12px]">%</span></p>
+                      <p className="text-[8px] text-gray-400">総患者 210 / 新規 67</p>
+                    </div>
+                  </div>
+                  {/* コンバージョンファネル */}
+                  <div className="border-t border-gray-100 p-4">
+                    <p className="text-[9px] font-bold text-gray-500">コンバージョン</p>
+                    <div className="mt-2 grid grid-cols-3 gap-3">
+                      <div>
+                        <div className="flex items-center justify-between text-[8px]">
+                          <span className="text-gray-500">診療後決済率</span>
+                          <span className="font-bold text-blue-600">87%</span>
+                        </div>
+                        <div className="mt-1 h-2 w-full rounded-full bg-gray-100">
+                          <div className="h-2 rounded-full bg-blue-500" style={{ width: "87%" }} />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between text-[8px]">
+                          <span className="text-gray-500">問診後予約率</span>
+                          <span className="font-bold text-green-600">72%</span>
+                        </div>
+                        <div className="mt-1 h-2 w-full rounded-full bg-gray-100">
+                          <div className="h-2 rounded-full bg-green-500" style={{ width: "72%" }} />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between text-[8px]">
+                          <span className="text-gray-500">予約後受診率</span>
+                          <span className="font-bold text-purple-600">91%</span>
+                        </div>
+                        <div className="mt-1 h-2 w-full rounded-full bg-gray-100">
+                          <div className="h-2 rounded-full bg-purple-500" style={{ width: "91%" }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-5 grid gap-4 md:grid-cols-3">
+                  {featureGroups[2].features.map((f) => (
+                    <div key={f.name} className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-200/60 transition hover:ring-blue-200 hover:shadow-md hover:-translate-y-0.5">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-50 text-[16px]">{f.icon}</span>
+                        <p className="text-[14px] font-bold text-gray-900">{f.name}</p>
+                      </div>
+                      <p className="mt-3 text-[13px] leading-relaxed text-gray-500">{f.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="mt-10 text-center">
