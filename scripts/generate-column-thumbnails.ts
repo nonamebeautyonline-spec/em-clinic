@@ -371,34 +371,35 @@ function buildOverlaySvg(
   let textAnchor: string;
 
   // テキスト全体の高さ（バッジ + 間隔 + タイトル行）
-  const totalTextH = 32 + 46 + titleLines.length * lineHeight;
+  const totalTextH = 56 + 44 + titleLines.length * lineHeight;
   const maxContentH = H - contentTop - 30; // 上下余白を確保
 
   switch (layout) {
     case "left-bottom":
       badgeX = PADDING; badgeY = Math.max(contentTop + 10, H - 30 - totalTextH);
-      titleX = PADDING; titleStartY = badgeY + 78;
+      titleX = PADDING; titleStartY = badgeY + 100;
       descX = PADDING; descY = titleStartY + titleLines.length * lineHeight + 16;
       textAnchor = "start";
       break;
     case "left-top":
       badgeX = PADDING; badgeY = contentTop + 20;
-      titleX = PADDING; titleStartY = badgeY + 78;
+      titleX = PADDING; titleStartY = badgeY + 100;
       descX = PADDING; descY = titleStartY + titleLines.length * lineHeight + 16;
       textAnchor = "start";
       break;
     case "center":
     default:
       badgeX = W / 2; badgeY = Math.max(contentTop + 10, H / 2 - totalTextH / 2);
-      titleX = W / 2; titleStartY = badgeY + 78;
+      titleX = W / 2; titleStartY = badgeY + 100;
       descX = W / 2; descY = titleStartY + titleLines.length * lineHeight + 16;
       textAnchor = "middle";
       break;
   }
 
-  // バッジ幅の計算
+  // バッジ幅の計算（2倍サイズ）
   const badgeTextLen = article.category.length;
-  const badgeW = badgeTextLen * 16 + 32;
+  const badgeW = badgeTextLen * 30 + 48;
+  const badgeH = 56;
   const badgeRx = badgeX - (textAnchor === "middle" ? badgeW / 2 : 0);
 
   const titleShadow = `style="filter: drop-shadow(0 4px 16px rgba(0,0,0,0.8)) drop-shadow(0 1px 4px rgba(0,0,0,0.5))"`;
@@ -416,9 +417,9 @@ function buildOverlaySvg(
   <!-- オーバーレイ -->
   <rect width="${W}" height="${H}" fill="${design.overlay}" />
 
-  <!-- カテゴリバッジ -->
-  <rect x="${badgeRx}" y="${badgeY - 20}" width="${badgeW}" height="32" rx="16" fill="${design.badgeBg}" />
-  <text x="${badgeRx + badgeW / 2}" y="${badgeY + 2}" text-anchor="middle" class="badge" font-size="14" fill="${design.badgeText}">${escXml(article.category)}</text>
+  <!-- カテゴリバッジ（2倍サイズ） -->
+  <rect x="${badgeRx}" y="${badgeY - 36}" width="${badgeW}" height="${badgeH}" rx="28" fill="${design.badgeBg}" />
+  <text x="${badgeRx + badgeW / 2}" y="${badgeY + 2}" text-anchor="middle" class="badge" font-size="28" fill="${design.badgeText}">${escXml(article.category)}</text>
 
   <!-- タイトル（パート1: メインカラー / パート2: アクセントカラー） -->
   <g ${titleShadow}>
