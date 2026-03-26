@@ -265,6 +265,7 @@ export default function BankTransferReconcilePage() {
       setSelectedMismatches(new Set());
       setSelectedSplits(new Set());
       loadPendingOrders();
+      loadStatements(stmtFilter);
     } catch (err) {
       console.error("Confirm error:", err);
       setError(err instanceof Error ? err.message : "照合確定に失敗しました");
