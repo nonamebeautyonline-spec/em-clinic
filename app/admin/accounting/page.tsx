@@ -269,6 +269,97 @@ export default function AccountingPage() {
         </div>
       </div>
 
+      {/* カスタムサマリー — ダッシュボード風 */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center justify-between mb-4 border-b pb-2">
+          <h2 className="text-lg font-bold text-slate-900">カスタムサマリー</h2>
+          <span className="text-xs text-slate-400">{selectedMonth} / {selectedDate}</span>
+        </div>
+
+        {/* KPIカード（ダッシュボード風 — 左ボーダー付き） */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+          <div className="bg-white rounded-lg shadow-sm p-5 border-l-4 border-blue-500 bg-blue-50/30">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium text-slate-600">月間決済数</div>
+              <div className="text-xl">💳</div>
+            </div>
+            <div className="text-2xl font-bold text-slate-900">{dailySummary.totalCount.toLocaleString()}<span className="text-sm font-normal text-slate-400 ml-1">件</span></div>
+            <div className="text-xs text-slate-500 mt-1">カード {dailySummary.totalSquareCount} / 振込 {dailySummary.totalBankCount}</div>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-5 border-l-4 border-purple-500 bg-purple-50/30">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium text-slate-600">月間純売上</div>
+              <div className="text-xl">💰</div>
+            </div>
+            <div className="text-2xl font-bold text-slate-900">¥{dailySummary.totalNet.toLocaleString()}</div>
+            <div className="text-xs text-slate-500 mt-1">粗利 ¥{(dailySummary.totalSquare + dailySummary.totalBank).toLocaleString()} - 返金 ¥{dailySummary.totalRefund.toLocaleString()}</div>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-5 border-l-4 border-orange-500 bg-orange-50/30">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium text-slate-600">顧客単価</div>
+              <div className="text-xl">📊</div>
+            </div>
+            <div className="text-2xl font-bold text-slate-900">¥{dailySummary.avgOrderValue.toLocaleString()}</div>
+            <div className="text-xs text-slate-500 mt-1">月間平均</div>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-5 border-l-4 border-green-500 bg-green-50/30">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium text-slate-600">日別売上</div>
+              <div className="text-xl">📅</div>
+            </div>
+            <div className="text-2xl font-bold text-slate-900">¥{todaySummary.totalNet.toLocaleString()}</div>
+            <div className="text-xs text-slate-500 mt-1">{selectedDate} 分</div>
+          </div>
+        </div>
+
+        {/* 転換率カード（ダッシュボード風 — グラデーション背景） */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
+          {(() => {
+            const totalFirst = dailyData.reduce((s, d) => s + d.firstCount, 0);
+            const totalReorder = dailyData.reduce((s, d) => s + d.reorderCount, 0);
+            const totalOrders = totalFirst + totalReorder;
+            const reorderRate = totalOrders > 0 ? Math.round((totalReorder / totalOrders) * 100) : 0;
+            const cardRate = dailySummary.totalCount > 0 ? Math.round((dailySummary.totalSquareCount / dailySummary.totalCount) * 100) : 0;
+            const avgDailyRevenue = dailyData.length > 0 ? Math.round(dailySummary.totalNet / dailyData.filter(d => d.total > 0).length || 1) : 0;
+            return (
+              <>
+                <div className="bg-gradient-to-br from-white to-slate-50 rounded-lg shadow-sm p-5 border border-slate-200">
+                  <div className="text-sm font-medium text-slate-600 mb-2">再処方比率</div>
+                  <div className={`text-3xl font-bold mb-1 ${reorderRate >= 60 ? "text-green-600" : reorderRate >= 40 ? "text-yellow-600" : "text-red-600"}`}>{reorderRate}%</div>
+                  <div className="text-xs text-slate-500">新規 {totalFirst}件 / 再処方 {totalReorder}件</div>
+                </div>
+                <div className="bg-gradient-to-br from-white to-slate-50 rounded-lg shadow-sm p-5 border border-slate-200">
+                  <div className="text-sm font-medium text-slate-600 mb-2">カード決済比率</div>
+                  <div className={`text-3xl font-bold mb-1 ${cardRate >= 80 ? "text-green-600" : cardRate >= 50 ? "text-yellow-600" : "text-red-600"}`}>{cardRate}%</div>
+                  <div className="text-xs text-slate-500">カード {dailySummary.totalSquareCount} / 振込 {dailySummary.totalBankCount}</div>
+                </div>
+                <div className="bg-gradient-to-br from-white to-slate-50 rounded-lg shadow-sm p-5 border border-slate-200">
+                  <div className="text-sm font-medium text-slate-600 mb-2">日平均売上</div>
+                  <div className="text-3xl font-bold mb-1 text-blue-600">¥{avgDailyRevenue.toLocaleString()}</div>
+                  <div className="text-xs text-slate-500">稼働日ベース</div>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+
+        {/* ミニ統計行 */}
+        <div className="space-y-2">
+          {[
+            { label: "月間カード決済額", value: `¥${dailySummary.totalSquare.toLocaleString()}`, highlight: undefined as string | undefined },
+            { label: "月間振込額", value: `¥${dailySummary.totalBank.toLocaleString()}`, highlight: undefined as string | undefined },
+            { label: "月間返金額", value: `-¥${dailySummary.totalRefund.toLocaleString()}`, highlight: dailySummary.totalRefund > 0 ? "red" as const : undefined },
+            { label: "当日カード決済", value: `¥${todaySummary.totalSquare.toLocaleString()} (${todaySummary.squareCount}件)`, highlight: undefined as string | undefined },
+            { label: "当日振込", value: `¥${todaySummary.totalBank.toLocaleString()} (${todaySummary.bankCount}件)`, highlight: undefined as string | undefined },
+          ].map((row) => (
+            <div key={row.label} className={`flex items-center justify-between p-3 rounded-lg ${row.highlight === "red" ? "bg-red-50" : "bg-slate-50"}`}>
+              <span className="text-sm text-slate-600">{row.label}</span>
+              <span className={`text-sm font-bold ${row.highlight === "red" ? "text-red-600" : "text-slate-900"}`}>{row.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* 日別売上グラフ */}
       <div className="bg-white rounded-lg shadow p-6 overflow-visible">
         <h2 className="text-lg font-bold text-slate-900 mb-4 border-b pb-2">日別売上</h2>
