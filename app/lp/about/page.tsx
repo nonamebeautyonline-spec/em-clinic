@@ -87,8 +87,8 @@ const aiTechStack = [
   {
     icon: "brain",
     badge: "RAG",
-    title: "RAG自動学習エンジン",
-    desc: "スタッフの修正や手動返信をAIが自動で学習。OpenAI Embeddingとpgvectorによるベクトル検索で、クリニック固有のナレッジベースを構築し、使い込むほど精度が向上します。",
+    title: "自動学習エンジン",
+    desc: "スタッフの修正や手動返信をAIが自動で学習。ベクトル検索で、クリニック固有のナレッジベースを構築し、使い込むほど精度が向上します。",
     details: [
       "スタッフの修正送信を自動で学習データ化",
       "手動返信もナレッジとして蓄積",
@@ -196,7 +196,7 @@ const philosophies = [
   {
     num: "03",
     title: "使うほど賢くなるプラットフォーム",
-    desc: "RAG自動学習エンジンにより、スタッフの対応がそのままAIの学習データに。クリニックごとの言い回し・対応方針をAIが自動で習得し、返信精度が日々向上します。",
+    desc: "自動学習エンジンにより、スタッフの対応がそのままAIの学習データに。クリニックごとの言い回し・対応方針をAIが自動で習得し、返信精度が日々向上します。",
   },
   {
     num: "04",
@@ -647,7 +647,7 @@ export default function AboutPage() {
               搭載AIテクノロジー
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-center text-[14px] text-gray-500">
-              Anthropic Claude・OpenAI Embedding・音声認識AIを組み合わせ、クリニック業務に最適化。汎用ツールにはない、医療現場のためのAI機能群です。
+              Anthropic Claude・音声認識AIなど最新AIを組み合わせ、クリニック業務に最適化。汎用ツールにはない、医療現場のためのAI機能群です。
             </p>
 
             <div className="mt-12 space-y-8">
