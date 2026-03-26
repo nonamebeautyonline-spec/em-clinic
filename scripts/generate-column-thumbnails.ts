@@ -361,8 +361,8 @@ function buildOverlaySvg(
 
   const lineHeight = titleFontSize * 1.35;
 
-  // ロゴ+ブランド名は左上固定（高さ60px確保）
-  const contentTop = 70;
+  // ロゴ+ブランド名は左上固定（高さ120px確保）
+  const contentTop = 130;
 
   // レイアウト別の座標
   let badgeX: number, badgeY: number;
@@ -433,7 +433,7 @@ function buildOverlaySvg(
   </g>
 
   <!-- ブランド名（左上） -->
-  <text x="68" y="40" text-anchor="start" class="badge" font-size="18" fill="${design.titleColor}" opacity="0.9">Lオペ for CLINIC</text>
+  <text x="120" y="72" text-anchor="start" class="badge" font-size="45" fill="${design.titleColor}" opacity="0.9">Lオペ for CLINIC</text>
 </svg>`;
 }
 
@@ -655,10 +655,10 @@ async function composeThumbnail(
 
   const layers: sharp.OverlayOptions[] = [{ input: svgBuffer, top: 0, left: 0 }];
 
-  // ロゴアイコン（左上・角丸）
+  // ロゴアイコン（左上・角丸）— 2.5倍サイズ
   if (hasLogo) {
-    const size = 32;
-    const radius = 8;
+    const size = 80;
+    const radius = 20;
     const rawLogo = await sharp(LOGO_PATH).resize(size, size, { fit: "cover" }).png().toBuffer();
     // 角丸マスク
     const roundedMask = Buffer.from(
@@ -668,7 +668,7 @@ async function composeThumbnail(
       .composite([{ input: roundedMask, blend: "dest-in" }])
       .png()
       .toBuffer();
-    layers.push({ input: logoBuffer, top: 20, left: 24 });
+    layers.push({ input: logoBuffer, top: 24, left: 24 });
   }
 
   return bg.composite(layers).png({ quality: 90 }).toBuffer();
