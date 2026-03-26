@@ -176,7 +176,7 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
 
       {/* ポップオーバー */}
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 w-[340px] bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
+        <div className="absolute left-0 top-full mt-1.5 w-[340px] bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
           {/* ヘッダー */}
           <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-3 py-2 flex items-center justify-between">
             <span className="text-white text-xs font-bold flex items-center gap-1.5">
