@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
+import { useState, useCallback } from "react";
 
 interface AiDraft {
   id: number;
@@ -18,9 +17,7 @@ interface AiDraft {
 
 interface AiReplyPopoverProps {
   patientId: string;
-  /** 既に返信済み（outgoingが最後）なら非表示 */
   hasUnrepliedIncoming: boolean;
-  /** 送信完了時にメッセージ一覧をリフレッシュ */
   onSent?: () => void;
 }
 
@@ -35,46 +32,6 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
   const [rejecting, setRejecting] = useState(false);
   const [done, setDone] = useState<"sent" | "rejected" | null>(null);
   const [error, setError] = useState("");
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
-  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
-
-  // ボタン位置からポップオーバー座標を計算
-  const updatePosition = useCallback(() => {
-    if (!buttonRef.current) return;
-    const rect = buttonRef.current.getBoundingClientRect();
-    const popoverW = 360;
-    // ボタンの下に表示、左寄せ（画面端に収まるよう調整）
-    let left = rect.left;
-    if (left + popoverW > window.innerWidth - 16) {
-      left = window.innerWidth - popoverW - 16;
-    }
-    if (left < 16) left = 16;
-    setPopoverPos({ top: rect.bottom + 6, left });
-  }, []);
-
-  // 外側クリックで閉じる
-  useEffect(() => {
-    if (!open) return;
-    updatePosition();
-    function handleClick(e: MouseEvent) {
-      if (
-        popoverRef.current && !popoverRef.current.contains(e.target as Node) &&
-        buttonRef.current && !buttonRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    }
-    function handleScroll() { updatePosition(); }
-    document.addEventListener("mousedown", handleClick);
-    window.addEventListener("scroll", handleScroll, true);
-    window.addEventListener("resize", updatePosition);
-    return () => {
-      document.removeEventListener("mousedown", handleClick);
-      window.removeEventListener("scroll", handleScroll, true);
-      window.removeEventListener("resize", updatePosition);
-    };
-  }, [open, updatePosition]);
 
   // ドラフト取得
   const fetchDraft = useCallback(async () => {
@@ -97,17 +54,12 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
     }
   }, [patientId]);
 
-  // ボタンクリック時
   const handleOpen = useCallback(() => {
-    if (open) {
-      setOpen(false);
-      return;
-    }
+    if (open) { setOpen(false); return; }
     setOpen(true);
     fetchDraft();
   }, [open, fetchDraft]);
 
-  // 送信
   const handleSend = async () => {
     if (!draft) return;
     setSending(true);
@@ -132,7 +84,6 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
     }
   };
 
-  // 却下
   const handleReject = async () => {
     if (!draft) return;
     setRejecting(true);
@@ -152,7 +103,6 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
     }
   };
 
-  // 再生成
   const handleRegenerate = async () => {
     if (!draft || !instruction.trim()) return;
     setRegenerating(true);
@@ -177,7 +127,6 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
     }
   };
 
-  // 未返信メッセージがない場合は非表示
   if (!hasUnrepliedIncoming) return null;
 
   const categoryLabel: Record<string, string> = {
@@ -188,10 +137,9 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
   };
 
   return (
-    <>
-      {/* AIボタン */}
+    <div>
+      {/* AIボタン（メッセージバブル右に表示される） */}
       <button
-        ref={buttonRef}
         onClick={handleOpen}
         className={`w-7 h-7 rounded-full flex items-center justify-center transition-all text-[11px] font-bold ${
           open
@@ -203,57 +151,49 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
         AI
       </button>
 
-      {/* ポップオーバー（portal で body 直下にレンダリング） */}
-      {open && createPortal(
-        <div
-          ref={popoverRef}
-          className="w-[360px] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden"
-          style={{ position: "fixed", top: popoverPos.top, left: popoverPos.left, zIndex: 9999 }}
-        >
+      {/* インライン展開カード（メッセージの下に表示） */}
+      {open && (
+        <div className="mt-2 ml-11 mr-4 bg-white rounded-xl shadow-sm border border-purple-200 overflow-hidden">
           {/* ヘッダー */}
-          <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-3 py-2 flex items-center justify-between">
-            <span className="text-white text-xs font-bold flex items-center gap-1.5">
-              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" /></svg>
+          <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-3 py-1.5 flex items-center justify-between">
+            <span className="text-white text-[11px] font-bold flex items-center gap-1.5">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" /></svg>
               AI返信案
             </span>
             <button onClick={() => setOpen(false)} className="text-white/70 hover:text-white transition-colors">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </div>
 
-          <div className="p-3">
+          <div className="p-2.5">
             {/* ローディング */}
             {loading && (
-              <div className="flex items-center justify-center py-6">
-                <div className="w-5 h-5 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
-                <span className="ml-2 text-xs text-gray-500">取得中...</span>
+              <div className="flex items-center justify-center py-4">
+                <div className="w-4 h-4 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
+                <span className="ml-2 text-[11px] text-gray-500">取得中...</span>
               </div>
             )}
 
             {/* ドラフトなし */}
             {!loading && !draft && !done && (
-              <div className="text-center py-4">
-                <div className="text-gray-400 text-xs">AI返信案はまだ生成されていません</div>
-                <div className="text-gray-300 text-[10px] mt-1">メッセージ受信後しばらくお待ちください</div>
+              <div className="text-center py-3">
+                <div className="text-gray-400 text-[11px]">AI返信案はまだ生成されていません</div>
+                <div className="text-gray-300 text-[10px] mt-0.5">メッセージ受信後しばらくお待ちください</div>
               </div>
             )}
 
             {/* 完了メッセージ */}
             {done && (
-              <div className="text-center py-4">
+              <div className="flex items-center justify-center gap-2 py-3">
                 {done === "sent" ? (
                   <>
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2">
-                      <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                    </div>
-                    <div className="text-green-600 text-xs font-medium">送信しました</div>
+                    <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    <span className="text-green-600 text-[11px] font-medium">送信しました</span>
                   </>
                 ) : (
                   <>
-                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-2">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </div>
-                    <div className="text-gray-500 text-xs font-medium">却下しました</div>
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    <span className="text-gray-500 text-[11px] font-medium">却下しました</span>
                   </>
                 )}
               </div>
@@ -263,7 +203,7 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
             {!loading && draft && !done && (
               <>
                 {/* カテゴリ・信頼度 */}
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-1.5">
                   <span className="text-[10px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded font-medium">
                     {categoryLabel[draft.ai_category] || draft.ai_category}
                   </span>
@@ -276,13 +216,24 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
                 <textarea
                   value={editedReply}
                   onChange={(e) => setEditedReply(e.target.value)}
-                  rows={4}
                   className="w-full text-[12px] leading-relaxed border border-gray-200 rounded-lg px-2.5 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-purple-300 focus:border-purple-300 bg-gray-50"
                   placeholder="AI返信案をここで編集できます"
+                  style={{ height: "auto", minHeight: "3rem" }}
+                  ref={(el) => {
+                    if (el) {
+                      el.style.height = "auto";
+                      el.style.height = el.scrollHeight + "px";
+                    }
+                  }}
+                  onInput={(e) => {
+                    const t = e.currentTarget;
+                    t.style.height = "auto";
+                    t.style.height = t.scrollHeight + "px";
+                  }}
                 />
 
                 {/* 修正指示入力 */}
-                <div className="mt-2 flex gap-1.5">
+                <div className="mt-1.5 flex gap-1.5">
                   <input
                     type="text"
                     value={instruction}
@@ -300,7 +251,7 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
                   <button
                     onClick={handleRegenerate}
                     disabled={!instruction.trim() || regenerating}
-                    className="text-[11px] bg-purple-50 text-purple-600 px-2.5 py-1.5 rounded-lg hover:bg-purple-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 flex-shrink-0"
+                    className="text-[11px] bg-purple-50 text-purple-600 px-2 py-1.5 rounded-lg hover:bg-purple-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 flex-shrink-0"
                   >
                     {regenerating ? (
                       <div className="w-3 h-3 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
@@ -313,42 +264,41 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
 
                 {/* エラー */}
                 {error && (
-                  <div className="mt-2 text-[11px] text-red-500 bg-red-50 px-2 py-1 rounded">{error}</div>
+                  <div className="mt-1.5 text-[11px] text-red-500 bg-red-50 px-2 py-1 rounded">{error}</div>
                 )}
 
                 {/* アクションボタン */}
-                <div className="mt-3 flex items-center gap-2">
+                <div className="mt-2 flex items-center gap-2">
                   <button
                     onClick={handleSend}
                     disabled={sending || !editedReply.trim()}
-                    className="flex-1 text-[11px] bg-[#00B900] text-white py-2 rounded-lg font-medium hover:bg-[#00a000] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                    className="flex-1 text-[11px] bg-[#00B900] text-white py-1.5 rounded-lg font-medium hover:bg-[#00a000] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1"
                   >
                     {sending ? (
                       <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     ) : (
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
                     )}
                     {editedReply !== draft.draft_reply ? "修正して送信" : "このまま送信"}
                   </button>
                   <button
                     onClick={handleReject}
                     disabled={rejecting}
-                    className="text-[11px] text-gray-400 hover:text-red-500 py-2 px-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40"
-                    title="この返信案を却下"
+                    className="text-[11px] text-gray-400 hover:text-red-500 py-1.5 px-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40"
+                    title="却下"
                   >
                     {rejecting ? (
                       <div className="w-3 h-3 border-2 border-gray-200 border-t-gray-400 rounded-full animate-spin" />
                     ) : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     )}
                   </button>
                 </div>
               </>
             )}
           </div>
-        </div>,
-        document.body
+        </div>
       )}
-    </>
+    </div>
   );
 }
