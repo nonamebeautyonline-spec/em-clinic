@@ -172,6 +172,7 @@ export async function POST(req: NextRequest) {
               .from("bank_statements")
               .update({ reconciled: true, matched_order_id: nextBtId })
               .eq("transaction_date", transferDate)
+              .eq("description", match.transfer.description)
               .eq("deposit", match.transfer.amount)
               .eq("reconciled", false),
             tenantId
