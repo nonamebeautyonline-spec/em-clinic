@@ -199,7 +199,7 @@ export default function Page() {
         <h2 id="comparison" className="text-xl font-bold text-gray-800">保険料の比較と最適化 — 年間トータルコストで考える</h2>
 
         <p>
-          クリニックが加入すべき保険をすべて合計すると、<strong>年間30〜80万円</strong>程度の保険料になります。これは月額2.5〜6.7万円に相当し、固定費としては決して小さくない金額です。しかし、一度のリスク顕在化で数千万円の損害が生じることを考えれば、保険料は「安心を買うコスト」として合理的な投資です。
+          クリニックが加入すべき保険をすべて合計すると、<strong>年間30〜80万円</strong>程度の保険料になります。これは月額2.5〜6.7万円に相当し、固定費としては決して小さくない金額です。しかし、一度のリスク顕在化で数千万円の損害が生じることを考えれば、保険料は「安心を買うコスト」として合理的な投資です。開業時の保険加入は<Link href="/lp/column/clinic-opening-fund-guide" className="text-sky-600 underline hover:text-sky-800">開業資金の調達計画</Link>に組み込んで予算を確保しておきましょう。
         </p>
 
         <ComparisonTable
@@ -237,7 +237,7 @@ export default function Page() {
         </Callout>
 
         <p>
-          保険は「使わないのが最良」ですが、<strong>万が一のときに経営を守る最後の砦</strong>です。開業時に加入した保険をそのまま放置するのではなく、診療内容やDXの進展に合わせて定期的に見直しましょう。特にサイバー保険は、電子カルテやLINE連携を導入するクリニックにとって今後ますます重要性が高まる保険です。
+          保険は「使わないのが最良」ですが、<strong>万が一のときに経営を守る最後の砦</strong>です。開業時に加入した保険をそのまま放置するのではなく、診療内容やDXの進展に合わせて定期的に見直しましょう。特にサイバー保険は、電子カルテやLINE連携を導入するクリニックにとって今後ますます重要性が高まる保険です。万が一の風評被害が発生した場合の対処法は<Link href="/lp/column/clinic-reputation-crisis-management" className="text-sky-600 underline hover:text-sky-800">口コミ炎上対策ガイド</Link>で解説しています。
         </p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-6">関連記事</h3>

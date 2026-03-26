@@ -129,7 +129,7 @@ export default function Page() {
           sublabel="美容点滴1件あたり（中価格帯の目安）"
         />
 
-        <p>中価格帯を狙う場合、1件あたりの利益率は30%前後が目安です。ただし、コースメニュー（5回・10回コース）を設定して前払いを受ければ、キャッシュフローの改善と離脱率の低下を同時に実現できます。<Link href="/lp/column/self-pay-pricing-guide" className="text-emerald-700 underline">自費診療の価格設定ガイド</Link>も参考にしてください。</p>
+        <p>中価格帯を狙う場合、1件あたりの利益率は30%前後が目安です。ただし、コースメニュー（5回・10回コース）を設定して前払いを受ければ、キャッシュフローの改善と離脱率の低下を同時に実現できます。<Link href="/lp/column/self-pay-pricing-guide" className="text-emerald-700 underline">自費診療の価格設定ガイド</Link>や<Link href="/lp/column/self-pay-clinic-pricing-strategy" className="text-sky-600 underline hover:text-sky-800">自費クリニックの価格設定戦略</Link>も参考にしてください。</p>
       </section>
 
       {/* ── セクション4: メニュー構成の設計 ── */}
@@ -146,7 +146,7 @@ export default function Page() {
           { title: "内服セット追加", desc: "点滴と内服薬（トラネキサム酸等）の組み合わせでLTV最大化" },
         ]} />
 
-        <p>メニュー数は多すぎると患者が迷うため、点滴3〜4種・注射2〜3種・コースメニュー2〜3種の計10種類以内に絞ることを推奨します。メニュー表は「目的別」（美白・疲労回復・エイジングケア）で整理すると、患者が自分に合ったメニューを選びやすくなります。</p>
+        <p>メニュー数は多すぎると患者が迷うため、点滴3〜4種・注射2〜3種・コースメニュー2〜3種の計10種類以内に絞ることを推奨します。メニュー表は「目的別」（美白・疲労回復・エイジングケア）で整理すると、患者が自分に合ったメニューを選びやすくなります。点滴と内服薬を組み合わせたLTV最大化の設計は<Link href="/lp/column/beauty-oral-medicine-guide" className="text-sky-600 underline hover:text-sky-800">美容内服薬オンライン処方ガイド</Link>で詳しく解説しています。</p>
       </section>
 
       {/* ── セクション5: 施術オペレーションの効率化 ── */}
@@ -221,7 +221,7 @@ export default function Page() {
           description="粗利率82%。内服処方ストック60万円/月＋コース前受金80万円/月が安定基盤"
         />
 
-        <p>安定期には内服処方のストック収益とコース前受金が売上の3割以上を占め、新規患者の増減に左右されにくい収益構造が完成します。施術メニュー単体の収益性だけでなく、周辺売上を含めた<strong>トータルでの収益設計</strong>が重要です。</p>
+        <p>安定期には内服処方のストック収益とコース前受金が売上の3割以上を占め、新規患者の増減に左右されにくい収益構造が完成します。施術メニュー単体の収益性だけでなく、周辺売上を含めた<strong>トータルでの収益設計</strong>が重要です。エイジングケア点滴を含む総合メニュー設計については<Link href="/lp/column/anti-aging-clinic-menu-guide" className="text-sky-600 underline hover:text-sky-800">アンチエイジングクリニックのメニュー設計ガイド</Link>もあわせてご覧ください。</p>
       </section>
 
       {/* ── セクション8: まとめ ── */}

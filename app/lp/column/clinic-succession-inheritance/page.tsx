@@ -98,7 +98,7 @@ export default function Page() {
         <h2 id="personal-succession" className="text-xl font-bold text-gray-800">個人開業の承継 — 「廃院→新規開業」が原則</h2>
 
         <p>
-          個人開業のクリニックは<strong>「法人格がない」</strong>ため、院長個人の事業そのものを他者に引き継ぐことができません。法的には「現院長が廃院→後継者が新規開業」という手順を踏む必要があります。これは親族承継であっても同じです。保健所への廃止届・開設届、厚生局への保険医療機関の指定申請、各種契約の再締結が必要になります。
+          個人開業のクリニックは<strong>「法人格がない」</strong>ため、院長個人の事業そのものを他者に引き継ぐことができません。法的には「現院長が廃院→後継者が新規開業」という手順を踏む必要があります。これは親族承継であっても同じです。個人開業と医療法人の構造的な違いについては<Link href="/lp/column/medical-corporation-vs-individual-opening" className="text-sky-600 underline hover:text-sky-800">医療法人vs個人開業の比較</Link>で詳しく解説しています。保健所への廃止届・開設届、厚生局への保険医療機関の指定申請、各種契約の再締結が必要になります。
         </p>
 
         <p>
@@ -260,7 +260,7 @@ export default function Page() {
         </p>
 
         <p>
-          承継にあたっては、クリニックの業務フローがデジタル化・標準化されていることが大きなアドバンテージになります。LINEを活用した患者管理・予約・問診の仕組みが整っていれば、後継者への業務引継ぎがスムーズに進み、承継後の運営リスクを最小化できます。
+          承継時の税負担を軽減するには、早期からの<Link href="/lp/column/doctor-asset-management-tax" className="text-sky-600 underline hover:text-sky-800">資産運用と節税対策</Link>が不可欠です。承継にあたっては、クリニックの業務フローがデジタル化・標準化されていることが大きなアドバンテージになります。LINEを活用した患者管理・予約・問診の仕組みが整っていれば、後継者への業務引継ぎがスムーズに進み、承継後の運営リスクを最小化できます。
         </p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-6">関連記事</h3>

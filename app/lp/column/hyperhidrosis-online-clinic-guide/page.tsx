@@ -190,7 +190,7 @@ export default function Page() {
         ]} />
 
         <p>
-          多汗症は<strong>夏季に症状が悪化する季節性</strong>があるため、5〜6月に新規患者が集中する傾向があります。この時期にLINEでのセグメント配信を活用し、「多汗症の治療はオンラインで完結します」といったメッセージを配信することで、新規集患を効率化できます。オンライン診療の法的枠組みについては<Link href="/lp/column/online-clinic-regulations" className="text-sky-600 underline hover:text-sky-800">オンライン診療の制度と規制ガイド</Link>で詳しく解説しています。
+          多汗症は<strong>夏季に症状が悪化する季節性</strong>があるため、5〜6月に新規患者が集中する傾向があります。この時期にLINEでのセグメント配信を活用し、「多汗症の治療はオンラインで完結します」といったメッセージを配信することで、新規集患を効率化できます。オンライン診療の法的枠組みについては<Link href="/lp/column/online-clinic-regulations" className="text-sky-600 underline hover:text-sky-800">オンライン診療の制度と規制ガイド</Link>で、初診・再診の使い分けについては<Link href="/lp/column/online-clinic-first-visit-revisit-rules" className="text-sky-600 underline hover:text-sky-800">初診・再診ルールの解説記事</Link>で詳しく解説しています。
         </p>
 
         <Callout type="info" title="処方日数の目安">
@@ -273,7 +273,7 @@ export default function Page() {
         />
 
         <p>
-          保険診療と自費を組み合わせた場合、管理患者50人で<strong>月間約40万円の収益</strong>が見込めます。多汗症は継続治療が基本であるため患者が積み上がりやすく、100人に到達すれば月間80万円超の安定収益となります。夏季は新規患者が増加する傾向があるため、<strong>季節変動を見越した予約枠とスタッフ体制の設計</strong>が重要です。オンライン診療全般の収益戦略は<Link href="/lp/column/self-pay-online-revenue-by-specialty" className="text-sky-600 underline hover:text-sky-800">診療科別オンライン自費収益ガイド</Link>で詳しく解説しています。
+          保険診療と自費を組み合わせた場合、管理患者50人で<strong>月間約40万円の収益</strong>が見込めます。多汗症は継続治療が基本であるため患者が積み上がりやすく、100人に到達すれば月間80万円超の安定収益となります。夏季は新規患者が増加する傾向があるため、<strong>季節変動を見越した予約枠とスタッフ体制の設計</strong>が重要です。オンライン診療全般の<Link href="/lp/column/online-clinic-pricing-breakdown" className="text-sky-600 underline hover:text-sky-800">料金相場と費用構造</Link>や収益戦略は<Link href="/lp/column/self-pay-online-revenue-by-specialty" className="text-sky-600 underline hover:text-sky-800">診療科別オンライン自費収益ガイド</Link>で詳しく解説しています。
         </p>
       </section>
 

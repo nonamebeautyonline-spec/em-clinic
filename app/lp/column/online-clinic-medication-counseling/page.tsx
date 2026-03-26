@@ -72,7 +72,7 @@ export default function Page() {
           { value: "翌日〜", unit: "2日", label: "薬剤配送の標準リードタイム" },
         ]} />
 
-        <p>この制度的な整備により、患者は自宅にいながら<strong>診察→処方→服薬指導→薬の受け取り</strong>をすべて完結できるようになりました。クリニック側にとっても、処方後の患者フォローを薬剤師と連携することで、治療継続率の向上が期待できます。</p>
+        <p>この制度的な整備により、患者は自宅にいながら<strong>診察→処方→服薬指導→薬の受け取り</strong>をすべて完結できるようになりました。具体的な<Link href="/lp/column/online-clinic-prescription-delivery-flow" className="text-sky-600 underline hover:text-sky-800">処方箋・配送フローの3パターンと選定基準</Link>も併せてご確認ください。クリニック側にとっても、処方後の患者フォローを薬剤師と連携することで、治療継続率の向上が期待できます。</p>
       </section>
 
       {/* ── セクション2: 実施要件 ── */}
@@ -106,7 +106,7 @@ export default function Page() {
 
         <p>このフローで重要なのは、<strong>ステップ間の待機時間を最小化</strong>することです。診察終了から服薬指導開始までの時間が長いと、患者の離脱リスクが高まります。理想的には診察終了後30分〜1時間以内に服薬指導を開始できる体制が望ましいでしょう。</p>
 
-        <p>電子処方箋の普及により、処方情報のリアルタイム共有が容易になっています。紙の処方箋を薬局に郵送する場合でも、事前にFAXで処方内容を共有しておくことで、配送までのリードタイムを短縮できます。</p>
+        <p><Link href="/lp/column/online-clinic-electronic-prescription" className="text-sky-600 underline hover:text-sky-800">電子処方箋</Link>の普及により、処方情報のリアルタイム共有が容易になっています。紙の処方箋を薬局に郵送する場合でも、事前にFAXで処方内容を共有しておくことで、配送までのリードタイムを短縮できます。</p>
       </section>
 
       <InlineCTA />

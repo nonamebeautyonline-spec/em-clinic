@@ -175,7 +175,7 @@ export default function Page() {
         ]} />
 
         <p>
-          アトピー性皮膚炎の<strong>画像評価のポイント</strong>は、照明条件の統一（自然光・同じ角度）、同一部位の経時的比較、スケール（定規等）の併置です。患者に「毎回同じ条件で撮影してください」と指導し、LINEで写真を提出してもらうことで、<strong>経時的な改善・増悪を正確に評価</strong>できます。
+          アトピー性皮膚炎の<strong>画像評価のポイント</strong>は、照明条件の統一（自然光・同じ角度）、同一部位の経時的比較、スケール（定規等）の併置です。患者に「毎回同じ条件で撮影してください」と指導し、LINEで写真を提出してもらうことで、<strong>経時的な改善・増悪を正確に評価</strong>できます。オンライン診療における<Link href="/lp/column/online-clinic-medical-record-guide" className="text-sky-600 underline hover:text-sky-800">カルテ記載のポイント</Link>も併せて確認しておくとよいでしょう。
         </p>
       </section>
 

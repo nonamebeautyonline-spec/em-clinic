@@ -69,7 +69,7 @@ export default function Page() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
-        月経のある女性の約70〜80%が何らかのPMS（月経前症候群）症状を経験し、月経困難症は約25%の女性に影響を与えています。にもかかわらず、<strong>「生理痛は我慢するもの」という社会的通念</strong>から受診率は低く、適切な治療を受けていない患者が多数存在します。2020年のオンライン診療恒久化により、<strong>ピルの継続処方がオンラインで完結</strong>できるようになり、働く女性や通院が困難な患者にとって大きな福音となっています。本記事では、低用量ピル・漢方薬の使い分け、保険適用LEPと自費OCの違い、そして<strong>Lオペ for CLINICによるLINE問診・服薬フォロー・継続処方リマインドの自動化</strong>まで徹底解説します。
+        月経のある女性の約70〜80%が何らかのPMS（月経前症候群）症状を経験し、月経困難症は約25%の女性に影響を与えています。にもかかわらず、<strong>「生理痛は我慢するもの」という社会的通念</strong>から受診率は低く、適切な治療を受けていない患者が多数存在します。2020年のオンライン診療恒久化により、<strong>ピルの継続処方がオンラインで完結</strong>できるようになり、働く女性や通院が困難な患者にとって大きな福音となっています。PMS・月経困難症はオンライン診療と<Link href="/lp/column/femtech-clinic-online-strategy" className="text-sky-600 underline hover:text-sky-800">フェムテック戦略</Link>の重要な柱です。本記事では、低用量ピル・漢方薬の使い分け、保険適用LEPと自費OCの違い、そして<strong>Lオペ for CLINICによるLINE問診・服薬フォロー・継続処方リマインドの自動化</strong>まで徹底解説します。
       </p>
 
       {/* ── セクション1: 疾患概要 ── */}
@@ -146,7 +146,7 @@ export default function Page() {
         />
 
         <p>
-          漢方薬はピルが使用できない患者（喫煙者・35歳以上でBMI30以上・血栓リスクが高い方・授乳中など）にとって<strong>重要な代替選択肢</strong>です。また、ピルとの併用も可能であり、ピルで月経痛をコントロールしつつ漢方薬でPMS症状を緩和する組み合わせも有効です。漢方薬はすべて保険適用があるため、<strong>患者負担を抑えた長期処方が可能</strong>です。
+          漢方薬はピルが使用できない患者（喫煙者・35歳以上でBMI30以上・血栓リスクが高い方・授乳中など）にとって<strong>重要な代替選択肢</strong>です。また、ピルとの併用も可能であり、ピルで月経痛をコントロールしつつ漢方薬でPMS症状を緩和する組み合わせも有効です。漢方薬はすべて保険適用があるため、<strong>患者負担を抑えた長期処方が可能</strong>です。ピルの種類ごとの特徴については<Link href="/lp/column/pill-types-comparison" className="text-sky-600 underline hover:text-sky-800">ピル比較ガイド</Link>で詳しく整理しています。
         </p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">NSAIDs（鎮痛薬）の位置づけ</h3>

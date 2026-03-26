@@ -91,7 +91,7 @@ export default function Page() {
         <h2 id="cost-structure" className="text-xl font-bold text-gray-800">自費クリニックのコスト構造 — 固定費と変動費を分解する</h2>
 
         <p>
-          収支管理の第一歩は<strong>すべてのコストを「固定費」と「変動費」に分類する</strong>ことです。固定費は患者数に関わらず毎月発生するコスト（家賃・人件費・設備リース・ツール月額等）、変動費は患者数に比例して増減するコスト（薬剤費・材料費・決済手数料等）です。クリニックのコストのうち固定費が70〜80%を占めるため、固定費の管理が経営の生命線です。
+          収支管理の第一歩は<strong>すべてのコストを「固定費」と「変動費」に分類する</strong>ことです。固定費は患者数に関わらず毎月発生するコスト（家賃・人件費・設備リース・ツール月額等）、変動費は患者数に比例して増減するコスト（薬剤費・材料費・決済手数料等）です。クリニックのコストのうち固定費が70〜80%を占めるため、固定費の管理が経営の生命線です。なかでも最大の固定費項目である人件費の最適化は<Link href="/lp/column/clinic-labor-cost-optimization" className="text-sky-600 underline hover:text-sky-800">人件費最適化ガイド</Link>で詳しく解説しています。
         </p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">自費クリニックのコスト内訳例（月間売上500万円）</h3>
@@ -144,7 +144,7 @@ export default function Page() {
         />
 
         <p>
-          上の表から分かるように、<strong>固定費を10%削減すると損益分岐点が21人減少</strong>し、<strong>客単価を25%上げると42人減少</strong>します。経営改善のレバーとして「客単価の向上」が最もインパクトが大きいことが数字で明確になります。
+          上の表から分かるように、<strong>固定費を10%削減すると損益分岐点が21人減少</strong>し、<strong>客単価を25%上げると42人減少</strong>します。経営改善のレバーとして「客単価の向上」が最もインパクトが大きいことが数字で明確になります。客単価の設計手法については<Link href="/lp/column/self-pay-clinic-pricing-strategy" className="text-sky-600 underline hover:text-sky-800">自費クリニックの価格設定戦略</Link>も参考にしてください。
         </p>
 
         <Callout type="info" title="損益分岐点は「安全余裕率」とセットで使う">
@@ -260,7 +260,7 @@ export default function Page() {
         </Callout>
 
         <p>
-          自費クリニックの経営は「なんとなく黒字」では不十分です。<strong>いくらで黒字になるか、何人の患者で黒字になるか</strong>を常に数字で把握し、月次でモニタリングする仕組みを構築しましょう。数字に基づく経営判断は、感覚経営よりもはるかに精度が高く、再現性があります。
+          自費クリニックの経営は「なんとなく黒字」では不十分です。<strong>いくらで黒字になるか、何人の患者で黒字になるか</strong>を常に数字で把握し、月次でモニタリングする仕組みを構築しましょう。数字に基づく経営判断は、感覚経営よりもはるかに精度が高く、再現性があります。開業初期の資金計画と合わせて管理したい方は<Link href="/lp/column/clinic-opening-fund-guide" className="text-sky-600 underline hover:text-sky-800">開業資金の調達方法</Link>もあわせてご覧ください。
         </p>
 
         <p>

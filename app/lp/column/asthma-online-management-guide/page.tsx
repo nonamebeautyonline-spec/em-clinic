@@ -101,7 +101,7 @@ export default function Page() {
         ]} />
 
         <p>
-          喘息管理で重要なのは<strong>ACT（Asthma Control Test）</strong>を用いたコントロール状態の定期評価です。ACTは5つの質問（日中症状・活動制限・夜間覚醒・発作治療薬使用・自己評価）に各1〜5点で回答し、合計25点満点で評価します。<strong>20点以上が良好コントロール、19点以下がコントロール不良</strong>と判定します。ACTは自己記入式であるため、オンライン問診で簡便に実施可能です。
+          喘息管理で重要なのは<strong>ACT（Asthma Control Test）</strong>を用いたコントロール状態の定期評価です。ACTは5つの質問（日中症状・活動制限・夜間覚醒・発作治療薬使用・自己評価）に各1〜5点で回答し、合計25点満点で評価します。<strong>20点以上が良好コントロール、19点以下がコントロール不良</strong>と判定します。ACTは自己記入式であるため、オンライン問診で簡便に実施可能です。喘息を含む<Link href="/lp/column/lifestyle-disease-online-management" className="text-sky-600 underline hover:text-sky-800">慢性疾患のオンライン管理</Link>では、こうした定量的な評価指標の活用が鍵となります。
         </p>
 
         <Callout type="warning" title="オンライン診療の限界 — 対面が必要なケース">
@@ -241,7 +241,7 @@ export default function Page() {
         />
 
         <p>
-          管理患者60人の場合、<strong>月間約45万円の収益</strong>が見込めます。喘息は特定疾患療養管理料（情報通信機器：100点）が算定可能であるため、再診料に上乗せした診療報酬が得られます。患者数が100人に達すれば月間約73万円となり、<strong>安定した経営基盤</strong>を構築できます。花粉症のオンライン診療と組み合わせれば、<Link href="/lp/column/hay-fever-online-clinic-lope" className="text-sky-600 underline hover:text-sky-800">アレルギー疾患全体でより広い患者層をカバー</Link>できます。
+          管理患者60人の場合、<strong>月間約45万円の収益</strong>が見込めます。喘息は特定疾患療養管理料（情報通信機器：100点）が算定可能であるため、再診料に上乗せした診療報酬が得られます。患者数が100人に達すれば月間約73万円となり、<strong>安定した経営基盤</strong>を構築できます。花粉症のオンライン診療と組み合わせれば、<Link href="/lp/column/hay-fever-online-clinic-lope" className="text-sky-600 underline hover:text-sky-800">アレルギー疾患全体でより広い患者層をカバー</Link>できます。オンライン診療全般の<Link href="/lp/column/online-clinic-pricing-breakdown" className="text-sky-600 underline hover:text-sky-800">料金相場と費用構造</Link>も参考にしてください。
         </p>
       </section>
 

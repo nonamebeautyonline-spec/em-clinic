@@ -145,7 +145,7 @@ export default function Page() {
         />
 
         <p>
-          PIT療法の最大のメリットは、<strong>再発の度に受診する必要がなくなる</strong>ことです。手元に薬があるため、前兆を感じた瞬間に服用を開始でき、治療開始の遅れを最小限に抑えられます。患者の満足度が非常に高く、「再発への不安が軽減された」という声が多いのも特徴です。ファムシクロビルのPIT療法は<strong>1日完結（1000mg×2回を1日のみ）</strong>で済むため、服薬アドヒアランスの面でも優れています。
+          PIT療法の最大のメリットは、<strong>再発の度に受診する必要がなくなる</strong>ことです。手元に薬があるため、前兆を感じた瞬間に服用を開始でき、治療開始の遅れを最小限に抑えられます。患者の満足度が非常に高く、「再発への不安が軽減された」という声が多いのも特徴です。ファムシクロビルのPIT療法は<strong>1日完結（1000mg×2回を1日のみ）</strong>で済むため、服薬アドヒアランスの面でも優れています。なお、PIT療法の導入にあたっては<Link href="/lp/column/online-clinic-consent-form-guide" className="text-sky-600 underline hover:text-sky-800">オンライン診療の同意書ガイド</Link>を参考に、適切な同意取得プロセスを整備してください。
         </p>
       </section>
 
@@ -154,7 +154,7 @@ export default function Page() {
         <h2 id="online-flow" className="text-xl font-bold text-gray-800">オンライン診療でのPIT導入フロー</h2>
 
         <p>
-          PIT療法はオンライン診療との親和性が極めて高い治療法です。初回のPIT説明と処方をオンラインで行い、薬を患者の手元に届けておけば、<strong>以後の再発は患者自身で対応</strong>できます。定期的なオンラインフォローで残薬確認・追加処方を行う運用フローが合理的です。
+          PIT療法はオンライン診療との親和性が極めて高い治療法です。初回のPIT説明と処方をオンラインで行い、薬を患者の手元に届けておけば、<strong>以後の再発は患者自身で対応</strong>できます。定期的なオンラインフォローで残薬確認・追加処方を行う運用フローが合理的です。皮膚科領域のLINE活用については<Link href="/lp/column/dermatology-clinic-line" className="text-sky-600 underline hover:text-sky-800">皮膚科クリニックのLINE活用ガイド</Link>も参考にしてください。
         </p>
 
         <FlowSteps steps={[
