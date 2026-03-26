@@ -13,6 +13,11 @@ const categoryStyles: Record<string, { pill: string }> = {
   ガイド:         { pill: "bg-indigo-50 text-indigo-600 ring-indigo-200/50" },
   業務改善:       { pill: "bg-sky-50 text-sky-600 ring-sky-200/50" },
   マーケティング: { pill: "bg-purple-50 text-purple-600 ring-purple-200/50" },
+  経営戦略:       { pill: "bg-rose-50 text-rose-600 ring-rose-200/50" },
+  運営ノウハウ:   { pill: "bg-amber-50 text-amber-600 ring-amber-200/50" },
+  "開業・経営":   { pill: "bg-cyan-50 text-cyan-600 ring-cyan-200/50" },
+  エビデンス解説: { pill: "bg-emerald-50 text-emerald-600 ring-emerald-200/50" },
+  収益モデル:     { pill: "bg-orange-50 text-orange-600 ring-orange-200/50" },
 };
 
 const allCategories = ["すべて", ...Array.from(new Set(articles.map((a) => a.category)))];

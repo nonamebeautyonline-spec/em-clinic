@@ -13,6 +13,11 @@ const categoryStyles: Record<string, string> = {
   ガイド: "bg-indigo-50 text-indigo-600 ring-indigo-200/50",
   業務改善: "bg-sky-50 text-sky-600 ring-sky-200/50",
   マーケティング: "bg-purple-50 text-purple-600 ring-purple-200/50",
+  経営戦略: "bg-rose-50 text-rose-600 ring-rose-200/50",
+  運営ノウハウ: "bg-amber-50 text-amber-600 ring-amber-200/50",
+  "開業・経営": "bg-cyan-50 text-cyan-600 ring-cyan-200/50",
+  エビデンス解説: "bg-emerald-50 text-emerald-600 ring-emerald-200/50",
+  収益モデル: "bg-orange-50 text-orange-600 ring-orange-200/50",
 };
 
 /* ─── 静的生成パラメータ ─── */
