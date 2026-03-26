@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    記事サムネイル — marchスタイル
@@ -417,95 +418,75 @@ export default function ArticleThumbnail({ slug, title, category, size = "card",
   const meta = thumbMeta[slug] || { subtitle: "", ill: "phone-chat" };
   const theme = catTheme[category] || catTheme["ガイド"];
   const Illustration = illustrations[meta.ill] || IllPhoneChat;
+  const pngSrc = `/lp/column/thumbnails/${slug}.png`;
 
   const isHero = size === "hero";
   const isSm = size === "sm";
 
-  /* sm サイズ: 関連記事用の小さいサムネイル */
+  /* PNG画像がある場合: 全サイズで生成サムネイルを使用 */
+  return (
+    <div className={`relative overflow-hidden bg-gray-100 ${isHero ? "aspect-[1200/630]" : isSm ? "aspect-[4/3]" : "aspect-[1200/630]"}`}>
+      <Image
+        src={pngSrc}
+        alt={title}
+        fill
+        className="object-cover"
+        sizes={isHero ? "100vw" : isSm ? "200px" : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"}
+        onError={(e) => {
+          /* PNG未生成時: 非表示にして旧デザインにフォールバック */
+          (e.currentTarget as HTMLImageElement).style.display = "none";
+          const fallback = e.currentTarget.parentElement?.querySelector("[data-fallback]");
+          if (fallback) (fallback as HTMLElement).style.display = "block";
+        }}
+      />
+      {/* フォールバック: 旧SVGデザイン（PNG読み込み失敗時のみ表示） */}
+      <div data-fallback style={{ display: "none" }} className="absolute inset-0">
+        <ArticleThumbnailFallback
+          slug={slug} title={title} category={category}
+          size={size} hideTitle={hideTitle}
+          meta={meta} theme={theme} Illustration={Illustration}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* 旧SVGデザイン（フォールバック用） */
+function ArticleThumbnailFallback({ title, category, size, hideTitle, meta, theme, Illustration }: {
+  slug: string; title: string; category: string;
+  size?: "card" | "hero" | "sm"; hideTitle?: boolean;
+  meta: { subtitle: string; ill: string };
+  theme: { from: string; to: string; accent: string; label: string };
+  Illustration: () => React.ReactNode;
+}) {
+  const isHero = size === "hero";
+  const isSm = size === "sm";
+
   if (isSm) {
     return (
-      <div
-        className={`relative overflow-hidden bg-gradient-to-br ${theme.from} ${theme.to} aspect-[4/3] flex items-center justify-center`}
-      >
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -right-4 -top-4 h-12 w-12 rounded-full bg-white/20" />
-          <div className="absolute -left-3 bottom-0 h-8 w-8 rounded-full bg-white/15" />
-        </div>
-        <div className="relative z-10 h-[50px] w-[65px]">
-          <Illustration />
-        </div>
+      <div className={`h-full bg-gradient-to-br ${theme.from} ${theme.to} flex items-center justify-center`}>
+        <div className="h-[50px] w-[65px]"><Illustration /></div>
       </div>
     );
   }
 
   return (
-    <div
-      className={`relative overflow-hidden bg-gradient-to-br ${theme.from} ${theme.to} ${
-        isHero ? "px-8 py-10 md:px-14 md:py-14" : "px-5 py-5"
-      }`}
-    >
-      {/* 背景デコレーション（丸い形） */}
+    <div className={`h-full bg-gradient-to-br ${theme.from} ${theme.to} ${isHero ? "px-8 py-10 md:px-14 md:py-14" : "px-5 py-5"}`}>
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/20" />
         <div className="absolute -left-8 bottom-0 h-28 w-28 rounded-full bg-white/15" />
-        <div className="absolute right-1/4 bottom-4 h-16 w-16 rounded-full bg-white/10" />
       </div>
-
       <div className={`relative z-10 flex items-center ${isHero ? "gap-8" : "gap-4"}`}>
-        {/* 左: テキスト */}
         <div className="flex-1 min-w-0">
-          {/* ブランドロゴ（ヒーロー時のみ） */}
-          {isHero && (
-            <p className="mb-3 text-[13px] font-bold tracking-tight text-gray-400">
-              Lオペ <span className="text-blue-500">for CLINIC</span>
-            </p>
-          )}
-
-          {/* カテゴリラベル */}
           <div className="flex items-center gap-1.5">
             <MegaphoneIcon color={theme.accent} />
-            <span className={`rounded-sm px-1.5 py-0.5 text-[11px] font-bold ${theme.label}`}>
-              {category}
-            </span>
+            <span className={`rounded-sm px-1.5 py-0.5 text-[11px] font-bold ${theme.label}`}>{category}</span>
           </div>
-
-          {/* メインタイトル — 記事詳細(hero)ではh1、関連記事(sm等)ではh3 */}
           {!hideTitle && (
-            isHero ? (
-              <h1
-                className="mt-2 font-extrabold leading-snug tracking-tight text-gray-800 text-[22px] md:text-[30px]"
-              >
-                {title}
-              </h1>
-            ) : (
-              <h3
-                className="mt-2 font-extrabold leading-snug tracking-tight text-gray-800 text-[14px] md:text-[16px] line-clamp-3"
-              >
-                {title}
-              </h3>
-            )
-          )}
-
-          {/* サブタイトル */}
-          {meta.subtitle && !hideTitle && (
-            <p
-              className={`mt-1.5 text-gray-500 ${
-                isHero ? "text-[14px]" : "text-[11px] line-clamp-1"
-              }`}
-            >
-              {meta.subtitle}
-            </p>
+            <h3 className="mt-2 font-extrabold leading-snug tracking-tight text-gray-800 text-[14px] md:text-[16px] line-clamp-3">{title}</h3>
           )}
         </div>
-
-        {/* 右: イラスト */}
-        <div
-          className={`shrink-0 ${
-            isHero
-              ? "hidden h-[180px] w-[240px] md:block"
-              : "h-[100px] w-[130px] hidden sm:block"
-          }`}
-        >
+        <div className={`shrink-0 ${isHero ? "hidden h-[180px] w-[240px] md:block" : "h-[100px] w-[130px] hidden sm:block"}`}>
           <Illustration />
         </div>
       </div>

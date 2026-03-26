@@ -14,6 +14,22 @@
 - スクリプト: `node scripts/run-sql.js <sqlファイル>`
 - マイグレーション適用: memoryの `feedback_db_migration.md` 参照
 
+## コラム記事サムネイル画像生成
+- **新規記事追加時は必ずサムネイル画像も生成すること**
+- スクリプト: `npx tsx scripts/generate-column-thumbnails.ts`
+- 仕組み: Gemini Imagen 4.0 Fast API で背景画像生成 → Sharp + SVG でタイトルテキストをオーバーレイ
+- 出力先: `public/lp/column/thumbnails/{slug}.png`（1200×630px）
+- 背景キャッシュ: `public/lp/column/thumbnails/_backgrounds/` に保存（再利用可能）
+- 環境変数: `GEMINI_API_KEY`（`.env.local`に設定済み）
+- API制限: Paid Tier 1 で1プロジェクト70回/日。大量生成時は複数APIキーが必要
+- テキスト設計:
+  - タイトルは「 — 」区切りでpart1（白色）とpart2（水色）に分離
+  - 3レイアウト（center/left-bottom/left-top）をインデックス順に循環
+  - 日本語文節を考慮した自動改行（孤立文字防止・中黒優先度調整済み）
+  - フォントサイズは行数と幅に応じて70〜36pxで自動調整
+- コンポーネント: `app/lp/column/_components/article-thumbnail.tsx`
+  - PNG画像を`next/image`で表示、未生成時はSVGフォールバック
+
 ## git add 禁止ファイル
 - `app/register/`, `app/api/register/personal-info/`, `app/api/register/complete/route.ts`
 - ユーザーから明示的に指示があるまで絶対にgit add/commitしない

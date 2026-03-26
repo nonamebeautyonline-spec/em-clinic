@@ -3,6 +3,10 @@
 # 移行データ（個人情報含む）
 /data/
 
+# サムネイル背景キャッシュ（Imagen API再生成用、190MB+）
+public/lp/column/thumbnails/_backgrounds/
+public/lp/column/thumbnails/_errors.json
+
 # dependencies
 /node_modules
 /.pnp
