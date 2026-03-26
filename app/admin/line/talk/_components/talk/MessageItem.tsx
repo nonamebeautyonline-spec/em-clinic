@@ -7,7 +7,87 @@ import {
   isImageUrl, extractImageUrl, isStickerContent, getStickerImageUrl, linkifyContent,
 } from "./constants";
 import { renderFlexBubble } from "./flex-renderer";
-import AiReplyPopover from "./AiReplyPopover";
+import { AiReplyButton, AiReplyCard, useAiReplyDraft } from "./AiReplyPopover";
+
+/** AI返信付きの受信メッセージ（フックを使うため別コンポーネント化） */
+function IncomingWithAi({
+  m, showAvatar, patientPictureUrl, patientName, patientDisplayName,
+  onImageClick, patientId, onAiSent,
+}: {
+  m: MessageLog;
+  showAvatar: boolean;
+  patientPictureUrl: string | null;
+  patientName: string;
+  patientDisplayName: string;
+  onImageClick: (url: string) => void;
+  patientId: string;
+  onAiSent?: () => void;
+}) {
+  const ai = useAiReplyDraft(patientId);
+
+  return (
+    <div>
+      <div className="flex justify-start items-start gap-2" style={{ marginLeft: 0 }}>
+        {showAvatar ? (
+          patientPictureUrl ? (
+            <img src={patientPictureUrl} alt="" className="w-9 h-9 rounded-full flex-shrink-0 shadow-sm object-cover" />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
+              {patientName?.charAt(0) || "?"}
+            </div>
+          )
+        ) : (
+          <div className="w-9 flex-shrink-0" />
+        )}
+        <div className="max-w-[65%]">
+          {showAvatar && (
+            <div className="text-[10px] text-gray-500 mb-0.5 ml-1 font-medium">{patientDisplayName}</div>
+          )}
+          <div className="flex items-end gap-1.5">
+            {isStickerContent(m.content) ? (
+              <img src={getStickerImageUrl(m.content)!} alt="スタンプ" className="w-[120px] h-[120px] object-contain" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).insertAdjacentText("afterend", "[スタンプ]"); }} />
+            ) : isImageUrl(m.content) ? (
+              <div className="relative rounded-2xl rounded-tl-sm overflow-hidden shadow-sm border border-gray-100 cursor-pointer" onClick={() => onImageClick(extractImageUrl(m.content))}>
+                <img src={extractImageUrl(m.content)} alt="画像" className="max-w-full max-h-60 object-contain bg-gray-50" loading="lazy" />
+              </div>
+            ) : (
+              <div className="relative bg-white text-gray-900 rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words shadow-sm border border-gray-100" style={{ overflowWrap: "anywhere" }}>
+                {linkifyContent(m.content)}
+              </div>
+            )}
+            <span className="text-[9px] text-gray-400 flex-shrink-0 pb-0.5">{formatTimeUtil(m.sent_at)}</span>
+            <div className="flex-shrink-0 pb-0.5">
+              <AiReplyButton open={ai.open} onClick={ai.toggle} />
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* AI返信カード: メッセージブロックの下、カラム横幅全体を使う */}
+      {ai.open && (
+        <div className="mt-2 ml-11">
+          <AiReplyCard
+            patientId={patientId}
+            draft={ai.draft}
+            loading={ai.loading}
+            editedReply={ai.editedReply}
+            setEditedReply={ai.setEditedReply}
+            instruction={ai.instruction}
+            setInstruction={ai.setInstruction}
+            regenerating={ai.regenerating}
+            sending={ai.sending}
+            rejecting={ai.rejecting}
+            done={ai.done}
+            error={ai.error}
+            onSend={() => ai.send(onAiSent)}
+            onReject={ai.reject}
+            onRegenerate={ai.regenerate}
+            onClose={ai.close}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
 const MessageItem = memo(function MessageItem({ m, showDate, isSystem, isIncoming, showAvatar, patientPictureUrl, patientName, patientDisplayName, onImageClick, showAiButton, patientId, onAiSent }: {
   m: MessageLog;
@@ -40,49 +120,53 @@ const MessageItem = memo(function MessageItem({ m, showDate, isSystem, isIncomin
           </div>
         </div>
       ) : isIncoming ? (
-        <div>
-          <div className="flex justify-start items-start gap-2" style={{ marginLeft: 0 }}>
-            {showAvatar ? (
-              patientPictureUrl ? (
-                <img src={patientPictureUrl} alt="" className="w-9 h-9 rounded-full flex-shrink-0 shadow-sm object-cover" />
-              ) : (
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
-                  {patientName?.charAt(0) || "?"}
-                </div>
-              )
-            ) : (
-              <div className="w-9 flex-shrink-0" />
-            )}
-            <div className="max-w-[65%]">
-              {showAvatar && (
-                <div className="text-[10px] text-gray-500 mb-0.5 ml-1 font-medium">{patientDisplayName}</div>
-              )}
-              <div className="flex items-end gap-1.5">
-                {isStickerContent(m.content) ? (
-                  <img src={getStickerImageUrl(m.content)!} alt="スタンプ" className="w-[120px] h-[120px] object-contain" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).insertAdjacentText("afterend", "[スタンプ]"); }} />
-                ) : isImageUrl(m.content) ? (
-                  <div className="relative rounded-2xl rounded-tl-sm overflow-hidden shadow-sm border border-gray-100 cursor-pointer" onClick={() => onImageClick(extractImageUrl(m.content))}>
-                    <img src={extractImageUrl(m.content)} alt="画像" className="max-w-full max-h-60 object-contain bg-gray-50" loading="lazy" />
-                  </div>
+        showAiButton && patientId ? (
+          <IncomingWithAi
+            m={m}
+            showAvatar={showAvatar}
+            patientPictureUrl={patientPictureUrl}
+            patientName={patientName}
+            patientDisplayName={patientDisplayName}
+            onImageClick={onImageClick}
+            patientId={patientId}
+            onAiSent={onAiSent}
+          />
+        ) : (
+          <div>
+            <div className="flex justify-start items-start gap-2" style={{ marginLeft: 0 }}>
+              {showAvatar ? (
+                patientPictureUrl ? (
+                  <img src={patientPictureUrl} alt="" className="w-9 h-9 rounded-full flex-shrink-0 shadow-sm object-cover" />
                 ) : (
-                  <div className="relative bg-white text-gray-900 rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words shadow-sm border border-gray-100" style={{ overflowWrap: "anywhere" }}>
-                    {linkifyContent(m.content)}
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
+                    {patientName?.charAt(0) || "?"}
                   </div>
+                )
+              ) : (
+                <div className="w-9 flex-shrink-0" />
+              )}
+              <div className="max-w-[65%]">
+                {showAvatar && (
+                  <div className="text-[10px] text-gray-500 mb-0.5 ml-1 font-medium">{patientDisplayName}</div>
                 )}
-                <span className="text-[9px] text-gray-400 flex-shrink-0 pb-0.5">{formatTimeUtil(m.sent_at)}</span>
-                {showAiButton && patientId && (
-                  <div className="flex-shrink-0 pb-0.5">
-                    <AiReplyPopover
-                      patientId={patientId}
-                      hasUnrepliedIncoming={true}
-                      onSent={onAiSent}
-                    />
-                  </div>
-                )}
+                <div className="flex items-end gap-1.5">
+                  {isStickerContent(m.content) ? (
+                    <img src={getStickerImageUrl(m.content)!} alt="スタンプ" className="w-[120px] h-[120px] object-contain" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).insertAdjacentText("afterend", "[スタンプ]"); }} />
+                  ) : isImageUrl(m.content) ? (
+                    <div className="relative rounded-2xl rounded-tl-sm overflow-hidden shadow-sm border border-gray-100 cursor-pointer" onClick={() => onImageClick(extractImageUrl(m.content))}>
+                      <img src={extractImageUrl(m.content)} alt="画像" className="max-w-full max-h-60 object-contain bg-gray-50" loading="lazy" />
+                    </div>
+                  ) : (
+                    <div className="relative bg-white text-gray-900 rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words shadow-sm border border-gray-100" style={{ overflowWrap: "anywhere" }}>
+                      {linkifyContent(m.content)}
+                    </div>
+                  )}
+                  <span className="text-[9px] text-gray-400 flex-shrink-0 pb-0.5">{formatTimeUtil(m.sent_at)}</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )
       ) : m.flex_json ? (
         /* Flex通知: LINE実際の表示に合わせてカード型で中央寄せ */
         <div className="flex flex-col items-end gap-1">

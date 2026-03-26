@@ -15,13 +15,211 @@ interface AiDraft {
   created_at: string;
 }
 
-interface AiReplyPopoverProps {
-  patientId: string;
-  hasUnrepliedIncoming: boolean;
-  onSent?: () => void;
+interface AiReplyButtonProps {
+  open: boolean;
+  onClick: () => void;
 }
 
-export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent }: AiReplyPopoverProps) {
+/** AIボタン（メッセージバブルの右横に配置） */
+export function AiReplyButton({ open, onClick }: AiReplyButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-7 h-7 rounded-full flex items-center justify-center transition-all text-[11px] font-bold flex-shrink-0 ${
+        open
+          ? "bg-purple-500 text-white shadow-md"
+          : "bg-purple-100 text-purple-600 hover:bg-purple-200 hover:shadow-sm"
+      }`}
+      title="AI返信案を表示"
+    >
+      AI
+    </button>
+  );
+}
+
+interface AiReplyCardProps {
+  patientId: string;
+  draft: AiDraft | null;
+  loading: boolean;
+  editedReply: string;
+  setEditedReply: (v: string) => void;
+  instruction: string;
+  setInstruction: (v: string) => void;
+  regenerating: boolean;
+  sending: boolean;
+  rejecting: boolean;
+  done: "sent" | "rejected" | null;
+  error: string;
+  onSend: () => void;
+  onReject: () => void;
+  onRegenerate: () => void;
+  onClose: () => void;
+}
+
+const categoryLabel: Record<string, string> = {
+  operational: "フロー系",
+  medical: "医療系",
+  greeting: "挨拶",
+  other: "その他",
+};
+
+/** AI返信カード（メッセージの下にインライン表示） */
+export function AiReplyCard({
+  draft, loading, editedReply, setEditedReply,
+  instruction, setInstruction, regenerating, sending, rejecting,
+  done, error, onSend, onReject, onRegenerate, onClose,
+}: AiReplyCardProps) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-purple-200 overflow-hidden">
+      {/* ヘッダー */}
+      <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-3 py-1.5 flex items-center justify-between">
+        <span className="text-white text-[11px] font-bold flex items-center gap-1.5">
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" /></svg>
+          AI返信案
+        </span>
+        <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+
+      <div className="p-2.5">
+        {/* ローディング */}
+        {loading && (
+          <div className="flex items-center justify-center py-4">
+            <div className="w-4 h-4 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
+            <span className="ml-2 text-[11px] text-gray-500">取得中...</span>
+          </div>
+        )}
+
+        {/* ドラフトなし */}
+        {!loading && !draft && !done && (
+          <div className="text-center py-3">
+            <div className="text-gray-400 text-[11px]">AI返信案はまだ生成されていません</div>
+            <div className="text-gray-300 text-[10px] mt-0.5">メッセージ受信後しばらくお待ちください</div>
+          </div>
+        )}
+
+        {/* 完了メッセージ */}
+        {done && (
+          <div className="flex items-center justify-center gap-2 py-3">
+            {done === "sent" ? (
+              <>
+                <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                <span className="text-green-600 text-[11px] font-medium">送信しました</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                <span className="text-gray-500 text-[11px] font-medium">却下しました</span>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ドラフト表示 */}
+        {!loading && draft && !done && (
+          <>
+            {/* カテゴリ・信頼度 */}
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-[10px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded font-medium">
+                {categoryLabel[draft.ai_category] || draft.ai_category}
+              </span>
+              <span className="text-[10px] text-gray-400">
+                信頼度 {Math.round(draft.confidence * 100)}%
+              </span>
+            </div>
+
+            {/* 返信案（編集可能・自動リサイズ） */}
+            <textarea
+              value={editedReply}
+              onChange={(e) => setEditedReply(e.target.value)}
+              className="w-full text-[12px] leading-relaxed border border-gray-200 rounded-lg px-2.5 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-purple-300 focus:border-purple-300 bg-gray-50"
+              placeholder="AI返信案をここで編集できます"
+              style={{ minHeight: "3rem", overflow: "hidden" }}
+              ref={(el) => {
+                if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; }
+              }}
+              onInput={(e) => {
+                const t = e.currentTarget;
+                t.style.height = "auto";
+                t.style.height = t.scrollHeight + "px";
+              }}
+            />
+
+            {/* 修正指示入力 */}
+            <div className="mt-1.5 flex gap-1.5">
+              <input
+                type="text"
+                value={instruction}
+                onChange={(e) => setInstruction(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !(e.nativeEvent as KeyboardEvent).isComposing && instruction.trim()) {
+                    e.preventDefault();
+                    onRegenerate();
+                  }
+                }}
+                placeholder="修正指示（例: もっと丁寧に）"
+                className="flex-1 text-[11px] border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300"
+                disabled={regenerating}
+              />
+              <button
+                onClick={onRegenerate}
+                disabled={!instruction.trim() || regenerating}
+                className="text-[11px] bg-purple-50 text-purple-600 px-2 py-1.5 rounded-lg hover:bg-purple-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 flex-shrink-0"
+              >
+                {regenerating ? (
+                  <div className="w-3 h-3 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                )}
+                再生成
+              </button>
+            </div>
+
+            {/* エラー */}
+            {error && (
+              <div className="mt-1.5 text-[11px] text-red-500 bg-red-50 px-2 py-1 rounded">{error}</div>
+            )}
+
+            {/* アクションボタン */}
+            <div className="mt-2 flex items-center gap-2">
+              <button
+                onClick={onSend}
+                disabled={sending || !editedReply.trim()}
+                className="flex-1 text-[11px] bg-[#00B900] text-white py-1.5 rounded-lg font-medium hover:bg-[#00a000] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+              >
+                {sending ? (
+                  <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                )}
+                {editedReply !== draft.draft_reply ? "修正して送信" : "このまま送信"}
+              </button>
+              <button
+                onClick={onReject}
+                disabled={rejecting}
+                className="text-[11px] text-gray-400 hover:text-red-500 py-1.5 px-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40"
+                title="却下"
+              >
+                {rejecting ? (
+                  <div className="w-3 h-3 border-2 border-gray-200 border-t-gray-400 rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                )}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// =============================================================
+// コンテナフック（state管理を一箇所に集約）
+// =============================================================
+
+export function useAiReplyDraft(patientId: string) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<AiDraft | null>(null);
   const [loading, setLoading] = useState(false);
@@ -33,7 +231,6 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
   const [done, setDone] = useState<"sent" | "rejected" | null>(null);
   const [error, setError] = useState("");
 
-  // ドラフト取得
   const fetchDraft = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -54,13 +251,13 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
     }
   }, [patientId]);
 
-  const handleOpen = useCallback(() => {
+  const toggle = useCallback(() => {
     if (open) { setOpen(false); return; }
     setOpen(true);
     fetchDraft();
   }, [open, fetchDraft]);
 
-  const handleSend = async () => {
+  const send = async (onSent?: () => void) => {
     if (!draft) return;
     setSending(true);
     setError("");
@@ -84,7 +281,7 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
     }
   };
 
-  const handleReject = async () => {
+  const reject = async () => {
     if (!draft) return;
     setRejecting(true);
     setError("");
@@ -103,7 +300,7 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
     }
   };
 
-  const handleRegenerate = async () => {
+  const regenerate = async () => {
     if (!draft || !instruction.trim()) return;
     setRegenerating(true);
     setError("");
@@ -127,178 +324,11 @@ export default function AiReplyPopover({ patientId, hasUnrepliedIncoming, onSent
     }
   };
 
-  if (!hasUnrepliedIncoming) return null;
+  const close = () => setOpen(false);
 
-  const categoryLabel: Record<string, string> = {
-    operational: "フロー系",
-    medical: "医療系",
-    greeting: "挨拶",
-    other: "その他",
+  return {
+    open, draft, loading, editedReply, setEditedReply,
+    instruction, setInstruction, regenerating, sending, rejecting,
+    done, error, toggle, send, reject, regenerate, close,
   };
-
-  return (
-    <div>
-      {/* AIボタン（メッセージバブル右に表示される） */}
-      <button
-        onClick={handleOpen}
-        className={`w-7 h-7 rounded-full flex items-center justify-center transition-all text-[11px] font-bold ${
-          open
-            ? "bg-purple-500 text-white shadow-md"
-            : "bg-purple-100 text-purple-600 hover:bg-purple-200 hover:shadow-sm"
-        }`}
-        title="AI返信案を表示"
-      >
-        AI
-      </button>
-
-      {/* インライン展開カード（メッセージの下に表示） */}
-      {open && (
-        <div className="mt-2 ml-11 mr-4 bg-white rounded-xl shadow-sm border border-purple-200 overflow-hidden">
-          {/* ヘッダー */}
-          <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-3 py-1.5 flex items-center justify-between">
-            <span className="text-white text-[11px] font-bold flex items-center gap-1.5">
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" /></svg>
-              AI返信案
-            </span>
-            <button onClick={() => setOpen(false)} className="text-white/70 hover:text-white transition-colors">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-          </div>
-
-          <div className="p-2.5">
-            {/* ローディング */}
-            {loading && (
-              <div className="flex items-center justify-center py-4">
-                <div className="w-4 h-4 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
-                <span className="ml-2 text-[11px] text-gray-500">取得中...</span>
-              </div>
-            )}
-
-            {/* ドラフトなし */}
-            {!loading && !draft && !done && (
-              <div className="text-center py-3">
-                <div className="text-gray-400 text-[11px]">AI返信案はまだ生成されていません</div>
-                <div className="text-gray-300 text-[10px] mt-0.5">メッセージ受信後しばらくお待ちください</div>
-              </div>
-            )}
-
-            {/* 完了メッセージ */}
-            {done && (
-              <div className="flex items-center justify-center gap-2 py-3">
-                {done === "sent" ? (
-                  <>
-                    <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                    <span className="text-green-600 text-[11px] font-medium">送信しました</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    <span className="text-gray-500 text-[11px] font-medium">却下しました</span>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* ドラフト表示 */}
-            {!loading && draft && !done && (
-              <>
-                {/* カテゴリ・信頼度 */}
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-[10px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded font-medium">
-                    {categoryLabel[draft.ai_category] || draft.ai_category}
-                  </span>
-                  <span className="text-[10px] text-gray-400">
-                    信頼度 {Math.round(draft.confidence * 100)}%
-                  </span>
-                </div>
-
-                {/* 返信案（編集可能） */}
-                <textarea
-                  value={editedReply}
-                  onChange={(e) => setEditedReply(e.target.value)}
-                  className="w-full text-[12px] leading-relaxed border border-gray-200 rounded-lg px-2.5 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-purple-300 focus:border-purple-300 bg-gray-50"
-                  placeholder="AI返信案をここで編集できます"
-                  style={{ height: "auto", minHeight: "3rem" }}
-                  ref={(el) => {
-                    if (el) {
-                      el.style.height = "auto";
-                      el.style.height = el.scrollHeight + "px";
-                    }
-                  }}
-                  onInput={(e) => {
-                    const t = e.currentTarget;
-                    t.style.height = "auto";
-                    t.style.height = t.scrollHeight + "px";
-                  }}
-                />
-
-                {/* 修正指示入力 */}
-                <div className="mt-1.5 flex gap-1.5">
-                  <input
-                    type="text"
-                    value={instruction}
-                    onChange={(e) => setInstruction(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !(e.nativeEvent as KeyboardEvent).isComposing && instruction.trim()) {
-                        e.preventDefault();
-                        handleRegenerate();
-                      }
-                    }}
-                    placeholder="修正指示（例: もっと丁寧に）"
-                    className="flex-1 text-[11px] border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300"
-                    disabled={regenerating}
-                  />
-                  <button
-                    onClick={handleRegenerate}
-                    disabled={!instruction.trim() || regenerating}
-                    className="text-[11px] bg-purple-50 text-purple-600 px-2 py-1.5 rounded-lg hover:bg-purple-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 flex-shrink-0"
-                  >
-                    {regenerating ? (
-                      <div className="w-3 h-3 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
-                    ) : (
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                    )}
-                    再生成
-                  </button>
-                </div>
-
-                {/* エラー */}
-                {error && (
-                  <div className="mt-1.5 text-[11px] text-red-500 bg-red-50 px-2 py-1 rounded">{error}</div>
-                )}
-
-                {/* アクションボタン */}
-                <div className="mt-2 flex items-center gap-2">
-                  <button
-                    onClick={handleSend}
-                    disabled={sending || !editedReply.trim()}
-                    className="flex-1 text-[11px] bg-[#00B900] text-white py-1.5 rounded-lg font-medium hover:bg-[#00a000] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1"
-                  >
-                    {sending ? (
-                      <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                    )}
-                    {editedReply !== draft.draft_reply ? "修正して送信" : "このまま送信"}
-                  </button>
-                  <button
-                    onClick={handleReject}
-                    disabled={rejecting}
-                    className="text-[11px] text-gray-400 hover:text-red-500 py-1.5 px-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40"
-                    title="却下"
-                  >
-                    {rejecting ? (
-                      <div className="w-3 h-3 border-2 border-gray-200 border-t-gray-400 rounded-full animate-spin" />
-                    ) : (
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    )}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
 }
