@@ -21,7 +21,7 @@ function IncomingWithAi({
   patientDisplayName: string;
   onImageClick: (url: string) => void;
   patientId: string;
-  onAiSent?: () => void;
+  onAiSent?: (replyText: string) => void;
 }) {
   const ai = useAiReplyDraft(patientId);
 
@@ -101,7 +101,7 @@ const MessageItem = memo(function MessageItem({ m, showDate, isSystem, isIncomin
   onImageClick: (url: string) => void;
   showAiButton?: boolean;
   patientId?: string;
-  onAiSent?: () => void;
+  onAiSent?: (replyText: string) => void;
 }) {
   return (
     <div>

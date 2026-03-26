@@ -306,11 +306,12 @@ export function useAiReplyDraft(patientId: string) {
     fetchDraft();
   }, [open, fetchDraft]);
 
-  const send = async (onSent?: () => void) => {
+  const send = async (onSent?: (replyText: string) => void) => {
     if (!draft) return;
     setSending(true);
     setError("");
     try {
+      const replyText = editedReply || draft.draft_reply;
       const res = await fetch("/api/admin/line/ai-reply-draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -322,7 +323,7 @@ export function useAiReplyDraft(patientId: string) {
       });
       if (!res.ok) throw new Error("送信失敗");
       setDone("sent");
-      onSent?.();
+      onSent?.(replyText);
     } catch {
       setError("送信に失敗しました");
     } finally {

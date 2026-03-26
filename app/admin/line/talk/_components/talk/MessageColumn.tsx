@@ -131,9 +131,17 @@ export default function MessageColumn() {
                         onImageClick={ctx.setLightboxUrl}
                         showAiButton={showAiButton}
                         patientId={ctx.selectedPatient?.patient_id}
-                        onAiSent={() => {
-                          // AI送信後にメッセージ一覧をリフレッシュ
-                          ctx.selectPatient(ctx.selectedPatient!);
+                        onAiSent={(replyText: string) => {
+                          // AI送信後にメッセージをローカル追加（全リフレッシュしない）
+                          ctx.shouldScrollToBottom.current = true;
+                          ctx.setMessages(prev => [...prev, {
+                            id: Date.now(),
+                            content: replyText,
+                            status: "sent",
+                            message_type: "individual",
+                            sent_at: new Date().toISOString(),
+                            direction: "outgoing" as const,
+                          }]);
                         }}
                       />
                     );
