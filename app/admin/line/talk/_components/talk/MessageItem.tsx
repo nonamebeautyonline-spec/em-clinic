@@ -7,8 +7,9 @@ import {
   isImageUrl, extractImageUrl, isStickerContent, getStickerImageUrl, linkifyContent,
 } from "./constants";
 import { renderFlexBubble } from "./flex-renderer";
+import AiReplyPopover from "./AiReplyPopover";
 
-const MessageItem = memo(function MessageItem({ m, showDate, isSystem, isIncoming, showAvatar, patientPictureUrl, patientName, patientDisplayName, onImageClick }: {
+const MessageItem = memo(function MessageItem({ m, showDate, isSystem, isIncoming, showAvatar, patientPictureUrl, patientName, patientDisplayName, onImageClick, showAiButton, patientId, onAiSent }: {
   m: MessageLog;
   showDate: boolean;
   isSystem: boolean;
@@ -18,6 +19,9 @@ const MessageItem = memo(function MessageItem({ m, showDate, isSystem, isIncomin
   patientName: string;
   patientDisplayName: string;
   onImageClick: (url: string) => void;
+  showAiButton?: boolean;
+  patientId?: string;
+  onAiSent?: () => void;
 }) {
   return (
     <div>
@@ -65,6 +69,15 @@ const MessageItem = memo(function MessageItem({ m, showDate, isSystem, isIncomin
                 </div>
               )}
               <span className="text-[9px] text-gray-400 flex-shrink-0 pb-0.5">{formatTimeUtil(m.sent_at)}</span>
+              {showAiButton && patientId && (
+                <div className="flex-shrink-0 pb-0.5">
+                  <AiReplyPopover
+                    patientId={patientId}
+                    hasUnrepliedIncoming={true}
+                    onSent={onAiSent}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>

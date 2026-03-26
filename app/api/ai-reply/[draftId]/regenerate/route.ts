@@ -8,7 +8,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { buildSystemPrompt, getAiReplyModel, type RejectedDraftEntry } from "@/lib/ai-reply";
-import { searchSimilarExamples } from "@/lib/embedding";
+import { executeRAGPipeline } from "@/lib/embedding";
 import { parseBody } from "@/lib/validations/helpers";
 import { aiReplyRegenerateSchema } from "@/lib/validations/ai-reply";
 
@@ -59,7 +59,7 @@ export async function POST(
   );
   const modelId = settings?.model_id || "claude-sonnet-4-6";
 
-  // 却下パターン・類似学習例を取得（初回生成と同等の品質を維持）
+  // 却下パターン取得
   const { data: rejectedDrafts } = await withTenant(
     supabaseAdmin
       .from("ai_reply_drafts")
@@ -69,12 +69,14 @@ export async function POST(
       .limit(10),
     draft.tenant_id
   );
-  const similarExamples = await searchSimilarExamples(
-    draft.original_message,
-    draft.tenant_id,
-    5,
-    0.5
-  );
+
+  // RAGパイプライン実行（Hybrid Search + Reranking + KB チャンク検索）
+  const ragResult = await executeRAGPipeline({
+    pendingMessages: [draft.original_message],
+    contextMessages: [],
+    tenantId: draft.tenant_id,
+    knowledgeBase: settings?.knowledge_base || "",
+  });
 
   // Claude API再呼び出し（修正指示付き）
   const client = new Anthropic({ apiKey });
@@ -82,8 +84,10 @@ export async function POST(
     settings?.knowledge_base || "",
     settings?.custom_instructions || "",
     (rejectedDrafts as RejectedDraftEntry[] | null) ?? undefined,
-    similarExamples,
-    settings?.medical_reply_mode || "confirm"
+    ragResult.examples,
+    settings?.medical_reply_mode || "confirm",
+    false,
+    ragResult.knowledgeChunks
   );
 
   // 過去の修正指示を含めて累積的にAIに伝える

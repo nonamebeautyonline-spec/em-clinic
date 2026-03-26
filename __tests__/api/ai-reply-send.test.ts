@@ -49,6 +49,11 @@ vi.mock("@/lib/validations/ai-reply", () => ({
   aiReplySendSchema: {},
 }));
 
+vi.mock("@/lib/embedding", () => ({
+  saveAiReplyExample: vi.fn().mockResolvedValue(true),
+  boostExampleQuality: vi.fn().mockResolvedValue(undefined),
+}));
+
 // global fetch モック
 const mockFetch = vi.fn().mockResolvedValue({ ok: true });
 vi.stubGlobal("fetch", mockFetch);

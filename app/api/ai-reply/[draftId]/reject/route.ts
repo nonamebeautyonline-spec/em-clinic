@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, forbidden, notFound } from "@/lib/api-error";
 import { verifyDraftSignature } from "@/lib/ai-reply-sign";
 import { supabaseAdmin } from "@/lib/supabase";
+import { penalizeExampleQuality } from "@/lib/embedding";
 import { parseBody } from "@/lib/validations/helpers";
 import { aiReplyRejectSchema } from "@/lib/validations/ai-reply";
 
@@ -51,6 +52,11 @@ export async function POST(
     .from("ai_reply_drafts")
     .update(updatePayload)
     .eq("id", draftId);
+
+  // 却下された → 関連する学習例の品質スコアを低下
+  penalizeExampleQuality(draftId).catch(err => {
+    console.error("[AI Reply] 品質スコア低下エラー:", err);
+  });
 
   return NextResponse.json({ ok: true });
 }

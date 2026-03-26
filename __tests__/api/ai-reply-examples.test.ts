@@ -56,6 +56,13 @@ vi.mock("openai", () => ({
   },
 }));
 
+vi.mock("@/lib/redis", () => ({
+  redis: {
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn().mockResolvedValue("OK"),
+  },
+}));
+
 import {
   generateEmbedding,
   saveAiReplyExample,

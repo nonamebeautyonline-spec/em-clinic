@@ -5,7 +5,7 @@ import { badRequest, forbidden, notFound } from "@/lib/api-error";
 import { verifyDraftSignature } from "@/lib/ai-reply-sign";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendAiReply } from "@/lib/ai-reply";
-import { saveAiReplyExample } from "@/lib/embedding";
+import { saveAiReplyExample, boostExampleQuality } from "@/lib/embedding";
 import { getSettingOrEnv } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
 import { aiReplySendSchema } from "@/lib/validations/ai-reply";
@@ -64,7 +64,7 @@ export async function POST(
       .update({ modified_reply: draft.draft_reply })
       .eq("id", draftId), tenantId);
 
-    // 学習例として保存（embedding付き）
+    // 学習例として保存（embedding付き）+ 品質スコア向上
     try {
       await saveAiReplyExample({
         tenantId: draft.tenant_id,
@@ -73,6 +73,8 @@ export async function POST(
         source: "staff_edit",
         draftId: draft.id,
       });
+      // 承認された → 関連する学習例の品質スコアを向上
+      await boostExampleQuality(draft.id);
     } catch (err) {
       console.error("[AI Reply] 学習例保存エラー:", err);
     }

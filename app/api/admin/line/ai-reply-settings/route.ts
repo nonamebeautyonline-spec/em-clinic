@@ -9,6 +9,7 @@ import { parseBody } from "@/lib/validations/helpers";
 import { updateAiReplySettingsSchema } from "@/lib/validations/line-management";
 import { DEFAULT_BUSINESS_HOURS, type BusinessHoursConfig } from "@/lib/business-hours";
 import { logAudit } from "@/lib/audit";
+import { saveKnowledgeChunks } from "@/lib/embedding";
 
 export const dynamic = "force-dynamic";
 
@@ -140,6 +141,13 @@ export async function PUT(req: NextRequest) {
 
   if (result.error) {
     return serverError(result.error.message);
+  }
+
+  // KBが更新された場合、チャンキング + embedding を非同期実行
+  if (knowledge_base && knowledge_base.trim().length > 0) {
+    saveKnowledgeChunks(knowledge_base, tenantId).catch(err => {
+      console.error("[AI Reply Settings] KBチャンキングエラー:", err);
+    });
   }
 
   // 営業時間設定を tenant_settings に保存（別テーブル管理）

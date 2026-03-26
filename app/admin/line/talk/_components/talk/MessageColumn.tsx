@@ -101,25 +101,44 @@ export default function MessageColumn() {
                     </button>
                   </div>
                 )}
-                {ctx.messages.map((m, i) => {
-                  const isSystem = m.message_type === "event" || m.event_type === "system" || m.message_type === "postback";
-                  const isIncoming = m.direction === "incoming";
-                  const showAvatar = isIncoming && !isSystem && (i === 0 || ctx.messages[i - 1]?.direction !== "incoming" || ctx.messages[i - 1]?.message_type === "event" || ctx.messages[i - 1]?.event_type === "system");
-                  return (
-                    <MessageItem
-                      key={m.id}
-                      m={m}
-                      showDate={ctx.shouldShowDate(i)}
-                      isSystem={isSystem}
-                      isIncoming={isIncoming}
-                      showAvatar={showAvatar}
-                      patientPictureUrl={ctx.selectedPatient?.line_picture_url || null}
-                      patientName={ctx.selectedPatient?.patient_name || ""}
-                      patientDisplayName={ctx.selectedPatient?.line_display_name || ctx.selectedPatient?.patient_name || ""}
-                      onImageClick={ctx.setLightboxUrl}
-                    />
-                  );
-                })}
+                {(() => {
+                  // 最後のincomingメッセージのindex（未返信判定用）
+                  // 最後のメッセージがincomingなら、最後のincomingの末尾にAIボタンを表示
+                  const msgs = ctx.messages;
+                  const lastMsg = msgs[msgs.length - 1];
+                  const hasUnreplied = lastMsg?.direction === "incoming";
+                  // 最後のincomingメッセージのindexを特定
+                  let lastIncomingIdx = -1;
+                  if (hasUnreplied) {
+                    lastIncomingIdx = msgs.length - 1;
+                  }
+                  return msgs.map((m, i) => {
+                    const isSystem = m.message_type === "event" || m.event_type === "system" || m.message_type === "postback";
+                    const isIncoming = m.direction === "incoming";
+                    const showAvatar = isIncoming && !isSystem && (i === 0 || msgs[i - 1]?.direction !== "incoming" || msgs[i - 1]?.message_type === "event" || msgs[i - 1]?.event_type === "system");
+                    const showAiButton = i === lastIncomingIdx && !isSystem;
+                    return (
+                      <MessageItem
+                        key={m.id}
+                        m={m}
+                        showDate={ctx.shouldShowDate(i)}
+                        isSystem={isSystem}
+                        isIncoming={isIncoming}
+                        showAvatar={showAvatar}
+                        patientPictureUrl={ctx.selectedPatient?.line_picture_url || null}
+                        patientName={ctx.selectedPatient?.patient_name || ""}
+                        patientDisplayName={ctx.selectedPatient?.line_display_name || ctx.selectedPatient?.patient_name || ""}
+                        onImageClick={ctx.setLightboxUrl}
+                        showAiButton={showAiButton}
+                        patientId={ctx.selectedPatient?.patient_id}
+                        onAiSent={() => {
+                          // AI送信後にメッセージ一覧をリフレッシュ
+                          ctx.selectPatient(ctx.selectedPatient!);
+                        }}
+                      />
+                    );
+                  });
+                })()}
                 <div ref={ctx.messagesEndRef} />
               </div>
             )}
