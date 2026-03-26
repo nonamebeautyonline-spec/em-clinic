@@ -469,17 +469,21 @@ export default function ArticleThumbnail({ slug, title, category, size = "card",
             </span>
           </div>
 
-          {/* メインタイトル */}
+          {/* メインタイトル — 記事詳細(hero)ではh1、関連記事(sm等)ではh3 */}
           {!hideTitle && (
-            <h2
-              className={`mt-2 font-extrabold leading-snug tracking-tight text-gray-800 ${
-                isHero
-                  ? "text-[22px] md:text-[30px]"
-                  : "text-[14px] md:text-[16px] line-clamp-3"
-              }`}
-            >
-              {title}
-            </h2>
+            isHero ? (
+              <h1
+                className="mt-2 font-extrabold leading-snug tracking-tight text-gray-800 text-[22px] md:text-[30px]"
+              >
+                {title}
+              </h1>
+            ) : (
+              <h3
+                className="mt-2 font-extrabold leading-snug tracking-tight text-gray-800 text-[14px] md:text-[16px] line-clamp-3"
+              >
+                {title}
+              </h3>
+            )
           )}
 
           {/* サブタイトル */}

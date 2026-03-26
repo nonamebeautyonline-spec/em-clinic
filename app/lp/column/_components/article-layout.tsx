@@ -192,6 +192,15 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
             <li className="text-gray-700 font-medium">{breadcrumbLabel}</li>
           </ol>
         </nav>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "トップ", item: "https://l-ope.jp/lp" },
+            { "@type": "ListItem", position: 2, name: "コラム", item: "https://l-ope.jp/lp/column" },
+            { "@type": "ListItem", position: 3, name: breadcrumbLabel, item: `https://l-ope.jp/lp/column/${slug}` },
+          ],
+        }) }} />
       </div>
 
       {/* 記事ヒーロー — グラデーション背景で視覚的に区切る */}
