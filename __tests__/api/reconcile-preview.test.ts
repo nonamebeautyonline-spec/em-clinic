@@ -93,6 +93,11 @@ function makeRequestWithoutFile() {
   });
 }
 
+// 照合済み振込チェック用の空チェーン（bank_statementsクエリが最初に実行される）
+function emptyStatementsChain() {
+  return createChain({ data: [], error: null });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockAuthorized = true;
@@ -145,6 +150,7 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
       }],
       error: null,
     });
+    fromResults.push(emptyStatementsChain()); // 照合済み振込チェック（空）
     fromResults.push(ordersChain);
 
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -172,6 +178,7 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
       }],
       error: null,
     });
+    fromResults.push(emptyStatementsChain()); // 照合済み振込チェック（空）
     fromResults.push(ordersChain);
 
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -202,6 +209,7 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
       }],
       error: null,
     });
+    fromResults.push(emptyStatementsChain()); // 照合済み振込チェック（空）
     fromResults.push(ordersChain);
 
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -218,6 +226,7 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
     const csv = "日付,摘要,出金,入金\n2026/02/20,タナカタロウ,0,30000";
 
     const ordersChain = createChain({ data: [], error: null });
+    fromResults.push(emptyStatementsChain()); // 照合済み振込チェック（空）
     fromResults.push(ordersChain);
 
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -244,6 +253,7 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
       }],
       error: null,
     });
+    fromResults.push(emptyStatementsChain()); // 照合済み振込チェック（空）
     fromResults.push(ordersChain);
 
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -272,6 +282,7 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
       }],
       error: null,
     });
+    fromResults.push(emptyStatementsChain()); // 照合済み振込チェック（空）
     fromResults.push(ordersChain);
 
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -297,6 +308,7 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
       }],
       error: null,
     });
+    fromResults.push(emptyStatementsChain()); // 照合済み振込チェック（空）
     fromResults.push(ordersChain);
 
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -323,6 +335,7 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
       }],
       error: null,
     });
+    fromResults.push(emptyStatementsChain()); // 照合済み振込チェック（空）
     fromResults.push(ordersChain);
 
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -345,6 +358,7 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
       data: null,
       error: { message: "connection failed" },
     });
+    fromResults.push(emptyStatementsChain()); // 照合済み振込チェック（空）
     fromResults.push(ordersChain);
 
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -372,6 +386,7 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
       }],
       error: null,
     });
+    fromResults.push(emptyStatementsChain()); // 照合済み振込チェック（空）
     fromResults.push(ordersChain);
 
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -396,6 +411,7 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
       }],
       error: null,
     });
+    fromResults.push(emptyStatementsChain()); // 照合済み振込チェック（空）
     fromResults.push(ordersChain);
 
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -421,6 +437,7 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
       }],
       error: null,
     });
+    fromResults.push(emptyStatementsChain()); // 照合済み振込チェック（空）
     fromResults.push(ordersChain);
 
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -451,6 +468,7 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
       }],
       error: null,
     });
+    fromResults.push(emptyStatementsChain()); // 照合済み振込チェック（空）
     fromResults.push(ordersChain);
 
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -509,6 +527,7 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
       ],
       error: null,
     });
+    fromResults.push(emptyStatementsChain()); // 照合済み振込チェック（空）
     fromResults.push(ordersChain);
 
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -535,6 +554,7 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
       }],
       error: null,
     });
+    fromResults.push(emptyStatementsChain()); // 照合済み振込チェック（空）
     fromResults.push(ordersChain);
 
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -571,6 +591,7 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
       ],
       error: null,
     });
+    fromResults.push(emptyStatementsChain()); // 照合済み振込チェック（空）
     fromResults.push(ordersChain);
 
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -581,6 +602,48 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
     expect(body.summary.amountMismatch).toBe(0);
     expect(body.matched[0].order.patient_id).toBe("P-1");
     expect(body.matched[0].order.amount).toBe(30000);
+    consoleSpy.mockRestore();
+  });
+
+  it("照合済み振込はCSVから除外され誤マッチしない", async () => {
+    // CSVに3/8の振込（照合済み）と3/26の振込（新規）が含まれる
+    const csv = "日付,摘要,出金,入金\n2026/03/08,タナカシオン,0,13000\n2026/03/26,タナカシオン,0,13000";
+
+    // bank_statementsに3/8の振込が照合済みとして存在
+    const statementsChain = createChain({
+      data: [{
+        transaction_date: "2026-03-08",
+        description: "タナカシオン",
+        deposit: 13000,
+      }],
+      error: null,
+    });
+    fromResults.push(statementsChain);
+
+    // pending注文は3/26の1件のみ
+    const ordersChain = createChain({
+      data: [{
+        id: "bt_pending_new",
+        patient_id: "P-1",
+        product_code: "MJL_2.5mg_1m",
+        amount: 13000,
+        account_name: "タナカシオン",
+        shipping_name: "田中紫音",
+      }],
+      error: null,
+    });
+    fromResults.push(ordersChain);
+
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const res = await POST(makeRequest(csv));
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    // 3/8は照合済みで除外されるため、3/26の1件のみがマッチ対象
+    expect(body.summary.total).toBe(1);
+    expect(body.summary.skippedReconciled).toBe(1);
+    expect(body.summary.matched).toBe(1);
+    expect(body.matched[0].transfer.date).toBe("2026/03/26");
     consoleSpy.mockRestore();
   });
 });

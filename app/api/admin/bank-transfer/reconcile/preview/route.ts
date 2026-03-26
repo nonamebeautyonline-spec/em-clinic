@@ -57,6 +57,31 @@ export async function POST(req: NextRequest) {
     // Supabase接続
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // ===== 照合済み振込をCSVから除外（再アップロード時の誤マッチ防止） =====
+    const { data: reconciledRows } = await strictWithTenant(
+      supabase
+        .from("bank_statements")
+        .select("transaction_date, description, deposit")
+        .eq("reconciled", true),
+      tenantId
+    );
+    const reconciledKeys = new Set(
+      (reconciledRows || []).map((r: Record<string, unknown>) =>
+        `${String(r.transaction_date)}|${String(r.description)}|${Number(r.deposit)}`
+      )
+    );
+    const originalCount = transfers.length;
+    const filteredTransfers = transfers.filter((t) => {
+      const dateNormalized = t.date.replace(/\//g, "-");
+      const key = `${dateNormalized}|${t.description}|${t.amount}`;
+      return !reconciledKeys.has(key);
+    });
+    if (originalCount !== filteredTransfers.length) {
+      console.log(`[Preview] 照合済み振込を除外: ${originalCount} → ${filteredTransfers.length}件（${originalCount - filteredTransfers.length}件除外）`);
+    }
+    // 以降はフィルタ済みの振込データを使用
+    const activeTransfers = filteredTransfers;
+
     // pending_confirmationの注文を取得
     const { data: pendingOrdersWithNames, error: fetchNamesError } = await strictWithTenant(
       supabase
@@ -75,16 +100,16 @@ export async function POST(req: NextRequest) {
     if (!pendingOrdersWithNames || pendingOrdersWithNames.length === 0) {
       return NextResponse.json({
         matched: [],
-        unmatched: transfers.map((t) => ({
+        unmatched: activeTransfers.map((t) => ({
           date: t.date,
           description: t.description,
           amount: t.amount,
           reason: "照合待ちの注文がありません",
         })),
         summary: {
-          total: transfers.length,
+          total: activeTransfers.length,
           matched: 0,
-          unmatched: transfers.length,
+          unmatched: activeTransfers.length,
           updated: 0,
         },
       });
@@ -103,10 +128,10 @@ export async function POST(req: NextRequest) {
     const usedOrderIds = new Set<string>();
 
     console.log(`[Preview] Starting reconciliation...`);
-    console.log(`[Preview] Transfers to match: ${transfers.length}`);
+    console.log(`[Preview] Transfers to match: ${activeTransfers.length} (${transfers.length - activeTransfers.length}件は照合済みのため除外)`);
     console.log(`[Preview] Pending orders: ${pendingOrdersWithNames.length}`);
 
-    for (const transfer of transfers) {
+    for (const transfer of activeTransfers) {
       let matchedOrder = null;
       let amountMismatchOrder = null;
 
@@ -208,9 +233,10 @@ export async function POST(req: NextRequest) {
 
     // ★ デバッグ情報（サンプル最初の5件）
     const debugInfo = {
-      totalTransfers: transfers.length,
+      totalTransfers: activeTransfers.length,
+      skippedReconciled: transfers.length - activeTransfers.length,
       totalPendingOrders: pendingOrdersWithNames.length,
-      csvTransfers: transfers.slice(0, 5).map((t) => ({
+      csvTransfers: activeTransfers.slice(0, 5).map((t) => ({
         date: t.date,
         description: t.description,
         amount: t.amount,
@@ -342,7 +368,8 @@ export async function POST(req: NextRequest) {
       })),
       unmatched: unmatched.slice().sort((a, b) => (b.date || "").localeCompare(a.date || "")),
       summary: {
-        total: transfers.length,
+        total: activeTransfers.length,
+        skippedReconciled: transfers.length - activeTransfers.length,
         matched: matched.length,
         splitMatched: splitMatchedGroups.length,
         amountMismatch: amountMismatchList.length,
