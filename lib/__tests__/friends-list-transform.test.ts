@@ -43,7 +43,7 @@ describe("transformFriendsRow", () => {
       last_event_at: "2026-03-01T10:00:00Z",
     });
     expect(result.is_blocked).toBe(true);
-    expect(result.last_message).toBe("【ブロックされました】");
+    expect(result.last_message).toBe("ブロックされました");
   });
 
   it("last_event_content に「再追加」含む → last_message=友だち再登録", () => {
@@ -52,7 +52,7 @@ describe("transformFriendsRow", () => {
       last_event_content: "友だち再追加されました",
       last_event_at: "2026-03-01T10:00:00Z",
     });
-    expect(result.last_message).toBe("【友だち再登録】");
+    expect(result.last_message).toBe("友だち再登録");
   });
 
   it("last_event_content あり（再追加以外）→ last_message=【友達追加】", () => {
@@ -70,7 +70,7 @@ describe("transformFriendsRow", () => {
       last_event_content: "「マイページ」をタップしました",
       last_event_at: "2026-03-01T10:00:00Z",
     });
-    expect(result.last_message).toBe("【「マイページ」をタップしました】");
+    expect(result.last_message).toBe("「マイページ」をタップしました");
   });
 
   it("メニュー操作 → 実際のイベント内容を表示", () => {
@@ -79,7 +79,7 @@ describe("transformFriendsRow", () => {
       last_event_content: "メニュー操作",
       last_event_at: "2026-03-01T10:00:00Z",
     });
-    expect(result.last_message).toBe("【メニュー操作】");
+    expect(result.last_message).toBe("メニュー操作");
   });
 
   it("患者メッセージがイベントより新しい → 患者メッセージ優先", () => {
@@ -101,7 +101,7 @@ describe("transformFriendsRow", () => {
       last_event_content: "友だち再追加されました",
       last_event_at: "2026-03-02T10:00:00Z",
     });
-    expect(result.last_message).toBe("【友だち再登録】");
+    expect(result.last_message).toBe("友だち再登録");
   });
 
   it("outgoing系はlast_messageに影響しない", () => {
