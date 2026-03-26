@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { getSettingOrEnv } from "@/lib/settings";
 import { withTenant, tenantPayload } from "@/lib/tenant";
 import { redis } from "@/lib/redis";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const EMBEDDING_DIMENSIONS = 1536;
@@ -175,6 +176,7 @@ export async function searchSimilarExamplesHybrid(
 
     if (error) {
       console.error("[RAG] Hybrid Search RPC エラー:", error);
+      notifyCronFailure("rag-hybrid-search", new Error(`RPC error: ${JSON.stringify(error)}`)).catch(() => {});
       // フォールバック: 従来のベクトル検索
       return fallbackVectorSearch(embedding, tenantId, limit, similarityThreshold);
     }
@@ -191,6 +193,7 @@ export async function searchSimilarExamplesHybrid(
     }));
   } catch (err) {
     console.error("[RAG] Hybrid Search 例外:", err);
+    notifyCronFailure("rag-hybrid-search", err).catch(() => {});
     return [];
   }
 }
@@ -533,6 +536,7 @@ export async function searchKnowledgeChunks(
     }));
   } catch (err) {
     console.error("[RAG] KB検索例外:", err);
+    notifyCronFailure("rag-knowledge-search", err).catch(() => {});
     return [];
   }
 }
@@ -746,8 +750,17 @@ export async function executeRAGPipeline(params: {
   contextMessages: Array<{ direction: string; content: string }>;
   tenantId: string | null;
   knowledgeBase?: string;
+  /** テナント設定のRAGパラメータ（未指定時はデフォルト値） */
+  ragConfig?: {
+    similarityThreshold?: number;
+    maxExamples?: number;
+    maxKbChunks?: number;
+  };
 }): Promise<RAGResult> {
-  const { pendingMessages, contextMessages, tenantId, knowledgeBase } = params;
+  const { pendingMessages, contextMessages, tenantId, knowledgeBase, ragConfig } = params;
+  const threshold = ragConfig?.similarityThreshold ?? 0.35;
+  const maxExamples = ragConfig?.maxExamples ?? 5;
+  const maxKbChunks = ragConfig?.maxKbChunks ?? 5;
 
   // Step 1: Query Rewriting
   const rewrittenQuery = await rewriteQueryForSearch(
@@ -758,14 +771,14 @@ export async function executeRAGPipeline(params: {
 
   // Step 2: 並列で Hybrid Search + KB チャンク検索
   const [hybridResults, kbChunks] = await Promise.all([
-    searchSimilarExamplesHybrid(rewrittenQuery, tenantId, 20, 0.35),
+    searchSimilarExamplesHybrid(rewrittenQuery, tenantId, 20, threshold),
     knowledgeBase
-      ? searchKnowledgeChunks(rewrittenQuery, tenantId, 5, 0.35)
+      ? searchKnowledgeChunks(rewrittenQuery, tenantId, maxKbChunks, threshold)
       : Promise.resolve([]),
   ]);
 
-  // Step 3: Reranking（上位20件 → top 5に絞り込み）
-  const reranked = await rerankExamples(rewrittenQuery, hybridResults, tenantId, 5);
+  // Step 3: Reranking（上位20件 → top N に絞り込み）
+  const reranked = await rerankExamples(rewrittenQuery, hybridResults, tenantId, maxExamples);
 
   // 使用した学習例のID
   const usedExampleIds = hybridResults

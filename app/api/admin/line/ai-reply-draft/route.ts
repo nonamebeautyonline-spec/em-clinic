@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   const { data, error } = await withTenant(
     supabaseAdmin
       .from("ai_reply_drafts")
-      .select("id, patient_id, line_uid, original_message, draft_reply, status, ai_category, confidence, model_used, created_at")
+      .select("id, patient_id, line_uid, original_message, draft_reply, status, ai_category, confidence, model_used, created_at, expires_at")
       .eq("patient_id", patientId)
       .eq("status", "pending")
       .order("created_at", { ascending: false })
@@ -43,10 +43,11 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ draft: data });
 }
 
-// POST: ドラフトに対するアクション（send / reject / regenerate）
+// POST: ドラフトに対するアクション（send / reject / regenerate / batch_approve / batch_reject）
 const actionSchema = z.object({
-  draft_id: z.number(),
-  action: z.enum(["send", "reject", "regenerate"]),
+  draft_id: z.number().optional(),
+  draft_ids: z.array(z.number()).optional(),
+  action: z.enum(["send", "reject", "regenerate", "batch_approve", "batch_reject"]),
   modified_reply: z.string().optional(),
   reject_reason: z.string().optional(),
   instruction: z.string().optional(),
@@ -61,43 +62,55 @@ export async function POST(req: NextRequest) {
   if ("error" in parsed) return parsed.error;
   const { draft_id, action, modified_reply, reject_reason, instruction } = parsed.data;
 
-  // ドラフト取得
-  const { data: draft, error } = await withTenant(
-    supabaseAdmin
-      .from("ai_reply_drafts")
-      .select("*")
-      .eq("id", draft_id)
-      .single(),
-    tenantId
-  );
+  // 一括操作は別途ハンドリング（draft_id不要、関数末尾で処理）
+  if (action === "batch_approve" || action === "batch_reject") {
+    // 下のbatch処理ブロックに到達させる（単一操作をスキップ）
+    // eslint-disable-next-line no-empty
+  } else {
+    if (!draft_id) return badRequest("draft_idが必要です");
+  }
 
-  if (error || !draft) return badRequest("ドラフトが見つかりません");
-  if (draft.status !== "pending") return badRequest("このドラフトは既に処理済みです");
+  // 単一操作用ドラフト取得（batch操作時はスキップ）
+  let draft: Record<string, unknown> | null = null;
+  if (draft_id && action !== "batch_approve" && action !== "batch_reject") {
+    const { data, error } = await withTenant(
+      supabaseAdmin
+        .from("ai_reply_drafts")
+        .select("*")
+        .eq("id", draft_id)
+        .single(),
+      tenantId
+    );
+    if (error || !data) return badRequest("ドラフトが見つかりません");
+    if (data.status !== "pending") return badRequest("このドラフトは既に処理済みです");
+    draft = data;
+  }
 
   // 送信
-  if (action === "send") {
-    const replyText = modified_reply || draft.draft_reply;
+  if (action === "send" && draft) {
+    const id = draft_id!;
+    const replyText = modified_reply || (draft.draft_reply as string);
 
     // modified_reply を記録
     if (modified_reply && modified_reply !== draft.draft_reply) {
       await supabaseAdmin
         .from("ai_reply_drafts")
         .update({ modified_reply })
-        .eq("id", draft_id);
+        .eq("id", id);
     }
 
-    await sendAiReply(draft_id, draft.line_uid, replyText, draft.patient_id, draft.tenant_id);
+    await sendAiReply(id, draft.line_uid as string, replyText, draft.patient_id as string, draft.tenant_id as string);
 
     // 学習例として保存 + 品質スコア向上
     try {
       await saveAiReplyExample({
-        tenantId: draft.tenant_id,
-        question: draft.original_message,
+        tenantId: draft.tenant_id as string,
+        question: draft.original_message as string,
         answer: replyText,
         source: modified_reply ? "staff_edit" : "staff_edit",
-        draftId: draft.id,
+        draftId: draft.id as number,
       });
-      await boostExampleQuality(draft.id);
+      await boostExampleQuality(draft.id as number);
     } catch (err) {
       console.error("[AI Reply Admin] 学習例保存エラー:", err);
     }
@@ -106,7 +119,8 @@ export async function POST(req: NextRequest) {
   }
 
   // 却下
-  if (action === "reject") {
+  if (action === "reject" && draft) {
+    const id = draft_id!;
     await supabaseAdmin
       .from("ai_reply_drafts")
       .update({
@@ -115,31 +129,39 @@ export async function POST(req: NextRequest) {
         reject_reason: reject_reason || "管理画面から却下",
         reject_category: "other",
       })
-      .eq("id", draft_id);
+      .eq("id", id);
 
-    penalizeExampleQuality(draft_id).catch(() => {});
+    penalizeExampleQuality(id).catch(() => {});
     return NextResponse.json({ ok: true, action: "rejected" });
   }
 
   // 再生成
-  if (action === "regenerate") {
+  if (action === "regenerate" && draft) {
+    const id = draft_id!;
     if (!instruction) return badRequest("修正指示が必要です");
 
-    const tid = draft.tenant_id ?? undefined;
+    const tid = (draft.tenant_id as string | null) ?? undefined;
     const apiKey = (await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY", tid)) || "";
     if (!apiKey) return serverError("APIキー未設定");
 
     const { data: settings } = await withTenant(
       supabaseAdmin.from("ai_reply_settings").select("knowledge_base, custom_instructions, medical_reply_mode, model_id").maybeSingle(),
-      draft.tenant_id
+      draft.tenant_id as string | null
     );
     const modelId = settings?.model_id || "claude-sonnet-4-6";
 
+    // 過去の修正指示をDBから取得（永続化済み）
+    const pastInstructions: string[] = Array.isArray(draft.past_instructions) ? draft.past_instructions as string[] : [];
+    const allInstructions = [...pastInstructions, instruction];
+    const origMessage = draft.original_message as string;
+    const draftReply = draft.draft_reply as string;
+    const draftTenantId = draft.tenant_id as string | null;
+
     // RAGパイプライン
     const ragResult = await executeRAGPipeline({
-      pendingMessages: [draft.original_message],
+      pendingMessages: [origMessage],
       contextMessages: [],
-      tenantId: draft.tenant_id,
+      tenantId: draftTenantId,
       knowledgeBase: settings?.knowledge_base || "",
     });
 
@@ -150,7 +172,7 @@ export async function POST(req: NextRequest) {
         .eq("status", "rejected")
         .order("rejected_at", { ascending: false })
         .limit(10),
-      draft.tenant_id
+      draftTenantId
     );
 
     const client = new Anthropic({ apiKey });
@@ -164,15 +186,20 @@ export async function POST(req: NextRequest) {
       ragResult.knowledgeChunks
     );
 
+    // 過去の指示を全て含めたプロンプト
+    const pastSection = pastInstructions.length > 0
+      ? `\n\n## 過去の修正指示\n${pastInstructions.map((inst, i) => `${i + 1}. ${inst}`).join("\n")}\n`
+      : "";
+
     const userMessage = `以下のAI返信案をスタッフの修正指示に従って改善してください。
 
 ## 患者からの元メッセージ
-${draft.original_message}
+${origMessage}
 
 ## 現在のAI返信案
-${draft.draft_reply}
+${draftReply}${pastSection}
 
-## 修正指示
+## 最新の修正指示
 ${instruction}
 
 修正後の返信テキストのみを出力してください。JSON形式は不要です。`;
@@ -188,16 +215,58 @@ ${instruction}
       const newReply = response.content[0].type === "text" ? response.content[0].text.trim() : "";
       if (!newReply) return serverError("AIからの返信が空です");
 
+      // ドラフト更新（修正指示履歴もDBに永続化）
       await supabaseAdmin
         .from("ai_reply_drafts")
-        .update({ draft_reply: newReply })
-        .eq("id", draft_id);
+        .update({ draft_reply: newReply, past_instructions: allInstructions })
+        .eq("id", id);
 
       return NextResponse.json({ ok: true, action: "regenerated", newReply });
     } catch (err) {
       console.error("[AI Reply Admin] 再生成エラー:", err);
       return serverError("AI再生成に失敗しました");
     }
+  }
+
+  // 一括承認
+  if (action === "batch_approve" && parsed.data.draft_ids?.length) {
+    const ids = parsed.data.draft_ids;
+    let sentCount = 0;
+    for (const id of ids) {
+      const { data: d } = await withTenant(
+        supabaseAdmin.from("ai_reply_drafts").select("*").eq("id", id).eq("status", "pending").single(),
+        tenantId
+      );
+      if (!d) continue;
+      await sendAiReply(d.id, d.line_uid, d.draft_reply, d.patient_id, d.tenant_id);
+      saveAiReplyExample({
+        tenantId: d.tenant_id, question: d.original_message,
+        answer: d.draft_reply, source: "staff_edit", draftId: d.id,
+      }).catch(() => {});
+      boostExampleQuality(d.id).catch(() => {});
+      sentCount++;
+    }
+    return NextResponse.json({ ok: true, action: "batch_approved", sentCount });
+  }
+
+  // 一括却下
+  if (action === "batch_reject" && parsed.data.draft_ids?.length) {
+    const ids = parsed.data.draft_ids;
+    await supabaseAdmin
+      .from("ai_reply_drafts")
+      .update({
+        status: "rejected",
+        rejected_at: new Date().toISOString(),
+        reject_reason: parsed.data.reject_reason || "一括却下",
+        reject_category: "other",
+      })
+      .in("id", ids)
+      .eq("status", "pending");
+
+    for (const id of ids) {
+      penalizeExampleQuality(id).catch(() => {});
+    }
+    return NextResponse.json({ ok: true, action: "batch_rejected", rejectedCount: ids.length });
   }
 
   return badRequest("無効なアクション");

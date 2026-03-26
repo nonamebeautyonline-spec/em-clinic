@@ -13,6 +13,7 @@ interface AiDraft {
   confidence: number;
   model_used: string;
   created_at: string;
+  expires_at?: string;
 }
 
 interface AiReplyButtonProps {
@@ -119,14 +120,25 @@ export function AiReplyCard({
         {/* ドラフト表示 */}
         {!loading && draft && !done && (
           <>
-            {/* カテゴリ・信頼度 */}
-            <div className="flex items-center gap-2 mb-1.5">
+            {/* カテゴリ・信頼度・有効期限 */}
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className="text-[10px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded font-medium">
                 {categoryLabel[draft.ai_category] || draft.ai_category}
               </span>
               <span className="text-[10px] text-gray-400">
                 信頼度 {Math.round(draft.confidence * 100)}%
               </span>
+              {draft.expires_at && (() => {
+                const remaining = Math.max(0, Math.round((new Date(draft.expires_at).getTime() - Date.now()) / 60000));
+                const hours = Math.floor(remaining / 60);
+                const mins = remaining % 60;
+                const isUrgent = remaining < 60;
+                return (
+                  <span className={`text-[10px] ${isUrgent ? "text-red-500" : "text-gray-400"}`}>
+                    残り {hours > 0 ? `${hours}h` : ""}{mins}m
+                  </span>
+                );
+              })()}
             </div>
 
             {/* 返信案（編集可能・自動リサイズ） */}
@@ -182,35 +194,72 @@ export function AiReplyCard({
             )}
 
             {/* アクションボタン */}
-            <div className="mt-2 flex items-center gap-2">
-              <button
-                onClick={onSend}
-                disabled={sending || !editedReply.trim()}
-                className="flex-1 text-[11px] bg-[#00B900] text-white py-1.5 rounded-lg font-medium hover:bg-[#00a000] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1"
-              >
-                {sending ? (
-                  <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                )}
-                {editedReply !== draft.draft_reply ? "修正して送信" : "このまま送信"}
-              </button>
-              <button
-                onClick={onReject}
-                disabled={rejecting}
-                className="text-[11px] text-gray-400 hover:text-red-500 py-1.5 px-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40"
-                title="却下"
-              >
-                {rejecting ? (
-                  <div className="w-3 h-3 border-2 border-gray-200 border-t-gray-400 rounded-full animate-spin" />
-                ) : (
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                )}
-              </button>
-            </div>
+            <RejectWithConfirm
+              sending={sending}
+              rejecting={rejecting}
+              editedReply={editedReply}
+              draftReply={draft.draft_reply}
+              onSend={onSend}
+              onReject={onReject}
+            />
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/** 却下確認付きアクションボタン */
+function RejectWithConfirm({ sending, rejecting, editedReply, draftReply, onSend, onReject }: {
+  sending: boolean; rejecting: boolean; editedReply: string; draftReply: string;
+  onSend: () => void; onReject: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+
+  if (confirming) {
+    return (
+      <div className="mt-2 bg-red-50 rounded-lg p-2 flex items-center justify-between gap-2">
+        <span className="text-[11px] text-red-600">この返信案を却下しますか？</span>
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => { setConfirming(false); onReject(); }}
+            disabled={rejecting}
+            className="text-[11px] bg-red-500 text-white px-2.5 py-1 rounded-lg hover:bg-red-600 disabled:opacity-40"
+          >
+            {rejecting ? "..." : "却下する"}
+          </button>
+          <button
+            onClick={() => setConfirming(false)}
+            className="text-[11px] text-gray-500 px-2 py-1 rounded-lg hover:bg-gray-100"
+          >
+            戻る
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <button
+        onClick={onSend}
+        disabled={sending || !editedReply.trim()}
+        className="flex-1 text-[11px] bg-[#00B900] text-white py-1.5 rounded-lg font-medium hover:bg-[#00a000] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+      >
+        {sending ? (
+          <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+        ) : (
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+        )}
+        {editedReply !== draftReply ? "修正して送信" : "このまま送信"}
+      </button>
+      <button
+        onClick={() => setConfirming(true)}
+        className="text-[11px] text-gray-400 hover:text-red-500 py-1.5 px-2 rounded-lg hover:bg-red-50 transition-colors"
+        title="却下"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+      </button>
     </div>
   );
 }

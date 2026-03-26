@@ -96,6 +96,9 @@ export const updateAiReplySettingsSchema = z
     approval_timeout_hours: z.number().int().optional(),
     business_hours: businessHoursSchema.optional(),
     model_id: z.enum(AI_REPLY_MODEL_IDS).optional(),
+    rag_similarity_threshold: z.number().min(0).max(1).optional(),
+    rag_max_examples: z.number().int().min(1).max(20).optional(),
+    rag_max_kb_chunks: z.number().int().min(1).max(20).optional(),
   })
   .passthrough();
 

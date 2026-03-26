@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     const { data, error, count } = await strictWithTenant(
       supabaseAdmin
         .from("ai_reply_examples")
-        .select("id, question, answer, source, used_count, created_at", { count: "exact" })
+        .select("id, question, answer, source, used_count, quality_score, approved_count, rejected_count, created_at", { count: "exact" })
         .order("created_at", { ascending: false })
         .limit(100),
       tenantId

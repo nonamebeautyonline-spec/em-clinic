@@ -16,6 +16,9 @@ interface AiReplySettings {
   daily_limit: number;
   approval_timeout_hours: number;
   model_id: string;
+  rag_similarity_threshold: number;
+  rag_max_examples: number;
+  rag_max_kb_chunks: number;
 }
 
 type DayOfWeek = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
@@ -57,6 +60,9 @@ const DEFAULT_SETTINGS: AiReplySettings = {
   daily_limit: 100,
   approval_timeout_hours: 24,
   model_id: "claude-sonnet-4-6",
+  rag_similarity_threshold: 0.35,
+  rag_max_examples: 5,
+  rag_max_kb_chunks: 5,
 };
 
 const DEFAULT_BUSINESS_HOURS: BusinessHoursConfig = {
@@ -550,6 +556,47 @@ export default function AiReplySettingsPage() {
             <p className="text-[10px] text-gray-400 mt-0.5">この時間を過ぎると自動失効</p>
           </div>
         </div>
+
+        <h3 className="font-medium text-gray-600 text-sm mt-4">RAG検索パラメータ</h3>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">類似度閾値</label>
+            <input
+              type="number"
+              min={0}
+              max={1}
+              step={0.05}
+              value={settings.rag_similarity_threshold}
+              onChange={e => setSettings(s => ({ ...s, rag_similarity_threshold: Number(e.target.value) || 0.35 }))}
+              className="w-full border rounded px-2 py-1.5 text-sm"
+            />
+            <p className="text-[10px] text-gray-400 mt-0.5">低いほど幅広くマッチ（推奨: 0.3〜0.5）</p>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">学習例の最大数</label>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={settings.rag_max_examples}
+              onChange={e => setSettings(s => ({ ...s, rag_max_examples: Number(e.target.value) || 5 }))}
+              className="w-full border rounded px-2 py-1.5 text-sm"
+            />
+            <p className="text-[10px] text-gray-400 mt-0.5">プロンプトに含める学習例数</p>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">KBチャンクの最大数</label>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={settings.rag_max_kb_chunks}
+              onChange={e => setSettings(s => ({ ...s, rag_max_kb_chunks: Number(e.target.value) || 5 }))}
+              className="w-full border rounded px-2 py-1.5 text-sm"
+            />
+            <p className="text-[10px] text-gray-400 mt-0.5">プロンプトに含めるKBチャンク数</p>
+          </div>
+        </div>
       </div>
 
       {/* メッセージ表示 */}
@@ -583,6 +630,9 @@ interface AiReplyExample {
   answer: string;
   source: "staff_edit" | "manual_reply";
   used_count: number;
+  quality_score: number | null;
+  approved_count: number | null;
+  rejected_count: number | null;
   created_at: string;
 }
 
@@ -646,12 +696,28 @@ function AiReplyExamplesTab() {
                     <span className="text-[10px] font-medium text-gray-400 uppercase">スタッフ返信</span>
                     <p className="text-sm text-gray-700 mt-0.5">{ex.answer}</p>
                   </div>
-                  <div className="flex items-center gap-3 text-[11px] text-gray-400">
+                  <div className="flex items-center gap-3 text-[11px] text-gray-400 flex-wrap">
                     <span className={`px-1.5 py-0.5 rounded ${
                       ex.source === "staff_edit" ? "bg-blue-50 text-blue-600" : "bg-green-50 text-green-600"
                     }`}>
                       {ex.source === "staff_edit" ? "修正送信" : "手動返信"}
                     </span>
+                    {(ex.quality_score != null) && (
+                      <span className={`px-1.5 py-0.5 rounded ${
+                        ex.quality_score >= 1.2 ? "bg-purple-50 text-purple-600" :
+                        ex.quality_score >= 0.8 ? "bg-gray-100 text-gray-600" :
+                        "bg-red-50 text-red-500"
+                      }`}>
+                        品質 {ex.quality_score.toFixed(1)}
+                      </span>
+                    )}
+                    <span title="使用回数">使用 {ex.used_count || 0}回</span>
+                    {(ex.approved_count != null && ex.approved_count > 0) && (
+                      <span className="text-green-600" title="承認回数">承認 {ex.approved_count}</span>
+                    )}
+                    {(ex.rejected_count != null && ex.rejected_count > 0) && (
+                      <span className="text-red-500" title="却下回数">却下 {ex.rejected_count}</span>
+                    )}
                     <span>{new Date(ex.created_at).toLocaleDateString("ja-JP")}</span>
                   </div>
                 </div>

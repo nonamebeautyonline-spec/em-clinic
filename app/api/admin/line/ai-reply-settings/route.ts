@@ -97,6 +97,9 @@ export async function PUT(req: NextRequest) {
     approval_timeout_hours,
     business_hours,
     model_id,
+    rag_similarity_threshold,
+    rag_max_examples,
+    rag_max_kb_chunks,
   } = parsed.data;
 
   // 既存設定を確認
@@ -116,6 +119,9 @@ export async function PUT(req: NextRequest) {
     daily_limit: daily_limit ?? 100,
     approval_timeout_hours: approval_timeout_hours ?? 24,
     model_id: model_id || "claude-sonnet-4-6",
+    rag_similarity_threshold: rag_similarity_threshold ?? 0.35,
+    rag_max_examples: rag_max_examples ?? 5,
+    rag_max_kb_chunks: rag_max_kb_chunks ?? 5,
     updated_at: new Date().toISOString(),
   };
 

@@ -4,6 +4,7 @@ import { processPendingAiReplies, lastProcessLog } from "@/lib/ai-reply";
 import { redis } from "@/lib/redis";
 import { acquireLock } from "@/lib/distributed-lock";
 import { notifyCronFailure } from "@/lib/notifications/cron-failure";
+import { supabaseAdmin } from "@/lib/supabase";
 
 // Vercel Cron: AI返信デバウンス処理（毎分実行）
 export async function GET(req: NextRequest) {
@@ -39,9 +40,27 @@ export async function GET(req: NextRequest) {
     const processed = await processPendingAiReplies();
     debug.processLog = lastProcessLog;
 
+    // expiredドラフトの自動削除（expires_at超過のpendingを一括expired化）
+    let expiredCount = 0;
+    try {
+      const { data: expiredRows } = await supabaseAdmin
+        .from("ai_reply_drafts")
+        .update({ status: "expired" })
+        .eq("status", "pending")
+        .lt("expires_at", new Date().toISOString())
+        .select("id");
+      expiredCount = expiredRows?.length || 0;
+      if (expiredCount > 0) {
+        console.log(`[ai-reply] ${expiredCount}件のexpiredドラフトを自動失効`);
+      }
+    } catch (e) {
+      console.error("[ai-reply] expired清掃エラー:", e);
+    }
+
     return NextResponse.json({
       ok: true,
       processed,
+      expiredCount,
       debug,
       timestamp: new Date().toISOString(),
     });

@@ -9,6 +9,7 @@ import { sendApprovalFlexMessage } from "@/lib/ai-reply-approval";
 import { pushMessage } from "@/lib/line-push";
 import { redis } from "@/lib/redis";
 import { rejectCategoryLabels, type RejectCategory } from "@/lib/validations/ai-reply";
+import { isWithinBusinessHours } from "@/lib/business-hours";
 import {
   saveAiReplyExample,
   searchSimilarExamples,
@@ -502,6 +503,35 @@ export async function processAiReply(
   if (!settings?.is_enabled) { log.push("skip: settings無効"); return; }
   log.push("step1: OK");
 
+  // 1.2. 営業時間チェック
+  log.push("step1.2: 営業時間チェック");
+  const { withinHours, outsideMessage } = await isWithinBusinessHours(tenantId);
+  if (!withinHours) {
+    log.push("skip: 営業時間外");
+    console.log(`[AI Reply] 営業時間外: ${patientId}`);
+    // 営業時間外メッセージが設定されていれば自動送信
+    if (outsideMessage) {
+      try {
+        await pushMessage(lineUid, [{ type: "text", text: outsideMessage }], tenantId ?? undefined);
+        await supabaseAdmin.from("message_log").insert({
+          ...tenantPayload(tenantId),
+          patient_id: patientId,
+          line_uid: lineUid,
+          direction: "outgoing",
+          event_type: "auto_reply",
+          message_type: "individual",
+          content: outsideMessage,
+          status: "sent",
+        });
+        log.push("step1.2: 営業時間外メッセージ送信完了");
+      } catch (e) {
+        console.error("[AI Reply] 営業時間外メッセージ送信エラー:", e);
+      }
+    }
+    return;
+  }
+  log.push("step1.2: 営業時間内OK");
+
   // 1.5. 日次上限チェック
   log.push("step1.5: 日次上限チェック");
   const todayStart = new Date();
@@ -603,6 +633,11 @@ export async function processAiReply(
     contextMessages,
     tenantId,
     knowledgeBase: settings.knowledge_base || "",
+    ragConfig: {
+      similarityThreshold: settings.rag_similarity_threshold ?? undefined,
+      maxExamples: settings.rag_max_examples ?? undefined,
+      maxKbChunks: settings.rag_max_kb_chunks ?? undefined,
+    },
   });
   log.push(`step5.7: examples=${ragResult.examples.length}, kb_chunks=${ragResult.knowledgeChunks.length}, query="${ragResult.rewrittenQuery.slice(0, 50)}"`);
 
