@@ -389,7 +389,7 @@ export default function AboutPage() {
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-between mt-0.5">
-                                  <p className={`truncate text-[8px] ${f.blocked ? "text-red-400" : "text-gray-400"}`}>{f.sub}</p>
+                                  <p className={`truncate text-[8px] ${"blocked" in f && f.blocked ? "text-red-400" : "text-gray-400"}`}>{f.sub}</p>
                                   <span className={`shrink-0 ml-1 rounded px-1 py-0.5 text-[7px] font-bold text-white ${f.badgeColor}`}>{f.badge}</span>
                                 </div>
                               </div>
