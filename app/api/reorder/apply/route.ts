@@ -303,7 +303,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ★ DB: reorder_numberを生成（DBの最大値+1）
+    // ★ DB: reorder_numberを生成（DBの最大値+1、衝突時リトライ）
     const { data: maxRow } = await strictWithTenant(
       supabaseAdmin
         .from("reorders")
@@ -314,28 +314,54 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    const reorderNumber = (maxRow?.reorder_number || 1) + 1;
+    let reorderNumber = (maxRow?.reorder_number || 1) + 1;
 
     // 商品から field_id を取得（reorderレコードに保存）
     const reorderProduct = await getProductByCode(productCode, tenantId);
     const reorderFieldId = reorderProduct?.field_id ?? null;
 
-    const { data: insertedData, error: dbError } = await supabaseAdmin
-      .from("reorders")
-      .insert({
-        patient_id: patientId,
-        product_code: productCode,
-        status: "pending",
-        line_uid: lineUid || null,
-        reorder_number: reorderNumber,
-        field_id: reorderFieldId,
-        ...tenantPayload(tenantId),
-      })
-      .select("id")
-      .single();
+    // INSERT（ユニーク制約違反時はリトライ or 重複エラー返却）
+    let insertedData: { id: number } | null = null;
+    const MAX_RETRIES = 3;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      const { data, error: dbError } = await supabaseAdmin
+        .from("reorders")
+        .insert({
+          patient_id: patientId,
+          product_code: productCode,
+          status: "pending",
+          line_uid: lineUid || null,
+          reorder_number: reorderNumber,
+          field_id: reorderFieldId,
+          ...tenantPayload(tenantId),
+        })
+        .select("id")
+        .single();
 
-    if (dbError || !insertedData) {
+      if (!dbError && data) {
+        insertedData = data;
+        break;
+      }
+
+      // ユニーク制約違反: 23505 = unique_violation
+      if (dbError?.code === "23505") {
+        // patient_id の重複（二重申請）→ 即座にエラー返却
+        if (dbError.message?.includes("idx_reorders_one_active_per_patient")) {
+          console.log(`[reorder/apply] DB unique constraint blocked duplicate: patient=${patientId}`);
+          return NextResponse.json({ ok: false, error: "duplicate_pending", message: "すでに処理中の再処方申請があります。キャンセルまたは決済完了後に再度お申し込みください。" }, { status: 400 });
+        }
+        // reorder_number の衝突 → 番号をインクリメントしてリトライ
+        reorderNumber++;
+        console.log(`[reorder/apply] reorder_number collision, retrying with ${reorderNumber} (attempt ${attempt + 1})`);
+        continue;
+      }
+
       console.error("[reorder/apply] DB insert error:", dbError);
+      return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
+    }
+
+    if (!insertedData) {
+      console.error("[reorder/apply] DB insert failed after retries");
       return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
     }
 
