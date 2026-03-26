@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -87,6 +87,46 @@ export default function AccountingPage() {
     squareCount: 0,
     bankCount: 0,
   });
+
+  // カスタムサマリー用のstate
+  const [customRange, setCustomRange] = useState("today");
+  const [customStart, setCustomStart] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  });
+  const [customEnd, setCustomEnd] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  });
+
+  // カスタムサマリー用SWRキー
+  const customSummaryKey = useMemo(() => {
+    const params = new URLSearchParams({ range: customRange });
+    if (customRange === "custom") {
+      params.set("start", customStart);
+      params.set("end", customEnd);
+    }
+    return `/api/admin/dashboard-stats-enhanced?${params.toString()}`;
+  }, [customRange, customStart, customEnd]);
+
+  const { data: customStats, isLoading: customLoading } = useSWR<{
+    reservations: { total: number; completed: number; cancelled: number; cancelRate: number };
+    shipping: { total: number; first: number; reorder: number };
+    revenue: { square: number; bankTransfer: number; gross: number; refunded: number; total: number; avgOrderAmount: number; totalOrders: number; reorderOrders: number };
+    patients: { total: number; active: number; new: number; repeatRate: number };
+    bankTransfer: { pending: number; confirmed: number };
+    kpi: { paymentRateAfterConsultation: number; reservationRateAfterIntake: number; consultationCompletionRate: number; lineRegisteredCount: number; todayActiveReservations: number; todayNewReservations: number; todayPaidCount: number };
+  }>(customSummaryKey);
+
+  const customRangeLabel: Record<string, string> = {
+    today: "今日",
+    yesterday: "昨日",
+    this_week: "今週",
+    last_week: "先週",
+    this_month: "今月",
+    last_month: "先月",
+    custom: "カスタム",
+  };
 
   // 売上分析用のstate
   const [analyticsTab, setAnalyticsTab] = useState<AnalyticsTab>("revenue");
@@ -269,95 +309,137 @@ export default function AccountingPage() {
         </div>
       </div>
 
-      {/* カスタムサマリー — ダッシュボード風 */}
+      {/* カスタムサマリー — ダッシュボード風（日付範囲指定） */}
       <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center justify-between mb-4 border-b pb-2">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 border-b pb-3 gap-3">
           <h2 className="text-lg font-bold text-slate-900">カスタムサマリー</h2>
-          <span className="text-xs text-slate-400">{selectedMonth} / {selectedDate}</span>
-        </div>
-
-        {/* KPIカード（ダッシュボード風 — 左ボーダー付き） */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-          <div className="bg-white rounded-lg shadow-sm p-5 border-l-4 border-blue-500 bg-blue-50/30">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-medium text-slate-600">月間決済数</div>
-              <div className="text-xl">💳</div>
-            </div>
-            <div className="text-2xl font-bold text-slate-900">{dailySummary.totalCount.toLocaleString()}<span className="text-sm font-normal text-slate-400 ml-1">件</span></div>
-            <div className="text-xs text-slate-500 mt-1">カード {dailySummary.totalSquareCount} / 振込 {dailySummary.totalBankCount}</div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-5 border-l-4 border-purple-500 bg-purple-50/30">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-medium text-slate-600">月間純売上</div>
-              <div className="text-xl">💰</div>
-            </div>
-            <div className="text-2xl font-bold text-slate-900">¥{dailySummary.totalNet.toLocaleString()}</div>
-            <div className="text-xs text-slate-500 mt-1">粗利 ¥{(dailySummary.totalSquare + dailySummary.totalBank).toLocaleString()} - 返金 ¥{dailySummary.totalRefund.toLocaleString()}</div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-5 border-l-4 border-orange-500 bg-orange-50/30">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-medium text-slate-600">顧客単価</div>
-              <div className="text-xl">📊</div>
-            </div>
-            <div className="text-2xl font-bold text-slate-900">¥{dailySummary.avgOrderValue.toLocaleString()}</div>
-            <div className="text-xs text-slate-500 mt-1">月間平均</div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-5 border-l-4 border-green-500 bg-green-50/30">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-medium text-slate-600">日別売上</div>
-              <div className="text-xl">📅</div>
-            </div>
-            <div className="text-2xl font-bold text-slate-900">¥{todaySummary.totalNet.toLocaleString()}</div>
-            <div className="text-xs text-slate-500 mt-1">{selectedDate} 分</div>
-          </div>
-        </div>
-
-        {/* 転換率カード（ダッシュボード風 — グラデーション背景） */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
-          {(() => {
-            const totalFirst = dailyData.reduce((s, d) => s + d.firstCount, 0);
-            const totalReorder = dailyData.reduce((s, d) => s + d.reorderCount, 0);
-            const totalOrders = totalFirst + totalReorder;
-            const reorderRate = totalOrders > 0 ? Math.round((totalReorder / totalOrders) * 100) : 0;
-            const cardRate = dailySummary.totalCount > 0 ? Math.round((dailySummary.totalSquareCount / dailySummary.totalCount) * 100) : 0;
-            const avgDailyRevenue = dailyData.length > 0 ? Math.round(dailySummary.totalNet / dailyData.filter(d => d.total > 0).length || 1) : 0;
-            return (
+          <div className="flex items-center gap-2 flex-wrap">
+            <select
+              value={customRange}
+              onChange={(e) => setCustomRange(e.target.value)}
+              className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+            >
+              <option value="today">今日</option>
+              <option value="yesterday">昨日</option>
+              <option value="this_week">今週</option>
+              <option value="last_week">先週</option>
+              <option value="this_month">今月</option>
+              <option value="last_month">先月</option>
+              <option value="custom">カスタム</option>
+            </select>
+            {customRange === "custom" && (
               <>
-                <div className="bg-gradient-to-br from-white to-slate-50 rounded-lg shadow-sm p-5 border border-slate-200">
-                  <div className="text-sm font-medium text-slate-600 mb-2">再処方比率</div>
-                  <div className={`text-3xl font-bold mb-1 ${reorderRate >= 60 ? "text-green-600" : reorderRate >= 40 ? "text-yellow-600" : "text-red-600"}`}>{reorderRate}%</div>
-                  <div className="text-xs text-slate-500">新規 {totalFirst}件 / 再処方 {totalReorder}件</div>
-                </div>
-                <div className="bg-gradient-to-br from-white to-slate-50 rounded-lg shadow-sm p-5 border border-slate-200">
-                  <div className="text-sm font-medium text-slate-600 mb-2">カード決済比率</div>
-                  <div className={`text-3xl font-bold mb-1 ${cardRate >= 80 ? "text-green-600" : cardRate >= 50 ? "text-yellow-600" : "text-red-600"}`}>{cardRate}%</div>
-                  <div className="text-xs text-slate-500">カード {dailySummary.totalSquareCount} / 振込 {dailySummary.totalBankCount}</div>
-                </div>
-                <div className="bg-gradient-to-br from-white to-slate-50 rounded-lg shadow-sm p-5 border border-slate-200">
-                  <div className="text-sm font-medium text-slate-600 mb-2">日平均売上</div>
-                  <div className="text-3xl font-bold mb-1 text-blue-600">¥{avgDailyRevenue.toLocaleString()}</div>
-                  <div className="text-xs text-slate-500">稼働日ベース</div>
-                </div>
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-slate-400">〜</span>
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </>
-            );
-          })()}
+            )}
+            {customLoading && (
+              <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            )}
+          </div>
         </div>
 
-        {/* ミニ統計行 */}
-        <div className="space-y-2">
-          {[
-            { label: "月間カード決済額", value: `¥${dailySummary.totalSquare.toLocaleString()}`, highlight: undefined as string | undefined },
-            { label: "月間振込額", value: `¥${dailySummary.totalBank.toLocaleString()}`, highlight: undefined as string | undefined },
-            { label: "月間返金額", value: `-¥${dailySummary.totalRefund.toLocaleString()}`, highlight: dailySummary.totalRefund > 0 ? "red" as const : undefined },
-            { label: "当日カード決済", value: `¥${todaySummary.totalSquare.toLocaleString()} (${todaySummary.squareCount}件)`, highlight: undefined as string | undefined },
-            { label: "当日振込", value: `¥${todaySummary.totalBank.toLocaleString()} (${todaySummary.bankCount}件)`, highlight: undefined as string | undefined },
-          ].map((row) => (
-            <div key={row.label} className={`flex items-center justify-between p-3 rounded-lg ${row.highlight === "red" ? "bg-red-50" : "bg-slate-50"}`}>
-              <span className="text-sm text-slate-600">{row.label}</span>
-              <span className={`text-sm font-bold ${row.highlight === "red" ? "text-red-600" : "text-slate-900"}`}>{row.value}</span>
+        {customStats ? (
+          <>
+            {/* KPIカード（ダッシュボード風 — 左ボーダー付き） */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+              <div className="rounded-lg shadow-sm p-5 border-l-4 border-blue-500 bg-blue-50/30">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-medium text-slate-600">予約件数</div>
+                  <div className="text-xl">📅</div>
+                </div>
+                <div className="text-2xl font-bold text-slate-900">{customStats.reservations.total}<span className="text-sm font-normal text-slate-400 ml-1">件</span></div>
+                <div className="text-xs text-slate-500 mt-1">診察済 {customStats.reservations.completed} / キャンセル {customStats.reservations.cancelled}</div>
+              </div>
+              <div className="rounded-lg shadow-sm p-5 border-l-4 border-green-500 bg-green-50/30">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-medium text-slate-600">配送件数</div>
+                  <div className="text-xl">📦</div>
+                </div>
+                <div className="text-2xl font-bold text-slate-900">{customStats.shipping.total}<span className="text-sm font-normal text-slate-400 ml-1">件</span></div>
+                <div className="text-xs text-slate-500 mt-1">新規 {customStats.shipping.first} / 再処方 {customStats.shipping.reorder}</div>
+              </div>
+              <div className="rounded-lg shadow-sm p-5 border-l-4 border-purple-500 bg-purple-50/30">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-medium text-slate-600">純売上</div>
+                  <div className="text-xl">💰</div>
+                </div>
+                <div className="text-2xl font-bold text-slate-900">¥{(customStats.revenue.total || 0).toLocaleString()}</div>
+                <div className="text-xs text-slate-500 mt-1">カード ¥{(customStats.revenue.square || 0).toLocaleString()} / 振込 ¥{(customStats.revenue.bankTransfer || 0).toLocaleString()}</div>
+              </div>
+              <div className="rounded-lg shadow-sm p-5 border-l-4 border-orange-500 bg-orange-50/30">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-medium text-slate-600">顧客単価</div>
+                  <div className="text-xl">📊</div>
+                </div>
+                <div className="text-2xl font-bold text-slate-900">¥{(customStats.revenue.avgOrderAmount || 0).toLocaleString()}</div>
+                <div className="text-xs text-slate-500 mt-1">{customRangeLabel[customRange]}平均</div>
+              </div>
             </div>
-          ))}
-        </div>
+
+            {/* 転換率カード（ダッシュボード風 — グラデーション背景） */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
+              {(() => {
+                const payRate = customStats.kpi.paymentRateAfterConsultation || 0;
+                const resRate = customStats.kpi.reservationRateAfterIntake || 0;
+                const conRate = customStats.kpi.consultationCompletionRate || 0;
+                const rateColor = (r: number) => r >= 80 ? "text-green-600" : r >= 60 ? "text-yellow-600" : "text-red-600";
+                return (
+                  <>
+                    <div className="bg-gradient-to-br from-white to-slate-50 rounded-lg shadow-sm p-5 border border-slate-200">
+                      <div className="text-sm font-medium text-slate-600 mb-2">診療後決済率</div>
+                      <div className={`text-3xl font-bold mb-1 ${rateColor(payRate)}`}>{payRate}%</div>
+                      <div className="text-xs text-slate-500">診察完了後に決済した割合</div>
+                    </div>
+                    <div className="bg-gradient-to-br from-white to-slate-50 rounded-lg shadow-sm p-5 border border-slate-200">
+                      <div className="text-sm font-medium text-slate-600 mb-2">問診後予約率</div>
+                      <div className={`text-3xl font-bold mb-1 ${rateColor(resRate)}`}>{resRate}%</div>
+                      <div className="text-xs text-slate-500">問診完了後に予約した割合</div>
+                    </div>
+                    <div className="bg-gradient-to-br from-white to-slate-50 rounded-lg shadow-sm p-5 border border-slate-200">
+                      <div className="text-sm font-medium text-slate-600 mb-2">予約後受診率</div>
+                      <div className={`text-3xl font-bold mb-1 ${rateColor(conRate)}`}>{conRate}%</div>
+                      <div className="text-xs text-slate-500">予約後に診察完了した割合</div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* ミニ統計行 */}
+            <div className="space-y-2">
+              {[
+                { label: "カード決済額", value: `¥${(customStats.revenue.square || 0).toLocaleString()}`, highlight: undefined as string | undefined },
+                { label: "銀行振込額", value: `¥${(customStats.revenue.bankTransfer || 0).toLocaleString()}`, highlight: undefined as string | undefined },
+                { label: "返金額", value: `-¥${(customStats.revenue.refunded || 0).toLocaleString()}`, highlight: (customStats.revenue.refunded || 0) > 0 ? "red" : undefined },
+                { label: "リピート率", value: `${customStats.patients.repeatRate || 0}%`, highlight: undefined as string | undefined },
+                { label: "新規患者", value: `${customStats.patients.new || 0}人`, highlight: undefined as string | undefined },
+                { label: "振込入金待ち", value: `${customStats.bankTransfer.pending || 0}件`, highlight: (customStats.bankTransfer.pending || 0) > 0 ? "orange" : undefined },
+                { label: "振込確認済み", value: `${customStats.bankTransfer.confirmed || 0}件`, highlight: undefined as string | undefined },
+              ].map((row) => (
+                <div key={row.label} className={`flex items-center justify-between p-3 rounded-lg ${row.highlight === "red" ? "bg-red-50" : row.highlight === "orange" ? "bg-orange-50" : "bg-slate-50"}`}>
+                  <span className="text-sm text-slate-600">{row.label}</span>
+                  <span className={`text-sm font-bold ${row.highlight === "red" ? "text-red-600" : row.highlight === "orange" ? "text-orange-600" : "text-slate-900"}`}>{row.value}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center justify-center py-12 text-slate-400 text-sm">
+            {customLoading ? "読み込み中..." : "データがありません"}
+          </div>
+        )}
       </div>
 
       {/* 日別売上グラフ */}
