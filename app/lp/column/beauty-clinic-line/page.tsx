@@ -120,7 +120,7 @@ export default function Page() {
 
       <section>
         <h2 id="after-follow" className="text-xl font-bold text-gray-800">アフターフォロー — 施術後のケア方法と経過確認</h2>
-        <p>美容施術において、アフターフォローは患者満足度とリピート率を左右する極めて重要な要素です。施術後の不安を解消し、適切なケアを案内することで、患者の信頼を獲得し、次回施術への意欲を高めることができます。</p>
+        <p>美容施術において、アフターフォローは患者満足度とリピート率を左右する極めて重要な要素です。施術後の不安を解消し、適切なケアを案内することで、患者の信頼を獲得し、次回施術への意欲を高めることができます。患者の離脱を防ぐフォローアップ施策の全体像は<Link href="/lp/column/clinic-patient-retention" className="text-sky-600 underline hover:text-sky-800">患者離脱を防ぐLINEフォローアップ</Link>もご参照ください。</p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">施術後の自動フォロースケジュール</h3>
 
@@ -211,7 +211,7 @@ export default function Page() {
           { title: "口コミ", desc: "2ステップ方式でGoogle口コミの質と量を最大化" },
         ]} />
 
-        <p className="mt-4">Lオペ for CLINICは、美容クリニックに必要なこれらの機能をオールインワンで提供します。<Link href="/lp/features#患者CRM" className="text-sky-600 underline hover:text-sky-800">患者CRM</Link>から<Link href="/lp/features#メッセージ配信" className="text-sky-600 underline hover:text-sky-800">セグメント配信</Link>まで、LINE一つで患者体験を最大化しませんか。オンライン診療との連携に興味がある方は<Link href="/lp/column/online-medical-line" className="text-sky-600 underline hover:text-sky-800">オンライン診療×LINE</Link>の記事もご覧ください。</p>
+        <p className="mt-4">Lオペ for CLINICは、美容クリニックに必要なこれらの機能をオールインワンで提供します。<Link href="/lp/features#患者CRM" className="text-sky-600 underline hover:text-sky-800">患者CRM</Link>から<Link href="/lp/features#メッセージ配信" className="text-sky-600 underline hover:text-sky-800">セグメント配信</Link>まで、LINE一つで患者体験を最大化しませんか。オンライン診療との連携に興味がある方は<Link href="/lp/column/online-medical-line" className="text-sky-600 underline hover:text-sky-800">オンライン診療×LINE</Link>の記事もご覧ください。美容皮膚科の対面×オンラインのハイブリッドモデルは<Link href="/lp/column/beauty-derma-online-hybrid" className="text-sky-600 underline hover:text-sky-800">美容皮膚科のオンライン診療戦略</Link>で解説しています。</p>
       </section>
     </ArticleLayout>
   );

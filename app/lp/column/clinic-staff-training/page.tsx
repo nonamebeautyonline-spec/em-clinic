@@ -166,7 +166,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>LINE公式アカウントの効果を最大化するには、ツール選びと同じくらいスタッフ研修が重要です。Lオペ for CLINICでは、導入時の操作研修やマニュアル作成のサポートも提供しています。自動化の仕組みと合わせて、スタッフ全員が安心して使える環境を整えましょう。自動化の設定方法は<Link href="/lp/column/clinic-line-automation" className="text-sky-600 underline hover:text-sky-800">LINE自動化完全ガイド</Link>もご参照ください。</p>
+        <p>LINE公式アカウントの効果を最大化するには、ツール選びと同じくらいスタッフ研修が重要です。Lオペ for CLINICでは、導入時の操作研修やマニュアル作成のサポートも提供しています。自動化の仕組みと合わせて、スタッフ全員が安心して使える環境を整えましょう。自動化の設定方法は<Link href="/lp/column/clinic-line-automation" className="text-sky-600 underline hover:text-sky-800">LINE自動化完全ガイド</Link>、LINE運用ノウハウの全体像は<Link href="/lp/column/line-operation-guide" className="text-sky-600 underline hover:text-sky-800">LINE運用完全ガイド</Link>もご参照ください。</p>
       </section>
     </ArticleLayout>
   );

@@ -153,7 +153,7 @@ export default function Page() {
       <section>
         <h2 id="sns-ads" className="text-xl font-bold text-gray-800">Instagram・SNS広告のROI</h2>
 
-        <p>Instagram広告は、自費クリニック——特に美容皮膚科・美容外科——において<strong>認知拡大とブランディングに最も効果的な媒体</strong>です。ビジュアル訴求力の高さから、施術のビフォーアフターや院内の雰囲気を伝えやすく、「まだ具体的な治療は決めていないが興味はある」という潜在層にリーチできます。</p>
+        <p>Instagram広告は、自費クリニック——特に美容皮膚科・美容外科——において<strong>認知拡大とブランディングに最も効果的な媒体</strong>です。ビジュアル訴求力の高さから、施術のビフォーアフターや院内の雰囲気を伝えやすく、「まだ具体的な治療は決めていないが興味はある」という潜在層にリーチできます。Instagram運用の具体的な戦略については<Link href="/lp/column/self-pay-clinic-instagram-strategy" className="text-sky-600 underline hover:text-sky-800">自費クリニックのInstagram運用戦略</Link>も参考にしてください。</p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">Instagram広告の特性</h3>
 
@@ -262,7 +262,7 @@ export default function Page() {
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">来院経路の追跡方法</h3>
 
-        <p>最も確実なのは、<strong>初診時の問診票に「当院を知ったきっかけ」の選択肢を設ける</strong>方法です。Google検索、Instagram、LINE、友人の紹介、ポータルサイト、通りがかりなどの選択肢を用意し、データを蓄積します。これにより、各媒体の実際のCPA（来院ベース）を算出できます。</p>
+        <p>最も確実なのは、<strong>初診時の問診票に「当院を知ったきっかけ」の選択肢を設ける</strong>方法です。Google検索、Instagram、LINE、友人の紹介、ポータルサイト、通りがかりなどの選択肢を用意し、データを蓄積します。これにより、各媒体の実際のCPA（来院ベース）を算出できます。MEO対策を含むGoogleマップ経由の流入計測については<Link href="/lp/column/self-pay-clinic-google-meo" className="text-sky-600 underline hover:text-sky-800">自費クリニックのGoogle MEO対策ガイド</Link>で詳しく解説しています。</p>
 
         <p>デジタルでの追跡には、UTMパラメータの活用が有効です。各広告のリンクにUTMパラメータ（utm_source, utm_medium, utm_campaign）を付与し、Googleアナリティクスで流入元を分析します。LINE公式アカウントの友だち追加にもUTMを設定でき、Lオペを使えば<strong>友だち追加元→予約→来院の一気通貫での追跡</strong>が可能です。</p>
 

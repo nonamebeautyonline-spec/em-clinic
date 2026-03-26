@@ -73,7 +73,7 @@ export default function Page() {
           { value: "¥0", unit: "", label: "広告費" },
         ]} />
 
-        <p>患者LTVの考え方と向上戦略の全体像は<Link href="/lp/column/clinic-patient-ltv" className="text-sky-600 underline hover:text-sky-800">患者LTV向上戦略</Link>で詳しく解説しています。</p>
+        <p>患者LTVの考え方と向上戦略の全体像は<Link href="/lp/column/clinic-patient-ltv" className="text-sky-600 underline hover:text-sky-800">患者LTV向上戦略</Link>で詳しく解説しています。患者離脱を防ぐフォローアップの設計は<Link href="/lp/column/clinic-patient-retention" className="text-sky-600 underline hover:text-sky-800">患者離脱防止ガイド</Link>もあわせてご覧ください。</p>
       </section>
 
       {/* ── デジタル紹介カード ── */}
@@ -161,7 +161,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICは、デジタル紹介カード・特典自動付与・紹介追跡ダッシュボードを<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">標準搭載</Link>したクリニック専用LINE運用プラットフォームです。紹介制度のデジタル化で、広告費ゼロの口コミ集患を実現します。</p>
+        <p>Lオペ for CLINICは、デジタル紹介カード・特典自動付与・紹介追跡ダッシュボードを<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">標準搭載</Link>したクリニック専用LINE運用プラットフォームです。紹介制度のデジタル化で、広告費ゼロの口コミ集患を実現します。季節ごとのキャンペーン設計については<Link href="/lp/column/clinic-seasonal-campaign" className="text-sky-600 underline hover:text-sky-800">季節別LINE配信戦略</Link>もあわせてご覧ください。</p>
       </section>
     </ArticleLayout>
   );

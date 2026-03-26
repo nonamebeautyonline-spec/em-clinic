@@ -146,7 +146,7 @@ export default function Page() {
       <section>
         <h2 id="sns-ads" className="text-xl font-bold text-gray-800">SNS投稿の医療広告ガイドライン</h2>
 
-        <p>Instagram・X（旧Twitter）・TikTokなどのSNS投稿は、すべてが広告に該当するわけではありません。ただし、<strong>施術への誘引性がある投稿</strong>は広告として医療広告ガイドラインの規制を受けます。</p>
+        <p>Instagram・X（旧Twitter）・TikTokなどのSNS投稿は、すべてが広告に該当するわけではありません。ただし、<strong>施術への誘引性がある投稿</strong>は広告として医療広告ガイドラインの規制を受けます。SNSを活用した集患戦略については<Link href="/lp/column/clinic-tiktok-youtube-strategy" className="text-sky-600 underline hover:text-sky-800">TikTok・YouTube活用ガイド</Link>、SEO対策と合わせた集患施策は<Link href="/lp/column/clinic-seo-complete-guide" className="text-sky-600 underline hover:text-sky-800">SEO対策完全ガイド</Link>もご覧ください。</p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">SNS投稿が「広告」に該当するケース</h3>
         <p>厚生労働省の見解では、以下の<strong>2つの要件を両方満たす場合</strong>に広告として規制されます。(1) 患者の受診を誘引する意図がある（誘引性）、(2) クリニック名や所在地が特定可能（特定性）。クリニック公式アカウントからの施術紹介や料金案内、キャンペーン告知は、この2要件をほぼ確実に満たすため、広告として扱われます。</p>

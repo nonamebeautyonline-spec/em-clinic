@@ -90,7 +90,7 @@ export default function Page() {
         <h2 id="case-beauty" className="text-xl font-bold text-gray-800">事例1: 美容皮膚科A院 — 月間売上650万円から920万円へ</h2>
 
         <p>
-          都内で開業5年目の美容皮膚科クリニック。院長1名、看護師3名、受付2名、カウンセラー1名の体制です。自費診療中心ながらも、新規患者の獲得とリピート率に課題を抱えていました。
+          都内で開業5年目の美容皮膚科クリニック。院長1名、看護師3名、受付2名、カウンセラー1名の体制です。自費診療中心ながらも、新規患者の獲得とリピート率に課題を抱えていました。固定費削減の具体的な数値については<Link href="/lp/column/clinic-cost-reduction-30man" className="text-sky-600 underline hover:text-sky-800">固定費を月30万円削減する方法</Link>でも紹介しています。
         </p>
 
         <Callout type="warning" title="導入前の課題">
@@ -396,7 +396,7 @@ export default function Page() {
         </p>
 
         <p>
-          本記事で紹介した3院のように、まずは最もインパクトの大きい1つの業務からスタートし、段階的に範囲を広げていくアプローチが成功の鍵です。Lオペでは導入前の業務診断から運用定着までを一貫してサポートしています。
+          本記事で紹介した3院のように、まずは最もインパクトの大きい1つの業務からスタートし、段階的に範囲を広げていくアプローチが成功の鍵です。DX導入の全体設計図は<Link href="/lp/column/clinic-dx-complete-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>でも体系的にまとめています。Lオペでは導入前の業務診断から運用定着までを一貫してサポートしています。
         </p>
 
         <InlineCTA />

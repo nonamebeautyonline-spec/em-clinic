@@ -190,7 +190,7 @@ export default function Page() {
           ]}
         />
 
-        <p>LINE公式アカウントを中心にクリニック業務を一元管理したい場合は、Lオペ for CLINICが<Link href="/lp/features#患者CRM" className="text-sky-600 underline hover:text-sky-800">クリニック専用CRM</Link>として最もフィットします。予約管理機能をさらに比較したい方は<Link href="/lp/column/reservation-system-comparison" className="text-sky-600 underline hover:text-sky-800">予約システム比較10選</Link>も参考にしてください。</p>
+        <p>LINE公式アカウントを中心にクリニック業務を一元管理したい場合は、Lオペ for CLINICが<Link href="/lp/features#患者CRM" className="text-sky-600 underline hover:text-sky-800">クリニック専用CRM</Link>として最もフィットします。予約管理機能をさらに比較したい方は<Link href="/lp/column/reservation-system-comparison" className="text-sky-600 underline hover:text-sky-800">予約システム比較10選</Link>も参考にしてください。患者データの分析・活用については<Link href="/lp/column/clinic-patient-ltv" className="text-sky-600 underline hover:text-sky-800">患者LTV向上戦略</Link>を、既存システムからのデータ移行については<Link href="/lp/column/clinic-data-migration" className="text-sky-600 underline hover:text-sky-800">データ移行ガイド</Link>も併せてご覧ください。</p>
       </section>
     </ArticleLayout>
   );

@@ -272,7 +272,7 @@ export default function Page() {
         />
 
         <Callout type="point" title="サブスク成功の3つの鉄則">
-          <strong>1. 松竹梅で選択肢を：</strong>単一プランではなく3段階のプランを用意し、中間プランに誘導する。ダウングレードの選択肢が解約防止にもなる<br />
+          <strong>1. 松竹梅で選択肢を：</strong>単一プランではなく3段階のプランを用意し、中間プランに誘導する（<Link href="/lp/column/self-pay-clinic-pricing-strategy" className="text-sky-600 underline hover:text-sky-800">価格設定戦略ガイド</Link>も参照）。ダウングレードの選択肢が解約防止にもなる<br />
           <strong>2. チャーン率5%以下を死守：</strong>解約率の改善はLTVに直結する。効果実感の提供、ダウングレード/休会プラン、LINE自動フォローで解約を阻止<br />
           <strong>3. LINE連携で運用を自動化：</strong>決済・通知・フォロー配信をLINE上で完結させ、スタッフの負荷なくサブスクを回す仕組みを構築
         </Callout>

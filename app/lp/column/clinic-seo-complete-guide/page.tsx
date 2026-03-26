@@ -210,7 +210,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICは、LINE公式アカウントを通じた患者とのコミュニケーション基盤を提供し、SEOで獲得した新規流入を確実に予約・来院へとつなげます。検索上位表示で認知を獲得し、LINEで関係を深めるマーケティング導線の構築に、ぜひお役立てください。</p>
+        <p>Lオペ for CLINICは、LINE公式アカウントを通じた患者とのコミュニケーション基盤を提供し、SEOで獲得した新規流入を確実に予約・来院へとつなげます。検索上位表示で認知を獲得し、LINEで関係を深めるマーケティング導線の構築に、ぜひお役立てください。口コミ対策との連携は<Link href="/lp/column/clinic-google-review" className="text-sky-600 underline hover:text-sky-800">Google口コミ対策のLINE活用</Link>、SNS広告のコンプライアンスは<Link href="/lp/column/clinic-listing-sns-ad-compliance" className="text-sky-600 underline hover:text-sky-800">リスティング・SNS広告コンプライアンスガイド</Link>もあわせてご確認ください。</p>
       </section>
     </ArticleLayout>
   );

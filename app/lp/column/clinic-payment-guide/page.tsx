@@ -156,7 +156,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICは、Square・GMO・銀行振込との連携をオールインワンで提供します。LINE上で決済を完結させることで、患者の利便性向上とクリニックの会計業務効率化を同時に実現しましょう。</p>
+        <p>Lオペ for CLINICは、Square・GMO・銀行振込との連携をオールインワンで提供します。LINE上で決済を完結させることで、患者の利便性向上とクリニックの会計業務効率化を同時に実現しましょう。自費診療の売上を伸ばす方法は<Link href="/lp/column/clinic-self-pay-revenue" className="text-sky-600 underline hover:text-sky-800">自費診療売上向上ガイド</Link>、ツール統合によるコスト削減は<Link href="/lp/column/clinic-line-integration-cost-half" className="text-sky-600 underline hover:text-sky-800">LINE統合でコスト半減</Link>もご覧ください。</p>
       </section>
     </ArticleLayout>
   );

@@ -120,7 +120,7 @@ export default function Page() {
       <section>
         <h2 id="medications" className="text-xl font-bold text-gray-800">処方薬の種類と特徴</h2>
 
-        <p>AGA治療で処方される薬剤は大きく「内服薬」と「外用薬」に分かれます。それぞれの特徴を理解し、患者の症状や希望に応じた処方プランを設計することが重要です。</p>
+        <p>AGA治療で処方される薬剤は大きく「内服薬」と「外用薬」に分かれます。それぞれの特徴を理解し、患者の症状や希望に応じた処方プランを設計することが重要です。各薬剤の作用機序・エビデンス・副作用の詳細比較は<Link href="/lp/column/aga-medication-comparison" className="text-sky-600 underline hover:text-sky-800">AGA治療薬の種類と効果比較</Link>をご覧ください。</p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">フィナステリド（内服薬）</h3>
         <p>AGA治療の第一選択薬です。5α還元酵素II型を阻害し、DHT（ジヒドロテストステロン）の生成を抑制することで抜け毛を防ぎます。1日1錠の服用で効果が期待でき、<strong>6ヶ月継続で約8割の患者に改善効果</strong>が認められています。副作用の発現率は低く、性欲減退が1〜5%程度報告されています。</p>
@@ -201,7 +201,7 @@ export default function Page() {
           「AGA クリニック」のような直接的なキーワードは競合が激しくCPAが高騰しがちです。一方、「薄毛 相談 LINE」「AGA 費用 安い」「抜け毛 増えた 20代」といった<strong>悩み・費用系のロングテールキーワード</strong>は、競合が少なくCPAを抑えながら高い成約率が期待できます。LINE友だち追加との組み合わせが最も費用対効果に優れた集患導線です。
         </Callout>
 
-        <p>重要なのは、集患チャネルを一つに絞らず、<strong>複数チャネルをLINEに集約する設計</strong>にすることです。広告経由もSEO経由も口コミ経由も、すべてLINE友だち追加に誘導し、そこから自動フォローで予約につなげる。この統合的な導線設計が、AGA診療の集患効率を最大化します。</p>
+        <p>重要なのは、集患チャネルを一つに絞らず、<strong>複数チャネルをLINEに集約する設計</strong>にすることです。広告経由もSEO経由も口コミ経由も、すべてLINE友だち追加に誘導し、そこから自動フォローで予約につなげる。この統合的な導線設計が、AGA診療の集患効率を最大化します。個人クリニックが大手に勝つための差別化戦略は<Link href="/lp/column/aga-online-clinic-winning-strategy" className="text-sky-600 underline hover:text-sky-800">AGA治療オンラインクリニックの勝ち方</Link>で詳しく解説しています。</p>
       </section>
 
       {/* ── セクション6: Lオペで実現するAGA診療の自動化 ── */}

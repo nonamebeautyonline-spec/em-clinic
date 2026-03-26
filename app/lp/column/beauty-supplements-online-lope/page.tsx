@@ -87,7 +87,7 @@ export default function Page() {
 
         <p>美容医療市場全体の拡大に伴い、美容内服薬の需要は年々増加しています。特に2020年以降のオンライン診療解禁を契機に、「来院不要で美容薬を処方してもらえる」という利便性が患者に広く認知され、市場は急成長フェーズに入りました。</p>
 
-        <p>美容内服が従来の施術（レーザー・注入治療等）と異なるのは、<strong>毎月継続して服用する</strong>という特性です。つまり、一度処方すれば毎月の定期収入が見込める「ストック型ビジネスモデル」として機能します。これはクリニック経営において非常に魅力的な収益構造です。</p>
+        <p>美容内服が従来の施術（レーザー・注入治療等）と異なるのは、<strong>毎月継続して服用する</strong>という特性です。つまり、一度処方すれば毎月の定期収入が見込める「ストック型ビジネスモデル」として機能します。これはクリニック経営において非常に魅力的な収益構造です。各薬剤の作用機序・用量・副作用の詳細は<Link href="/lp/column/beauty-oral-medicine-guide" className="text-sky-600 underline hover:text-sky-800">美容内服薬の種類と効果ガイド</Link>、目的別セット処方の組み方は<Link href="/lp/column/beauty-oral-set-prescription" className="text-sky-600 underline hover:text-sky-800">美容内服セット処方の組み方</Link>をご覧ください。</p>
 
         <BarChart
           data={[

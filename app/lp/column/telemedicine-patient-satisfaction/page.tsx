@@ -212,7 +212,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICは、オンライン診療の予約・問診・配送通知・フォローアップ・NPS調査までをLINE上でワンストップ管理できるクリニック専用プラットフォームです。患者体験の設計から満足度の可視化、口コミ獲得までの一連の仕組みを、手間なく構築できます。</p>
+        <p>Lオペ for CLINICは、オンライン診療の予約・問診・配送通知・フォローアップ・NPS調査までをLINE上でワンストップ管理できるクリニック専用プラットフォームです。患者体験の設計から満足度の可視化、口コミ獲得までの一連の仕組みを、手間なく構築できます。オンライン診療の問診設計については<Link href="/lp/column/online-clinic-questionnaire-design" className="text-sky-600 underline hover:text-sky-800">オンライン問診設計ガイド</Link>、配送フローの最適化については<Link href="/lp/column/online-clinic-prescription-delivery" className="text-sky-600 underline hover:text-sky-800">医薬品配送ガイド</Link>もあわせてご確認ください。</p>
       </section>
     </ArticleLayout>
   );

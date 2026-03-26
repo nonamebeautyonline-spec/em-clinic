@@ -199,7 +199,7 @@ export default function Page() {
       <section>
         <h2 id="pricing-models" className="text-xl font-bold text-gray-800">価格モデルの種類</h2>
 
-        <p>自費診療の価格設定では、単に1回あたりの価格を決めるだけでなく、<strong>どのような料金体系（価格モデル）で提供するか</strong>が収益に大きく影響します。主要な4つのモデルを比較し、それぞれに適する施術を整理します。</p>
+        <p>自費診療の価格設定では、単に1回あたりの価格を決めるだけでなく、<strong>どのような料金体系（価格モデル）で提供するか</strong>が収益に大きく影響します。サブスクリプションモデルの詳しい設計方法は<Link href="/lp/column/self-pay-clinic-subscription-model" className="text-sky-600 underline hover:text-sky-800">サブスクモデル導入ガイド</Link>を、松竹梅プランの設計については<Link href="/lp/column/self-pay-clinic-pricing-strategy" className="text-sky-600 underline hover:text-sky-800">価格設定戦略ガイド</Link>もあわせてご覧ください。主要な4つのモデルを比較し、それぞれに適する施術を整理します。</p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">1. 単品型（都度払い）</h3>
         <p>施術ごとに1回分の料金を支払うモデルです。患者にとって心理的ハードルが最も低く、初めての施術を体験してもらう導入フェーズに適しています。ただし、リピートの保証がないため、クリニック側の売上予測が立てにくいというデメリットがあります。</p>

@@ -257,7 +257,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>自費クリニックの再診率改善は、一朝一夕で実現するものではありませんが、LINEのセグメント配信とステップ配信を正しく設計すれば、着実に成果が出る領域です。Lオペ for CLINICを活用すれば、施術カテゴリ×治療ステージの配信シナリオを簡単に構築・自動化できます。まずは最も患者数の多い施術カテゴリで初回フォローアップの自動化から始めてみましょう。</p>
+        <p>自費クリニックの再診率改善は、一朝一夕で実現するものではありませんが、LINEのセグメント配信とステップ配信を正しく設計すれば、着実に成果が出る領域です。Lオペ for CLINICを活用すれば、施術カテゴリ×治療ステージの配信シナリオを簡単に構築・自動化できます。再診率を含むLTV全体の最大化戦略については<Link href="/lp/column/self-pay-patient-ltv-maximize" className="text-sky-600 underline hover:text-sky-800">患者LTV最大化ガイド</Link>を、サブスク型で継続率を高める手法は<Link href="/lp/column/self-pay-clinic-subscription-model" className="text-sky-600 underline hover:text-sky-800">サブスクリプションモデル導入ガイド</Link>もご覧ください。まずは最も患者数の多い施術カテゴリで初回フォローアップの自動化から始めてみましょう。</p>
       </section>
     </ArticleLayout>
   );

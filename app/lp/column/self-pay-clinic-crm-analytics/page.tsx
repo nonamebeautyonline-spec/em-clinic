@@ -64,7 +64,7 @@ export default function Page() {
       <section>
         <h2 id="why-data" className="text-xl font-bold text-gray-800">なぜデータ分析が自費経営を変えるか</h2>
 
-        <p>保険診療と異なり、自費クリニックの経営は<strong>マーケティング・サービス・価格設定のすべてが自院の裁量</strong>に委ねられています。この自由度は、データに基づいて最適化すれば大きなリターンを生みますが、感覚に頼って判断すると容易に経営が迷走します。</p>
+        <p>保険診療と異なり、自費クリニックの経営は<strong>マーケティング・サービス・価格設定のすべてが自院の裁量</strong>に委ねられています。この自由度は、データに基づいて最適化すれば大きなリターンを生みますが、感覚に頼って判断すると容易に経営が迷走します。価格設定の最適化については<Link href="/lp/column/self-pay-clinic-pricing-strategy" className="text-sky-600 underline hover:text-sky-800">価格設定戦略ガイド</Link>も参考にしてください。</p>
 
         <p>データドリブンな経営を実践しているクリニックとそうでないクリニックでは、3年後の売上成長率に<strong>2〜3倍の差</strong>が生じるという調査結果があります。これは、データに基づく意思決定が「正しいことをより多く、間違いをより少なく」する確率を高めるからです。</p>
 
@@ -92,7 +92,7 @@ export default function Page() {
 
         <p>新患獲得数の目標値は、クリニックの規模と診療科によって異なりますが、<strong>医師1人あたり月20〜50名</strong>が一般的な目安です。これを下回る場合は集患施策の強化が必要であり、上回る場合はキャパシティの限界に近づいている可能性があります。</p>
 
-        <p>計測にあたっては、初診問診票に「来院きっかけ」の選択肢を設け、チャネル別の新患数を毎月集計します。主要チャネルとして、<strong>Google検索（自然検索＋広告）、Instagram、LINE友だち追加、口コミ紹介、ポータルサイト</strong>の5つを最低限追跡しましょう。</p>
+        <p>計測にあたっては、初診問診票に「来院きっかけ」の選択肢を設け、チャネル別の新患数を毎月集計します。主要チャネルとして、<strong>Google検索（自然検索＋広告）、Instagram、LINE友だち追加、口コミ紹介、ポータルサイト</strong>の5つを最低限追跡しましょう。各媒体のROI比較については<Link href="/lp/column/self-pay-clinic-ad-roi" className="text-sky-600 underline hover:text-sky-800">広告費ROI最適化ガイド</Link>で詳しく解説しています。</p>
 
         <ComparisonTable
           headers={["獲得チャネル", "平均CPA", "平均LTV", "LTV/CPA比率", "優先度"]}

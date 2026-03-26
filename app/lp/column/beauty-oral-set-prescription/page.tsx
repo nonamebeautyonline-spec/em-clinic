@@ -338,7 +338,7 @@ export default function Page() {
 
         <p>本記事では、美容内服薬のセット処方について、目的別の組み合わせ（美白・ニキビ・エイジングケア）から松竹梅プランの価格設計、患者説明のコツ、定期処方の継続率を高める仕組みまでを解説しました。</p>
 
-        <p>セット処方の成功のカギは3つです。第一に、<strong>薬理学的な根拠に基づいた組み合わせ</strong>で患者に確かな効果を提供すること。第二に、<strong>松竹梅プラン設計</strong>で患者のニーズと予算に応じた選択肢を用意すること。第三に、<strong>LINEステップ配信による自動フォロー</strong>で離脱を防ぎ、長期継続につなげること。この3要素が揃うことで、美容内服ビジネスは安定した収益基盤となります。</p>
+        <p>セット処方の成功のカギは3つです。第一に、<strong>薬理学的な根拠に基づいた組み合わせ</strong>で患者に確かな効果を提供すること。第二に、<strong>松竹梅プラン設計</strong>で患者のニーズと予算に応じた選択肢を用意すること。第三に、<strong>LINEステップ配信による自動フォロー</strong>で離脱を防ぎ、長期継続につなげること。この3要素が揃うことで、美容内服ビジネスは安定した収益基盤となります。定期処方モデルの収益シミュレーションは<Link href="/lp/column/beauty-oral-subscription-revenue" className="text-sky-600 underline hover:text-sky-800">美容内服の定期処方で安定収益を作る方法</Link>を、アンチエイジング成分の最新動向は<Link href="/lp/column/anti-aging-beauty-medicine-trends" className="text-sky-600 underline hover:text-sky-800">アンチエイジング内服薬の最新トレンド</Link>もご参照ください。</p>
 
         <p>各薬剤の詳しいエビデンス・用量・副作用については<Link href="/lp/column/beauty-oral-medicine-guide" className="text-emerald-700 underline">美容内服薬の種類と効果ガイド</Link>を、美容内服オンラインクリニックの経営戦略全体については<Link href="/lp/column/beauty-supplements-winning-strategy" className="text-emerald-700 underline">美容内服オンラインクリニックの勝ち方</Link>を併せてご覧ください。</p>
 

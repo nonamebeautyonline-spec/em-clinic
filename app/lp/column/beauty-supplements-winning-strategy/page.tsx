@@ -120,6 +120,8 @@ export default function Page() {
       <section>
         <h2 id="medications" className="text-xl font-bold text-gray-800">主要薬剤の種類と仕入れ・価格設定相場</h2>
 
+        <p>各薬剤の作用機序・エビデンス・副作用の詳細は<Link href="/lp/column/beauty-oral-medicine-guide" className="text-sky-600 underline hover:text-sky-800">美容内服薬の種類と効果ガイド</Link>を、目的別セット処方の組み方は<Link href="/lp/column/beauty-oral-set-prescription" className="text-sky-600 underline hover:text-sky-800">美容内服セット処方の組み方</Link>をご覧ください。以下では仕入れ・価格設定の実務的な観点から解説します。</p>
+
         <p>美容内服で取り扱う主要薬剤は5〜6種類に集約されます。各薬剤の特性を理解し、仕入れコストに対して適正な価格設定を行うことが収益性の土台です。ここでは、各薬剤の効果・仕入れ目安・推奨販売価格を整理します。</p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">トラネキサム酸（トランサミン）</h3>

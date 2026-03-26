@@ -160,7 +160,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICのAI返信は、使えば使うほど賢くなる「育つAI」です。まずはナレッジベースの登録から始めて、日々の運用の中で精度を高めていきましょう。スタッフの対応品質を均一化しながら、24時間の問い合わせ対応を実現できます。</p>
+        <p>Lオペ for CLINICのAI返信は、使えば使うほど賢くなる「育つAI」です。まずはナレッジベースの登録から始めて、日々の運用の中で精度を高めていきましょう。スタッフの対応品質を均一化しながら、24時間の問い合わせ対応を実現できます。業務効率化の全体的なDX戦略については<Link href="/lp/column/clinic-dx-complete-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>を、LINEのブロック率を抑える配信テクニックは<Link href="/lp/column/line-block-rate-reduction" className="text-sky-600 underline hover:text-sky-800">ブロック率を下げる5つの鉄則</Link>も併せてご覧ください。</p>
       </section>
     </ArticleLayout>
   );

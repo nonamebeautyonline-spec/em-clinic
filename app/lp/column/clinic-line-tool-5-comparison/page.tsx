@@ -348,6 +348,7 @@ export default function Page() {
         </ul>
         <p className="mt-4">
           ツール選びで迷ったら、まずは各社の資料を取り寄せて比較するのがおすすめです。
+          LINE導入の費用対効果を定量的に判断したい方は<Link href="/lp/column/clinic-line-roi" className="text-sky-600 underline hover:text-sky-800">LINE導入ROIの計算方法</Link>を参考にしてください。CRM製品の比較は<Link href="/lp/column/clinic-crm-comparison" className="text-sky-600 underline hover:text-sky-800">CRM比較6選</Link>もあわせてご覧ください。
           Lオペ for CLINICの機能詳細は<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">機能一覧ページ</Link>をご覧ください。
         </p>
       </section>

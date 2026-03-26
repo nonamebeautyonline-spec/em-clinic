@@ -80,7 +80,7 @@ export default function Page() {
 
         <p>第二に、<strong>即効性の実感</strong>です。内服薬は効果発現まで数週間〜数ヶ月を要しますが、点滴・注射は血管内に直接投与するため、バイオアベイラビリティ（生物学的利用能）が100%に近く、施術直後から体感できる変化（疲労回復、肌のハリ等）があります。この「やった実感」がリピートにつながります。</p>
 
-        <p>第三に、<strong>SNS映え</strong>の影響です。「白玉点滴」「ビタミンC点滴」といったキャッチーなメニュー名はSNSでの拡散力が高く、特に20〜30代女性を中心に認知が広がっています。InstagramやTikTokでの施術体験投稿が、クリニックへの集患に直結するケースも少なくありません。</p>
+        <p>第三に、<strong>SNS映え</strong>の影響です。「白玉点滴」「ビタミンC点滴」といったキャッチーなメニュー名はSNSでの拡散力が高く、特に20〜30代女性を中心に認知が広がっています。InstagramやTikTokでの施術体験投稿が、クリニックへの集患に直結するケースも少なくありません。SNSを活用した集患施策については<Link href="/lp/column/self-pay-clinic-instagram-strategy" className="text-sky-600 underline hover:text-sky-800">自費クリニックのInstagram運用戦略</Link>も参考になります。</p>
 
         <StatGrid stats={[
           { value: "1,200", unit: "億円", label: "美容点滴・注射市場規模（2025年推計）" },

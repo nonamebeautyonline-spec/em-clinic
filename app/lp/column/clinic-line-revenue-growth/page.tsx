@@ -283,7 +283,7 @@ export default function Page() {
             unit="万円/年"
           />
 
-          <p>3施策を合計すると、<strong>年間で約1,100万円以上の収益改善</strong>が見込めます。これはLINEという患者接点を戦略的に活用した結果であり、特別な設備投資や人員増強は不要です。</p>
+          <p>3施策を合計すると、<strong>年間で約1,100万円以上の収益改善</strong>が見込めます。これはLINEという患者接点を戦略的に活用した結果であり、特別な設備投資や人員増強は不要です。経営KPIの管理方法は<Link href="/lp/column/clinic-kpi-dashboard" className="text-sky-600 underline hover:text-sky-800">LINEダッシュボードで見るべきKPI7選</Link>、自費診療の売上を伸ばす具体策は<Link href="/lp/column/clinic-self-pay-revenue" className="text-sky-600 underline hover:text-sky-800">自費診療売上向上ガイド</Link>もあわせてご覧ください。</p>
 
           <p>Lオペ for CLINICは、これらの施策をワンストップで実現するクリニック専用のLINE運用プラットフォームです。まずは無料相談で、貴院の売上構造に合わせた改善プランをご提案します。</p>
 

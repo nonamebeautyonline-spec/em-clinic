@@ -68,7 +68,7 @@ export default function Page() {
       <section>
         <h2 id="why-instagram" className="text-xl font-bold text-gray-800">自費クリニックにInstagramが効く理由</h2>
 
-        <p>自費クリニックのマーケティングにおいて、InstagramはGoogle広告やSEOと並ぶ重要なチャネルです。しかし、保険診療クリニックではここまでの効果は出ません。自費クリニック特有の「Instagramが効く理由」を3つ解説します。</p>
+        <p>自費クリニックのマーケティングにおいて、InstagramはGoogle広告やSEOと並ぶ重要なチャネルです。各広告媒体のROI比較は<Link href="/lp/column/self-pay-clinic-ad-roi" className="text-sky-600 underline hover:text-sky-800">広告費ROI最適化ガイド</Link>で詳しく解説しています。しかし、保険診療クリニックではここまでの効果は出ません。自費クリニック特有の「Instagramが効く理由」を3つ解説します。</p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">理由1: 視覚的な成果が最大の訴求力になる</h3>
         <p>自費診療の多くは「見た目の変化」を伴います。美容施術のビフォーアフター、AGA治療の発毛経過、肌質改善の写真など、<strong>視覚的な成果はテキストの何倍もの説得力</strong>を持ちます。Instagramはこの視覚訴求に最適化されたプラットフォームであり、写真・動画を中心としたコンテンツが自然にフィードに溶け込みます。</p>
@@ -351,7 +351,7 @@ export default function Page() {
           </ol>
         </Callout>
 
-        <p>Instagramで獲得したフォロワーをLINE友だちに転換し、LINEでのコミュニケーションを経て予約・来院につなげる。この流れを自動化するのが<strong>Lオペ for CLINIC</strong>です。LINE友だち追加後の自動応答、初回特典の配布、セグメント別の配信、予約リマインドまで、Instagramで認知した患者をリピーターに育てる仕組みがワンストップで構築できます。</p>
+        <p>Instagramで獲得したフォロワーをLINE友だちに転換し、LINEでのコミュニケーションを経て予約・来院につなげる。TikTokやYouTubeとの組み合わせ戦略は<Link href="/lp/column/clinic-tiktok-youtube-strategy" className="text-sky-600 underline hover:text-sky-800">TikTok・YouTube活用ガイド</Link>もご覧ください。この流れを自動化するのが<strong>Lオペ for CLINIC</strong>です。LINE友だち追加後の自動応答、初回特典の配布、セグメント別の配信、予約リマインドまで、Instagramで認知した患者をリピーターに育てる仕組みがワンストップで構築できます。</p>
 
         <p>あわせて以下の記事も参考にしてください。</p>
 

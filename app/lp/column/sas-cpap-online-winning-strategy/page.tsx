@@ -83,7 +83,7 @@ export default function Page() {
         <h2 id="sas-market" className="text-xl font-bold text-gray-800">SAS市場の現状 — 推定患者500万人、診断率10%以下の巨大市場</h2>
 
         <p>
-          睡眠時無呼吸症候群（SAS）は、睡眠中に繰り返し呼吸が停止する疾患です。日本における有病率は<strong>成人男性の約9%、女性の約3%</strong>とされ、推定患者数は300〜500万人に達します。しかし、実際にSASと診断され治療を受けている患者は約50万人程度にすぎません。この圧倒的な「診断ギャップ」は、オンライン診療クリニックにとって最大のビジネスチャンスです。
+          睡眠時無呼吸症候群（SAS）は、睡眠中に繰り返し呼吸が停止する疾患です。日本における有病率は<strong>成人男性の約9%、女性の約3%</strong>とされ、推定患者数は300〜500万人に達します。しかし、実際にSASと診断され治療を受けている患者は約50万人程度にすぎません。この圧倒的な「診断ギャップ」は、オンライン診療クリニックにとって最大のビジネスチャンスです。SAS・いびき外来の基本的な開設手順は<Link href="/lp/column/sas-snoring-online-clinic-guide" className="text-sky-600 underline hover:text-sky-800">いびき・SASオンライン診療ガイド</Link>で、CPAP療法とレーザー治療のエビデンス比較は<Link href="/lp/column/snoring-laser-vs-cpap-evidence" className="text-sky-600 underline hover:text-sky-800">レーザーvs CPAPエビデンス比較</Link>で解説しています。
         </p>
 
         <p>

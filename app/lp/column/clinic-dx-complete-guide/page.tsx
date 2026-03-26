@@ -234,7 +234,7 @@ export default function Page() {
 
         <p>本ガイドで紹介した各テーマの詳細記事と合わせて、自院のDXロードマップを策定してみてください。LINE運用の具体的な進め方は<Link href="/lp/column/line-operation-guide" className="text-emerald-700 underline">クリニックのLINE公式アカウント運用完全ガイド</Link>で体系的にまとめています。クリニック向けCRMの選定については<Link href="/lp/column/clinic-crm-comparison" className="text-emerald-700 underline">クリニック向けCRM比較6選</Link>も参考にしてください。</p>
 
-        <p>Lオペ for CLINICは、本ガイドで解説したDX領域をワンストップでカバーするクリニック専用プラットフォームです。LINE連携の予約管理・問診・セグメント配信・決済・KPIダッシュボードまで、すべて一つのシステムで完結します。</p>
+        <p>Lオペ for CLINICは、本ガイドで解説したDX領域をワンストップでカバーするクリニック専用プラットフォームです。LINE連携の予約管理・問診・セグメント配信・決済・KPIダッシュボードまで、すべて一つのシステムで完結します。DX導入前後の具体的な変化を知りたい方は<Link href="/lp/column/clinic-dx-before-after" className="text-sky-600 underline hover:text-sky-800">DX導入ビフォーアフター事例</Link>を、ツール統合による固定費削減効果は<Link href="/lp/column/clinic-cost-reduction-30man" className="text-sky-600 underline hover:text-sky-800">固定費を月30万円削減する方法</Link>もご覧ください。</p>
       </section>
 
       {/* ── FAQ ── */}

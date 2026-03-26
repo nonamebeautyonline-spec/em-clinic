@@ -82,7 +82,7 @@ export default function Page() {
         <h2 id="sas-overview" className="text-xl font-bold text-gray-800">SAS（睡眠時無呼吸症候群）とは？ — 基本情報・症状・リスク</h2>
 
         <p>
-          睡眠時無呼吸症候群（SAS: Sleep Apnea Syndrome）は、睡眠中に繰り返し呼吸が停止または低下する疾患です。10秒以上の気流停止を「無呼吸」と定義し、1時間あたりの無呼吸・低呼吸の回数（AHI: Apnea Hypopnea Index）が<strong>5回以上</strong>でSASと診断されます。大多数を占めるのは、咽頭の軟部組織が気道を閉塞する<strong>閉塞性睡眠時無呼吸（OSA）</strong>で、全体の約90%を占めます。
+          睡眠時無呼吸症候群（SAS: Sleep Apnea Syndrome）は、睡眠中に繰り返し呼吸が停止または低下する疾患です。10秒以上の気流停止を「無呼吸」と定義し、1時間あたりの無呼吸・低呼吸の回数（AHI: Apnea Hypopnea Index）が<strong>5回以上</strong>でSASと診断されます。大多数を占めるのは、咽頭の軟部組織が気道を閉塞する<strong>閉塞性睡眠時無呼吸（OSA）</strong>で、全体の約90%を占めます。CPAPとレーザー治療の比較については<Link href="/lp/column/snoring-laser-vs-cpap-evidence" className="text-sky-600 underline hover:text-sky-800">レーザーvs CPAPエビデンス比較</Link>で、CPAP管理に特化した勝ち方戦略は<Link href="/lp/column/sas-cpap-online-winning-strategy" className="text-sky-600 underline hover:text-sky-800">SAS治療オンラインクリニックの勝ち方</Link>で詳しく解説しています。
         </p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">SASの主な症状</h3>

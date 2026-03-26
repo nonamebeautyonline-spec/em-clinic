@@ -166,7 +166,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICは、医療機関のセキュリティ要件に対応した設計で、ロールベースの権限管理・操作ログ・データ暗号化を標準搭載しています。安心・安全なLINE運用を実現し、患者の信頼を守りましょう。</p>
+        <p>Lオペ for CLINICは、医療機関のセキュリティ要件に対応した設計で、ロールベースの権限管理・操作ログ・データ暗号化を標準搭載しています。安心・安全なLINE運用を実現し、患者の信頼を守りましょう。LINE運用の全体設計については<Link href="/lp/column/line-operation-guide" className="text-sky-600 underline hover:text-sky-800">LINE運用完全ガイド</Link>、オンライン診療の法規制については<Link href="/lp/column/online-clinic-regulations" className="text-sky-600 underline hover:text-sky-800">法規制と薬機法ガイド</Link>もご覧ください。</p>
       </section>
     </ArticleLayout>
   );

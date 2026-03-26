@@ -142,7 +142,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICは、セグメント配信・配信予約・テンプレート管理・効果測定をオールインワンで提供します。季節ごとの配信戦略を簡単に実行し、年間を通じた安定的な集患を実現しましょう。</p>
+        <p>Lオペ for CLINICは、セグメント配信・配信予約・テンプレート管理・効果測定をオールインワンで提供します。季節ごとの配信戦略を簡単に実行し、年間を通じた安定的な集患を実現しましょう。リピート率向上のための全体戦略は<Link href="/lp/column/clinic-repeat-rate-improvement" className="text-sky-600 underline hover:text-sky-800">リピート率改善ガイド</Link>、紹介制度と組み合わせた集患強化は<Link href="/lp/column/clinic-referral-program" className="text-sky-600 underline hover:text-sky-800">紹介制度のLINE化</Link>もあわせてご覧ください。</p>
       </section>
     </ArticleLayout>
   );

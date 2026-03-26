@@ -53,7 +53,7 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="マーケティング" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">LINE配信を「送りっぱなし」にしていませんか？ 効果測定なしの配信は、患者のブロックを招くだけでなく、通数課金の無駄遣いにもつながります。本記事では、開封率・CV率・ROIの計測から<strong>ABテストによる継続的な改善</strong>まで、データドリブンなLINE運用の実践方法を解説します。</p>
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">LINE配信を「送りっぱなし」にしていませんか？ 効果測定なしの配信は、患者のブロックを招くだけでなく、通数課金の無駄遣いにもつながります。本記事では、開封率・CV率・ROIの計測から<strong>ABテストによる継続的な改善</strong>まで、データドリブンなLINE運用の実践方法を解説します。ブロック率を下げるコツは<Link href="/lp/column/line-block-rate-reduction" className="text-sky-600 underline hover:text-sky-800">ブロック率を下げる鉄則</Link>で詳しく解説しています。</p>
 
       {/* ── 指標 ── */}
       <section>
@@ -163,7 +163,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICは、配信分析ダッシュボード・ABテスト機能・ROI自動算出を<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">標準搭載</Link>したクリニック専用LINE運用プラットフォームです。データに基づいた配信最適化で、通数コストの無駄をなくし、売上最大化を支援します。</p>
+        <p>Lオペ for CLINICは、配信分析ダッシュボード・ABテスト機能・ROI自動算出を<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">標準搭載</Link>したクリニック専用LINE運用プラットフォームです。データに基づいた配信最適化で、通数コストの無駄をなくし、売上最大化を支援します。LINE運用の全体設計については<Link href="/lp/column/line-operation-guide" className="text-sky-600 underline hover:text-sky-800">LINE運用完全ガイド</Link>も併せてご確認ください。</p>
       </section>
     </ArticleLayout>
   );

@@ -422,7 +422,7 @@ export function StatGrid({ stats }: { stats: { value: string; unit?: string; lab
 
 /* ─── 横棒グラフ（比較表示） ─── */
 export function BarChart({ data, unit }: { data: { label: string; value: number; color?: string }[]; unit?: string }) {
-  const maxVal = Math.max(...data.map((d) => d.value));
+  const maxVal = Math.max(...data.map((d) => d.value)) || 1;
   return (
     <div className="my-6 space-y-3">
       {data.map((d) => (
@@ -431,8 +431,8 @@ export function BarChart({ data, unit }: { data: { label: string; value: number;
           <div className="flex-1">
             <div className="h-7 rounded-sm bg-gray-100">
               <div
-                className={`h-full rounded-sm ${d.color || "bg-sky-500"} transition-all duration-500`}
-                style={{ width: `${(d.value / maxVal) * 100}%` }}
+                className={`h-full rounded-sm ${d.color?.startsWith("#") || d.color?.startsWith("rgb") ? "" : d.color || "bg-sky-500"} transition-all duration-500`}
+                style={{ width: `${(d.value / maxVal) * 100}%`, ...(d.color?.startsWith("#") || d.color?.startsWith("rgb") ? { backgroundColor: d.color } : {}) }}
               />
             </div>
           </div>

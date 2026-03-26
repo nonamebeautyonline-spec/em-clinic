@@ -68,7 +68,7 @@ export default function Page() {
         <Callout type="warning" title="感覚ベースの経営判断は危険">
           <p>「なんとなく患者が減った気がする」「忙しいのに利益が出ていない」 — 多くのクリニックが感覚ベースで経営判断を行っていますが、感覚と実際の数値には大きなギャップがあります。</p>
         </Callout>
-        <p>適切なKPI（Key Performance Indicator = 重要業績評価指標）を設定して定期的にモニタリングすることが、経営改善の第一歩です。特にクリニック経営では、<strong>新患獲得・リピート維持・収益最大化</strong>の3つの軸でKPIを設計することが重要です。</p>
+        <p>適切なKPI（Key Performance Indicator = 重要業績評価指標）を設定して定期的にモニタリングすることが、経営改善の第一歩です。特にクリニック経営では、<strong>新患獲得・リピート維持・収益最大化</strong>の3つの軸でKPIを設計することが重要です。クリニック経営成功のポイントについては<Link href="/lp/column/clinic-management-success" className="text-sky-600 underline hover:text-sky-800">クリニック経営成功ポイント</Link>もご覧ください。</p>
         <ResultCard before="感覚ベースの経営" after="データドリブン経営" metric="売上 15〜25% 改善" description="KPI管理を始めたクリニックの平均的な6ヶ月以内の改善幅" />
       </section>
 
@@ -101,7 +101,7 @@ export default function Page() {
 
       <section>
         <h2 id="kpi-3" className="text-xl font-bold text-gray-800">KPI 3: 患者LTV（生涯価値）</h2>
-        <p>患者LTV（Lifetime Value = 生涯価値）は、1人の患者がクリニックにもたらす総収益を示す指標です。</p>
+        <p>患者LTV（Lifetime Value = 生涯価値）は、1人の患者がクリニックにもたらす総収益を示す指標です。LTV向上の具体的な戦略は<Link href="/lp/column/clinic-patient-ltv" className="text-sky-600 underline hover:text-sky-800">患者LTV向上戦略</Link>で詳しく解説しています。</p>
         <Callout type="info" title="LTVの算出式">
           <p><strong>LTV = 平均客単価 x 平均来院回数 x 平均通院期間</strong></p>
           <p>LTVを把握することで、1人の新患獲得にいくらまで投資できるかが明確になり、マーケティング予算の最適化が可能になります。</p>
@@ -171,7 +171,7 @@ export default function Page() {
 
       <section>
         <h2 id="kpi-7" className="text-xl font-bold text-gray-800">KPI 7: 売上推移と客単価</h2>
-        <p>最終的に経営の成否を判断するのは売上です。月次の売上推移に加えて、<strong>客単価の変動</strong>を追跡することで、売上変動の要因を特定できます。</p>
+        <p>最終的に経営の成否を判断するのは売上です。月次の売上推移に加えて、<strong>客単価の変動</strong>を追跡することで、売上変動の要因を特定できます。売上を上げるLINE活用術は<Link href="/lp/column/clinic-line-revenue-growth" className="text-sky-600 underline hover:text-sky-800">クリニックの売上を上げるLINE活用</Link>で具体的な戦略を解説しています。</p>
         <Callout type="info" title="売上の分解式">
           <p><strong>売上 = 患者数 x 客単価 x 来院頻度</strong></p>
           <p>売上が下がった場合、どの要素が低下しているのかを特定し、的確な対策を打つことが重要です。</p>

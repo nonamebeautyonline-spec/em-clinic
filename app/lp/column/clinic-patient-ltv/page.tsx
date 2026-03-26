@@ -121,7 +121,7 @@ export default function Page() {
         <ul className="space-y-2 text-gray-700">
           <li className="flex items-start gap-2"><span className="text-sky-500 font-bold">1.</span><strong>関連施術の提案</strong>: シミ取りで来院した患者に「美白点滴」を案内。セグメントで「シミ取り済み」の患者を抽出して配信。</li>
           <li className="flex items-start gap-2"><span className="text-sky-500 font-bold">2.</span><strong>季節メニューの提案</strong>: 冬季に「乾燥肌対策プラン」、夏季に「ダメージケアコース」など、季節に合わせた自費メニューを配信。</li>
-          <li className="flex items-start gap-2"><span className="text-sky-500 font-bold">3.</span><strong>ホームケア商品の提案</strong>: 診療に関連したスキンケア商品やサプリメントをLINEで案内。オンライン決済で来院不要の購入導線を構築。</li>
+          <li className="flex items-start gap-2"><span className="text-sky-500 font-bold">3.</span><strong>ホームケア商品の提案</strong>: 診療に関連したスキンケア商品やサプリメントをLINEで案内。<Link href="/lp/column/clinic-payment-guide" className="text-sky-600 underline hover:text-sky-800">オンライン決済</Link>で来院不要の購入導線を構築。</li>
           <li className="flex items-start gap-2"><span className="text-sky-500 font-bold">4.</span><strong>上位プランの提案</strong>: 保険診療で来院している患者に、自費の予防プログラムや検査パッケージを提案。</li>
         </ul>
 
@@ -163,7 +163,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>患者LTVの向上は、新患獲得に頼らない安定的なクリニック経営の基盤です。Lオペ for CLINICは、セグメント配信・自動フォロー・ポイント管理・KPIダッシュボードを一体で提供し、LTV最大化を実現します。KPI管理の方法は<Link href="/lp/column/clinic-kpi-dashboard" className="text-sky-600 underline hover:text-sky-800">LINEダッシュボードで見るべきKPI7選</Link>もご参照ください。</p>
+        <p>患者LTVの向上は、新患獲得に頼らない安定的なクリニック経営の基盤です。Lオペ for CLINICは、セグメント配信・自動フォロー・ポイント管理・KPIダッシュボードを一体で提供し、LTV最大化を実現します。KPI管理の方法は<Link href="/lp/column/clinic-kpi-dashboard" className="text-sky-600 underline hover:text-sky-800">LINEダッシュボードで見るべきKPI7選</Link>、紹介制度を活用した新患獲得は<Link href="/lp/column/clinic-referral-program" className="text-sky-600 underline hover:text-sky-800">紹介制度のLINE化</Link>もご参照ください。</p>
       </section>
     </ArticleLayout>
   );

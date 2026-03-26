@@ -134,7 +134,7 @@ export default function Page() {
       <section>
         <h2 id="pricing" className="text-xl font-bold text-gray-800">仕入れ・販売価格の具体的設計</h2>
 
-        <p>AGA治療の収益性を最大化するためには、<strong>薬剤の仕入れコストと販売価格の設計</strong>が生命線です。以下に各薬剤の仕入れ相場と推奨販売価格を具体的に示します。</p>
+        <p>AGA治療の収益性を最大化するためには、<strong>薬剤の仕入れコストと販売価格の設計</strong>が生命線です。以下に各薬剤の仕入れ相場と推奨販売価格を具体的に示します。自費診療の価格設計の考え方については<Link href="/lp/column/self-pay-pricing-guide" className="text-sky-600 underline hover:text-sky-800">自費診療の価格設定ガイド</Link>も参考になります。</p>
 
         <ComparisonTable
           headers={["薬剤", "仕入れ単価（30日分）", "推奨販売価格", "利益率"]}
@@ -311,7 +311,7 @@ export default function Page() {
       <section>
         <h2 id="dx-solo" className="text-xl font-bold text-gray-800">DX活用でDr1人運営 — Lオペ for CLINICの活用</h2>
 
-        <p>AGA治療のオンラインクリニックは、<strong>Lオペ for CLINICを活用すればDr1人でも十分に運営可能</strong>です。看護師も事務スタッフも不要。必要なのは医師免許とLINE公式アカウントとLオペだけです。</p>
+        <p>AGA治療のオンラインクリニックは、<strong>Lオペ for CLINICを活用すればDr1人でも十分に運営可能</strong>です。看護師も事務スタッフも不要。必要なのは医師免許とLINE公式アカウントとLオペだけです。勤務医がオンライン診療を副業として始める方法は<Link href="/lp/column/doctor-side-business-online-clinic" className="text-sky-600 underline hover:text-sky-800">勤務医のオンライン副業開業ガイド</Link>で詳しく解説しています。</p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">Lオペが代替する業務一覧</h3>
 

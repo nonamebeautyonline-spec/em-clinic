@@ -160,7 +160,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICは、NPS調査の自動配信・スコア集計・改善アクションの管理まで<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">ワンストップで対応</Link>するクリニック専用プラットフォームです。患者満足度を可視化し、データに基づいたクリニック経営を実現します。</p>
+        <p>Lオペ for CLINICは、NPS調査の自動配信・スコア集計・改善アクションの管理まで<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">ワンストップで対応</Link>するクリニック専用プラットフォームです。患者満足度を可視化し、データに基づいたクリニック経営を実現します。NPSの結果を口コミ対策に活かす方法は<Link href="/lp/column/clinic-google-review" className="text-sky-600 underline hover:text-sky-800">Google口コミ対策ガイド</Link>、患者離脱を防ぐフォロー戦略は<Link href="/lp/column/clinic-patient-retention" className="text-sky-600 underline hover:text-sky-800">患者離脱防止ガイド</Link>もあわせてご覧ください。</p>
       </section>
     </ArticleLayout>
   );

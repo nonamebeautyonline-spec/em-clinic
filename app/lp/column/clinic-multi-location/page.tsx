@@ -147,7 +147,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICは、多院展開クリニックのLINE運用を一元管理するための統合プラットフォームです。拠点が増えても管理コストを増やさず、全拠点で高品質な患者コミュニケーションを実現します。</p>
+        <p>Lオペ for CLINICは、多院展開クリニックのLINE運用を一元管理するための統合プラットフォームです。拠点が増えても管理コストを増やさず、全拠点で高品質な患者コミュニケーションを実現します。セキュリティ対策については<Link href="/lp/column/clinic-line-security" className="text-sky-600 underline hover:text-sky-800">LINE運用セキュリティガイド</Link>、データ移行については<Link href="/lp/column/clinic-data-migration" className="text-sky-600 underline hover:text-sky-800">データ移行ガイド</Link>もご覧ください。</p>
       </section>
     </ArticleLayout>
   );

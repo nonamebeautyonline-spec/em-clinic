@@ -165,7 +165,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICでは、CSV/APIによるデータインポート機能と専門スタッフによる移行サポートを提供しています。既存の予約システム・電子カルテ・CRMからの乗り換えをご検討の場合は、まずはお気軽にご相談ください。</p>
+        <p>Lオペ for CLINICでは、CSV/APIによるデータインポート機能と専門スタッフによる移行サポートを提供しています。既存の予約システム・電子カルテ・CRMからの乗り換えをご検討の場合は、まずはお気軽にご相談ください。DX導入の全体的な進め方は<Link href="/lp/column/clinic-dx-complete-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>を、DX導入前後のビフォーアフターは<Link href="/lp/column/clinic-dx-before-after" className="text-sky-600 underline hover:text-sky-800">DX導入ビフォーアフター事例</Link>もご参照ください。</p>
       </section>
     </ArticleLayout>
   );

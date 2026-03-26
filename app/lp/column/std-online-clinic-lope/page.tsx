@@ -75,7 +75,7 @@ export default function Page() {
 
         <p>にもかかわらず、泌尿器科や婦人科の対面受診には強い心理的抵抗があります。ある民間調査では、性感染症の疑いがあっても<strong>「受診しなかった・先延ばしにした」と回答した割合は62%</strong>に達しました。理由の上位は「恥ずかしい」「待合室で人に見られたくない」「受付で症状を言いたくない」です。</p>
 
-        <p>こうした背景から、匿名性が高く自宅で完結するオンライン診療への需要が急速に拡大しています。特にコロナ禍以降、オンライン診療に対する患者の受容度は大きく高まり、性感染症領域は<strong>オンライン化との親和性が最も高い診療科の一つ</strong>として注目されています。</p>
+        <p>こうした背景から、匿名性が高く自宅で完結するオンライン診療への需要が急速に拡大しています。特にコロナ禍以降、オンライン診療に対する患者の受容度は大きく高まり、性感染症領域は<strong>オンライン化との親和性が最も高い診療科の一つ</strong>として注目されています。STDオンライン診療の収益モデルと競合戦略については<Link href="/lp/column/std-online-winning-strategy" className="text-sky-600 underline hover:text-sky-800">性感染症オンライン診療の勝ち方</Link>で、オンライン診療全体の制度ルールは<Link href="/lp/column/self-pay-online-clinic-rules" className="text-sky-600 underline hover:text-sky-800">自費オンライン診療のルールガイド</Link>で解説しています。</p>
 
         <BarChart
           data={[

@@ -154,7 +154,7 @@ export default function Page() {
       <section>
         <h2 id="otc-impact" className="text-xl font-bold text-gray-800">OTC化がクリニックに与える影響</h2>
 
-        <p>アフターピルのOTC化は、クリニック経営に<strong>無視できないインパクト</strong>を与えます。特に、アフターピルのオンライン処方を主要な集患チャネル・収益源としていたクリニックにとっては、ビジネスモデルの再構築が急務です。</p>
+        <p>アフターピルのOTC化は、クリニック経営に<strong>無視できないインパクト</strong>を与えます。特に、アフターピルのオンライン処方を主要な集患チャネル・収益源としていたクリニックにとっては、ビジネスモデルの再構築が急務です。オンライン処方に必要な資格要件については<Link href="/lp/column/afterpill-online-qualification-guide" className="text-sky-600 underline hover:text-sky-800">アフターピルのオンライン処方に必要な資格ガイド</Link>をご確認ください。</p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">アフターピル処方の減少は不可避</h3>
         <p>薬局でアフターピルが購入できるようになれば、わざわざクリニックを受診する理由は大幅に減ります。特に以下の層が薬局購入に流れることが予想されます。</p>
@@ -316,7 +316,7 @@ export default function Page() {
           ]}
         />
 
-        <p>つまり、アフターピルのOTC化は<strong>オンライン診療全体の脅威ではなく、特定領域の変化</strong>にすぎません。他の診療領域への展開を進めることで、オンライン診療クリニックの成長は十分に持続可能です。</p>
+        <p>つまり、アフターピルのOTC化は<strong>オンライン診療全体の脅威ではなく、特定領域の変化</strong>にすぎません。他の診療領域への展開を進めることで、オンライン診療クリニックの成長は十分に持続可能です。各診療科別の収益モデルについては<Link href="/lp/column/self-pay-online-revenue-by-specialty" className="text-sky-600 underline hover:text-sky-800">自費オンライン診療の診療科別収益モデル</Link>で詳しく解説しています。</p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">クリニックの生き残り戦略</h3>
         <p>今後のクリニック経営において重要なのは、<strong>「薬を出す場所」から「患者の健康を継続的にサポートする場所」への転換</strong>です。OTC化の流れは止められませんが、だからこそ医師にしかできない価値 — 包括的な健康管理、個別化されたアドバイス、複数の診療領域を横断したケア — を提供することが、差別化と生き残りの鍵になります。</p>

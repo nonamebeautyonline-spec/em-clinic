@@ -144,7 +144,7 @@ export default function Page() {
 
         <DonutChart percentage={80} label="LINE開封率" sublabel="メール(20%)の4倍の到達力" />
 
-        <p>Lオペ for CLINICは、この5ステップをすべてワンストップで実現できるクリニック専用プラットフォームです。各ステップで活用できる具体的な機能は<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">機能一覧ページ</Link>でご確認いただけます。電子カルテ・予約・問診・決済を含むDXの全体設計については<Link href="/lp/column/clinic-dx-complete-guide" className="text-emerald-700 underline">クリニックDX完全ガイド</Link>もぜひご覧ください。</p>
+        <p>Lオペ for CLINICは、この5ステップをすべてワンストップで実現できるクリニック専用プラットフォームです。各ステップで活用できる具体的な機能は<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">機能一覧ページ</Link>でご確認いただけます。電子カルテ・予約・問診・決済を含むDXの全体設計については<Link href="/lp/column/clinic-dx-complete-guide" className="text-emerald-700 underline">クリニックDX完全ガイド</Link>もぜひご覧ください。DX導入のビフォーアフターを数値で見たい方は<Link href="/lp/column/clinic-dx-before-after" className="text-sky-600 underline hover:text-sky-800">DX導入ビフォーアフター事例</Link>を、日常業務の具体的な変化は<Link href="/lp/column/clinic-dx-daily-transformation" className="text-sky-600 underline hover:text-sky-800">DXで1日の業務がここまで変わる</Link>も参考になります。</p>
       </section>
     </ArticleLayout>
   );

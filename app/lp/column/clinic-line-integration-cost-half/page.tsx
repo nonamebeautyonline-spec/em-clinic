@@ -122,7 +122,7 @@ export default function Page() {
           患者が予約を入れ、問診に回答し、来院し、会計し、フォローメッセージを受け取る。この一連のデータが<strong>すべて1つのプラットフォーム上で紐づく</strong>ため、「予約した患者が問診を完了しているか」「来院後のフォロー配信でリピートにつながったか」といった分析がワンクリックで可能になります。データ連携のためにCSVをエクスポート・インポートする作業は完全に不要です。
         </Callout>
 
-        <p>統合プラットフォームでは、患者が最初に友だち追加した瞬間から、予約・問診・来院・会計・アフターフォローまでの全工程がLINE上で完結します。</p>
+        <p>統合プラットフォームでは、患者が最初に友だち追加した瞬間から、予約・問診・来院・会計・アフターフォローまでの全工程がLINE上で完結します。ツール選定の比較ポイントについては<Link href="/lp/column/clinic-line-tool-5-comparison" className="text-sky-600 underline hover:text-sky-800">LINE運用ツール5社比較</Link>、スタッフの研修負荷を下げる方法は<Link href="/lp/column/clinic-staff-training" className="text-sky-600 underline hover:text-sky-800">スタッフ研修ガイド</Link>も参考にしてください。</p>
 
         <FlowSteps steps={[
           { title: "LINE友だち追加", desc: "QRコードや広告経由でLINE友だち登録。患者データベースに自動登録される。" },

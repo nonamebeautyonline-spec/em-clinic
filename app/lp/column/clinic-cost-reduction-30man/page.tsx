@@ -263,7 +263,7 @@ export default function Page() {
         </p>
 
         <p>
-          まずは現状のツール費用を棚卸しするところから始めてみてください。「うちのクリニックではどれくらい削減できるのか」を知るだけでも、大きな一歩です。Lオペ for CLINICでは、導入前の無料相談でクリニックごとのコスト削減シミュレーションを行っています。
+          まずは現状のツール費用を棚卸しするところから始めてみてください。「うちのクリニックではどれくらい削減できるのか」を知るだけでも、大きな一歩です。Lオペ for CLINICでは、導入前の無料相談でクリニックごとのコスト削減シミュレーションを行っています。DX導入の全体像は<Link href="/lp/column/clinic-dx-complete-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>を、業務時間削減から新規患者獲得につなげる考え方は<Link href="/lp/column/clinic-time-saving-to-growth" className="text-sky-600 underline hover:text-sky-800">業務時間削減で新規患者獲得する方法</Link>もご参照ください。
         </p>
 
         <h3 className="text-lg font-semibold text-gray-700 mt-6">関連記事</h3>

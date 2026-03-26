@@ -251,7 +251,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>クリニックDXは「大がかりなシステム導入」ではありません。Lオペ for CLINICなら、すでに患者の多くが使っているLINEをベースに、<strong>段階的に・低コストで・確実に</strong>業務を変革できます。まずは問診と予約のオンライン化から始めて、効果を実感しながら会計・フォローアップへと拡張していく——それがクリニックDX成功の鉄則です。</p>
+        <p>クリニックDXは「大がかりなシステム導入」ではありません。Lオペ for CLINICなら、すでに患者の多くが使っているLINEをベースに、<strong>段階的に・低コストで・確実に</strong>業務を変革できます。まずは問診と予約のオンライン化から始めて、効果を実感しながら会計・フォローアップへと拡張していく——それがクリニックDX成功の鉄則です。開業医の業務時間の内訳と効率化のポイントは<Link href="/lp/column/busy-doctor-efficiency" className="text-sky-600 underline hover:text-sky-800">開業医が忙しい理由と業務効率化</Link>を、スタッフの残業削減については<Link href="/lp/column/clinic-zero-overtime" className="text-sky-600 underline hover:text-sky-800">スタッフ残業ゼロを実現する方法</Link>もご参照ください。</p>
 
         <p>DXの進め方について体系的に学びたい方は<Link href="/lp/column/clinic-dx-complete-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>をご覧ください。また、売上への直接的なインパクトを知りたい方は<Link href="/lp/column/clinic-line-revenue-growth" className="text-sky-600 underline hover:text-sky-800">LINE活用でクリニックの売上を伸ばす方法</Link>も参考になります。</p>
 

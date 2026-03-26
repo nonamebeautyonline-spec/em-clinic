@@ -167,7 +167,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICは、これら5つのポイントをすべてLINE上で実現するクリニック専用プラットフォームです。テンプレート・セグメント配信・AI返信・フォローアップの自動化を組み合わせて、患者との信頼関係を構築しましょう。</p>
+        <p>Lオペ for CLINICは、これら5つのポイントをすべてLINE上で実現するクリニック専用プラットフォームです。テンプレート・セグメント配信・AI返信・フォローアップの自動化を組み合わせて、患者との信頼関係を構築しましょう。NPS調査で患者満足度を数値化する方法は<Link href="/lp/column/clinic-nps-survey" className="text-sky-600 underline hover:text-sky-800">NPS調査導入ガイド</Link>、待ち時間対策については<Link href="/lp/column/clinic-waiting-time" className="text-sky-600 underline hover:text-sky-800">待ち時間対策ガイド</Link>もあわせてご覧ください。</p>
       </section>
     </ArticleLayout>
   );

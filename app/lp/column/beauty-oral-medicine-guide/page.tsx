@@ -274,7 +274,7 @@ export default function Page() {
         />
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">処方のベストプラクティス</h3>
-        <p>美容内服薬の処方で最も重要なのは、<strong>患者の期待値コントロール</strong>です。内服薬は即効性がないため、「最低2〜3ヶ月の継続が必要」であることを初診時に明確に伝えましょう。これにより途中離脱を防ぎ、効果実感後の長期継続につなげることができます。</p>
+        <p>美容内服薬の処方で最も重要なのは、<strong>患者の期待値コントロール</strong>です。内服薬は即効性がないため、「最低2〜3ヶ月の継続が必要」であることを初診時に明確に伝えましょう。これにより途中離脱を防ぎ、効果実感後の長期継続につなげることができます。定期処方による継続率向上と安定収益化の仕組みは<Link href="/lp/column/beauty-oral-subscription-revenue" className="text-sky-600 underline hover:text-sky-800">美容内服の定期処方で安定収益を作る方法</Link>で詳しく解説しています。</p>
 
         <p>次に重要なのが<strong>セット処方による相乗効果の説明</strong>です。単剤処方よりもセット処方のほうが効果的な理由（作用機序の異なる薬剤を組み合わせることでメラニンの「生成抑制」と「排出促進」を同時に行える等）を患者に分かりやすく説明することで、処方単価の向上と患者満足度の両立が実現します。<Link href="/lp/column/beauty-oral-set-prescription" className="text-emerald-700 underline">目的別セット処方の組み方</Link>も参考にしてください。</p>
 
@@ -306,7 +306,7 @@ export default function Page() {
 
         <p>具体的なセット処方の組み方については、<Link href="/lp/column/beauty-oral-set-prescription" className="text-emerald-700 underline">美容内服セット処方の組み方ガイド</Link>で詳しく解説しています。また、美容内服をオンライン診療で提供するための経営戦略については、<Link href="/lp/column/beauty-supplements-winning-strategy" className="text-emerald-700 underline">美容内服オンラインクリニックの勝ち方</Link>も併せてご覧ください。</p>
 
-        <p>処方後の<strong>LINEフォローアップ</strong>を仕組み化することで、患者の継続率を飛躍的に高められます。Lオペ for CLINICでは、処方日を起点としたステップ配信や服用リマインドの自動化が可能です。定期処方のDX化に興味のある方は、ぜひお気軽にお問い合わせください。</p>
+        <p>処方後の<strong>LINEフォローアップ</strong>を仕組み化することで、患者の継続率を飛躍的に高められます。Lオペ for CLINICでは、処方日を起点としたステップ配信や服用リマインドの自動化が可能です。アンチエイジング領域の最新成分トレンドは<Link href="/lp/column/anti-aging-beauty-medicine-trends" className="text-sky-600 underline hover:text-sky-800">アンチエイジング内服薬の最新トレンド</Link>もご参照ください。定期処方のDX化に興味のある方は、ぜひお気軽にお問い合わせください。</p>
       </section>
     </ArticleLayout>
   );

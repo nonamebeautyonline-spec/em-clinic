@@ -150,7 +150,7 @@ export default function Page() {
         />
 
         <Callout type="point" title="問診フォームも事前準備">
-          LINE上で事前問診ができる環境を整えておけば、開業初日から待ち時間の少ない運営が可能です。予約した患者に自動で問診フォームが送信される設定にしておきましょう。
+          LINE上で事前問診ができる環境を整えておけば、開業初日から待ち時間の少ない運営が可能です。予約した患者に自動で問診フォームが送信される設定にしておきましょう。問診の導入方法は<Link href="/lp/column/online-questionnaire-guide" className="text-sky-600 underline hover:text-sky-800">オンライン問診導入ガイド</Link>で詳しく解説しています。
         </Callout>
       </section>
 
@@ -199,7 +199,7 @@ export default function Page() {
           { value: "80", unit: "%", label: "目標LINE登録率" },
         ]} />
 
-        <p>開業後3〜6ヶ月で友だち数500人を超えれば、セグメント配信やキャンペーンの効果が目に見えて表れるようになります。<strong>最初の半年が、その後の安定経営の基盤を決める</strong>重要な期間です。</p>
+        <p>開業後3〜6ヶ月で友だち数500人を超えれば、セグメント配信やキャンペーンの効果が目に見えて表れるようになります。<strong>最初の半年が、その後の安定経営の基盤を決める</strong>重要な期間です。開業資金の調達方法については<Link href="/lp/column/clinic-opening-fund-guide" className="text-sky-600 underline hover:text-sky-800">開業資金調達ガイド</Link>もあわせてご確認ください。</p>
       </section>
 
       <section>

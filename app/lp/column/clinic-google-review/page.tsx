@@ -102,7 +102,7 @@ export default function Page() {
           <li><strong>24時間以内に返信</strong>：迅速な返信は誠実さの証。他の患者にも「対応が丁寧」という印象を与える</li>
           <li><strong>感情的にならず事実ベースで対応</strong>：「ご不便をおかけし申し訳ございません」と謝意を示した上で、改善策を具体的に記載</li>
           <li><strong>個人情報に言及しない</strong>：返信で診療内容や個人を特定する情報に触れないよう注意。HIPAA違反リスクを回避</li>
-          <li><strong>LINE上でのフォロー</strong>：口コミを書いた患者がLINE友だちの場合、個別メッセージで丁寧にフォローアップ</li>
+          <li><strong>LINE上でのフォロー</strong>：口コミを書いた患者がLINE友だちの場合、個別メッセージで丁寧にフォローアップ。<Link href="/lp/column/clinic-reputation-crisis-management" className="text-sky-600 underline hover:text-sky-800">口コミ炎上対策</Link>の記事も参考にしてください</li>
         </ul>
 
         <Callout type="warning" title="やってはいけない口コミ対応">
@@ -151,7 +151,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICなら、診察完了からNPS調査・口コミ依頼までの一連のフローを自動化できます。口コミ対策は「始めた者勝ち」の施策です。まずは現状のGoogle口コミを確認し、今日からLINE連携の口コミ施策をスタートしましょう。</p>
+        <p>Lオペ for CLINICなら、診察完了からNPS調査・口コミ依頼までの一連のフローを自動化できます。口コミ対策は「始めた者勝ち」の施策です。まずは現状のGoogle口コミを確認し、今日からLINE連携の口コミ施策をスタートしましょう。Google MEO対策を含めた集患戦略については<Link href="/lp/column/self-pay-clinic-google-meo" className="text-sky-600 underline hover:text-sky-800">Google MEO対策ガイド</Link>、SEOと合わせた総合的な集患施策は<Link href="/lp/column/clinic-seo-complete-guide" className="text-sky-600 underline hover:text-sky-800">SEO対策完全ガイド</Link>もご覧ください。</p>
       </section>
     </ArticleLayout>
   );

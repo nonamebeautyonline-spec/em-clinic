@@ -174,6 +174,8 @@ export default function Page() {
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">成果</h3>
         <ResultCard before="決済完了率 65%" after="決済完了率 95%" metric="決済完了率30ポイント向上" description="未入金催促業務がほぼゼロに" />
+
+        <p>オンライン決済の導入方法については<Link href="/lp/column/clinic-payment-guide" className="text-sky-600 underline hover:text-sky-800">オンライン決済導入ガイド</Link>で詳しく解説しています。</p>
       </section>
 
       {/* ── 事例5 ── */}
@@ -193,6 +195,8 @@ export default function Page() {
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">成果</h3>
         <ResultCard before="夜間対応 0%" after="夜間対応 85%" metric="夜間問い合わせ即時対応率85%達成" />
+
+        <p>AI自動返信の導入方法は<Link href="/lp/column/ai-auto-reply-guide" className="text-sky-600 underline hover:text-sky-800">AI自動返信導入ガイド</Link>で詳しく解説しています。</p>
 
         <StatGrid stats={[
           { value: "85", unit: "%", label: "夜間即時対応率" },

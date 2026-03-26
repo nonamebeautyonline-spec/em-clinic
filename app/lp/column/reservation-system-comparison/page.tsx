@@ -176,9 +176,9 @@ export default function Page() {
 
         <ol className="list-decimal pl-6 space-y-2">
           <li><strong>LINE連携の対応レベルを確認</strong> — 通知のみか、予約完結までできるかで患者体験が大きく変わる</li>
-          <li><strong>自院の規模とフェーズに合ったシステムを選ぶ</strong> — 開業時はシンプルなものから始め、成長に合わせてアップグレード</li>
+          <li><strong>自院の規模とフェーズに合ったシステムを選ぶ</strong> — 開業時はシンプルなものから始め、成長に合わせてアップグレード。開業時のLINE導入については<Link href="/lp/column/clinic-opening-line" className="text-sky-600 underline hover:text-sky-800">開業時のLINE活用ガイド</Link>も参照</li>
           <li><strong>トータルコストで比較</strong> — 初期費用だけでなく、月額・従量課金・オプション費用も含めて検討</li>
-          <li><strong>リマインド機能の充実度</strong> — 無断キャンセル削減の効果が最も投資対効果が高い</li>
+          <li><strong>リマインド機能の充実度</strong> — 無断キャンセル削減の効果が最も投資対効果が高い。具体的な対策は<Link href="/lp/column/self-pay-clinic-no-show-prevention" className="text-sky-600 underline hover:text-sky-800">キャンセル・ノーショー対策ガイド</Link>を参照</li>
           <li><strong>拡張性を見据える</strong> — <Link href="/lp/column/electronic-medical-record-guide" className="text-blue-600 underline">電子カルテ</Link>連携・決済連携・分院管理など、将来の拡張に対応できるか</li>
         </ol>
         <p className="mt-4">Lオペ for CLINICは、<Link href="/lp/features#予約・診察" className="text-sky-600 underline hover:text-sky-800">予約管理</Link>・LINE連携・問診・決済・配信をオールインワンで提供するクリニック専用プラットフォームです。予約システムの乗り換えや新規導入をご検討の方は、お気軽にご相談ください。</p>

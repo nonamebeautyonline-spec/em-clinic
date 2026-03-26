@@ -135,7 +135,7 @@ export default function Page() {
       <section>
         <h2 id="first-visit" className="text-xl font-bold text-gray-800">初回来院の最大化 — 2回目来院率は初診体験で決まる</h2>
 
-        <p>LTV向上の第一歩は、<strong>初回来院の体験設計</strong>です。初診の満足度が高ければ2回目の来院率は大幅に上がり、逆に不満があれば二度と来院しません。自費診療では特に「高い費用を払ったのに期待した体験が得られなかった」という不満が離脱の最大要因です。</p>
+        <p>LTV向上の第一歩は、<strong>初回来院の体験設計</strong>です。初診の満足度が高ければ2回目の来院率は大幅に上がり、逆に不満があれば二度と来院しません。自費診療では特に「高い費用を払ったのに期待した体験が得られなかった」という不満が離脱の最大要因です。カウンセリング体験の質を高めて初回成約率を上げる方法は<Link href="/lp/column/self-pay-clinic-counseling-conversion" className="text-sky-600 underline hover:text-sky-800">カウンセリング成約率アップガイド</Link>で、価格設定の最適化による単価向上は<Link href="/lp/column/self-pay-clinic-pricing-strategy" className="text-sky-600 underline hover:text-sky-800">価格設定戦略ガイド</Link>で解説しています。</p>
 
         <p>初診から2回目来院までの体験設計を、以下の4ステップで整えましょう。Lオペを活用すれば、各ステップでLINEによる自動フォローを組み込むことが可能です。</p>
 

@@ -83,7 +83,7 @@ export default function Page() {
         <h2 id="treatment-overview" className="text-xl font-bold text-gray-800">いびき・SAS治療の選択肢 — 何が標準治療なのか</h2>
 
         <p>
-          いびき・SAS（睡眠時無呼吸症候群）の治療は、症状の重症度と原因に応じて多岐にわたります。日本では約2,200万人がいびきをかくと推定され、そのうち<strong>300〜500万人がSASを有する</strong>と考えられています。しかし、実際に診断・治療を受けている患者は50万人程度に過ぎず、多くの潜在患者が未治療のまま心血管リスクや交通事故リスクにさらされています。
+          いびき・SAS（睡眠時無呼吸症候群）の治療は、症状の重症度と原因に応じて多岐にわたります。日本では約2,200万人がいびきをかくと推定され、そのうち<strong>300〜500万人がSASを有する</strong>と考えられています。しかし、実際に診断・治療を受けている患者は50万人程度に過ぎず、多くの潜在患者が未治療のまま心血管リスクや交通事故リスクにさらされています。CPAP療法の詳細な解説は<Link href="/lp/column/cpap-therapy-complete-guide" className="text-sky-600 underline hover:text-sky-800">CPAP療法完全ガイド</Link>をご覧ください。
         </p>
 
         <StatGrid stats={[

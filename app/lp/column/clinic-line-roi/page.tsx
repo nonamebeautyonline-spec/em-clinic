@@ -182,7 +182,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>LINE導入のROIは、クリニックの規模や診療科によって異なりますが、多くの場合3か月以内に初期投資を回収できます。Lオペ for CLINICでは、導入前の無料相談で貴院に合わせたROI試算をお出ししています。まずは<Link href="/lp/column/busy-doctor-efficiency" className="text-sky-600 underline hover:text-sky-800">業務効率化の全体像</Link>を把握した上で、具体的な投資判断を進めてみてはいかがでしょうか。</p>
+        <p>LINE導入のROIは、クリニックの規模や診療科によって異なりますが、多くの場合3か月以内に初期投資を回収できます。Lオペ for CLINICでは、導入前の無料相談で貴院に合わせたROI試算をお出ししています。まずは<Link href="/lp/column/busy-doctor-efficiency" className="text-sky-600 underline hover:text-sky-800">業務効率化の全体像</Link>を把握した上で、具体的な投資判断を進めてみてはいかがでしょうか。ツール統合によるコスト削減の具体シミュレーションは<Link href="/lp/column/clinic-line-integration-cost-half" className="text-sky-600 underline hover:text-sky-800">LINE統合でコスト半減</Link>、売上向上の全体戦略は<Link href="/lp/column/clinic-line-revenue-growth" className="text-sky-600 underline hover:text-sky-800">クリニックの売上を上げるLINE活用術</Link>もご参照ください。</p>
       </section>
     </ArticleLayout>
   );

@@ -149,7 +149,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICは、患者フォローアップの自動化・セグメント配信・離脱率分析をオールインワンで提供します。既存患者の維持に注力し、安定したクリニック経営を実現しましょう。</p>
+        <p>Lオペ for CLINICは、患者フォローアップの自動化・セグメント配信・離脱率分析をオールインワンで提供します。既存患者の維持に注力し、安定したクリニック経営を実現しましょう。LINE自動化の詳しい設定方法は<Link href="/lp/column/clinic-line-automation" className="text-sky-600 underline hover:text-sky-800">LINE自動化ガイド</Link>、リピート率改善の具体策は<Link href="/lp/column/clinic-repeat-rate-improvement" className="text-sky-600 underline hover:text-sky-800">リピート率改善ガイド</Link>もあわせてご覧ください。</p>
       </section>
     </ArticleLayout>
   );

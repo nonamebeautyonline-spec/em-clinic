@@ -95,7 +95,7 @@ export default function Page() {
         />
 
         <Callout type="info" title="開業資金の目安">
-          クリニックの開業には5,000万〜1億円程度の資金が必要です。自己資金に加え、日本政策金融公庫の融資を活用するのが一般的です。
+          クリニックの開業には5,000万〜1億円程度の資金が必要です。自己資金に加え、日本政策金融公庫の融資を活用するのが一般的です。資金調達の詳細は<Link href="/lp/column/clinic-opening-fund-guide" className="text-sky-600 underline hover:text-sky-800">開業資金調達ガイド</Link>をご覧ください。
         </Callout>
       </section>
 
@@ -126,7 +126,7 @@ export default function Page() {
         <Callout type="warning" title="倒産するクリニックに共通する3つの要因">
           <ol className="mt-2 space-y-2 list-decimal pl-4">
             <li><strong>経営知識の不足</strong> — 医療の専門家でも経営の専門家ではない。会計・マーケティング・労務の知識が不足</li>
-            <li><strong>スタッフの定着率低下</strong> — 採用コストがかさみ、サービス品質も低下する悪循環</li>
+            <li><strong>スタッフの定着率低下</strong> — 採用コストがかさみ、サービス品質も低下する悪循環（<Link href="/lp/column/clinic-staff-training" className="text-sky-600 underline hover:text-sky-800">スタッフ研修ガイド</Link>で教育・定着策を解説）</li>
             <li><strong>集患力の弱さ</strong> — WebサイトやSNSの活用が不十分で、新患獲得の導線がない（<Link href="/lp/column/clinic-line-friends-growth" className="text-sky-600 underline hover:text-sky-800">LINE友だち集め月100人増やす7つの施策</Link>も参考にしてください）</li>
           </ol>
         </Callout>

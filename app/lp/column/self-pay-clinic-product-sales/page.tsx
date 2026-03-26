@@ -301,7 +301,7 @@ export default function Page() {
           <strong>3. LINE配信でリピートを自動化：</strong>初回購入は店頭、リピートはオンライン。この導線をLINEで自動化することが安定収益の鍵
         </Callout>
 
-        <p>物販は、自費クリニック経営における「手堅い収益の上乗せ手段」です。医師の稼働を増やさず、患者との接点を維持しながら収益を拡大できる点が最大の魅力です。LTV向上の施策全体については<Link href="/lp/column/self-pay-clinic-ltv-maximize" className="text-sky-600 underline hover:text-sky-800">自費クリニックのLTV最大化ガイド</Link>もあわせてご覧ください。物販という「第2の収益エンジン」を育てて、より安定した経営基盤を構築しましょう。</p>
+        <p>物販は、自費クリニック経営における「手堅い収益の上乗せ手段」です。医師の稼働を増やさず、患者との接点を維持しながら収益を拡大できる点が最大の魅力です。LTV向上の施策全体については<Link href="/lp/column/self-pay-clinic-ltv-maximize" className="text-sky-600 underline hover:text-sky-800">自費クリニックのLTV最大化ガイド</Link>を、サブスク型の定期購入導入については<Link href="/lp/column/self-pay-clinic-subscription-model" className="text-sky-600 underline hover:text-sky-800">サブスクリプションモデル導入ガイド</Link>もあわせてご覧ください。価格設定の最適化は<Link href="/lp/column/self-pay-clinic-pricing-strategy" className="text-sky-600 underline hover:text-sky-800">価格設定戦略ガイド</Link>で解説しています。物販という「第2の収益エンジン」を育てて、より安定した経営基盤を構築しましょう。</p>
       </section>
     </ArticleLayout>
   );

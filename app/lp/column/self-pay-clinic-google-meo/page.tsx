@@ -249,7 +249,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>自費クリニックにとって、MEO対策は「やるかやらないか」ではなく「どこまで徹底するか」の勝負です。Lオペ for CLINICを活用すれば、診察完了からNPS調査・口コミ依頼・フォローアップまでの一連のフローをLINEで自動化できます。まずはGBPの基本情報の整備から始め、口コミの好循環を作り上げましょう。</p>
+        <p>自費クリニックにとって、MEO対策は「やるかやらないか」ではなく「どこまで徹底するか」の勝負です。Lオペ for CLINICを活用すれば、診察完了からNPS調査・口コミ依頼・フォローアップまでの一連のフローをLINEで自動化できます。SEO対策も並行して進めたい方は<Link href="/lp/column/clinic-seo-complete-guide" className="text-sky-600 underline hover:text-sky-800">クリニックSEO対策完全ガイド</Link>を、広告費のROI最適化については<Link href="/lp/column/self-pay-clinic-ad-roi" className="text-sky-600 underline hover:text-sky-800">広告費ROI最適化ガイド</Link>もあわせてご確認ください。まずはGBPの基本情報の整備から始め、口コミの好循環を作り上げましょう。</p>
       </section>
     </ArticleLayout>
   );

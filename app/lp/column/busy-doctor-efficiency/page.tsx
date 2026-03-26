@@ -174,11 +174,12 @@ export default function Page() {
             <li>• 開業医は「医師」と「経営者」の二足のわらじ。時間管理が経営の生命線</li>
             <li>• 予約・問診・リマインド・決済の自動化で受付業務を60%削減可能（<Link href="/lp/column/online-questionnaire-guide" className="text-sky-600 underline hover:text-sky-800">オンライン問診導入ガイド</Link>も参考にしてください）</li>
             <li>• LINEを起点にしたDXなら、患者の利便性向上と業務効率化を同時に実現</li>
+            <li>• DX導入の具体的な固定費削減効果は<Link href="/lp/column/clinic-cost-reduction-30man" className="text-sky-600 underline hover:text-sky-800">固定費を月30万円削減する方法</Link>で解説</li>
             <li>• 「いつかやる」ではなく「今始める」ことで、競合クリニックとの差別化につながる</li>
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICは、開業医の「診療に集中したい」という想いを実現するクリニック専用のLINE運用プラットフォームです。予約・問診・配信・決済・配送管理を<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">オールインワンで自動化</Link>し、忙しい開業医の時間を取り戻します。AI自動返信による問い合わせ対応の自動化については<Link href="/lp/column/ai-auto-reply-guide" className="text-sky-600 underline hover:text-sky-800">AI自動返信導入ガイド</Link>もご覧ください。</p>
+        <p>Lオペ for CLINICは、開業医の「診療に集中したい」という想いを実現するクリニック専用のLINE運用プラットフォームです。予約・問診・配信・決済・配送管理を<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">オールインワンで自動化</Link>し、忙しい開業医の時間を取り戻します。AI自動返信による問い合わせ対応の自動化については<Link href="/lp/column/ai-auto-reply-guide" className="text-sky-600 underline hover:text-sky-800">AI自動返信導入ガイド</Link>もご覧ください。DX導入前後の変化を時系列で見たい方は<Link href="/lp/column/clinic-dx-daily-transformation" className="text-sky-600 underline hover:text-sky-800">DXで1日の業務がここまで変わる</Link>も参考になります。</p>
       </section>
     </ArticleLayout>
   );

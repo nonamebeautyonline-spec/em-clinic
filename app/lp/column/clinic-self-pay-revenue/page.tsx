@@ -87,7 +87,7 @@ export default function Page() {
         <p>例えば、月商500万円のクリニックで自費率を10%から25%に引き上げた場合、月間利益は約80万円増加します。年間にすれば約960万円の利益改善です。これは新規の集患施策に比べて、既存患者へのアプローチで実現できるため、広告費をかけずに収益を伸ばせる点が大きなメリットです。</p>
 
         <Callout type="info" title="自費比率を上げるメリットは売上だけではない">
-          自費診療の比率を上げることは、売上向上だけでなく<strong>経営の安定性</strong>にも直結します。保険改定リスクの軽減、診療報酬に縛られない柔軟な価格設定、患者一人あたりの収益向上による集患コスト低減など、クリニック経営基盤を強化する効果があります。
+          自費診療の比率を上げることは、売上向上だけでなく<strong>経営の安定性</strong>にも直結します。保険改定リスクの軽減、診療報酬に縛られない柔軟な価格設定、患者一人あたりの収益向上による集患コスト低減など、クリニック経営基盤を強化する効果があります。経営安定化のポイントは<Link href="/lp/column/clinic-management-success" className="text-sky-600 underline hover:text-sky-800">クリニック経営成功の5つのポイント</Link>でも解説しています。
         </Callout>
       </section>
 
@@ -254,7 +254,7 @@ export default function Page() {
           </ol>
         </Callout>
 
-        <p>Lオペ for CLINICは、セグメント配信・患者属性の自動タグ付け・配信効果の分析ダッシュボードなど、自費診療の売上アップに必要な機能をすべて備えたクリニック専用LINE運用プラットフォームです。<Link href="/lp/column/segment-delivery-repeat" className="text-emerald-700 underline">セグメント配信の基本</Link>から、<Link href="/lp/column/clinic-line-revenue-growth" className="text-emerald-700 underline">収益改善の全体戦略</Link>まで、関連コラムもぜひご参照ください。</p>
+        <p>Lオペ for CLINICは、セグメント配信・患者属性の自動タグ付け・配信効果の分析ダッシュボードなど、自費診療の売上アップに必要な機能をすべて備えたクリニック専用LINE運用プラットフォームです。<Link href="/lp/column/segment-delivery-repeat" className="text-emerald-700 underline">セグメント配信の基本</Link>から、<Link href="/lp/column/clinic-line-revenue-growth" className="text-emerald-700 underline">収益改善の全体戦略</Link>まで、関連コラムもぜひご参照ください。オンライン決済との連携で自費診療の購入導線を整える方法は<Link href="/lp/column/clinic-payment-guide" className="text-sky-600 underline hover:text-sky-800">オンライン決済導入ガイド</Link>をご覧ください。</p>
 
         <p>自費診療の売上アップに課題を感じているクリニックは、まずは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>からお気軽にお問い合わせください。現在の運用状況をヒアリングし、最適なセグメント配信の設計をご提案いたします。</p>
       </section>

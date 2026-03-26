@@ -214,7 +214,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>Lオペ for CLINICは、動画マーケティングで獲得したLINE友だちを自動的にセグメント管理し、問診・予約・フォローアップまでをワンストップで運用できるクリニック専用プラットフォームです。動画で認知を獲得し、LINEで関係を深め、来院につなげる一気通貫のマーケティングを実現します。</p>
+        <p>Lオペ for CLINICは、動画マーケティングで獲得したLINE友だちを自動的にセグメント管理し、問診・予約・フォローアップまでをワンストップで運用できるクリニック専用プラットフォームです。動画で認知を獲得し、LINEで関係を深め、来院につなげる一気通貫のマーケティングを実現します。LINE友だちを効率的に増やす施策は<Link href="/lp/column/clinic-line-friends-growth" className="text-sky-600 underline hover:text-sky-800">LINE友だち集め 月100人増やす7つの施策</Link>、SEO対策との連携は<Link href="/lp/column/clinic-seo-complete-guide" className="text-sky-600 underline hover:text-sky-800">クリニックSEO対策完全ガイド</Link>もご覧ください。</p>
       </section>
     </ArticleLayout>
   );

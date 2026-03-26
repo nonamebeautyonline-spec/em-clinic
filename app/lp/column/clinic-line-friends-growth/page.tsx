@@ -178,7 +178,7 @@ export default function Page() {
         />
 
         <Callout type="info" title="SNS流入は潜在患者が中心">
-          LINEに登録してもらった後は、ステップ配信でクリニックの魅力や症例実績を段階的に伝え、初回来院につなげるナーチャリングが重要です。
+          LINEに登録してもらった後は、ステップ配信でクリニックの魅力や症例実績を段階的に伝え、初回来院につなげるナーチャリングが重要です。SNSからの集患戦略は<Link href="/lp/column/clinic-tiktok-youtube-strategy" className="text-sky-600 underline hover:text-sky-800">TikTok・YouTube活用ガイド</Link>も参考にしてください。
         </Callout>
       </section>
 
@@ -250,7 +250,7 @@ export default function Page() {
           毎日来院する患者は確実なリーチ対象であり、ここでの取りこぼしが最も大きな機会損失です。まず院内施策を徹底し、その上でWeb・SNSの導線を強化する順番が効率的です。
         </Callout>
 
-        <p>KPIは週次で確認し、目標に届いていない施策があれば原因を分析して改善を繰り返しましょう。友だち追加数はLINE公式アカウントの管理画面やLオペのダッシュボードでリアルタイムに確認できます。</p>
+        <p>KPIは週次で確認し、目標に届いていない施策があれば原因を分析して改善を繰り返しましょう。友だち追加数はLINE公式アカウントの管理画面やLオペのダッシュボードでリアルタイムに確認できます。KPIの設計方法については<Link href="/lp/column/clinic-kpi-dashboard" className="text-sky-600 underline hover:text-sky-800">経営KPI7選</Link>で詳しく解説しています。</p>
       </section>
 
       <section>

@@ -85,7 +85,7 @@ export default function Page() {
           さらに<strong>LTV（患者1人あたりの生涯売上）= 月額単価 × 平均継続月数</strong>で長期収益を評価します。高単価×低継続と低単価×高継続のどちらが自院に合うかを見極めることが重要です。
         </Callout>
 
-        <p>オンライン診療は対面診療と比較して、<strong>固定費が大幅に低い</strong>点が最大の優位性です。テナント賃料・内装費・医療機器投資が不要なため、粗利率は70〜90%に達します。一方で、薬剤の仕入れ・配送コスト・決済手数料が変動費として発生するため、分野ごとの原価構造を正確に把握する必要があります。</p>
+        <p>オンライン診療は対面診療と比較して、<strong>固定費が大幅に低い</strong>点が最大の優位性です。テナント賃料・内装費・医療機器投資が不要なため、粗利率は70〜90%に達します。一方で、薬剤の仕入れ・配送コスト・決済手数料が変動費として発生するため、分野ごとの原価構造を正確に把握する必要があります。価格設定の考え方は<Link href="/lp/column/self-pay-pricing-guide" className="text-sky-600 underline hover:text-sky-800">自費診療の価格設定ガイド</Link>で、患者LTVの最大化手法は<Link href="/lp/column/self-pay-patient-ltv-maximize" className="text-sky-600 underline hover:text-sky-800">患者LTV最大化ガイド</Link>で詳しく解説しています。</p>
 
         <StatGrid stats={[
           { value: "70-90", unit: "%", label: "オンライン診療の粗利率" },

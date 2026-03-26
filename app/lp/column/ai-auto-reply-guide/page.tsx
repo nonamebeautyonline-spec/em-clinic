@@ -241,7 +241,7 @@ export default function Page() {
           <li><strong>ハイブリッド方式で精度とコストを最適化</strong> — 定型回答はルールベース、複雑な質問はAIで対応</li>
           <li><strong>スタッフ修正フィードバックで精度向上</strong> — 運用しながら学習データを蓄積し、3ヶ月で正答率90%以上へ。的外れな回答によるブロックを防ぐコツは<Link href="/lp/column/line-block-rate-reduction" className="text-blue-600 underline">ブロック率を下げる5つの鉄則</Link>も参考になります</li>
           <li><strong>段階的に導入</strong> — いきなり全面導入ではなく、営業時間外→FAQ→対応範囲拡大と段階的にリリース</li>
-          <li><strong>エスカレーション設計が最重要</strong> — AIが対応すべきでないケースを明確に定義し、確実に人間にバトンタッチ</li>
+          <li><strong>エスカレーション設計が最重要</strong> — AIが対応すべきでないケースを明確に定義し、確実に人間にバトンタッチ。AI返信の活用全般については<Link href="/lp/column/clinic-ai-reply-guide" className="text-sky-600 underline hover:text-sky-800">AI返信活用ガイド</Link>、業務効率化の全体像は<Link href="/lp/column/clinic-dx-complete-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>もご参照ください</li>
         </ol>
         <p className="mt-4">Lオペ for CLINICの<Link href="/lp/features#AI機能" className="text-sky-600 underline hover:text-sky-800">AI自動返信</Link>は、クリニック向けに最適化されたナレッジベースとスタッフ修正フィードバック機能を標準搭載。導入から運用改善まで一貫してサポートします。24時間の問い合わせ対応で、新患獲得を最大化しませんか。</p>
       </section>

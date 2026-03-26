@@ -94,7 +94,7 @@ export default function Page() {
         <h2 id="tips" className="text-xl font-bold text-gray-800">セグメント配信の効果を最大化する3つのコツ</h2>
 
         <Callout type="point" title="コツ1: 配信タイミングを最適化する">
-          クリニックの患者は平日日中は仕事中が多いため、<strong>平日18時〜20時</strong>または<strong>土日の午前中</strong>が開封率が高い傾向。セグメントごとに最適な時間帯をテストしましょう。
+          クリニックの患者は平日日中は仕事中が多いため、<strong>平日18時〜20時</strong>または<strong>土日の午前中</strong>が開封率が高い傾向。セグメントごとに最適な時間帯をテストしましょう。季節に合わせた配信企画は<Link href="/lp/column/clinic-seasonal-campaign" className="text-sky-600 underline hover:text-sky-800">季節別配信戦略ガイド</Link>も参考になります。
         </Callout>
 
         <Callout type="point" title="コツ2: メッセージをパーソナルにする">
@@ -102,7 +102,7 @@ export default function Page() {
         </Callout>
 
         <Callout type="point" title="コツ3: 配信結果を分析・改善する">
-          開封率・クリック率・予約転換率を計測し、効果の高いメッセージテンプレートを蓄積。PDCAを回すことで配信の精度が継続的に向上します。
+          開封率・クリック率・予約転換率を計測し、効果の高いメッセージテンプレートを蓄積。PDCAを回すことで配信の精度が継続的に向上します。配信効果の測定方法は<Link href="/lp/column/clinic-line-analytics" className="text-sky-600 underline hover:text-sky-800">LINE配信効果測定ガイド</Link>で解説しています。
         </Callout>
       </section>
 

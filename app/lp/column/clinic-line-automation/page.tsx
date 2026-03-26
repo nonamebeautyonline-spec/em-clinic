@@ -67,7 +67,7 @@ export default function Page() {
           { value: "30", unit: "%", label: "再診率向上" },
         ]} />
 
-        <p>自動化を導入したクリニックでは、受付スタッフの電話対応時間が87%削減され、空いた時間を患者対応の質向上に充てられるようになっています。手動では不可能だった「全患者への個別フォロー」も、自動化によって実現可能になります。</p>
+        <p>自動化を導入したクリニックでは、受付スタッフの電話対応時間が87%削減され、空いた時間を患者対応の質向上に充てられるようになっています。手動では不可能だった「全患者への個別フォロー」も、自動化によって実現可能になります。具体的な活用事例は<Link href="/lp/column/clinic-line-case-studies" className="text-sky-600 underline hover:text-sky-800">クリニックのLINE活用事例5選</Link>で紹介しています。</p>
       </section>
 
       {/* ── 予約リマインド ── */}
@@ -158,7 +158,7 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>LINE自動化は、一度設定すれば継続的に効果を発揮する「仕組み」です。Lオペ for CLINICなら、これらの自動化をノーコードで設定でき、クリニックの規模やスタッフのITスキルに関係なく導入可能です。まずは予約リマインドの自動化から始めて、段階的に自動化の範囲を広げていくことをおすすめします。</p>
+        <p>LINE自動化は、一度設定すれば継続的に効果を発揮する「仕組み」です。Lオペ for CLINICなら、これらの自動化をノーコードで設定でき、クリニックの規模やスタッフのITスキルに関係なく導入可能です。まずは予約リマインドの自動化から始めて、段階的に自動化の範囲を広げていくことをおすすめします。導入のROI計算方法は<Link href="/lp/column/clinic-line-roi" className="text-sky-600 underline hover:text-sky-800">LINE導入ROIの計算方法</Link>で解説しています。スタッフへの研修・定着方法は<Link href="/lp/column/clinic-staff-training" className="text-sky-600 underline hover:text-sky-800">スタッフ研修ガイド</Link>もご覧ください。</p>
       </section>
     </ArticleLayout>
   );

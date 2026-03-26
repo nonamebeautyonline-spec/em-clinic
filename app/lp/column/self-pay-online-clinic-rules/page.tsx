@@ -126,7 +126,7 @@ export default function Page() {
         />
 
         <p>
-          保険診療では<strong>療養担当規則</strong>に基づく制約がありますが、自費診療ではその制約がありません。一方で、自費診療には<strong>消費者保護の観点からの規制</strong>が追加で適用されます。特に定期購入型のサブスクリプションモデルを採用する場合、特定商取引法への対応が必要です。また、広告においては保険診療よりも自費診療のほうが厳しく監視される傾向にあり、注意が必要です。
+          保険診療では<strong>療養担当規則</strong>に基づく制約がありますが、自費診療ではその制約がありません。一方で、自費診療には<strong>消費者保護の観点からの規制</strong>が追加で適用されます。特に定期購入型のサブスクリプションモデルを採用する場合、特定商取引法への対応が必要です。サブスクモデルの具体的な設計方法は<Link href="/lp/column/self-pay-clinic-subscription-model" className="text-sky-600 underline hover:text-sky-800">サブスクリプションモデル導入ガイド</Link>で解説しています。また、広告においては保険診療よりも自費診療のほうが厳しく監視される傾向にあり、医療広告ガイドラインの詳細は<Link href="/lp/column/clinic-ad-yakki-ho-guide" className="text-sky-600 underline hover:text-sky-800">広告と薬機法ガイド</Link>をご確認ください。
         </p>
       </section>
 
