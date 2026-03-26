@@ -47,6 +47,8 @@ export class SquarePaymentProvider implements PaymentProvider {
       noteParts.push(productPart);
     }
     if (params.metadata.reorderId) noteParts.push(`Reorder:${params.metadata.reorderId}`);
+    if (params.metadata.couponId) noteParts.push(`Coupon:${params.metadata.couponId}`);
+    if (params.metadata.campaignId) noteParts.push(`Campaign:${params.metadata.campaignId}`);
     const paymentNote = noteParts.join(";");
 
     const res = await fetch(

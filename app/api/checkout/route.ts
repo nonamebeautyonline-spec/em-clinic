@@ -75,16 +75,61 @@ export async function POST(req: NextRequest) {
       return badRequest("無効なモードです");
     }
 
-    // ★ 価格計算（個別割引 > キャンペーン > 商品割引 > 通常価格 + クーポン）
+    // ★ クーポン検証（利用上限+対象者チェック含む）
     let couponId: number | undefined;
     if (couponCode && tenantId) {
       const { data: coupon } = await withTenant(
-        supabaseAdmin.from("coupons").select("id").eq("code", couponCode.trim().toUpperCase()).eq("is_active", true).single(),
+        supabaseAdmin.from("coupons").select("*").eq("code", couponCode.trim().toUpperCase()).eq("is_active", true).single(),
         tenantId,
       );
-      if (coupon) couponId = coupon.id;
+      if (coupon) {
+        // 利用上限チェック
+        if (coupon.max_uses) {
+          const { count } = await withTenant(
+            supabaseAdmin.from("coupon_issues")
+              .select("*", { count: "exact", head: true })
+              .eq("coupon_id", coupon.id)
+              .eq("status", "used"),
+            tenantId,
+          );
+          if ((count || 0) >= coupon.max_uses) {
+            return badRequest("このクーポンは利用上限に達しています");
+          }
+        }
+        // 患者別利用上限チェック
+        if (patientId && coupon.max_uses_per_patient) {
+          const { count } = await withTenant(
+            supabaseAdmin.from("coupon_issues")
+              .select("*", { count: "exact", head: true })
+              .eq("coupon_id", coupon.id)
+              .eq("patient_id", patientId)
+              .eq("status", "used"),
+            tenantId,
+          );
+          if ((count || 0) >= coupon.max_uses_per_patient) {
+            return badRequest("このクーポンは既にご利用済みです");
+          }
+        }
+        // 対象患者チェック
+        if (coupon.audience_type === "specific") {
+          if (!patientId || !(coupon.audience_patient_ids || []).includes(patientId)) {
+            return badRequest("このクーポンはご利用対象外です");
+          }
+        } else if (coupon.audience_type === "condition" && coupon.audience_rules) {
+          if (!patientId) {
+            return badRequest("このクーポンはご利用対象外です");
+          }
+          const { evaluateAudienceCondition } = await import("@/lib/campaign-audience");
+          const matched = await evaluateAudienceCondition(patientId, coupon.audience_rules, tenantId);
+          if (!matched) {
+            return badRequest("このクーポンはご利用対象外です");
+          }
+        }
+        couponId = coupon.id;
+      }
     }
 
+    // ★ 価格計算（個別割引 > キャンペーン > 商品割引 > 通常価格 + クーポン）
     const pricing = await calculateFinalPrice({
       product: { id: product.id, price: product.price, discount_price: product.discount_price ?? null, discount_until: product.discount_until ?? null, category: product.category },
       patientId: patientId ?? undefined,
@@ -111,6 +156,7 @@ export async function POST(req: NextRequest) {
         mode: mode || "",
         reorderId: reorderId || "",
         couponId: couponId ? String(couponId) : "",
+        campaignId: pricing.appliedDiscount.id || "",
         originalPrice: String(product.price),
         finalPrice: String(finalPrice),
       },

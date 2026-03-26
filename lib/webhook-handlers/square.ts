@@ -83,7 +83,7 @@ async function squarePost(path: string, body: Record<string, unknown>, token: st
 }
 
 export function extractFromNote(note: string) {
-  const out = { patientId: "", productCode: "", reorderId: "" };
+  const out = { patientId: "", productCode: "", reorderId: "", couponId: "", campaignId: "" };
   const n = note || "";
   const pid = n.match(/PID:([^;]+)/);
   if (pid?.[1]) out.patientId = pid[1].trim();
@@ -91,6 +91,10 @@ export function extractFromNote(note: string) {
   if (prod?.[1]) out.productCode = prod[1].trim();
   const re = n.match(/Reorder:([^;]+)/);
   if (re?.[1]) out.reorderId = re[1].trim();
+  const cp = n.match(/Coupon:([^;]+)/);
+  if (cp?.[1]) out.couponId = cp[1].trim();
+  const cm = n.match(/Campaign:([^;]+)/);
+  if (cm?.[1]) out.campaignId = cm[1].trim();
   return out;
 }
 
@@ -174,7 +178,7 @@ export async function processSquareEvent(params: SquareHandlerParams): Promise<v
 
     const P = (pRes.json?.payment ?? {}) as SquarePayment;
     const note = String(P?.note || P?.payment_note || "");
-    const { patientId, productCode, reorderId } = extractFromNote(note);
+    const { patientId, productCode, reorderId, couponId, campaignId } = extractFromNote(note);
 
     if (reorderId) {
       await markReorderPaid(reorderId, patientId, tenantId);
@@ -357,6 +361,59 @@ export async function processSquareEvent(params: SquareHandlerParams): Promise<v
         await processAutoGrant(tenantId || "", patientId, paymentId, amountNum);
       } catch (e) {
         console.error("[square/handler] point auto-grant failed:", e);
+      }
+    }
+
+    // クーポン利用記録
+    if (patientId && couponId) {
+      try {
+        const numCouponId = Number(couponId);
+        if (!isNaN(numCouponId)) {
+          // 配布済み（issued）レコードがあれば used に更新、なければ直接INSERT
+          const { data: issue } = await withTenant(
+            supabaseAdmin.from("coupon_issues")
+              .select("id")
+              .eq("coupon_id", numCouponId)
+              .eq("patient_id", patientId)
+              .eq("status", "issued")
+              .limit(1)
+              .maybeSingle(),
+            tenantId,
+          );
+          if (issue) {
+            await supabaseAdmin.from("coupon_issues").update({
+              status: "used",
+              used_at: new Date().toISOString(),
+              order_id: paymentId,
+            }).eq("id", issue.id);
+          } else {
+            await supabaseAdmin.from("coupon_issues").insert({
+              ...tenantPayload(tenantId),
+              coupon_id: numCouponId,
+              patient_id: patientId,
+              status: "used",
+              used_at: new Date().toISOString(),
+              order_id: paymentId,
+            });
+          }
+        }
+      } catch (e) {
+        console.error("[square/handler] coupon usage record failed:", e);
+      }
+    }
+
+    // キャンペーン利用記録
+    if (patientId && campaignId) {
+      try {
+        const { recordCampaignUsage } = await import("@/lib/pricing");
+        await recordCampaignUsage({
+          campaignId,
+          patientId,
+          orderId: paymentId,
+          tenantId: tenantId ?? "",
+        });
+      } catch (e) {
+        console.error("[square/handler] campaign usage record failed:", e);
       }
     }
 

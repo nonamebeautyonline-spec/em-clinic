@@ -53,6 +53,16 @@ vi.mock("@/lib/medical-fields", () => ({
   isMultiFieldEnabled: vi.fn().mockResolvedValue(false),
 }));
 
+vi.mock("@/lib/pricing", () => ({
+  calculateFinalPrice: vi.fn().mockResolvedValue({
+    originalPrice: 1000,
+    finalPrice: 1000,
+    discountAmount: 0,
+    appliedDiscount: { type: "none", name: "", discountType: "fixed", discountValue: 0 },
+    coupon: null,
+  }),
+}));
+
 const mockGetSettingOrEnv = vi.fn().mockResolvedValue("https://example.com");
 vi.mock("@/lib/settings", () => ({
   getSettingOrEnv: (...args: unknown[]) => mockGetSettingOrEnv(...args),

@@ -4,7 +4,9 @@
 // クーポンは上記の最終価格に追加適用
 
 import { supabaseAdmin } from "@/lib/supabase";
-import { strictWithTenant, withTenant } from "@/lib/tenant";
+import { strictWithTenant, withTenant, tenantPayload } from "@/lib/tenant";
+import { evaluateAudienceCondition } from "@/lib/campaign-audience";
+import type { ConditionRule } from "@/app/admin/line/_components/ConditionBuilder";
 
 export type PriceBreakdown = {
   originalPrice: number;
@@ -12,6 +14,7 @@ export type PriceBreakdown = {
   discountAmount: number;
   appliedDiscount: {
     type: "patient_discount" | "campaign" | "product_discount" | "none";
+    id?: string;
     name: string;
     discountType: "percent" | "fixed";
     discountValue: number;
@@ -43,6 +46,10 @@ type Campaign = {
   target_category: string;
   starts_at: string;
   ends_at: string | null;
+  max_uses: number | null;
+  audience_type: "all" | "specific" | "condition";
+  audience_patient_ids: string[];
+  audience_rules: ConditionRule[] | null;
 };
 
 type PatientDiscount = {
@@ -138,19 +145,20 @@ export async function calculateFinalPrice(params: {
       tenantId,
     );
 
-    // 対象商品にマッチするキャンペーンを探す
-    const matchingCampaign = (campaigns || []).find((c: Campaign) => {
-      if (c.target_type === "all") return true;
-      if (c.target_type === "category" && product.category === c.target_category) return true;
-      if (c.target_type === "specific" && c.target_ids?.includes(product.id)) return true;
-      return false;
-    });
+    // 対象商品 + 対象患者 + 利用上限にマッチするキャンペーンを探す
+    const matchingCampaign = await findMatchingCampaign(
+      campaigns || [],
+      product,
+      patientId,
+      tenantId,
+    );
 
     if (matchingCampaign) {
       const amount = calcDiscount(product.price, matchingCampaign.discount_type, matchingCampaign.discount_value);
       finalPrice = product.price - amount;
       appliedDiscount = {
         type: "campaign",
+        id: matchingCampaign.id,
         name: matchingCampaign.name,
         discountType: matchingCampaign.discount_type,
         discountValue: matchingCampaign.discount_value,
@@ -206,9 +214,79 @@ export async function calculateFinalPrice(params: {
 }
 
 /**
+ * キャンペーン利用数を取得
+ */
+async function getCampaignUsageCount(campaignId: string, tenantId: string): Promise<number> {
+  const { count } = await strictWithTenant(
+    supabaseAdmin
+      .from("campaign_usages")
+      .select("*", { count: "exact", head: true })
+      .eq("campaign_id", campaignId),
+    tenantId,
+  );
+  return count || 0;
+}
+
+/**
+ * キャンペーン利用記録を保存
+ */
+export async function recordCampaignUsage(params: {
+  campaignId: string;
+  patientId: string;
+  orderId?: string;
+  tenantId: string;
+}): Promise<void> {
+  await supabaseAdmin.from("campaign_usages").insert({
+    ...tenantPayload(params.tenantId),
+    campaign_id: params.campaignId,
+    patient_id: params.patientId,
+    order_id: params.orderId || null,
+  });
+}
+
+/**
+ * 商品対象 + 患者対象 + 利用上限を考慮してマッチするキャンペーンを探す
+ */
+async function findMatchingCampaign(
+  campaigns: Campaign[],
+  product: Product,
+  patientId: string | undefined,
+  tenantId: string,
+): Promise<Campaign | null> {
+  for (const c of campaigns) {
+    // 1. 商品対象チェック
+    let productMatch = false;
+    if (c.target_type === "all") productMatch = true;
+    else if (c.target_type === "category" && product.category === c.target_category) productMatch = true;
+    else if (c.target_type === "specific" && c.target_ids?.includes(product.id)) productMatch = true;
+    if (!productMatch) continue;
+
+    // 2. 利用上限チェック
+    if (c.max_uses != null) {
+      const usedCount = await getCampaignUsageCount(c.id, tenantId);
+      if (usedCount >= c.max_uses) continue;
+    }
+
+    // 3. 対象患者チェック
+    if (c.audience_type === "specific") {
+      if (!patientId || !c.audience_patient_ids?.includes(patientId)) continue;
+    } else if (c.audience_type === "condition") {
+      if (!patientId) continue;
+      if (c.audience_rules && c.audience_rules.length > 0) {
+        const matched = await evaluateAudienceCondition(patientId, c.audience_rules, tenantId);
+        if (!matched) continue;
+      }
+    }
+
+    return c;
+  }
+  return null;
+}
+
+/**
  * 商品一覧に対してアクティブなキャンペーン割引価格を付与（表示用）
  */
-export async function getActiveCampaigns(tenantId: string): Promise<Campaign[]> {
+export async function getActiveCampaigns(tenantId: string): Promise<(Campaign & { used_count: number })[]> {
   const now = new Date().toISOString();
   const { data } = await strictWithTenant(
     supabaseAdmin
@@ -220,7 +298,15 @@ export async function getActiveCampaigns(tenantId: string): Promise<Campaign[]> 
       .order("created_at", { ascending: false }),
     tenantId,
   );
-  return (data || []) as Campaign[];
+  // 各キャンペーンの利用数を付与
+  const campaigns = (data || []) as Campaign[];
+  const enriched = await Promise.all(
+    campaigns.map(async (c) => {
+      const usedCount = await getCampaignUsageCount(c.id, tenantId);
+      return { ...c, used_count: usedCount };
+    }),
+  );
+  return enriched;
 }
 
 /**

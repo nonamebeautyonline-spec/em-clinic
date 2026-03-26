@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProducts } from "@/lib/products";
 import { resolveTenantId } from "@/lib/tenant";
 import { isMultiFieldEnabled } from "@/lib/medical-fields";
+import { getActiveCampaigns, applyCampaignPrice } from "@/lib/pricing";
 
 export async function GET(req: NextRequest) {
   const tenantId = resolveTenantId(req);
@@ -18,18 +19,30 @@ export async function GET(req: NextRequest) {
     ? products.filter((p) => p.field_id === fieldId)
     : products;
 
-  // 患者向けに必要なフィールドのみ返す
-  const items = filtered.map((p) => ({
-    code: p.code,
-    title: p.title,
-    dosage: p.dosage,
-    duration_months: p.duration_months,
-    quantity: p.quantity,
-    price: p.price,
-    discount_price: p.discount_price,
-    discount_until: p.discount_until,
-    field_id: p.field_id,
-  }));
+  // キャンペーン情報を取得
+  const campaigns = tenantId ? await getActiveCampaigns(tenantId) : [];
+
+  // 患者向けに必要なフィールドのみ返す（キャンペーン割引適用後の価格含む）
+  const items = filtered.map((p) => {
+    const { effectivePrice, campaign } = applyCampaignPrice(
+      { id: p.id, price: p.price, discount_price: p.discount_price ?? null, discount_until: p.discount_until ?? null, category: p.category },
+      campaigns,
+    );
+    return {
+      code: p.code,
+      title: p.title,
+      dosage: p.dosage,
+      duration_months: p.duration_months,
+      quantity: p.quantity,
+      price: p.price,
+      discount_price: p.discount_price,
+      discount_until: p.discount_until,
+      field_id: p.field_id,
+      campaign_price: campaign ? effectivePrice : null,
+      campaign_name: campaign?.name || null,
+      campaign_remaining: campaign?.max_uses != null ? Math.max(0, campaign.max_uses - ((campaign as { used_count?: number }).used_count || 0)) : null,
+    };
+  });
 
   return NextResponse.json({ products: items });
 }

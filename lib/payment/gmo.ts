@@ -48,6 +48,8 @@ export class GmoPaymentProvider implements PaymentProvider {
       params.metadata.productCode ? `Product:${params.metadata.productCode}` : "",
       params.metadata.mode ? `Mode:${params.metadata.mode}` : "",
       params.metadata.reorderId ? `Reorder:${params.metadata.reorderId}` : "",
+      params.metadata.couponId ? `Coupon:${params.metadata.couponId}` : "",
+      params.metadata.campaignId ? `Campaign:${params.metadata.campaignId}` : "",
     ].filter(Boolean).join(";");
 
     // Step 1: 取引登録 (EntryTran)

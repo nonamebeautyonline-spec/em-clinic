@@ -25,6 +25,8 @@ function parseClientField(field: string): Record<string, string> {
         Product: "productCode",
         Mode: "mode",
         Reorder: "reorderId",
+        Coupon: "couponId",
+        Campaign: "campaignId",
       };
       result[keyMap[k] || k] = v;
     }
@@ -113,6 +115,8 @@ export async function POST(req: Request) {
     const patientId = meta.patientId || "";
     const productCode = meta.productCode || "";
     const reorderId = meta.reorderId || "";
+    const couponId = meta.couponId || "";
+    const campaignId = meta.campaignId || "";
 
     console.log("[gmo/webhook] 結果通知受信:", {
       orderId,
@@ -138,6 +142,8 @@ export async function POST(req: Request) {
       productCode,
       productName: clientField2,
       reorderId,
+      couponId,
+      campaignId,
       tenantId,
     });
 

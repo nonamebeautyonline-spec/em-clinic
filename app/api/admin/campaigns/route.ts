@@ -19,6 +19,10 @@ const campaignSchema = z.object({
   starts_at: z.string().min(1, "開始日は必須です"),
   ends_at: z.string().nullable().optional(),
   is_active: z.boolean().optional().default(true),
+  max_uses: z.number().nullable().optional(),
+  audience_type: z.enum(["all", "specific", "condition"]).optional().default("all"),
+  audience_patient_ids: z.array(z.string()).optional().default([]),
+  audience_rules: z.any().nullable().optional(),
 }).passthrough();
 
 // キャンペーン一覧
@@ -34,7 +38,19 @@ export async function GET(req: NextRequest) {
   );
 
   if (error) return serverError(error.message);
-  return NextResponse.json({ campaigns: data || [] });
+
+  // 各キャンペーンの利用数を付与
+  const enriched = await Promise.all(
+    (data || []).map(async (c: { id: string; [key: string]: unknown }) => {
+      const { count } = await strictWithTenant(
+        supabaseAdmin.from("campaign_usages").select("*", { count: "exact", head: true }).eq("campaign_id", c.id),
+        tenantId,
+      );
+      return { ...c, used_count: count || 0 };
+    }),
+  );
+
+  return NextResponse.json({ campaigns: enriched });
 }
 
 // キャンペーン作成
@@ -46,7 +62,7 @@ export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, campaignSchema);
   if ("error" in parsed) return parsed.error;
 
-  const { name, description, discount_type, discount_value, target_type, target_ids, target_category, starts_at, ends_at, is_active } = parsed.data;
+  const { name, description, discount_type, discount_value, target_type, target_ids, target_category, starts_at, ends_at, is_active, max_uses, audience_type, audience_patient_ids, audience_rules } = parsed.data;
 
   const { data, error } = await supabaseAdmin
     .from("campaigns")
@@ -62,6 +78,10 @@ export async function POST(req: NextRequest) {
       starts_at,
       ends_at: ends_at || null,
       is_active: is_active !== false,
+      max_uses: max_uses ?? null,
+      audience_type: audience_type || "all",
+      audience_patient_ids: audience_patient_ids || [],
+      audience_rules: audience_rules || null,
     })
     .select()
     .single();

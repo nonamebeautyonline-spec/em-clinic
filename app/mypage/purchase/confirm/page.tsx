@@ -26,6 +26,9 @@ type Product = {
   price: number;
   discount_price: number | null;
   discount_until: string | null;
+  campaign_price: number | null;
+  campaign_name: string | null;
+  campaign_remaining: number | null;
 };
 
 type SdkConfig = {
@@ -224,15 +227,23 @@ function PurchaseConfirmContent() {
     [codeParam, products],
   );
 
-  // 割引価格が有効期間内であれば適用した実効価格を算出
+  // 割引価格が有効期間内であれば適用した実効価格を算出（キャンペーン価格含む）
   const effectivePrice = useMemo(() => {
     if (!product) return 0;
+    // 商品固有の割引価格を優先
     if (product.discount_price != null && product.discount_until) {
       const until = new Date(product.discount_until);
       if (until > new Date()) return product.discount_price;
     }
+    // キャンペーン価格（残数がある場合のみ）
+    if (product.campaign_price != null && (product.campaign_remaining === null || product.campaign_remaining > 0)) {
+      return product.campaign_price;
+    }
     return product.price;
   }, [product]);
+
+  // キャンペーン終了判定
+  const campaignEnded = product?.campaign_price != null && product.campaign_remaining === 0;
 
   const isValidMode =
     modeParam === "current" || modeParam === "first" || modeParam === "reorder";
@@ -413,12 +424,32 @@ function PurchaseConfirmContent() {
               <p className="mt-1 text-[11px] text-slate-600">
                 {product.dosage && `${product.dosage}/`}{product.duration_months && `${product.duration_months}ヶ月分`}{product.quantity && `（全${product.quantity}本）`}/週1回
               </p>
+              {product.campaign_name && !campaignEnded && (
+                <div className="mt-1 flex items-center gap-1.5">
+                  <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-700 rounded">
+                    {product.campaign_name}
+                  </span>
+                  {product.campaign_remaining != null && (
+                    <span className="text-[10px] text-orange-600">残り{product.campaign_remaining}個</span>
+                  )}
+                </div>
+              )}
+              {campaignEnded && (
+                <div className="mt-1">
+                  <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-500 rounded">
+                    キャンペーン終了
+                  </span>
+                </div>
+              )}
             </div>
             <div className="text-right whitespace-nowrap">
               <div className="text-[11px] text-slate-400">お支払い金額</div>
               <div className="text-lg font-semibold text-slate-900">
                 ¥{effectivePrice.toLocaleString()}
               </div>
+              {product.campaign_price != null && product.campaign_price < product.price && !campaignEnded && (
+                <div className="text-[10px] text-slate-400 line-through">¥{product.price.toLocaleString()}</div>
+              )}
               <div className="mt-0.5 text-[10px] text-slate-400">税込/送料込み</div>
             </div>
           </div>

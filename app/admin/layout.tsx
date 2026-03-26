@@ -41,6 +41,7 @@ const MOBILE_MENU_ITEMS: { href: string; icon: string; label: string; feature?: 
   { href: "/admin/doctor", icon: "🩺", label: "簡易カルテ", menuKey: "doctor" },
   { href: "/admin/karte", icon: "📋", label: "カルテ", menuKey: "karte" },
   { href: "/admin/noname-master", icon: "📋", label: "決済", menuKey: "payments" },
+  { href: "/admin/subscription-plans", icon: "🔄", label: "定期プラン", menuKey: "subscription_plans" },
   { href: "/admin/shipping/pending", icon: "📦", label: "発送", menuKey: "shipping" },
   { href: "/admin/view-mypage", icon: "👁️", label: "顧客マイページ確認", menuKey: "view_mypage" },
   { href: "/admin/merge-patients", icon: "🔗", label: "顧客情報変更", menuKey: "merge_patients" },
@@ -49,8 +50,6 @@ const MOBILE_MENU_ITEMS: { href: string; icon: string; label: string; feature?: 
   { href: "/admin/notification-settings", icon: "📩", label: "イベント通知", menuKey: "notification_settings" },
   { href: "/admin/products", icon: "💊", label: "商品管理", menuKey: "products" },
   { href: "/admin/campaigns", icon: "🎯", label: "キャンペーン", menuKey: "campaigns" },
-  { href: "/admin/coupons", icon: "🎟️", label: "クーポン", menuKey: "coupons" },
-  { href: "/admin/subscription-plans", icon: "🔄", label: "定期プラン", menuKey: "subscription_plans" },
   { href: "/admin/inventory", icon: "📦", label: "在庫", menuKey: "inventory" },
   { href: "/admin/settings", icon: "⚙️", label: "設定", menuKey: "settings" },
   { href: "/admin/help", icon: "❓", label: "ヘルプ", menuKey: "help" },
@@ -476,6 +475,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             menuKey="bank_reconcile"
             allowedMenuKeys={allowedMenuKeys}
           />
+          <MenuItem
+            href="/admin/subscription-plans"
+            icon="🔄"
+            label="定期プラン"
+            isOpen={isSidebarOpen}
+            isActive={pathname?.startsWith("/admin/subscription-plans")}
+            menuKey="subscription_plans"
+            allowedMenuKeys={allowedMenuKeys}
+          />
 
           <MenuSection label="発送管理" isOpen={isSidebarOpen} />
           <MenuItem
@@ -572,24 +580,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isOpen={isSidebarOpen}
             isActive={pathname?.startsWith("/admin/campaigns")}
             menuKey="campaigns"
-            allowedMenuKeys={allowedMenuKeys}
-          />
-          <MenuItem
-            href="/admin/coupons"
-            icon="🎟️"
-            label="クーポン"
-            isOpen={isSidebarOpen}
-            isActive={pathname?.startsWith("/admin/coupons")}
-            menuKey="coupons"
-            allowedMenuKeys={allowedMenuKeys}
-          />
-          <MenuItem
-            href="/admin/subscription-plans"
-            icon="🔄"
-            label="定期プラン"
-            isOpen={isSidebarOpen}
-            isActive={pathname?.startsWith("/admin/subscription-plans")}
-            menuKey="subscription_plans"
             allowedMenuKeys={allowedMenuKeys}
           />
           <MenuItem

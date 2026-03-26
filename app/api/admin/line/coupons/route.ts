@@ -49,7 +49,13 @@ export async function POST(req: NextRequest) {
 
   const parsed = await parseBody(req, createCouponSchema);
   if ("error" in parsed) return parsed.error;
-  const { name, code, discount_type, discount_value, min_purchase, max_uses, max_uses_per_patient, valid_from, valid_until, description } = parsed.data;
+  const body = parsed.data as Record<string, unknown>;
+  const { name, code, discount_type, discount_value, min_purchase, max_uses, max_uses_per_patient, valid_from, valid_until, description, audience_type, audience_patient_ids, audience_rules } = body as {
+    name: string; code: string; discount_type?: string; discount_value: number;
+    min_purchase?: number; max_uses?: number; max_uses_per_patient?: number;
+    valid_from?: string; valid_until?: string; description?: string;
+    audience_type?: string; audience_patient_ids?: string[]; audience_rules?: unknown;
+  };
 
   // コード重複チェック
   const { data: existing } = await strictWithTenant(
@@ -74,6 +80,9 @@ export async function POST(req: NextRequest) {
       valid_from: valid_from || new Date().toISOString(),
       valid_until: valid_until || null,
       description: description || "",
+      audience_type: audience_type || "all",
+      audience_patient_ids: audience_patient_ids || [],
+      audience_rules: audience_rules || null,
     })
     .select()
     .single();
@@ -94,10 +103,11 @@ export async function PUT(req: NextRequest) {
   const parsed = await parseBody(req, createCouponSchema);
   if ("error" in parsed) return parsed.error;
   const body = parsed.data as Record<string, unknown>;
-  const { id, name, code, discount_type, discount_value, min_purchase, max_uses, max_uses_per_patient, valid_from, valid_until, is_active, description } = body as {
+  const { id, name, code, discount_type, discount_value, min_purchase, max_uses, max_uses_per_patient, valid_from, valid_until, is_active, description, audience_type, audience_patient_ids, audience_rules } = body as {
     id?: number; name?: string; code?: string; discount_type?: string; discount_value?: number;
     min_purchase?: number; max_uses?: number; max_uses_per_patient?: number;
     valid_from?: string; valid_until?: string; is_active?: boolean; description?: string;
+    audience_type?: string; audience_patient_ids?: string[]; audience_rules?: unknown;
   };
 
   if (!id) return badRequest("IDは必須です");
@@ -115,6 +125,9 @@ export async function PUT(req: NextRequest) {
       valid_until: valid_until || null,
       is_active: is_active !== false,
       description: description || "",
+      audience_type: audience_type || "all",
+      audience_patient_ids: audience_patient_ids || [],
+      audience_rules: audience_rules || null,
       updated_at: new Date().toISOString(),
     }).eq("id", id),
     tenantId

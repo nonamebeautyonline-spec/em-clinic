@@ -69,6 +69,8 @@ export interface GmoHandlerParams {
   productCode: string;
   productName: string; // ClientField2
   reorderId: string;
+  couponId?: string;
+  campaignId?: string;
   tenantId: string | null;
 }
 
@@ -77,7 +79,7 @@ export interface GmoHandlerParams {
  * 署名検証・冪等チェックの外側で呼ぶ純粋な業務処理
  */
 export async function processGmoEvent(params: GmoHandlerParams): Promise<void> {
-  const { status, orderId, amount, accessId, patientId, productCode, productName, reorderId, tenantId } = params;
+  const { status, orderId, amount, accessId, patientId, productCode, productName, reorderId, couponId, campaignId, tenantId } = params;
   const paymentId = accessId || orderId;
 
   // ---- 決済完了（CAPTURE / SALES） ----
@@ -188,6 +190,58 @@ export async function processGmoEvent(params: GmoHandlerParams): Promise<void> {
         await processAutoGrant(tenantId || "", patientId, paymentId, amountNum);
       } catch (e) {
         console.error("[gmo/handler] point auto-grant failed:", e);
+      }
+
+      // クーポン利用記録
+      if (couponId) {
+        try {
+          const numCouponId = Number(couponId);
+          if (!isNaN(numCouponId)) {
+            const { data: issue } = await withTenant(
+              supabaseAdmin.from("coupon_issues")
+                .select("id")
+                .eq("coupon_id", numCouponId)
+                .eq("patient_id", patientId)
+                .eq("status", "issued")
+                .limit(1)
+                .maybeSingle(),
+              tenantId,
+            );
+            if (issue) {
+              await supabaseAdmin.from("coupon_issues").update({
+                status: "used",
+                used_at: new Date().toISOString(),
+                order_id: paymentId,
+              }).eq("id", issue.id);
+            } else {
+              await supabaseAdmin.from("coupon_issues").insert({
+                ...tenantPayload(tenantId),
+                coupon_id: numCouponId,
+                patient_id: patientId,
+                status: "used",
+                used_at: new Date().toISOString(),
+                order_id: paymentId,
+              });
+            }
+          }
+        } catch (e) {
+          console.error("[gmo/handler] coupon usage record failed:", e);
+        }
+      }
+
+      // キャンペーン利用記録
+      if (campaignId) {
+        try {
+          const { recordCampaignUsage } = await import("@/lib/pricing");
+          await recordCampaignUsage({
+            campaignId,
+            patientId,
+            orderId: paymentId,
+            tenantId: tenantId ?? "",
+          });
+        } catch (e) {
+          console.error("[gmo/handler] campaign usage record failed:", e);
+        }
       }
     }
     return;

@@ -64,6 +64,22 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // 対象患者チェック
+  if (coupon.audience_type === "specific") {
+    if (!patient_id || !(coupon.audience_patient_ids || []).includes(patient_id)) {
+      return NextResponse.json({ valid: false, error: "このクーポンはご利用対象外です" });
+    }
+  } else if (coupon.audience_type === "condition" && coupon.audience_rules) {
+    if (!patient_id) {
+      return NextResponse.json({ valid: false, error: "このクーポンはご利用対象外です" });
+    }
+    const { evaluateAudienceCondition } = await import("@/lib/campaign-audience");
+    const matched = await evaluateAudienceCondition(patient_id, coupon.audience_rules, tenantId ?? "");
+    if (!matched) {
+      return NextResponse.json({ valid: false, error: "このクーポンはご利用対象外です" });
+    }
+  }
+
   return NextResponse.json({
     valid: true,
     coupon: {
