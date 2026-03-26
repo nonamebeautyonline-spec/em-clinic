@@ -40,11 +40,13 @@ export async function GET(req: NextRequest) {
       ? templates?.find((t) => String(t.id) === templateId)
       : templates?.find((t) => t.is_active) || templates?.[0];
 
-    // 総件数
+    // 総件数（answers が空のレコードを除外）
     const { count, error: countError } = await supabaseAdmin
       .from("intake")
       .select("*", { count: "exact", head: true })
-      .eq("tenant_id", tenantId);
+      .eq("tenant_id", tenantId)
+      .not("answers", "is", null)
+      .neq("answers", "{}");
 
     if (countError) {
       console.error("[intake-responses] 件数取得エラー:", countError);
@@ -88,6 +90,8 @@ async function handleStats(
       .from("intake")
       .select("answers")
       .eq("tenant_id", tenantId)
+      .not("answers", "is", null)
+      .neq("answers", "{}")
       .range(offset, offset + PAGE - 1);
     if (error) break;
     if (!data || data.length === 0) break;
@@ -187,6 +191,8 @@ async function handleList(
     .from("intake")
     .select("id, patient_id, reserve_id, status, answers, note, created_at")
     .eq("tenant_id", tenantId)
+    .not("answers", "is", null)
+    .neq("answers", "{}")
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
