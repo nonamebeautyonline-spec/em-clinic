@@ -50,6 +50,28 @@ export async function POST(req: NextRequest) {
 
     const now = new Date().toISOString();
 
+    // ★ 同一患者・同一商品のpending_confirmation注文が既にある場合はブロック
+    {
+      const { data: existingPending } = await withTenant(
+        supabaseAdmin
+          .from("orders")
+          .select("id")
+          .eq("patient_id", patientId)
+          .eq("product_code", productCode)
+          .eq("status", "pending_confirmation")
+          .eq("payment_method", "bank_transfer")
+          .limit(1),
+        tenantId
+      );
+      if (existingPending && existingPending.length > 0) {
+        console.log(`[BankTransfer] 同一商品の振込待ち注文が既に存在: patient_id=${patientId}, product_code=${productCode}, existing=${existingPending[0].id}`);
+        return NextResponse.json(
+          { ok: false, error: "同じ商品の振込待ち注文がすでにあります。振込確認後に再度お申し込みください。" },
+          { status: 409 }
+        );
+      }
+    }
+
     // ★ Plan A完全版: ordersテーブルのみに保存（bank_transfer_orders不要）
     // 仮IDを生成（照合時に bt_XXX に更新される）
     const tempOrderId = `bt_pending_${Date.now()}`;
