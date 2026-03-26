@@ -19,7 +19,7 @@ export function MobileCTA() {
       initial={{ opacity: 0, y: 20 }}
     >
       <a
-        href="/lp/contact"
+        href="/lp/contact?ref=lp"
         className="block w-full rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 py-3.5 text-center text-[13px] font-bold text-white shadow-lg shadow-blue-500/20 transition hover:shadow-xl"
       >
         お問い合わせ

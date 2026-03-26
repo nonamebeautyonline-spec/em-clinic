@@ -43,6 +43,10 @@ export async function POST(req: NextRequest) {
     message: data.message || null,
     email: data.email,
     phone: phone || null,
+    referrer_page: data.referrer_page || null,
+    utm_source: data.utm_source || null,
+    utm_medium: data.utm_medium || null,
+    utm_campaign: data.utm_campaign || null,
   });
 
   if (dbError) {
@@ -71,6 +75,8 @@ export async function POST(req: NextRequest) {
             <tr><td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #64748b;">既存LINEシステム</td><td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${data.has_existing_line ? "あり" : "なし"}</td></tr>
             ${data.existing_line_detail ? `<tr><td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #64748b;">既存LINEの詳細</td><td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${data.existing_line_detail}</td></tr>` : ""}
             ${data.message ? `<tr><td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #64748b;">お問い合わせ内容</td><td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${data.message}</td></tr>` : ""}
+            ${data.referrer_page ? `<tr><td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #64748b;">流入元ページ</td><td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${data.referrer_page}</td></tr>` : ""}
+            ${data.utm_source ? `<tr><td style="padding: 8px; border-bottom: 1px solid #e2e8f0; color: #64748b;">UTM</td><td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${data.utm_source}${data.utm_medium ? ` / ${data.utm_medium}` : ""}${data.utm_campaign ? ` / ${data.utm_campaign}` : ""}</td></tr>` : ""}
           </table>
         </div>
       `,

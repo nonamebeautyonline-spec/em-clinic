@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -13,6 +14,20 @@ const TIMING_OPTIONS = [
 ];
 
 export default function ContactPage() {
+  return (
+    <Suspense>
+      <ContactForm />
+    </Suspense>
+  );
+}
+
+function ContactForm() {
+  const searchParams = useSearchParams();
+  const refPage = searchParams.get("ref") || "";
+  const utmSource = searchParams.get("utm_source") || "";
+  const utmMedium = searchParams.get("utm_medium") || "";
+  const utmCampaign = searchParams.get("utm_campaign") || "";
+
   const [form, setForm] = useState({
     company_name: "",
     contact_name: "",
@@ -40,7 +55,13 @@ export default function ContactPage() {
       const res = await fetch("/api/inquiries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          referrer_page: refPage,
+          utm_source: utmSource,
+          utm_medium: utmMedium,
+          utm_campaign: utmCampaign,
+        }),
       });
       const data = await res.json();
       if (data.ok) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { usePathname } from "next/navigation";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    読了プログレスバー（細い・控えめ）
@@ -140,5 +141,22 @@ export function ShareButtons({ title, slug }: { title: string; slug: string }) {
         )}
       </button>
     </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   InlineCTAボタン（現在のパスから流入元refを自動付与）
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+export function InlineCTAButton() {
+  const pathname = usePathname();
+  const slug = pathname.replace(/^\/lp\/column\//, "").replace(/\/$/, "") || "column";
+  return (
+    <a
+      href={`/lp/contact?ref=${slug}`}
+      className="mt-4 inline-block rounded-lg bg-blue-600 px-6 py-2.5 text-[12px] font-bold text-white transition hover:bg-blue-700 hover:shadow-lg"
+    >
+      Lオペの資料を無料で請求
+    </a>
   );
 }
