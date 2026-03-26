@@ -686,6 +686,7 @@ async function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes("--dry-run");
   const testMode = args.includes("--test");
+  const forceMode = args.includes("--force");
   const startIdx = args.includes("--start")
     ? parseInt(args[args.indexOf("--start") + 1], 10)
     : 0;
@@ -710,7 +711,7 @@ async function main() {
     const idx = startIdx + i;
     const outPath = path.join(OUTPUT_DIR, `${article.slug}.png`);
 
-    if (fs.existsSync(outPath)) {
+    if (fs.existsSync(outPath) && !forceMode && !testMode) {
       console.log(`  [${idx + 1}/${articles.length}] ⏭️  ${article.slug}`);
       success++;
       continue;
