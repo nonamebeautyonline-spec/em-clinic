@@ -517,7 +517,7 @@ export default function CampaignTab() {
                 {form.audience_type === "condition" && (
                   <div className="space-y-2">
                     {form.audience_rules.length > 0 && (
-                      <ConditionSummary condition={conditionState} tags={tags} marks={marks} fields={fields} />
+                      <ConditionSummary condition={conditionState} tags={tags} marks={marks} onEditClick={() => setConditionModalOpen(true)} onRemoveClick={() => setForm(f => ({ ...f, audience_rules: [] }))} />
                     )}
                     <button
                       onClick={() => setConditionModalOpen(true)}
