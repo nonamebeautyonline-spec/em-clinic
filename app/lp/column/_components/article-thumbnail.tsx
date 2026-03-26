@@ -425,7 +425,7 @@ export default function ArticleThumbnail({ slug, title, category, size = "card",
 
   /* PNG画像がある場合: 全サイズで生成サムネイルを使用 */
   return (
-    <div className={`relative overflow-hidden bg-gray-100 ${isHero ? "aspect-[1200/630]" : isSm ? "aspect-[4/3]" : "aspect-[1200/630]"}`}>
+    <div className={`relative overflow-hidden bg-gray-100 aspect-[1200/630]`}>
       <Image
         src={pngSrc}
         alt={title}

@@ -127,27 +127,29 @@ export default function Page() {
       </section>
 
       <section>
-        <h2 id="cost" className="text-xl font-bold text-gray-800">費用の違い: 複数SaaS vs オールインワン</h2>
-        <p>クリニックが汎用ツール＋各種SaaSを組み合わせた場合と、オールインワンツールの費用を比較します。予約システム単体の比較は<Link href="/lp/column/reservation-system-comparison" className="text-emerald-700 underline">予約システム比較10選</Link>で詳しく解説しています。</p>
+        <h2 id="cost" className="text-xl font-bold text-gray-800">費用の違い: 複数SaaS＋人件費 vs オールインワン</h2>
+        <p>クリニックが汎用ツール＋各種SaaSを組み合わせた場合、ツール費用だけでなく管理する事務スタッフの人件費も発生します。オールインワンツールとのトータルコストを比較します。予約システム単体の比較は<Link href="/lp/column/reservation-system-comparison" className="text-emerald-700 underline">予約システム比較10選</Link>で詳しく解説しています。</p>
 
         <BarChart
           data={[
             { label: "LINE配信ツール", value: 3, color: "bg-gray-400" },
             { label: "予約管理", value: 2, color: "bg-gray-400" },
             { label: "オンライン問診", value: 2, color: "bg-gray-400" },
+            { label: "決済システム", value: 1.5, color: "bg-gray-400" },
             { label: "配送管理", value: 1, color: "bg-gray-400" },
+            { label: "事務員人件費（管理工数）", value: 8, color: "bg-red-300" },
           ]}
           unit="万円/月"
         />
 
         <StatGrid stats={[
-          { value: "3〜7", unit: "万円+", label: "汎用ツール組み合わせ/月" },
+          { value: "15〜30", unit: "万円", label: "複数SaaS＋人件費/月" },
           { value: "10〜18", unit: "万円", label: "Lオペ オールインワン/月" },
           { value: "0", unit: "個", label: "追加で必要なツール数" },
         ]} />
 
-        <Callout type="success" title="Lオペ for CLINICならオールインワン">
-          LINE配信・予約・問診・カルテ・決済・配送のすべてを1プランに集約。データ連携済み・学習コストも最小。<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">全機能一覧</Link>をご確認の上、<a href="/lp/contact" className="text-emerald-700 underline">お問い合わせ</a>ください。
+        <Callout type="success" title="Lオペ for CLINICなら月5〜12万円以上のコスト削減">
+          複数ツールの個別契約だけで月5〜10万円。さらにツール間のデータ転記・管理に事務スタッフの工数がかかり、実質月15〜30万円のコストになります。Lオペなら全機能がオールインワンで月10〜18万円、事務スタッフ1人で運用完結。年間で60〜150万円以上のコスト削減が可能です。<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">全機能一覧</Link>をご確認の上、<a href="/lp/contact" className="text-emerald-700 underline">お問い合わせ</a>ください。
         </Callout>
       </section>
 
