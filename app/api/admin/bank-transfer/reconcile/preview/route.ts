@@ -254,6 +254,12 @@ export async function POST(req: NextRequest) {
     // ===== CSV全明細行をbank_statementsに保存 =====
     const allTransactions = parseAllTransactions(parsedRows, csvFormat);
     if (allTransactions.length > 0) {
+      // マッチした振込→注文の対応マップ（matched_order_id設定用）
+      const matchedMap = new Map<string, string>();
+      for (const m of matched) {
+        matchedMap.set(`${m.transfer.date}|${m.transfer.description}`, m.order.id);
+      }
+
       const csvFilename = file.name || "unknown.csv";
       const tid = tenantId || "00000000-0000-0000-0000-000000000001";
 
@@ -278,6 +284,8 @@ export async function POST(req: NextRequest) {
           if (existingKeys.has(key)) return null; // 既存行はスキップ
 
           const monthStr = dateNormalized.substring(0, 7);
+          const matchKey = `${t.date}|${t.description}`;
+          const matchedOrderId = matchedMap.get(matchKey) || null;
           return {
             tenant_id: tid,
             transaction_date: dateNormalized,
@@ -287,7 +295,7 @@ export async function POST(req: NextRequest) {
             balance: t.balance,
             month: monthStr,
             reconciled: false,
-            matched_order_id: null,
+            matched_order_id: matchedOrderId,
             csv_filename: csvFilename,
           };
         })
@@ -304,7 +312,20 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // ★ reconciled=true への更新は confirm 時のみ行う（プレビューでは変更しない）
+      // ★ 既存行でマッチしたものにmatched_order_idを設定（reconciled=falseのまま）
+      for (const m of matched) {
+        const transferDate = m.transfer.date.replace(/\//g, "-");
+        await strictWithTenant(
+          supabase
+            .from("bank_statements")
+            .update({ matched_order_id: m.order.id })
+            .eq("transaction_date", transferDate)
+            .eq("description", m.transfer.description)
+            .eq("deposit", m.transfer.amount)
+            .is("matched_order_id", null),
+          tenantId
+        );
+      }
 
       console.log(`[Preview] Saved ${newRows.length} new transactions (${allTransactions.length - newRows.length} duplicates skipped)`);
     }
