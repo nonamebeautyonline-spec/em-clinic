@@ -400,6 +400,26 @@ export async function scheduleAiReply(
 }
 
 /**
+ * ロック競合時にcronへ委任するためデバウンスキーを再登録（フィルターなし）
+ */
+export async function rescheduleAiReply(
+  lineUid: string,
+  patientId: string,
+  patientName: string,
+  tenantId: string | null
+): Promise<void> {
+  const debounceKey = `ai_debounce:${patientId}`;
+  const entry: DebounceEntry = { lineUid, patientId, patientName, tenantId, ts: Date.now() };
+  try {
+    await redis.set(debounceKey, JSON.stringify(entry), { ex: 120 });
+    await redis.sadd("ai_debounce_keys", patientId);
+    console.log(`[AI Reply] cronへ再委任: ${patientId}`);
+  } catch (e) {
+    console.error("[AI Reply] 再委任Redis setエラー:", e);
+  }
+}
+
+/**
  * after() で直接処理した後、Redisデバウンスキーを削除してcron重複を防止
  */
 export async function clearAiReplyDebounce(patientId: string): Promise<void> {

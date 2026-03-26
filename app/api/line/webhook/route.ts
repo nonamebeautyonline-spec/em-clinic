@@ -11,7 +11,7 @@ import { resolveTenantId, withTenant, tenantPayload, DEFAULT_TENANT_ID } from "@
 import { resolveLineTenantBySignature } from "@/lib/webhook-tenant-resolver";
 import { MERGE_TABLES } from "@/lib/merge-tables";
 import { getSettingOrEnv } from "@/lib/settings";
-import { scheduleAiReply, sendAiReply, processAiReply, clearAiReplyDebounce } from "@/lib/ai-reply";
+import { scheduleAiReply, sendAiReply, processAiReply, clearAiReplyDebounce, rescheduleAiReply } from "@/lib/ai-reply";
 import { isWithinBusinessHours } from "@/lib/business-hours";
 import { acquireLock } from "@/lib/distributed-lock";
 import { checkSpamBurst } from "@/lib/spam-burst";
@@ -1683,7 +1683,13 @@ export async function POST(req: NextRequest) {
         for (const t of targets) {
           const lockKey = `ai-reply:${t.patientId}`;
           const lock = await acquireLock(lockKey, 30);
-          if (!lock.acquired) continue;
+          if (!lock.acquired) {
+            // ロック取得失敗 = 別リクエストが処理中
+            // Redisデバウンスキーを再登録してcronに委任（取りこぼし防止）
+            console.log(`[webhook] after() AI reply lock競合: patient=${t.patientId} → cronに委任`);
+            rescheduleAiReply(t.lineUid, t.patientId, t.patientName, t.tenantId).catch(() => {});
+            continue;
+          }
           try {
             await processAiReply(t.lineUid, t.patientId, t.patientName, t.tenantId);
             // 処理成功 → Redisデバウンスキーを削除してcron重複を防止
