@@ -33,27 +33,27 @@ function ShippingFormContent() {
   const [postalError, setPostalError] = useState<string | null>(null);
   const [postalSearching, setPostalSearching] = useState(false);
 
-  // 郵便番号からzipcloud検索（リトライ付き）
-  const searchZipcloud = useCallback(async (digits: string): Promise<boolean> => {
+  // 郵便番号からzipcloud検索（リトライ付き）— 成功時はautoAddress文字列を返す
+  const searchZipcloud = useCallback(async (digits: string): Promise<string | null> => {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${digits}`);
         const data = await res.json();
         if (data.results?.[0]) {
           const r = data.results[0];
-          setAutoAddress(`${r.address1}${r.address2}${r.address3}`);
+          const addr = `${r.address1}${r.address2}${r.address3}`;
+          setAutoAddress(addr);
           setPostalError(null);
-          return true;
+          return addr;
         }
-        // 結果なし（郵便番号が存在しない）
         setPostalError("該当する住所が見つかりません。郵便番号をご確認ください。");
-        return false;
+        return null;
       } catch {
         if (attempt < 2) await new Promise(r => setTimeout(r, 500));
       }
     }
     setPostalError("住所の検索に失敗しました。「再検索」をお試しください。");
-    return false;
+    return null;
   }, []);
 
   // 郵便番号入力ハンドラ
@@ -95,10 +95,30 @@ function ShippingFormContent() {
       setPhoneNumber(lastShipping.phone || "");
       setEmail(lastShipping.email || "");
       const addr = lastShipping.address || "";
-      setAutoAddress("");
-      setAddressDetail(addr);
+      // 郵便番号でzipcloud検索し、自動入力分を差し引いてaddressDetailに設定
       if (lastShipping.postalCode) {
-        handlePostalCodeChange(lastShipping.postalCode);
+        const digits = lastShipping.postalCode.replace(/[^0-9]/g, "");
+        if (digits.length === 7) {
+          setPostalCode(lastShipping.postalCode);
+          setAutoAddress("");
+          setAddressDetail(addr);
+          setPostalSearching(true);
+          searchZipcloud(digits).then((autoAddr) => {
+            setPostalSearching(false);
+            if (autoAddr && addr.startsWith(autoAddr)) {
+              setAddressDetail(addr.slice(autoAddr.length));
+            } else {
+              setAddressDetail(addr);
+            }
+          });
+        } else {
+          setPostalCode(lastShipping.postalCode);
+          setAutoAddress("");
+          setAddressDetail(addr);
+        }
+      } else {
+        setAutoAddress("");
+        setAddressDetail(addr);
       }
     } else if (!usePrevShipping) {
       setAccountName("");
@@ -110,7 +130,8 @@ function ShippingFormContent() {
       setAddressDetail("");
       setPostalError(null);
     }
-  }, [usePrevShipping, lastShipping, handlePostalCodeChange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usePrevShipping, lastShipping]);
 
   const fullAddress = `${autoAddress}${addressDetail}`.trim();
 
