@@ -59,9 +59,23 @@ interface RecentDraft {
   sentAt: string | null;
 }
 
+interface RejectCategoryStat {
+  category: string;
+  count: number;
+}
+
+interface QualityBucket {
+  range: string;
+  count: number;
+}
+
 interface StatsData {
   kpi: KPI;
   categoryStats: CategoryStat[];
+  rejectCategoryStats: RejectCategoryStat[];
+  editRate: number;
+  qualityDistribution: QualityBucket[];
+  examplesCount: number;
   dailyTrend: DailyTrend[];
   recentDrafts: RecentDraft[];
   period: number;
@@ -88,6 +102,24 @@ const CATEGORY_COLORS: Record<string, string> = {
   payment: "#8b5cf6",
   other: "#9ca3af",
 };
+
+// 却下理由ラベル
+const REJECT_CATEGORY_LABELS: Record<string, string> = {
+  wrong_info: "誤情報",
+  inappropriate: "不適切",
+  off_topic: "的外れ",
+  too_long: "長すぎ",
+  tone: "トーン不適切",
+  other: "その他",
+};
+
+// 却下理由カラー
+const REJECT_CATEGORY_COLORS: string[] = [
+  "#ef4444", "#f97316", "#eab308", "#8b5cf6", "#ec4899", "#6b7280",
+];
+
+// quality_score分布カラー
+const QUALITY_COLORS: string[] = ["#f87171", "#fbbf24", "#34d399", "#60a5fa"];
 
 // ステータスラベル
 const STATUS_LABELS: Record<string, string> = {
@@ -176,7 +208,7 @@ export function AIReplyStatsContent() {
     );
   }
 
-  const { kpi, categoryStats, dailyTrend, recentDrafts } = data;
+  const { kpi, categoryStats, rejectCategoryStats, editRate, qualityDistribution, examplesCount, dailyTrend, recentDrafts } = data;
 
   return (
     <div className="space-y-6">
@@ -270,6 +302,42 @@ export function AIReplyStatsContent() {
         </div>
       </div>
 
+      {/* 追加KPIカード: 修正率・学習例数 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <KPICard
+          label="修正率"
+          value={`${editRate}%`}
+          sub="staff_edit / 送信数"
+          icon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          }
+          gradient="from-orange-50 to-amber-50"
+          border="border-orange-100/50"
+          valueColor="text-orange-700"
+          subColor="text-orange-500"
+          iconBg="bg-orange-100"
+          iconColor="text-orange-600"
+        />
+        <KPICard
+          label="学習例数"
+          value={String(examplesCount)}
+          sub="件"
+          icon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+          }
+          gradient="from-teal-50 to-cyan-50"
+          border="border-teal-100/50"
+          valueColor="text-teal-700"
+          subColor="text-teal-500"
+          iconBg="bg-teal-100"
+          iconColor="text-teal-600"
+        />
+      </div>
+
       {/* グラフ・テーブル */}
         {/* 日次件数推移（AreaChart） */}
         <ChartCard title="日次件数推移" icon="trend">
@@ -345,7 +413,7 @@ export function AIReplyStatsContent() {
           )}
         </ChartCard>
 
-        {/* カテゴリ分布 + トークン消費推移 (2カラム) */}
+        {/* カテゴリ分布 + 却下理由分布 (2カラム) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* カテゴリ別分布（BarChart） */}
           <ChartCard title="カテゴリ別分布" icon="category">
@@ -398,6 +466,46 @@ export function AIReplyStatsContent() {
             )}
           </ChartCard>
 
+          {/* 却下理由分布（PieChart） */}
+          <ChartCard title="却下理由分布" icon="reject">
+            {rejectCategoryStats.length > 0 ? (
+              <div className="flex flex-col items-center">
+                <ResponsiveContainer width="100%" height={240}>
+                  <PieChart>
+                    <Pie
+                      data={rejectCategoryStats.map((c) => ({
+                        name: REJECT_CATEGORY_LABELS[c.category] || c.category,
+                        value: c.count,
+                      }))}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={85}
+                      paddingAngle={3}
+                      dataKey="value"
+                      label={({ name, percent }: { name: string; percent: number }) =>
+                        `${name} ${(percent * 100).toFixed(0)}%`
+                      }
+                    >
+                      {rejectCategoryStats.map((_, i) => (
+                        <Cell
+                          key={i}
+                          fill={REJECT_CATEGORY_COLORS[i % REJECT_CATEGORY_COLORS.length]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <EmptyChart />
+            )}
+          </ChartCard>
+        </div>
+
+        {/* トークン消費推移 + quality_score分布 (2カラム) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* トークン消費推移（BarChart） */}
           <ChartCard title="トークン消費推移" icon="token">
             {dailyTrend.length > 0 ? (
@@ -438,6 +546,38 @@ export function AIReplyStatsContent() {
                     fill="#c4b5fd"
                     radius={[4, 4, 0, 0]}
                   />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyChart />
+            )}
+          </ChartCard>
+
+          {/* quality_score分布（BarChart） */}
+          <ChartCard title="学習例スコア分布" icon="quality">
+            {qualityDistribution.some((b) => b.count > 0) ? (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={qualityDistribution} barSize={40}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis
+                    dataKey="range"
+                    tick={{ fontSize: 11, fill: "#6b7280" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: "#9ca3af" }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={40}
+                    allowDecimals={false}
+                  />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Bar dataKey="count" name="件数" radius={[4, 4, 0, 0]}>
+                    {qualityDistribution.map((_, i) => (
+                      <Cell key={i} fill={QUALITY_COLORS[i % QUALITY_COLORS.length]} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -656,6 +796,16 @@ function ChartCard({ title, icon, children }: { title: string; icon: string; chi
       from: "from-violet-400",
       to: "to-purple-500",
       svg: "M13 10V3L4 14h7v7l9-11h-7z",
+    },
+    reject: {
+      from: "from-red-400",
+      to: "to-rose-500",
+      svg: "M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636",
+    },
+    quality: {
+      from: "from-emerald-400",
+      to: "to-teal-500",
+      svg: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
     },
   };
   const ic = iconConfig[icon] || iconConfig.trend;

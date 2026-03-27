@@ -50,6 +50,7 @@ const actionSchema = z.object({
   action: z.enum(["send", "reject", "regenerate", "batch_approve", "batch_reject"]),
   modified_reply: z.string().optional(),
   reject_reason: z.string().optional(),
+  reject_category: z.string().optional(),
   instruction: z.string().optional(),
 });
 
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
   const tenantId = resolveTenantId(req);
   const parsed = await parseBody(req, actionSchema);
   if ("error" in parsed) return parsed.error;
-  const { draft_id, action, modified_reply, reject_reason, instruction } = parsed.data;
+  const { draft_id, action, modified_reply, reject_reason, reject_category, instruction } = parsed.data;
 
   // 一括操作は別途ハンドリング（draft_id不要、関数末尾で処理）
   if (action === "batch_approve" || action === "batch_reject") {
@@ -121,17 +122,18 @@ export async function POST(req: NextRequest) {
   // 却下
   if (action === "reject" && draft) {
     const id = draft_id!;
+    const rejCat = reject_category || "other";
     await supabaseAdmin
       .from("ai_reply_drafts")
       .update({
         status: "rejected",
         rejected_at: new Date().toISOString(),
         reject_reason: reject_reason || "管理画面から却下",
-        reject_category: "other",
+        reject_category: rejCat,
       })
       .eq("id", id);
 
-    penalizeExampleQuality(id).catch(() => {});
+    penalizeExampleQuality(id, rejCat).catch(() => {});
     return NextResponse.json({ ok: true, action: "rejected" });
   }
 
@@ -252,19 +254,20 @@ ${instruction}
   // 一括却下
   if (action === "batch_reject" && parsed.data.draft_ids?.length) {
     const ids = parsed.data.draft_ids;
+    const batchRejCat = reject_category || "other";
     await supabaseAdmin
       .from("ai_reply_drafts")
       .update({
         status: "rejected",
         rejected_at: new Date().toISOString(),
         reject_reason: parsed.data.reject_reason || "一括却下",
-        reject_category: "other",
+        reject_category: batchRejCat,
       })
       .in("id", ids)
       .eq("status", "pending");
 
     for (const id of ids) {
-      penalizeExampleQuality(id).catch(() => {});
+      penalizeExampleQuality(id, batchRejCat).catch(() => {});
     }
     return NextResponse.json({ ok: true, action: "batch_rejected", rejectedCount: ids.length });
   }

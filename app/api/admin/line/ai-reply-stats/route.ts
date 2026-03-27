@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   const { data: drafts, error: draftsError } = await strictWithTenant(
     supabaseAdmin
       .from("ai_reply_drafts")
-      .select("id, status, ai_category, confidence, input_tokens, output_tokens, created_at, sent_at, original_message, draft_reply, model_used")
+      .select("id, status, ai_category, confidence, input_tokens, output_tokens, created_at, sent_at, original_message, draft_reply, model_used, reject_category")
       .gte("created_at", `${periodStartStr}T00:00:00Z`)
       .order("created_at", { ascending: false }),
     tenantId
@@ -142,7 +142,62 @@ export async function GET(req: NextRequest) {
     cursor.setDate(cursor.getDate() + 1);
   }
 
-  // --- 5. 直近ドラフト一覧（最新20件） ---
+  // --- 5. 却下理由分布 ---
+  const rejectCategoryMap = new Map<string, number>();
+  for (const r of rows) {
+    if (r.status === "rejected" && r.reject_category) {
+      const cat = r.reject_category;
+      rejectCategoryMap.set(cat, (rejectCategoryMap.get(cat) || 0) + 1);
+    }
+  }
+  const rejectCategoryStats = Array.from(rejectCategoryMap.entries())
+    .map(([category, count]) => ({ category, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // --- 6. 修正率（staff_editで送信された割合） ---
+  // ai_reply_examplesのsource="staff_edit"かつ期間内のドラフトに紐づくものを集計
+  // 簡易実装: sentの中でai_reply_examplesにstaff_editとして学習保存されたもの = 修正送信
+  // ここではsent件数中のstaff_edit件数を取得
+  const { count: staffEditCount } = await strictWithTenant(
+    supabaseAdmin
+      .from("ai_reply_examples")
+      .select("id", { count: "exact", head: true })
+      .eq("source", "staff_edit")
+      .gte("created_at", `${periodStartStr}T00:00:00Z`),
+    tenantId
+  );
+  const editCount = staffEditCount || 0;
+  const editRate = sentCount > 0 ? Number(((editCount / sentCount) * 100).toFixed(1)) : 0;
+
+  // --- 7. 学習例の統計（quality_score分布・総数・source別件数） ---
+  const { data: examples } = await strictWithTenant(
+    supabaseAdmin
+      .from("ai_reply_examples")
+      .select("id, quality_score, source"),
+    tenantId
+  );
+  const exampleRows = examples || [];
+  const examplesCount = exampleRows.length;
+
+  // quality_score分布（4区間）
+  const qualityBuckets = [
+    { range: "0-0.5", min: 0, max: 0.5, count: 0 },
+    { range: "0.5-1.0", min: 0.5, max: 1.0, count: 0 },
+    { range: "1.0-1.5", min: 1.0, max: 1.5, count: 0 },
+    { range: "1.5-2.0", min: 1.5, max: 2.0, count: 0 },
+  ];
+  for (const ex of exampleRows) {
+    const score = ex.quality_score ?? 1.0;
+    for (const bucket of qualityBuckets) {
+      if (score >= bucket.min && (score < bucket.max || (bucket.max === 2.0 && score <= 2.0))) {
+        bucket.count++;
+        break;
+      }
+    }
+  }
+  const qualityDistribution = qualityBuckets.map(({ range, count }) => ({ range, count }));
+
+  // --- 8. 直近ドラフト一覧（最新20件） ---
   const recentDrafts = rows.slice(0, 20).map((r) => ({
     id: r.id,
     status: r.status,
@@ -168,6 +223,10 @@ export async function GET(req: NextRequest) {
       avgResponseTimeSec,
     },
     categoryStats,
+    rejectCategoryStats,
+    editRate,
+    qualityDistribution,
+    examplesCount,
     dailyTrend,
     recentDrafts,
     period: validPeriod,

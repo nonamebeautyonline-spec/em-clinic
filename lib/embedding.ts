@@ -609,13 +609,19 @@ export async function saveAiReplyExample(params: {
 
       if (duplicates && duplicates.length > 0) {
         const dup = duplicates[0] as { id: number; question: string; answer: string };
-        // 既存レコードを更新（新しい回答で上書き）
+        // 既存レコードの回答を更新（quality_scoreは既存値を維持し、新規初期値より低い場合のみ引き上げ）
+        const { data: existing } = await supabaseAdmin
+          .from("ai_reply_examples")
+          .select("quality_score")
+          .eq("id", dup.id)
+          .single();
+        const existingScore = existing?.quality_score ?? 1.0;
         const { error: updateError } = await supabaseAdmin
           .from("ai_reply_examples")
           .update({
             answer,
             source,
-            quality_score: qualityScore,
+            quality_score: Math.max(existingScore, qualityScore),
             answer_embedding: answerEmbedding ? JSON.stringify(answerEmbedding) : null,
             updated_at: new Date().toISOString(),
           })
@@ -659,22 +665,43 @@ export async function saveAiReplyExample(params: {
 // Feedback Loop 強化
 // =============================================================
 
+/**
+ * 承認率 + 使用回数ベースのquality_score計算
+ * - 承認率が高い＋使用回数が多い → 最大2.0
+ * - 使用回数が少ない → 控えめなスコア（信頼度が低い）
+ * - 承認率が低い → ペナルティ
+ */
+function calculateQualityScore(approved: number, rejected: number, usedCount: number): number {
+  const total = approved + rejected;
+  if (total === 0) return 1.0; // フィードバックなし → 初期値
+  const approvalRate = approved / total;
+  // 信頼度: 使用10回で1.0に到達（それ以下は控えめ）
+  const confidence = Math.min(1.0, usedCount / 10);
+  // ベーススコア: 承認率0%=0.5, 100%=2.0
+  const baseScore = 0.5 + approvalRate * 1.5;
+  // 信頼度で調整: 使用回数少ない場合は1.0寄りに
+  return 0.1 + (baseScore * (0.5 + confidence * 0.5)) * (2.0 / 2.25);
+}
+
 /** ドラフト承認時に学習例の品質スコアを向上 */
 export async function boostExampleQuality(draftId: number): Promise<void> {
   try {
     const { data } = await supabaseAdmin
       .from("ai_reply_examples")
-      .select("id, quality_score, approved_count, used_count")
+      .select("id, quality_score, approved_count, rejected_count, used_count")
       .eq("draft_id", draftId)
       .maybeSingle();
 
     if (data) {
+      const newApproved = (data.approved_count || 0) + 1;
+      const newUsedCount = (data.used_count || 0) + 1;
+      const rejected = data.rejected_count || 0;
       await supabaseAdmin
         .from("ai_reply_examples")
         .update({
-          quality_score: Math.min(2.0, (data.quality_score || 1.0) + 0.1),
-          approved_count: (data.approved_count || 0) + 1,
-          used_count: (data.used_count || 0) + 1,
+          quality_score: calculateQualityScore(newApproved, rejected, newUsedCount),
+          approved_count: newApproved,
+          used_count: newUsedCount,
         })
         .eq("id", data.id);
     }
@@ -683,26 +710,44 @@ export async function boostExampleQuality(draftId: number): Promise<void> {
   }
 }
 
-/** ドラフト却下時に学習例の品質スコアを低下 */
-export async function penalizeExampleQuality(draftId: number): Promise<void> {
+/** ドラフト却下時に学習例の品質スコアを低下（却下理由による重み付けあり） */
+export async function penalizeExampleQuality(draftId: number, rejectCategory?: string): Promise<void> {
   try {
     const { data } = await supabaseAdmin
       .from("ai_reply_examples")
-      .select("id, quality_score, rejected_count")
+      .select("id, quality_score, approved_count, rejected_count, used_count")
       .eq("draft_id", draftId)
       .maybeSingle();
 
     if (data) {
+      // 却下理由による追加ペナルティ倍率
+      const penaltyMultiplier = getPenaltyMultiplier(rejectCategory);
+      const newRejected = (data.rejected_count || 0) + penaltyMultiplier;
+      const approved = data.approved_count || 0;
+      const usedCount = data.used_count || 0;
       await supabaseAdmin
         .from("ai_reply_examples")
         .update({
-          quality_score: Math.max(0.1, (data.quality_score || 1.0) - 0.2),
+          quality_score: calculateQualityScore(approved, newRejected, usedCount),
           rejected_count: (data.rejected_count || 0) + 1,
         })
         .eq("id", data.id);
     }
   } catch (err) {
     console.error("[RAG] 品質スコア低下エラー:", err);
+  }
+}
+
+/** 却下理由に応じたペナルティ倍率（rejected_countに加算する値） */
+function getPenaltyMultiplier(rejectCategory?: string): number {
+  switch (rejectCategory) {
+    case "wrong_info": return 3;     // 誤情報 → 重大ペナルティ
+    case "inappropriate": return 2;  // 不適切な表現 → 中ペナルティ
+    case "off_topic": return 2;      // 的外れ → 中ペナルティ
+    case "too_long": return 1;       // 長すぎ → 軽微（方向性は合ってる）
+    case "tone": return 1;           // トーン不適切 → 軽微
+    case "other": return 1;          // その他 → 標準
+    default: return 1;
   }
 }
 

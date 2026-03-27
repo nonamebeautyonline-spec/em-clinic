@@ -861,18 +861,23 @@ export async function handleImplicitAiFeedback(
         })
         .in("id", draftIds);
 
-      // 全pendingドラフトの元メッセージ + スタッフ返信を学習例として保存（embedding付き）
-      // ※ 同一患者に複数pendingがある場合も全件保存（Qが異なるため）
-      for (const draft of pendingDrafts) {
-        if (draft.original_message && staffReply) {
-          await saveAiReplyExample({
-            tenantId,
-            question: draft.original_message,
-            answer: staffReply,
-            source: "manual_reply",
-            draftId: draft.id,
-          });
-        }
+      // 直近のドラフトの元メッセージのみスタッフ返信と紐づけて学習
+      // ※ 複数pendingがある場合、古いドラフトのQは現在のスタッフ返信と対応しない可能性が高い
+      // （例: 患者が「予約変更したい」→「薬の残りが少ない」と2通送った場合、
+      //  スタッフ返信は直近の質問への回答である可能性が高い）
+      const latestDraft = pendingDrafts[0]; // created_at DESC で取得済み
+      if (latestDraft.original_message && staffReply) {
+        await saveAiReplyExample({
+          tenantId,
+          question: latestDraft.original_message,
+          answer: staffReply,
+          source: "manual_reply",
+          draftId: latestDraft.id,
+        });
+      }
+      // 古いドラフトは品質スコアをペナライズ（AIが的外れだったため手動返信された）
+      for (const draft of pendingDrafts.slice(1)) {
+        penalizeExampleQuality(draft.id, "off_topic").catch(() => {});
       }
 
       console.log(`[AI Reply] 暗黙フィードバック: patient=${patientId}, drafts=${draftIds.length}件をexpired化`);

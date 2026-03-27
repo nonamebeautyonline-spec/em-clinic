@@ -53,8 +53,8 @@ export async function POST(
     .update(updatePayload)
     .eq("id", draftId);
 
-  // 却下された → 関連する学習例の品質スコアを低下
-  penalizeExampleQuality(draftId).catch(err => {
+  // 却下された → 関連する学習例の品質スコアを低下（却下理由による重み付け）
+  penalizeExampleQuality(draftId, reject_category ?? undefined).catch(err => {
     console.error("[AI Reply] 品質スコア低下エラー:", err);
   });
 
