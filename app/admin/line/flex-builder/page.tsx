@@ -10,6 +10,7 @@ import { BlockSettingsPanel } from "./_components/BlockSettingsPanel";
 import { PresetGallery } from "./_components/PresetGallery";
 import { WizardStartScreen } from "./_components/WizardStartScreen";
 import { AiFlexGenerator } from "./_components/AiFlexGenerator";
+import { AiCommandBar } from "./_components/AiCommandBar";
 import { LinePhoneFrame } from "@/components/admin/LinePhoneFrame";
 import { editorPanelsToFlex, panelToBubble } from "@/lib/flex-editor/block-mapping";
 import type { EditorBlock } from "@/lib/flex-editor/block-types";
@@ -375,9 +376,22 @@ export function FlexBuilderInner({ templateIdProp, onClose }: { templateIdProp?:
 
       {/* メインエリア: プレビュー + ブロック設定 */}
       <div className="flex flex-1 overflow-hidden">
-        {/* 左: リアルタイムFlexプレビュー */}
-        <div className="flex-1 overflow-auto bg-gray-100">
-          <LiveFlexPreview onBackClick={onClose} />
+        {/* 左: プレビュー + AIコマンドバー */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-auto bg-gray-100">
+            <LiveFlexPreview onBackClick={onClose} />
+          </div>
+          <AiCommandBar
+            currentFlexJson={panels.some(p => p.blocks.length > 0) ? editorPanelsToFlex(panels) as Record<string, unknown> : null}
+            onGenerated={(flexJson, name) => {
+              dispatch({
+                type: "LOAD_FLEX_DATA",
+                flexData: flexJson,
+                name: templateName || name,
+                templateId: editingTemplateId,
+              });
+            }}
+          />
         </div>
 
         {/* 右: ブロック設定 */}

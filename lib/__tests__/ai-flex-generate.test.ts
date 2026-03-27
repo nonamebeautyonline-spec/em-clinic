@@ -143,4 +143,38 @@ describe("AI Flex Message生成API", () => {
     expect(data.ok).toBe(true);
     expect(data.name).toBe("AI生成メッセージ");
   });
+
+  it("編集モード: currentFlexJsonを渡すとプロンプトに含まれる", async () => {
+    const currentFlex = {
+      type: "bubble",
+      header: { type: "box", layout: "vertical", backgroundColor: "#06C755", contents: [] },
+      body: { type: "box", layout: "vertical", contents: [{ type: "text", text: "元のテキスト" }] },
+    };
+    const updatedFlex = {
+      type: "bubble",
+      header: { type: "box", layout: "vertical", backgroundColor: "#FF6B6B", contents: [] },
+      body: { type: "box", layout: "vertical", contents: [{ type: "text", text: "元のテキスト" }] },
+    };
+
+    mockCreate.mockResolvedValueOnce({
+      content: [{
+        type: "text",
+        text: '```json\n' + JSON.stringify({ name: "修正済み", flexJson: updatedFlex }) + '\n```',
+      }],
+    });
+
+    const res = await POST(createRequest({
+      prompt: "ヘッダーを赤にして",
+      currentFlexJson: currentFlex,
+    }));
+    const data = await res.json();
+
+    expect(data.ok).toBe(true);
+    expect(data.flexJson.header.backgroundColor).toBe("#FF6B6B");
+
+    // Claude APIに渡されたメッセージに現在のFlexが含まれていることを確認
+    const calledMessages = mockCreate.mock.calls[0][0].messages;
+    expect(calledMessages[0].content).toContain("現在のFlex Messageを以下の指示に従って修正してください");
+    expect(calledMessages[0].content).toContain("#06C755");
+  });
 });

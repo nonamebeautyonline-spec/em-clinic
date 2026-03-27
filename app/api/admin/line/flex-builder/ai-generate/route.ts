@@ -35,6 +35,14 @@ const SYSTEM_PROMPT = `あなたはLINE Flex Messageの作成支援AIです。
 - ボタンのURIは "https://example.com" をプレースホルダーとして使用
 - 絵文字はヘッダーのタイトルに1つ程度、控えめに使用
 - JSON以外のテキストは出力しない
+- カルーセル（carousel）もサポート: \`{ "type": "carousel", "contents": [bubble1, bubble2, ...] }\`
+
+## 編集モード
+既存のFlex JSONが渡された場合は、それをベースに修正してください:
+- ユーザーの指示に従って変更箇所のみ修正し、それ以外はそのまま保持
+- 「ヘッダーを赤にして」→ header.backgroundColorを変更
+- 「ボタン追加して」→ footerにボタンを追加
+- 「カルーセルにして」→ bubbleをcarouselに変換
 
 ## 出力形式
 以下のJSON形式で出力してください:
@@ -51,14 +59,14 @@ export async function POST(req: NextRequest) {
 
   const tenantId = resolveTenantIdOrThrow(req);
 
-  let body: { prompt?: string };
+  let body: { prompt?: string; currentFlexJson?: Record<string, unknown> };
   try {
     body = await req.json();
   } catch {
     return badRequest("リクエストボディが不正です");
   }
 
-  const { prompt } = body;
+  const { prompt, currentFlexJson } = body;
   if (!prompt?.trim()) {
     return badRequest("prompt は必須です");
   }
@@ -95,7 +103,9 @@ export async function POST(req: NextRequest) {
     ? `${SYSTEM_PROMPT}\n\n## 参考例（既存テンプレート）\n${examplesContext}`
     : SYSTEM_PROMPT;
 
-  const userMessage = `以下の内容でLINE Flex Messageを作成してください:\n\n${prompt}`;
+  const userMessage = currentFlexJson
+    ? `現在のFlex Messageを以下の指示に従って修正してください:\n\n## 指示\n${prompt}\n\n## 現在のFlex JSON\n\`\`\`json\n${JSON.stringify(currentFlexJson, null, 2)}\n\`\`\``
+    : `以下の内容でLINE Flex Messageを作成してください:\n\n${prompt}`;
 
   try {
     const client = new Anthropic({ apiKey });
