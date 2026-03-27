@@ -6,12 +6,12 @@ const SITE_URL = "https://l-ope.jp";
 export const metadata: Metadata = {
   title: "Lオペ for CLINICとは？ — AI搭載クリニック特化LINE運用プラットフォーム",
   description:
-    "Lオペ for CLINICはClaude AI・RAG自動学習・追跡番号自動配信を搭載したクリニック特化LINE運用プラットフォーム。予約管理・オンライン問診・セグメント配信・決済・配送まで、クリニック業務をLINEで一元化。",
+    "Lオペ for CLINICはClaude AI・自動学習・追跡番号自動配信を搭載したクリニック特化LINE運用プラットフォーム。予約管理・オンライン問診・セグメント配信・決済・配送まで、クリニック業務をLINEで一元化。",
   keywords: "Lオペ, Lオペとは, Lオペ for CLINIC とは, クリニック LINE AI, Claude AI クリニック, RAG 自動学習, 追跡番号 自動配信, クリニック DX 導入, Lステップ 違い, クリニック 業務効率化, 医療DX プラットフォーム, LINE CRM クリニック",
   alternates: { canonical: `${SITE_URL}/lp/about` },
   openGraph: {
     title: "Lオペ for CLINICとは？ — AI搭載クリニック特化LINE運用プラットフォーム",
-    description: "Claude AI・RAG自動学習・追跡番号自動配信搭載。予約・問診・配信・決済・配送をLINEで一元化するクリニック専用プラットフォーム。",
+    description: "Claude AI・自動学習・追跡番号自動配信搭載。予約・問診・配信・決済・配送をLINEで一元化するクリニック専用プラットフォーム。",
     url: `${SITE_URL}/lp/about`,
     siteName: "Lオペ for CLINIC",
     locale: "ja_JP",
@@ -167,7 +167,7 @@ const featureGroups = [
 const comparisonItems = [
   { label: "クリニック専用設計", lope: true, generic: false },
   { label: "AI自動返信（Claude搭載）", lope: true, generic: false },
-  { label: "RAG自動学習", lope: true, generic: false },
+  { label: "自動学習", lope: true, generic: false },
   { label: "追跡番号LINE自動配信", lope: true, generic: false },
   { label: "AIモデル選択（Claude/GPT）", lope: true, generic: false },
   { label: "予約管理", lope: true, generic: false },
@@ -404,7 +404,7 @@ export default function AboutPage() {
                         <div className="flex items-center justify-between bg-gradient-to-r from-[#00B900] to-[#00a000] px-4 py-2.5">
                           <div className="flex items-center gap-2">
                             <p className="text-[12px] font-bold text-white">山本 さくら</p>
-                            <p className="text-[10px] font-mono text-white/70">20260315082</p>
+                            <p className="text-[10px] font-mono text-white/70">20260922047</p>
                           </div>
                           <span className="text-[12px] text-amber-300">🔖</span>
                         </div>
@@ -531,7 +531,7 @@ export default function AboutPage() {
                             <span className="text-[9px] text-green-600">連携済み</span>
                           </div>
                           <button className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-1.5 text-[9px] text-gray-600 hover:bg-gray-50">👤 友だち詳細</button>
-                          <p className="mt-1 text-[8px] text-gray-400">登録日時: 2026/03/14 06:13</p>
+                          <p className="mt-1 text-[8px] text-gray-400">登録日時: 2026/09/22 14:08</p>
                         </div>
 
                         <div className="space-y-3 border-t border-gray-100 px-4 py-3">
@@ -546,7 +546,7 @@ export default function AboutPage() {
                           </div>
 
                           <div>
-                            <p className="text-[9px] font-bold text-blue-600">予約 2026-03-14 16:45:00（診察済み）</p>
+                            <p className="text-[9px] font-bold text-blue-600">予約 2026-09-22 16:45:00（診察済み）</p>
                           </div>
 
                           <div>
@@ -644,7 +644,7 @@ export default function AboutPage() {
                 <strong className="text-gray-900">Lオペ for CLINIC</strong>は、クリニックのためだけに設計された<strong className="text-gray-900">AI搭載</strong>のLINE公式アカウント運用プラットフォームです。
               </p>
               <p>
-                一般的なLINE配信ツール（Lステップ、Liny等）は、飲食店・EC・スクールなど幅広い業種向けに設計されています。そのため、クリニック特有の<strong className="text-gray-900">予約管理・問診・カルテ・決済・配送</strong>には対応していません。さらに、<strong className="text-gray-900">AI自動返信・RAG自動学習・音声カルテ</strong>といった最新AI機能も搭載されていません。
+                一般的なLINE配信ツール（Lステップ、Liny等）は、飲食店・EC・スクールなど幅広い業種向けに設計されています。そのため、クリニック特有の<strong className="text-gray-900">予約管理・問診・カルテ・決済・配送</strong>には対応していません。さらに、<strong className="text-gray-900">AI自動返信・自動学習・音声カルテ</strong>といった最新AI機能も搭載されていません。
               </p>
               <div className="rounded-xl bg-gradient-to-r from-violet-50/60 to-blue-50/60 p-6 shadow-sm ring-1 ring-violet-100">
                 <p className="text-[14px] font-bold text-gray-900">
