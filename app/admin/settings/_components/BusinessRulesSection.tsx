@@ -8,12 +8,14 @@ interface ReorderControlConfig {
   dosageChangeNotify: boolean;
   minReorderIntervalDays: number;
   autoApproveSameDose: boolean;
+  showCoupon: boolean;
 }
 
 const DEFAULT_CONFIG: ReorderControlConfig = {
   dosageChangeNotify: false,
   minReorderIntervalDays: 0,
   autoApproveSameDose: false,
+  showCoupon: false,
 };
 
 interface BusinessRulesSectionProps {
@@ -65,6 +67,7 @@ export default function BusinessRulesSection({ onToast }: BusinessRulesSectionPr
       dosageChangeNotify: s.dosage_change_notify === "true",
       minReorderIntervalDays: s.min_reorder_interval_days ? parseInt(s.min_reorder_interval_days, 10) : prev.minReorderIntervalDays,
       autoApproveSameDose: s.auto_approve_same_dose === "true",
+      showCoupon: s.show_coupon === "true",
     }));
     setConfigLoaded(true);
   }
@@ -77,6 +80,7 @@ export default function BusinessRulesSection({ onToast }: BusinessRulesSectionPr
         { key: "dosage_change_notify", value: String(config.dosageChangeNotify) },
         { key: "min_reorder_interval_days", value: String(config.minReorderIntervalDays) },
         { key: "auto_approve_same_dose", value: String(config.autoApproveSameDose) },
+        { key: "show_coupon", value: String(config.showCoupon) },
       ];
 
       const results = await Promise.all(
@@ -182,6 +186,23 @@ export default function BusinessRulesSection({ onToast }: BusinessRulesSectionPr
               <Toggle
                 checked={config.dosageChangeNotify}
                 onChange={(v) => setConfig(prev => ({ ...prev, dosageChangeNotify: v }))}
+                disabled={!editing}
+              />
+            </div>
+
+            <div className="border-t border-gray-100 pt-5">
+              <p className="text-xs font-semibold text-gray-500 mb-3">決済画面</p>
+            </div>
+
+            {/* クーポンコード入力欄 */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-700">クーポンコード入力欄</p>
+                <p className="text-xs text-gray-400 mt-0.5">決済画面にクーポンコード入力欄を表示します</p>
+              </div>
+              <Toggle
+                checked={config.showCoupon}
+                onChange={(v) => setConfig(prev => ({ ...prev, showCoupon: v }))}
                 disabled={!editing}
               />
             </div>
