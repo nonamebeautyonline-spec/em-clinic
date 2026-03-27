@@ -66,20 +66,6 @@ const toc = [
   { id: "summary", label: "まとめ" },
 ];
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: self.date,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC" },
-  publisher: {
-    "@type": "Organization",
-    name: "Lオペ for CLINIC",
-    logo: { "@type": "ImageObject", url: `${SITE_URL}/logo.png` },
-  },
-};
-
 export default function Page() {
   return (
     <ArticleLayout
@@ -88,10 +74,6 @@ export default function Page() {
       keyPoints={keyPoints}
       toc={toc}
     >
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         不眠症は成人の20〜30%が経験する「最もありふれた睡眠障害」です。しかし
