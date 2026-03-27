@@ -2,15 +2,18 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// --- モック ---
-const mockCreate = vi.fn();
-vi.mock("@anthropic-ai/sdk", () => {
-  return {
-    default: class MockAnthropic {
-      messages = { create: mockCreate };
-    },
-  };
-});
+// --- モック（vi.hoistedで宣言してvi.mockから参照可能にする） ---
+const { mockCreate, mockVerifyAdminAuth, mockGetSettingOrEnv } = vi.hoisted(() => ({
+  mockCreate: vi.fn(),
+  mockVerifyAdminAuth: vi.fn().mockResolvedValue(true),
+  mockGetSettingOrEnv: vi.fn().mockResolvedValue("test-api-key"),
+}));
+
+vi.mock("@anthropic-ai/sdk", () => ({
+  default: class MockAnthropic {
+    messages = { create: mockCreate };
+  },
+}));
 
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
@@ -30,7 +33,7 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: vi.fn().mockResolvedValue(true),
+  verifyAdminAuth: mockVerifyAdminAuth,
 }));
 
 vi.mock("@/lib/tenant", () => ({
@@ -39,7 +42,7 @@ vi.mock("@/lib/tenant", () => ({
 }));
 
 vi.mock("@/lib/settings", () => ({
-  getSettingOrEnv: vi.fn().mockResolvedValue("test-api-key"),
+  getSettingOrEnv: mockGetSettingOrEnv,
 }));
 
 vi.mock("@/lib/audit", () => ({
@@ -204,5 +207,143 @@ describe("AI Flex Message生成API", () => {
     const calledMessages = mockCreate.mock.calls[0][0].messages;
     expect(calledMessages[0].content).toContain("https://example.com/photo.jpg");
     expect(calledMessages[0].content).toContain("使用する画像URL");
+  });
+
+  it("複数画像URLがすべてプロンプトに含まれる", async () => {
+    const flexJson = { type: "bubble", body: { type: "box", layout: "vertical", contents: [] } };
+
+    mockCreate.mockResolvedValueOnce({
+      content: [{
+        type: "text",
+        text: '```json\n' + JSON.stringify({ name: "複数画像", flexJson }) + '\n```',
+      }],
+    });
+
+    const res = await POST(createRequest({
+      prompt: "カルーセルにして各パネルに画像を配置",
+      imageUrls: ["https://example.com/a.jpg", "https://example.com/b.jpg", "https://example.com/c.jpg"],
+    }));
+    const data = await res.json();
+    expect(data.ok).toBe(true);
+
+    const calledMessages = mockCreate.mock.calls[0][0].messages;
+    expect(calledMessages[0].content).toContain("画像1: https://example.com/a.jpg");
+    expect(calledMessages[0].content).toContain("画像2: https://example.com/b.jpg");
+    expect(calledMessages[0].content).toContain("画像3: https://example.com/c.jpg");
+  });
+
+  it("画像URL + 編集モードの組み合わせが正しく動作する", async () => {
+    const currentFlex = {
+      type: "bubble",
+      body: { type: "box", layout: "vertical", contents: [{ type: "text", text: "既存" }] },
+    };
+    const updatedFlex = {
+      type: "bubble",
+      hero: { type: "image", url: "https://example.com/new.jpg", size: "full", aspectRatio: "2:1", aspectMode: "cover" },
+      body: { type: "box", layout: "vertical", contents: [{ type: "text", text: "既存" }] },
+    };
+
+    mockCreate.mockResolvedValueOnce({
+      content: [{
+        type: "text",
+        text: '```json\n' + JSON.stringify({ name: "画像追加済み", flexJson: updatedFlex }) + '\n```',
+      }],
+    });
+
+    const res = await POST(createRequest({
+      prompt: "この画像をheroに追加して",
+      imageUrls: ["https://example.com/new.jpg"],
+      currentFlexJson: currentFlex,
+    }));
+    const data = await res.json();
+    expect(data.ok).toBe(true);
+
+    const calledMessages = mockCreate.mock.calls[0][0].messages;
+    // 編集モードプロンプト
+    expect(calledMessages[0].content).toContain("現在のFlex Messageを以下の指示に従って修正してください");
+    // 画像URL
+    expect(calledMessages[0].content).toContain("https://example.com/new.jpg");
+    // 現在のFlex JSON
+    expect(calledMessages[0].content).toContain('"text": "既存"');
+  });
+
+  it("カルーセル形式のFlex JSONを正しく返却する", async () => {
+    const flexJson = {
+      type: "carousel",
+      contents: [
+        { type: "bubble", body: { type: "box", layout: "vertical", contents: [{ type: "text", text: "1枚目" }] } },
+        { type: "bubble", body: { type: "box", layout: "vertical", contents: [{ type: "text", text: "2枚目" }] } },
+      ],
+    };
+
+    mockCreate.mockResolvedValueOnce({
+      content: [{
+        type: "text",
+        text: '```json\n' + JSON.stringify({ name: "カルーセル", flexJson }) + '\n```',
+      }],
+    });
+
+    const res = await POST(createRequest({ prompt: "2枚のカルーセルを作って" }));
+    const data = await res.json();
+
+    expect(data.ok).toBe(true);
+    expect(data.flexJson.type).toBe("carousel");
+    expect(data.flexJson.contents).toHaveLength(2);
+  });
+
+  it("flexJsonがobjectでない場合500エラー", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{
+        type: "text",
+        text: '```json\n' + JSON.stringify({ name: "壊れたJSON", flexJson: "not-an-object" }) + '\n```',
+      }],
+    });
+
+    const res = await POST(createRequest({ prompt: "テスト" }));
+    expect(res.status).toBe(500);
+  });
+
+  it("JSON抽出失敗時に500エラー", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{
+        type: "text",
+        text: "すみません、JSONを生成できませんでした。",
+      }],
+    });
+
+    const res = await POST(createRequest({ prompt: "テスト" }));
+    expect(res.status).toBe(500);
+  });
+
+  it("認証失敗時に401エラー", async () => {
+    mockVerifyAdminAuth.mockResolvedValueOnce(false);
+
+    const res = await POST(createRequest({ prompt: "テスト" }));
+    expect(res.status).toBe(401);
+  });
+
+  it("APIキー未設定時に500エラー", async () => {
+    mockGetSettingOrEnv.mockResolvedValueOnce("");
+
+    const res = await POST(createRequest({ prompt: "テスト" }));
+    expect(res.status).toBe(500);
+  });
+
+  it("imageUrlsが空配列の場合は画像コンテキストを含まない", async () => {
+    const flexJson = { type: "bubble", body: { type: "box", layout: "vertical", contents: [] } };
+
+    mockCreate.mockResolvedValueOnce({
+      content: [{
+        type: "text",
+        text: '```json\n' + JSON.stringify({ name: "テスト", flexJson }) + '\n```',
+      }],
+    });
+
+    const res = await POST(createRequest({ prompt: "シンプルなメッセージ", imageUrls: [] }));
+    const data = await res.json();
+    expect(data.ok).toBe(true);
+
+    const calledMessages = mockCreate.mock.calls[0][0].messages;
+    expect(calledMessages[0].content).not.toContain("使用する画像URL");
   });
 });
