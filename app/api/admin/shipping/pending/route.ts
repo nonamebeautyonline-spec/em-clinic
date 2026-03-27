@@ -157,28 +157,52 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // 同一患者でグルーピング
-    const groupedByPatient = formattedOrders.reduce<Record<string, FormattedOrder[]>>((acc, order) => {
-      if (!acc[order.patient_id]) {
-        acc[order.patient_id] = [];
-      }
-      acc[order.patient_id].push(order);
+    // 同一郵便番号でグルーピング（同居家族も統合対象、同姓同名でも住所違いは別扱い）
+    const groupedByPostal = formattedOrders.reduce<Record<string, FormattedOrder[]>>((acc, order) => {
+      const postalKey = (order.postal_code || "").replace(/[-\s\u3000]/g, "").trim();
+      if (!postalKey) return acc;
+      if (!acc[postalKey]) acc[postalKey] = [];
+      acc[postalKey].push(order);
       return acc;
     }, {});
 
-    // まとめ配送候補を検出（同一患者で複数注文）
-    const mergeableGroups = Object.entries(groupedByPatient)
+    // まとめ配送候補を検出（同一郵便番号で複数注文）
+    const mergeableGroups = Object.entries(groupedByPostal)
       .filter(([, orders]) => orders.length > 1)
-      .map(([patientId, orders]) => ({
-        patient_id: patientId,
-        patient_name: orders[0].patient_name,
+      .map(([postalCode, orders]) => ({
+        patient_id: orders[0].patient_id,
+        patient_name: orders.map(o => o.patient_name).filter((v, i, a) => a.indexOf(v) === i).join("、"),
+        postal_code: postalCode,
         count: orders.length,
         orders: orders,
+      }));
+
+    // 同一氏名でグルーピング（同姓同名の別住所注意喚起用）
+    const groupedByName = formattedOrders.reduce<Record<string, FormattedOrder[]>>((acc, order) => {
+      const nameKey = (order.patient_name || "").trim();
+      if (!nameKey) return acc;
+      if (!acc[nameKey]) acc[nameKey] = [];
+      acc[nameKey].push(order);
+      return acc;
+    }, {});
+
+    // 同姓同名で郵便番号が異なるグループ（注意喚起）
+    const sameNameDiffAddress = Object.entries(groupedByName)
+      .filter(([, orders]) => {
+        if (orders.length < 2) return false;
+        const postals = new Set(orders.map(o => (o.postal_code || "").replace(/[-\s\u3000]/g, "")));
+        return postals.size > 1; // 同姓同名だが郵便番号が異なる
+      })
+      .map(([name, orders]) => ({
+        patient_name: name,
+        count: orders.length,
+        postal_codes: [...new Set(orders.map(o => o.postal_code))],
       }));
 
     return NextResponse.json({
       orders: formattedOrders,
       mergeableGroups: mergeableGroups,
+      sameNameDiffAddress: sameNameDiffAddress,
       total: formattedOrders.length,
     });
   } catch (error) {

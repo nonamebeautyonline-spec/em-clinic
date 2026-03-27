@@ -75,7 +75,9 @@ export default function CreateShippingListPage() {
   const [originalItems, setOriginalItems] = useState<ShippingItem[]>([]); // 統合前の状態を保存
   const [isMerged, setIsMerged] = useState(false); // 統合済みフラグ
   const [error, setError] = useState("");
-  const [mergeableGroups, setMergeableGroups] = useState<{ patient_id: string; patient_name: string; count: number }[]>([]);
+  const [mergeableGroups, setMergeableGroups] = useState<{ patient_id: string; patient_name: string; postal_code?: string; count: number }[]>([]);
+  const [sameNameDiffAddress, setSameNameDiffAddress] = useState<{ patient_name: string; count: number; postal_codes: string[] }[]>([]);
+  const [showMergeModal, setShowMergeModal] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
   const [showSortModal, setShowSortModal] = useState(false);
@@ -83,7 +85,7 @@ export default function CreateShippingListPage() {
   const tableRef = useRef<HTMLTableElement>(null);
   const [dataInitialized, setDataInitialized] = useState(false);
 
-  const { data: pendingData, error: pendingError, isLoading: loading } = useSWR<{ orders: PendingOrder[]; mergeableGroups: { patient_id: string; patient_name: string; count: number }[] }>(
+  const { data: pendingData, error: pendingError, isLoading: loading } = useSWR<{ orders: PendingOrder[]; mergeableGroups: { patient_id: string; patient_name: string; postal_code?: string; count: number }[]; sameNameDiffAddress?: { patient_name: string; count: number; postal_codes: string[] }[] }>(
     "/api/admin/shipping/pending",
     { revalidateOnFocus: false },
   );
@@ -98,6 +100,12 @@ export default function CreateShippingListPage() {
     if (dataInitialized) return; // ローカル編集中は上書きしない
     const orders = pendingData.orders || [];
     setMergeableGroups(pendingData.mergeableGroups || []);
+    setSameNameDiffAddress(pendingData.sameNameDiffAddress || []);
+
+    // 統合候補または注意喚起がある場合はモーダルを表示
+    if ((pendingData.mergeableGroups || []).length > 0 || (pendingData.sameNameDiffAddress || []).length > 0) {
+      setShowMergeModal(true);
+    }
 
     // ★ URLクエリパラメータから選択されたIDを取得（クライアントサイドのみ）
     const urlParams = new URLSearchParams(window.location.search);
@@ -312,31 +320,31 @@ export default function CreateShippingListPage() {
     } else {
       // 統合実行
       setOriginalItems([...items]); // 現在の状態を保存
-      mergeByName();
+      mergeByPostalCode();
       setIsMerged(true);
     }
   };
 
-  // ★ 同じ氏名を統合（並び順を修正）
-  const mergeByName = () => {
+  // ★ 同じ郵便番号を統合（同居家族も統合、同姓同名でも住所違いは別扱い）
+  const mergeByPostalCode = () => {
     const grouped: Record<string, ShippingItem[]> = {};
 
     // 選択されている項目のみグルーピング
     const selectedItems = items.filter((item) => item.selected);
     const unselectedItems = items.filter((item) => !item.selected);
 
-    // 氏名でグルーピング
+    // 郵便番号でグルーピング（ハイフン・空白を除去して正規化）
     selectedItems.forEach((item) => {
-      const name = item.editable.name.trim();
-      if (!grouped[name]) {
-        grouped[name] = [];
+      const postalKey = item.editable.postal_code.replace(/[-\s\u3000]/g, "").trim();
+      if (!grouped[postalKey]) {
+        grouped[postalKey] = [];
       }
-      grouped[name].push(item);
+      grouped[postalKey].push(item);
     });
 
     const merged: ShippingItem[] = [];
 
-    Object.entries(grouped).forEach(([name, group]) => {
+    Object.entries(grouped).forEach(([, group]) => {
       if (group.length === 1) {
         merged.push(group[0]);
       } else {
@@ -563,18 +571,61 @@ export default function CreateShippingListPage() {
         </div>
       )}
 
-      {mergeableGroups.length > 0 && (
-        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <h3 className="font-semibold text-yellow-900 mb-2">
-            ⚠️ まとめ配送候補（同一患者の複数注文）
-          </h3>
-          <ul className="space-y-1 text-sm text-yellow-800">
-            {mergeableGroups.map((group) => (
-              <li key={group.patient_id}>
-                {group.patient_name} ({group.patient_id}) - {group.count}件の注文
-              </li>
-            ))}
-          </ul>
+      {/* 統合確認モーダル */}
+      {showMergeModal && (mergeableGroups.length > 0 || sameNameDiffAddress.length > 0) && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              <h2 className="text-lg font-bold text-slate-900 mb-4">発送リスト統合の確認</h2>
+
+              {mergeableGroups.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="font-semibold text-yellow-900 mb-2 flex items-center gap-1">
+                    <span className="text-yellow-500">📦</span> 同一郵便番号の注文（まとめ配送候補）
+                  </h3>
+                  <ul className="space-y-2 text-sm">
+                    {mergeableGroups.map((group, i) => (
+                      <li key={i} className="p-2 bg-yellow-50 border border-yellow-200 rounded">
+                        <span className="font-medium">{group.patient_name}</span>
+                        <span className="text-yellow-700 ml-2">〒{group.postal_code} — {group.count}件</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-slate-500">
+                    「同じ郵便番号を統合」ボタンで1つの発送にまとめられます
+                  </p>
+                </div>
+              )}
+
+              {sameNameDiffAddress.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="font-semibold text-red-900 mb-2 flex items-center gap-1">
+                    <span className="text-red-500">⚠️</span> 同姓同名・住所違い（統合注意）
+                  </h3>
+                  <ul className="space-y-2 text-sm">
+                    {sameNameDiffAddress.map((group, i) => (
+                      <li key={i} className="p-2 bg-red-50 border border-red-200 rounded">
+                        <span className="font-medium">{group.patient_name}</span>
+                        <span className="text-red-700 ml-2">{group.count}件 — 〒{group.postal_codes.join("、〒")}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-slate-500">
+                    同じ名前ですが郵便番号が異なるため、別の送付先です
+                  </p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setShowMergeModal(false)}
+                  className="px-4 py-2 text-sm rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200"
+                >
+                  確認した
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -591,7 +642,7 @@ export default function CreateShippingListPage() {
                 : "bg-yellow-500 text-white hover:bg-yellow-600"
             }`}
           >
-            {isMerged ? "🔓 統合を解除" : "🔗 同じ氏名を統合"}
+            {isMerged ? "🔓 統合を解除" : "🔗 同じ郵便番号を統合"}
           </button>
           <button
             onClick={() => setShowSortModal(true)}
