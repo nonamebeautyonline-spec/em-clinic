@@ -490,6 +490,280 @@ export const DEMO_PRODUCTS: DemoProduct[] = [
   { code: "MJL_15mg_1m", name: "マンジャロ 15mg（1ヶ月）", drugName: "チルゼパチド", dosage: "15mg", duration: "1ヶ月", quantity: 4, price: 59800, category: "注射", isActive: false, sortOrder: 5 },
 ];
 
+// --- 追加モックデータ（11ページ分） ---
+
+// 決済履歴
+export interface DemoPayment {
+  id: string;
+  patientName: string;
+  patientId: string;
+  product: string;
+  amount: number;
+  method: "カード" | "銀行振込";
+  status: "完了" | "未決済" | "返金済み" | "失敗";
+  paidAt: string;
+}
+
+export const DEMO_PAYMENTS: DemoPayment[] = [
+  { id: "PAY001", patientName: "田中 美咲", patientId: "P001", product: "マンジャロ 5mg", amount: 29800, method: "カード", status: "完了", paidAt: `${daysAgo(0)} 10:30` },
+  { id: "PAY002", patientName: "佐藤 健太", patientId: "P002", product: "マンジャロ 2.5mg", amount: 19800, method: "カード", status: "完了", paidAt: `${daysAgo(0)} 11:00` },
+  { id: "PAY003", patientName: "高橋 大輔", patientId: "P004", product: "マンジャロ 7.5mg", amount: 39800, method: "カード", status: "完了", paidAt: `${daysAgo(1)} 09:30` },
+  { id: "PAY004", patientName: "渡辺 誠", patientId: "P006", product: "マンジャロ 5mg", amount: 29800, method: "銀行振込", status: "完了", paidAt: `${daysAgo(1)} 14:00` },
+  { id: "PAY005", patientName: "小林 真由美", patientId: "P009", product: "マンジャロ 7.5mg", amount: 39800, method: "カード", status: "完了", paidAt: `${daysAgo(2)} 10:00` },
+  { id: "PAY006", patientName: "井上 浩二", patientId: "P014", product: "マンジャロ 7.5mg", amount: 39800, method: "銀行振込", status: "返金済み", paidAt: `${daysAgo(2)} 15:30` },
+  { id: "PAY007", patientName: "木村 優子", patientId: "P015", product: "マンジャロ 5mg", amount: 29800, method: "カード", status: "完了", paidAt: `${daysAgo(3)} 11:00` },
+  { id: "PAY008", patientName: "岡田 裕介", patientId: "P020", product: "マンジャロ 7.5mg", amount: 39800, method: "カード", status: "完了", paidAt: `${daysAgo(3)} 16:00` },
+  { id: "PAY009", patientName: "山本 結衣", patientId: "P007", product: "マンジャロ 2.5mg", amount: 19800, method: "カード", status: "完了", paidAt: `${daysAgo(4)} 10:30` },
+  { id: "PAY010", patientName: "中村 翔太", patientId: "P008", product: "マンジャロ 5mg", amount: 29800, method: "カード", status: "失敗", paidAt: `${daysAgo(4)} 14:00` },
+  { id: "PAY011", patientName: "山田 太郎", patientId: "P012", product: "マンジャロ 5mg", amount: 29800, method: "銀行振込", status: "未決済", paidAt: `${daysAgo(5)} 09:00` },
+  { id: "PAY012", patientName: "吉田 麻衣", patientId: "P011", product: "マンジャロ 2.5mg", amount: 19800, method: "カード", status: "完了", paidAt: `${daysAgo(5)} 11:30` },
+  { id: "PAY013", patientName: "清水 里奈", patientId: "P017", product: "マンジャロ 5mg", amount: 29800, method: "カード", status: "完了", paidAt: `${daysAgo(6)} 10:00` },
+  { id: "PAY014", patientName: "森 慎一", patientId: "P018", product: "マンジャロ 5mg", amount: 29800, method: "銀行振込", status: "完了", paidAt: `${daysAgo(7)} 15:00` },
+  { id: "PAY015", patientName: "池田 あかり", patientId: "P019", product: "マンジャロ 2.5mg", amount: 19800, method: "カード", status: "完了", paidAt: `${daysAgo(7)} 16:30` },
+];
+
+// 銀行振込照合
+export interface DemoBankTransfer {
+  id: string;
+  senderName: string;
+  amount: number;
+  transferDate: string;
+  bankName: string;
+  matchedPatient: string | null;
+  matchedPaymentId: string | null;
+  status: "未照合" | "照合済み" | "不一致";
+}
+
+export const DEMO_BANK_TRANSFERS: DemoBankTransfer[] = [
+  { id: "BT001", senderName: "ワタナベ マコト", amount: 29800, transferDate: daysAgo(1), bankName: "三菱UFJ銀行", matchedPatient: "渡辺 誠", matchedPaymentId: "PAY004", status: "照合済み" },
+  { id: "BT002", senderName: "ヤマダ タロウ", amount: 29800, transferDate: daysAgo(3), bankName: "みずほ銀行", matchedPatient: null, matchedPaymentId: null, status: "未照合" },
+  { id: "BT003", senderName: "モリ シンイチ", amount: 29800, transferDate: daysAgo(5), bankName: "三井住友銀行", matchedPatient: "森 慎一", matchedPaymentId: "PAY014", status: "照合済み" },
+  { id: "BT004", senderName: "イノウエ コウジ", amount: 39800, transferDate: daysAgo(2), bankName: "りそな銀行", matchedPatient: null, matchedPaymentId: null, status: "未照合" },
+  { id: "BT005", senderName: "タカハシ", amount: 39800, transferDate: daysAgo(4), bankName: "ゆうちょ銀行", matchedPatient: null, matchedPaymentId: null, status: "不一致" },
+  { id: "BT006", senderName: "スズキ ハナコ", amount: 19800, transferDate: daysAgo(6), bankName: "三菱UFJ銀行", matchedPatient: null, matchedPaymentId: null, status: "未照合" },
+  { id: "BT007", senderName: "キムラ ユウコ", amount: 29800, transferDate: daysAgo(1), bankName: "みずほ銀行", matchedPatient: null, matchedPaymentId: null, status: "未照合" },
+  { id: "BT008", senderName: "サトウ ケンタ", amount: 19800, transferDate: daysAgo(0), bankName: "三井住友銀行", matchedPatient: null, matchedPaymentId: null, status: "未照合" },
+];
+
+// 定期プラン
+export interface DemoSubscription {
+  id: string;
+  patientName: string;
+  patientId: string;
+  plan: string;
+  amount: number;
+  interval: "毎月" | "隔月";
+  nextBillingDate: string;
+  status: "有効" | "一時停止" | "解約済み";
+  startedAt: string;
+  billingCount: number;
+}
+
+export const DEMO_SUBSCRIPTIONS: DemoSubscription[] = [
+  { id: "SUB001", patientName: "田中 美咲", patientId: "P001", plan: "マンジャロ 5mg 定期", amount: 29800, interval: "毎月", nextBillingDate: daysLater(5), status: "有効", startedAt: daysAgo(90), billingCount: 3 },
+  { id: "SUB002", patientName: "高橋 大輔", patientId: "P004", plan: "マンジャロ 7.5mg 定期", amount: 39800, interval: "毎月", nextBillingDate: daysLater(12), status: "有効", startedAt: daysAgo(60), billingCount: 2 },
+  { id: "SUB003", patientName: "渡辺 誠", patientId: "P006", plan: "マンジャロ 5mg 定期", amount: 29800, interval: "毎月", nextBillingDate: daysLater(8), status: "有効", startedAt: daysAgo(150), billingCount: 5 },
+  { id: "SUB004", patientName: "小林 真由美", patientId: "P009", plan: "マンジャロ 7.5mg 定期", amount: 39800, interval: "毎月", nextBillingDate: daysLater(3), status: "有効", startedAt: daysAgo(120), billingCount: 4 },
+  { id: "SUB005", patientName: "井上 浩二", patientId: "P014", plan: "マンジャロ 7.5mg 定期", amount: 39800, interval: "毎月", nextBillingDate: daysLater(18), status: "有効", startedAt: daysAgo(180), billingCount: 6 },
+  { id: "SUB006", patientName: "岡田 裕介", patientId: "P020", plan: "マンジャロ 7.5mg 定期", amount: 39800, interval: "毎月", nextBillingDate: daysLater(15), status: "有効", startedAt: daysAgo(150), billingCount: 5 },
+  { id: "SUB007", patientName: "中村 翔太", patientId: "P008", plan: "マンジャロ 5mg 定期", amount: 29800, interval: "隔月", nextBillingDate: daysLater(25), status: "一時停止", startedAt: daysAgo(60), billingCount: 1 },
+  { id: "SUB008", patientName: "山本 結衣", patientId: "P007", plan: "マンジャロ 2.5mg 定期", amount: 19800, interval: "毎月", nextBillingDate: daysLater(20), status: "有効", startedAt: daysAgo(60), billingCount: 2 },
+  { id: "SUB009", patientName: "佐藤 健太", patientId: "P002", plan: "マンジャロ 2.5mg 定期", amount: 19800, interval: "毎月", nextBillingDate: "", status: "解約済み", startedAt: daysAgo(90), billingCount: 2 },
+  { id: "SUB010", patientName: "木村 優子", patientId: "P015", plan: "マンジャロ 5mg 定期", amount: 29800, interval: "毎月", nextBillingDate: daysLater(10), status: "有効", startedAt: daysAgo(120), billingCount: 4 },
+];
+
+// 在庫
+export interface DemoInventoryItem {
+  id: string;
+  productName: string;
+  dosage: string;
+  currentStock: number;
+  minStock: number;
+  unit: string;
+  lastRestocked: string;
+  expiryDate: string;
+}
+
+export const DEMO_INVENTORY: DemoInventoryItem[] = [
+  { id: "INV001", productName: "マンジャロ 2.5mg", dosage: "2.5mg", currentStock: 45, minStock: 20, unit: "本", lastRestocked: daysAgo(7), expiryDate: daysLater(180) },
+  { id: "INV002", productName: "マンジャロ 5mg", dosage: "5mg", currentStock: 12, minStock: 30, unit: "本", lastRestocked: daysAgo(14), expiryDate: daysLater(150) },
+  { id: "INV003", productName: "マンジャロ 7.5mg", dosage: "7.5mg", currentStock: 38, minStock: 15, unit: "本", lastRestocked: daysAgo(5), expiryDate: daysLater(200) },
+  { id: "INV004", productName: "マンジャロ 10mg", dosage: "10mg", currentStock: 8, minStock: 10, unit: "本", lastRestocked: daysAgo(21), expiryDate: daysLater(160) },
+  { id: "INV005", productName: "マンジャロ 15mg", dosage: "15mg", currentStock: 5, minStock: 5, unit: "本", lastRestocked: daysAgo(30), expiryDate: daysLater(120) },
+];
+
+// キャンペーン
+export interface DemoCampaign {
+  id: string;
+  name: string;
+  type: "割引" | "紹介" | "ポイント";
+  discount: string;
+  startDate: string;
+  endDate: string;
+  status: "実施中" | "予定" | "終了";
+  usageCount: number;
+}
+
+export const DEMO_CAMPAIGNS: DemoCampaign[] = [
+  { id: "CP001", name: "春の初回無料キャンペーン", type: "割引", discount: "初回診察料無料", startDate: daysAgo(10), endDate: daysLater(20), status: "実施中", usageCount: 42 },
+  { id: "CP002", name: "友だち紹介キャンペーン", type: "紹介", discount: "紹介者・被紹介者 各¥3,000 OFF", startDate: daysAgo(30), endDate: daysLater(60), status: "実施中", usageCount: 18 },
+  { id: "CP003", name: "リピーター感謝キャンペーン", type: "ポイント", discount: "3回目以降 5%OFF", startDate: daysAgo(60), endDate: daysAgo(5), status: "終了", usageCount: 85 },
+  { id: "CP004", name: "GW特別キャンペーン", type: "割引", discount: "全商品 ¥2,000 OFF", startDate: daysLater(30), endDate: daysLater(45), status: "予定", usageCount: 0 },
+  { id: "CP005", name: "LINE登録記念クーポン", type: "割引", discount: "初回 ¥1,000 OFF", startDate: daysAgo(90), endDate: daysLater(90), status: "実施中", usageCount: 156 },
+];
+
+export interface DemoCoupon {
+  id: string;
+  code: string;
+  campaignId: string;
+  campaignName: string;
+  discount: string;
+  usedCount: number;
+  maxUses: number | null;
+  expiresAt: string;
+  isActive: boolean;
+}
+
+export const DEMO_COUPONS: DemoCoupon[] = [
+  { id: "CPN001", code: "SPRING2026", campaignId: "CP001", campaignName: "春の初回無料キャンペーン", discount: "初回診察料無料", usedCount: 42, maxUses: 100, expiresAt: daysLater(20), isActive: true },
+  { id: "CPN002", code: "FRIEND3000", campaignId: "CP002", campaignName: "友だち紹介キャンペーン", discount: "¥3,000 OFF", usedCount: 36, maxUses: null, expiresAt: daysLater(60), isActive: true },
+  { id: "CPN003", code: "REPEAT5", campaignId: "CP003", campaignName: "リピーター感謝キャンペーン", discount: "5%OFF", usedCount: 85, maxUses: null, expiresAt: daysAgo(5), isActive: false },
+  { id: "CPN004", code: "GW2026", campaignId: "CP004", campaignName: "GW特別キャンペーン", discount: "¥2,000 OFF", usedCount: 0, maxUses: 200, expiresAt: daysLater(45), isActive: false },
+  { id: "CPN005", code: "WELCOME1000", campaignId: "CP005", campaignName: "LINE登録記念クーポン", discount: "¥1,000 OFF", usedCount: 156, maxUses: null, expiresAt: daysLater(90), isActive: true },
+];
+
+// 問診設定
+export interface DemoIntakeField {
+  id: string;
+  label: string;
+  type: "テキスト" | "テキストエリア" | "ラジオ" | "ドロップダウン" | "チェックボックス" | "見出し";
+  required: boolean;
+  options: string[];
+  sortOrder: number;
+  isEnabled: boolean;
+}
+
+export const DEMO_INTAKE_FIELDS: DemoIntakeField[] = [
+  { id: "IF001", label: "NG条件チェック", type: "チェックボックス", required: true, options: ["妊娠中・授乳中", "膵炎の既往", "甲状腺髄様癌の家族歴", "重度の胃腸障害"], sortOrder: 1, isEnabled: true },
+  { id: "IF002", label: "現在の疾患", type: "ラジオ", required: true, options: ["あり", "なし"], sortOrder: 2, isEnabled: true },
+  { id: "IF003", label: "現在の疾患（詳細）", type: "テキストエリア", required: false, options: [], sortOrder: 3, isEnabled: true },
+  { id: "IF004", label: "GLP-1/GIP製剤の使用歴", type: "ドロップダウン", required: true, options: ["未経験", "マンジャロ", "オゼンピック", "リベルサス", "その他"], sortOrder: 4, isEnabled: true },
+  { id: "IF005", label: "内服薬の有無", type: "ラジオ", required: true, options: ["あり", "なし"], sortOrder: 5, isEnabled: true },
+  { id: "IF006", label: "内服薬（詳細）", type: "テキストエリア", required: false, options: [], sortOrder: 6, isEnabled: true },
+  { id: "IF007", label: "アレルギーの有無", type: "ラジオ", required: true, options: ["あり", "なし"], sortOrder: 7, isEnabled: true },
+  { id: "IF008", label: "当院を知ったきっかけ", type: "ドロップダウン", required: false, options: ["SNS（Instagram）", "SNS（TikTok）", "Google検索", "友人の紹介", "その他"], sortOrder: 8, isEnabled: true },
+];
+
+// 予約設定
+export interface DemoScheduleSlot {
+  dayOfWeek: string;
+  dayIndex: number;
+  slots: { time: string; capacity: number; isEnabled: boolean }[];
+}
+
+export const DEMO_SCHEDULE_SLOTS: DemoScheduleSlot[] = [
+  { dayOfWeek: "月曜日", dayIndex: 1, slots: [
+    { time: "10:00", capacity: 3, isEnabled: true }, { time: "10:30", capacity: 3, isEnabled: true },
+    { time: "11:00", capacity: 3, isEnabled: true }, { time: "11:30", capacity: 2, isEnabled: true },
+    { time: "14:00", capacity: 3, isEnabled: true }, { time: "14:30", capacity: 3, isEnabled: true },
+    { time: "15:00", capacity: 3, isEnabled: true }, { time: "15:30", capacity: 2, isEnabled: true },
+  ]},
+  { dayOfWeek: "火曜日", dayIndex: 2, slots: [
+    { time: "10:00", capacity: 3, isEnabled: true }, { time: "10:30", capacity: 3, isEnabled: true },
+    { time: "11:00", capacity: 3, isEnabled: true }, { time: "11:30", capacity: 2, isEnabled: true },
+    { time: "14:00", capacity: 3, isEnabled: true }, { time: "14:30", capacity: 3, isEnabled: true },
+    { time: "15:00", capacity: 3, isEnabled: true }, { time: "15:30", capacity: 2, isEnabled: true },
+  ]},
+  { dayOfWeek: "水曜日", dayIndex: 3, slots: [
+    { time: "10:00", capacity: 3, isEnabled: true }, { time: "10:30", capacity: 3, isEnabled: true },
+    { time: "11:00", capacity: 3, isEnabled: true }, { time: "11:30", capacity: 2, isEnabled: true },
+    { time: "14:00", capacity: 3, isEnabled: true }, { time: "14:30", capacity: 3, isEnabled: true },
+    { time: "15:00", capacity: 3, isEnabled: true }, { time: "15:30", capacity: 2, isEnabled: true },
+  ]},
+  { dayOfWeek: "木曜日", dayIndex: 4, slots: [
+    { time: "10:00", capacity: 3, isEnabled: false }, { time: "10:30", capacity: 3, isEnabled: false },
+    { time: "11:00", capacity: 3, isEnabled: false }, { time: "11:30", capacity: 2, isEnabled: false },
+    { time: "14:00", capacity: 3, isEnabled: false }, { time: "14:30", capacity: 3, isEnabled: false },
+    { time: "15:00", capacity: 3, isEnabled: false }, { time: "15:30", capacity: 2, isEnabled: false },
+  ]},
+  { dayOfWeek: "金曜日", dayIndex: 5, slots: [
+    { time: "10:00", capacity: 3, isEnabled: true }, { time: "10:30", capacity: 3, isEnabled: true },
+    { time: "11:00", capacity: 3, isEnabled: true }, { time: "11:30", capacity: 2, isEnabled: true },
+    { time: "14:00", capacity: 3, isEnabled: true }, { time: "14:30", capacity: 3, isEnabled: true },
+    { time: "15:00", capacity: 3, isEnabled: true }, { time: "15:30", capacity: 2, isEnabled: true },
+  ]},
+  { dayOfWeek: "土曜日", dayIndex: 6, slots: [
+    { time: "10:00", capacity: 2, isEnabled: true }, { time: "10:30", capacity: 2, isEnabled: true },
+    { time: "11:00", capacity: 2, isEnabled: true }, { time: "11:30", capacity: 1, isEnabled: true },
+    { time: "14:00", capacity: 2, isEnabled: true }, { time: "14:30", capacity: 2, isEnabled: true },
+    { time: "15:00", capacity: 2, isEnabled: true }, { time: "15:30", capacity: 0, isEnabled: false },
+  ]},
+  { dayOfWeek: "日曜日", dayIndex: 0, slots: [] },
+];
+
+// 通知設定
+export interface DemoNotificationRule {
+  id: string;
+  trigger: string;
+  description: string;
+  channel: "LINE" | "Slack" | "メール";
+  isEnabled: boolean;
+}
+
+export const DEMO_NOTIFICATION_RULES: DemoNotificationRule[] = [
+  { id: "NR001", trigger: "予約確定", description: "患者が予約を完了したとき", channel: "LINE", isEnabled: true },
+  { id: "NR002", trigger: "予約キャンセル", description: "患者が予約をキャンセルしたとき", channel: "Slack", isEnabled: true },
+  { id: "NR003", trigger: "問診完了", description: "患者が問診フォームを送信したとき", channel: "LINE", isEnabled: true },
+  { id: "NR004", trigger: "決済完了", description: "カード決済が完了したとき", channel: "LINE", isEnabled: true },
+  { id: "NR005", trigger: "銀行振込入金", description: "銀行振込の入金が確認されたとき", channel: "Slack", isEnabled: false },
+  { id: "NR006", trigger: "発送完了", description: "商品が発送されたとき", channel: "LINE", isEnabled: true },
+  { id: "NR007", trigger: "再処方申請", description: "患者が再処方を申請したとき", channel: "Slack", isEnabled: true },
+  { id: "NR008", trigger: "在庫アラート", description: "在庫が最低数量を下回ったとき", channel: "Slack", isEnabled: true },
+];
+
+// 流入経路
+export interface DemoTrackingSource {
+  id: string;
+  name: string;
+  utmSource: string;
+  utmMedium: string;
+  utmCampaign: string;
+  friendCount: number;
+  cvCount: number;
+  cvRate: number;
+  createdAt: string;
+}
+
+export const DEMO_TRACKING_SOURCES: DemoTrackingSource[] = [
+  { id: "TS001", name: "Instagram広告", utmSource: "instagram", utmMedium: "paid", utmCampaign: "spring2026", friendCount: 520, cvCount: 78, cvRate: 15.0, createdAt: daysAgo(60) },
+  { id: "TS002", name: "Google検索広告", utmSource: "google", utmMedium: "cpc", utmCampaign: "glp1_search", friendCount: 380, cvCount: 95, cvRate: 25.0, createdAt: daysAgo(90) },
+  { id: "TS003", name: "TikTok広告", utmSource: "tiktok", utmMedium: "paid", utmCampaign: "awareness", friendCount: 890, cvCount: 45, cvRate: 5.1, createdAt: daysAgo(30) },
+  { id: "TS004", name: "クリニックHP", utmSource: "website", utmMedium: "organic", utmCampaign: "hp_banner", friendCount: 210, cvCount: 63, cvRate: 30.0, createdAt: daysAgo(120) },
+  { id: "TS005", name: "紹介カード", utmSource: "referral", utmMedium: "card", utmCampaign: "patient_referral", friendCount: 145, cvCount: 52, cvRate: 35.9, createdAt: daysAgo(90) },
+  { id: "TS006", name: "LPコラム記事", utmSource: "blog", utmMedium: "organic", utmCampaign: "column", friendCount: 320, cvCount: 32, cvRate: 10.0, createdAt: daysAgo(45) },
+];
+
+// ヘルプ FAQ
+export interface DemoFAQ {
+  id: string;
+  category: string;
+  question: string;
+  answer: string;
+}
+
+export const DEMO_FAQ: DemoFAQ[] = [
+  { id: "FAQ001", category: "基本操作", question: "ダッシュボードの数値はリアルタイムですか？", answer: "ダッシュボードの数値は数分間隔で更新されます。最新の状態を確認したい場合は、ページをリロードしてください。" },
+  { id: "FAQ002", category: "基本操作", question: "スタッフの権限はどのように設定しますか？", answer: "設定 > スタッフ管理 から各スタッフのロール（管理者/編集者/閲覧者）を変更できます。ロールごとにアクセスできるメニューが異なります。" },
+  { id: "FAQ003", category: "LINE連携", question: "LINEメッセージの既読状態は確認できますか？", answer: "LINE公式アカウントAPIの仕様上、個別の既読確認はできません。配信メッセージの開封率は配信効果分析から確認できます。" },
+  { id: "FAQ004", category: "LINE連携", question: "リッチメニューを患者ごとに切り替えるには？", answer: "タグ管理で患者にタグを付与し、リッチメニュー設定でタグ条件を指定することで自動切り替えが可能です。" },
+  { id: "FAQ005", category: "予約・診察", question: "予約の受付枠を変更するには？", answer: "予約設定から曜日ごとの時間帯と定員を変更できます。変更は即座に反映されます。" },
+  { id: "FAQ006", category: "予約・診察", question: "カルテの入力方法は？", answer: "予約リストから該当患者を選択し、カルテ入力欄に記載してください。AI音声入力機能を使えば、口述でカルテを作成できます。" },
+  { id: "FAQ007", category: "決済・発送", question: "銀行振込の照合はどのように行いますか？", answer: "銀行振込照合ページで未照合の振込一覧が表示されます。振込名義と患者名を照合し、マッチングボタンで紐づけてください。" },
+  { id: "FAQ008", category: "決済・発送", question: "発送後の追跡番号はどこで確認できますか？", answer: "発送管理 > 追跡番号ページで全ての発送済み商品の追跡番号を確認できます。患者にはLINEで自動通知されます。" },
+  { id: "FAQ009", category: "分析・レポート", question: "売上レポートはダウンロードできますか？", answer: "売上管理ページからCSV形式でダウンロードが可能です。期間を指定してエクスポートしてください。" },
+  { id: "FAQ010", category: "分析・レポート", question: "流入経路の計測方法は？", answer: "流入経路ページでUTMパラメータ付きのQRコード/URLを生成できます。各経路からの友達追加数・CV数が自動で集計されます。" },
+];
+
 // 設定データ（デモ表示用）
 export const DEMO_SETTINGS = {
   general: [

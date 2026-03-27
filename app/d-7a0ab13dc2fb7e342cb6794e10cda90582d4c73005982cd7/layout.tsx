@@ -6,11 +6,12 @@ import Link from "next/link";
 
 const BASE = "/d-7a0ab13dc2fb7e342cb6794e10cda90582d4c73005982cd7";
 
-// セクション分けされたメニュー構成
+// セクション分けされたメニュー構成（本番準拠）
 const DEMO_MENU_SECTIONS = [
   {
     items: [
       { href: BASE, icon: "\u{1F4CA}", label: "ダッシュボード" },
+      { href: `${BASE}/accounting`, icon: "\u{1F4B9}", label: "売上管理" },
     ],
   },
   {
@@ -30,22 +31,43 @@ const DEMO_MENU_SECTIONS = [
     title: "予約・診察",
     items: [
       { href: `${BASE}/calendar`, icon: "\u{1F4C5}", label: "予約カレンダー" },
-      { href: `${BASE}/karte`, icon: "\u{1FA7A}", label: "Drカルテ" },
       { href: `${BASE}/reorders`, icon: "\u{1F48A}", label: "再処方管理" },
+      { href: `${BASE}/karte`, icon: "\u{1F4CB}", label: "カルテ" },
+      { href: `${BASE}/doctor`, icon: "\u{1FA7A}", label: "簡易カルテ" },
+    ],
+  },
+  {
+    title: "決済管理",
+    items: [
+      { href: `${BASE}/payments`, icon: "\u{1F4CB}", label: "決済" },
+      { href: `${BASE}/bank-transfer`, icon: "\u{1F50D}", label: "銀行振込照合" },
+      { href: `${BASE}/subscription-plans`, icon: "\u{1F504}", label: "定期プラン" },
+    ],
+  },
+  {
+    title: "発送管理",
+    items: [
+      { href: `${BASE}/shipping`, icon: "\u{1F4E6}", label: "発送管理" },
     ],
   },
   {
     title: "業務管理",
     items: [
-      { href: `${BASE}/shipping`, icon: "\u{1F4E6}", label: "発送管理" },
-      { href: `${BASE}/analytics`, icon: "\u{1F4C8}", label: "分析" },
+      { href: `${BASE}/intake-form`, icon: "\u{1F4DD}", label: "問診設定" },
+      { href: `${BASE}/schedule`, icon: "\u{1F5D3}\uFE0F", label: "予約設定" },
+      { href: `${BASE}/notification-settings`, icon: "\u{1F4E9}", label: "イベント通知" },
+      { href: `${BASE}/products`, icon: "\u{1F48A}", label: "商品管理" },
+      { href: `${BASE}/campaigns`, icon: "\u{1F3AF}", label: "キャンペーン" },
+      { href: `${BASE}/inventory`, icon: "\u{1F4E6}", label: "在庫" },
+      { href: `${BASE}/tracking-sources`, icon: "\u{1F4C8}", label: "流入経路" },
+      { href: `${BASE}/analytics`, icon: "\u{1F4CA}", label: "分析" },
     ],
   },
   {
-    title: "マスター",
+    title: "システム",
     items: [
-      { href: `${BASE}/products`, icon: "\u{1F6D2}", label: "商品管理" },
       { href: `${BASE}/settings`, icon: "\u2699\uFE0F", label: "設定" },
+      { href: `${BASE}/help`, icon: "\u2753", label: "ヘルプ" },
     ],
   },
 ];
