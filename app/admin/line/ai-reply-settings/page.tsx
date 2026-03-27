@@ -458,6 +458,38 @@ export default function AiReplySettingsPage() {
         <p className="text-xs text-gray-400 mb-2">
           クリニックの基本情報を入力してください。AIはこの情報を参照して回答します。
         </p>
+        <details className="mb-3 text-xs border border-purple-100 rounded-lg bg-purple-50/50">
+          <summary className="px-3 py-2 cursor-pointer text-purple-600 font-medium hover:text-purple-700 select-none">
+            書き方のヒント
+          </summary>
+          <div className="px-3 pb-3 pt-1 text-gray-600 space-y-2">
+            <div>
+              <p className="font-medium text-gray-700 mb-0.5">基本ルール</p>
+              <ul className="list-disc list-inside space-y-0.5 text-[11px] text-gray-500">
+                <li><code className="bg-white px-1 rounded text-purple-600">■ セクション名</code> で区切ると、AIが質問に関連する部分だけを自動抽出します</li>
+                <li>1セクションは400文字以内が目安（長すぎると分割されます）</li>
+                <li>箇条書き・簡潔な文で書くとAIの回答精度が上がります</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-medium text-gray-700 mb-0.5">おすすめセクション</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] text-gray-500">
+                <span>■ 営業時間・休診日</span>
+                <span>■ アクセス・駐車場</span>
+                <span>■ 料金・支払い方法</span>
+                <span>■ 予約・キャンセル方法</span>
+                <span>■ 施術メニュー</span>
+                <span>■ 再処方・マイページ</span>
+                <span>■ よくある質問</span>
+                <span>■ 注意事項・禁忌</span>
+              </div>
+            </div>
+            <div>
+              <p className="font-medium text-gray-700 mb-0.5">記入例</p>
+              <pre className="bg-white rounded p-2 text-[11px] text-gray-500 whitespace-pre-wrap leading-relaxed">■ 予約方法{"\n"}LINEメニューの「予約する」ボタンから予約できます。{"\n"}キャンセルはご予約の前日18時までにLINEでご連絡ください。{"\n"}当日キャンセルはキャンセル料（施術料金の50%）が発生します。{"\n"}{"\n"}■ 再処方{"\n"}マイページの「再処方申請」からお手続きいただけます。{"\n"}前回の処方から3ヶ月以上経過している場合は再診が必要です。</pre>
+            </div>
+          </div>
+        </details>
         <textarea
           value={settings.knowledge_base}
           onChange={e => setSettings(s => ({ ...s, knowledge_base: e.target.value }))}
