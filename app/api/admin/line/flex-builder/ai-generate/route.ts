@@ -59,14 +59,14 @@ export async function POST(req: NextRequest) {
 
   const tenantId = resolveTenantIdOrThrow(req);
 
-  let body: { prompt?: string; currentFlexJson?: Record<string, unknown> };
+  let body: { prompt?: string; currentFlexJson?: Record<string, unknown>; imageUrls?: string[] };
   try {
     body = await req.json();
   } catch {
     return badRequest("リクエストボディが不正です");
   }
 
-  const { prompt, currentFlexJson } = body;
+  const { prompt, currentFlexJson, imageUrls } = body;
   if (!prompt?.trim()) {
     return badRequest("prompt は必須です");
   }
@@ -103,9 +103,14 @@ export async function POST(req: NextRequest) {
     ? `${SYSTEM_PROMPT}\n\n## 参考例（既存テンプレート）\n${examplesContext}`
     : SYSTEM_PROMPT;
 
+  // 画像URLがある場合はプロンプトに追記
+  const imageContext = imageUrls?.length
+    ? `\n\n## 使用する画像URL（そのままFlexのimage要素のurlに使用してください）\n${imageUrls.map((u, i) => `- 画像${i + 1}: ${u}`).join("\n")}`
+    : "";
+
   const userMessage = currentFlexJson
-    ? `現在のFlex Messageを以下の指示に従って修正してください:\n\n## 指示\n${prompt}\n\n## 現在のFlex JSON\n\`\`\`json\n${JSON.stringify(currentFlexJson, null, 2)}\n\`\`\``
-    : `以下の内容でLINE Flex Messageを作成してください:\n\n${prompt}`;
+    ? `現在のFlex Messageを以下の指示に従って修正してください:\n\n## 指示\n${prompt}${imageContext}\n\n## 現在のFlex JSON\n\`\`\`json\n${JSON.stringify(currentFlexJson, null, 2)}\n\`\`\``
+    : `以下の内容でLINE Flex Messageを作成してください:\n\n${prompt}${imageContext}`;
 
   try {
     const client = new Anthropic({ apiKey });

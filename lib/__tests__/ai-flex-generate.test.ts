@@ -177,4 +177,32 @@ describe("AI Flex Message生成API", () => {
     expect(calledMessages[0].content).toContain("現在のFlex Messageを以下の指示に従って修正してください");
     expect(calledMessages[0].content).toContain("#06C755");
   });
+
+  it("画像URL付きリクエストでプロンプトに画像情報が含まれる", async () => {
+    const flexJson = {
+      type: "bubble",
+      hero: { type: "image", url: "https://example.com/photo.jpg", size: "full", aspectRatio: "2:1", aspectMode: "cover" },
+      body: { type: "box", layout: "vertical", contents: [{ type: "text", text: "画像付き" }] },
+    };
+
+    mockCreate.mockResolvedValueOnce({
+      content: [{
+        type: "text",
+        text: '```json\n' + JSON.stringify({ name: "画像付きメッセージ", flexJson }) + '\n```',
+      }],
+    });
+
+    const res = await POST(createRequest({
+      prompt: "この画像をヘッダーに配置して",
+      imageUrls: ["https://example.com/photo.jpg"],
+    }));
+    const data = await res.json();
+
+    expect(data.ok).toBe(true);
+    expect(data.flexJson.hero.url).toBe("https://example.com/photo.jpg");
+
+    const calledMessages = mockCreate.mock.calls[0][0].messages;
+    expect(calledMessages[0].content).toContain("https://example.com/photo.jpg");
+    expect(calledMessages[0].content).toContain("使用する画像URL");
+  });
 });
