@@ -21,7 +21,7 @@ const categories = [
       { name: "ステップシナリオ", desc: "友だち追加後のフォロー・再診促進を時間差で自動配信。条件分岐にも対応" },
       { name: "リッチメニュービルダー", desc: "ドラッグ操作でメニューを構築。画像・アクションを直感的に配置" },
       { name: "キーワード自動返信", desc: "「予約」「料金」等のキーワードに即座に自動返信。24時間対応を実現" },
-      { name: "Flex Messageビルダー", desc: "リッチなカード型メッセージをノーコードで作成・配信。カルーセル・ボタン対応" },
+      { name: "AI Flex Messageビルダー", desc: "テキスト指示+画像添付でAIがリッチなカード型メッセージを自動生成。ブロックエディタで微調整も可能" },
       { name: "チャットボットビルダー", desc: "会話フローをビジュアルで設計。質問・条件分岐・アクションを組み合わせてシナリオ構築" },
       { name: "A/Bテスト", desc: "メッセージの複数バリアントを比較検証。開封率・CV率をデータで最適化" },
       { name: "LINE通知bot", desc: "予約・決済・AI返信の状況をLINE通知botでリアルタイムにプッシュ通知。スマホからAI返信の承認・メッセージ送信も可能" },
@@ -525,7 +525,144 @@ export default function Features() {
           </div>
         </FadeIn>
 
-        {/* 5. ダッシュボード + 売上管理 */}
+        {/* 5. AI FLEXビルダー */}
+        <FadeIn>
+          <div className="flex flex-col gap-8 lg:flex-row-reverse lg:items-start lg:gap-14">
+            <div className="w-full lg:w-[58%]">
+              <MockWindow title="Flex Messageビルダー — AI作成モード">
+                <div className="flex gap-0 divide-x divide-slate-100" style={{ minHeight: 320, minWidth: 520 }}>
+                  {/* 左: エディタ + AI指示 */}
+                  <div className="flex w-[55%] shrink-0 flex-col">
+                    {/* ツールバー */}
+                    <div className="flex items-center gap-1.5 border-b border-slate-100 pb-2 mb-2">
+                      <span className="rounded bg-violet-100 px-2 py-0.5 text-[8px] font-bold text-violet-700">AI作成</span>
+                      <span className="rounded bg-slate-100 px-2 py-0.5 text-[8px] text-slate-400">プリセット</span>
+                      <span className="rounded bg-slate-100 px-2 py-0.5 text-[8px] text-slate-400">手動編集</span>
+                      <span className="ml-auto text-[8px] text-slate-300">&#8984;K</span>
+                    </div>
+
+                    {/* ブロック構造ツリー */}
+                    <div className="mb-2 rounded-lg bg-slate-50 p-2">
+                      <div className="text-[8px] font-bold text-slate-400 mb-1.5">ブロック構造</div>
+                      <div className="space-y-1 text-[9px]">
+                        <div className="flex items-center gap-1.5 rounded bg-white px-2 py-1 border border-blue-200 shadow-sm">
+                          <span className="text-[10px]">🖼</span>
+                          <span className="text-slate-700 font-semibold">ヒーロー画像</span>
+                          <span className="ml-auto text-[7px] text-blue-500">AI生成</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 rounded bg-white px-2 py-1 border border-slate-200">
+                          <span className="text-[10px]">T</span>
+                          <span className="text-slate-700 font-semibold">タイトル</span>
+                          <span className="ml-auto text-[7px] text-slate-400">春の特別キャンペーン</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 rounded bg-white px-2 py-1 border border-slate-200">
+                          <span className="text-[10px]">📝</span>
+                          <span className="text-slate-700 font-semibold">本文テキスト</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 rounded bg-white px-2 py-1 border border-slate-200">
+                          <span className="text-[10px]">🎫</span>
+                          <span className="text-slate-700 font-semibold">クーポンバッジ</span>
+                          <span className="ml-auto text-[7px] text-amber-600">20% OFF</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 rounded bg-white px-2 py-1 border border-slate-200">
+                          <span className="text-[10px]">🔘</span>
+                          <span className="text-slate-700 font-semibold">予約ボタン</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* AI指示入力エリア */}
+                    <div className="mt-auto rounded-lg border-2 border-violet-200 bg-violet-50/50 p-2.5">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-violet-500 text-[8px] text-white">AI</span>
+                        <span className="text-[9px] font-bold text-violet-700">AIに指示して作成</span>
+                      </div>
+                      {/* 添付画像プレビュー */}
+                      <div className="mb-2 flex items-center gap-2 rounded-md bg-white px-2 py-1.5 border border-slate-200">
+                        <div className="h-8 w-8 rounded bg-gradient-to-br from-pink-200 to-pink-100 flex items-center justify-center text-[10px]">🌸</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[8px] font-semibold text-slate-600 truncate">sakura-campaign.jpg</div>
+                          <div className="text-[7px] text-slate-400">画像添付済み</div>
+                        </div>
+                        <span className="text-[9px] text-slate-300 cursor-pointer">✕</span>
+                      </div>
+                      {/* 指示テキスト */}
+                      <div className="rounded-md bg-white border border-violet-200 px-2.5 py-2 text-[10px] text-slate-600 leading-relaxed">
+                        春のキャンペーン告知を作って。添付の桜の画像をヒーローに使って、20%OFFクーポンと予約ボタンを入れて
+                      </div>
+                      <div className="mt-2 flex items-center gap-2">
+                        <button className="flex items-center gap-1 rounded bg-white border border-slate-200 px-2 py-1 text-[8px] text-slate-500">
+                          📎 画像
+                        </button>
+                        <div className="flex-1" />
+                        <div className="flex items-center gap-1 rounded-md bg-violet-500 px-3 py-1.5 text-[9px] font-bold text-white shadow-sm">
+                          <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                          生成中...
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 右: LINEプレビュー */}
+                  <div className="flex flex-1 flex-col items-center px-3">
+                    <div className="text-[9px] font-semibold text-slate-400 mb-2 self-start">プレビュー</div>
+                    {/* LINEフレーム */}
+                    <div className="w-full max-w-[200px] rounded-xl border border-slate-200 bg-[#7494C0]/15 p-2.5 shadow-inner">
+                      <div className="overflow-hidden rounded-lg bg-white shadow-sm">
+                        {/* ヒーロー画像 */}
+                        <div className="relative h-24 bg-gradient-to-br from-pink-300 via-pink-200 to-rose-100">
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-3xl opacity-70">🌸</span>
+                          </div>
+                          <div className="absolute bottom-1 right-1 rounded bg-black/40 px-1.5 py-0.5 text-[7px] text-white">AI配置</div>
+                        </div>
+                        {/* タイトル */}
+                        <div className="px-3 pt-2.5">
+                          <div className="text-[11px] font-extrabold text-slate-800 leading-tight">春の特別キャンペーン</div>
+                        </div>
+                        {/* 本文 */}
+                        <div className="px-3 pt-1.5">
+                          <div className="text-[8px] text-slate-500 leading-relaxed">日頃のご愛顧に感謝を込めて、春の特別キャンペーンを開催。この機会にぜひお試しください。</div>
+                        </div>
+                        {/* クーポン */}
+                        <div className="mx-3 mt-2 rounded-md bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 px-2 py-1.5 text-center">
+                          <div className="text-[7px] text-amber-600">期間限定クーポン</div>
+                          <div className="text-[14px] font-extrabold text-amber-600">20% OFF</div>
+                          <div className="text-[7px] text-amber-400">2026/4/30まで</div>
+                        </div>
+                        {/* 予約ボタン */}
+                        <div className="p-3 pt-2">
+                          <div className="rounded-full bg-[#06C755] py-2 text-center text-[9px] font-bold text-white shadow-sm">
+                            今すぐ予約する
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {/* 生成ステータス */}
+                    <div className="mt-2 flex items-center gap-1.5 self-start">
+                      <div className="h-1.5 w-1.5 rounded-full bg-violet-500 animate-pulse" />
+                      <span className="text-[8px] text-violet-600 font-semibold">AIがFLEXを構築中...</span>
+                    </div>
+                  </div>
+                </div>
+              </MockWindow>
+            </div>
+            <div className="w-full lg:w-[42%] lg:pt-4">
+              <h4 className="mb-3 text-xl font-extrabold tracking-tight text-slate-900 md:text-2xl">AIに指示するだけで<br className="hidden md:inline" />FLEX Messageを作成</h4>
+              <p className="mb-5 text-[14px] leading-[1.9] text-slate-500">テキストと画像を送るだけで、AIがLINE Flex Messageを自動生成。ブロックエディタで微調整も可能。プリセットテンプレートも豊富で、ノーコードでリッチなカード型メッセージを作成・配信できます。</p>
+              <ul className="space-y-2.5">
+                {["テキスト指示+画像添付でAIが自動レイアウト", "12種類のブロック（画像・ボタン・クーポン・カウントダウン等）", "プリセットから選ぶだけでも即配信可能", "カルーセル（複数パネル）にも対応"].map((d) => (
+                  <li key={d} className="flex items-start gap-2.5 text-[13px] text-slate-600">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[9px] text-blue-600">&#10003;</span>
+                    {d}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </FadeIn>
+
+        {/* 6. ダッシュボード + 売上管理 */}
         <FadeIn>
           <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-14">
             <div className="w-full lg:w-[58%]">

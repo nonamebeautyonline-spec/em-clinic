@@ -312,7 +312,7 @@ export default function About() {
           </div>
         </div>
         <p className="mt-4 text-center text-[12px] text-slate-400">
-          管理画面 — LINEトーク・患者CRM・対応ステータス・Flex配信をひとつの画面で操作
+          管理画面 — LINEトーク・患者CRM・対応ステータス・AI Flex作成をひとつの画面で操作
         </p>
       </FadeIn>
 
