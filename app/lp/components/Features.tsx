@@ -33,7 +33,7 @@ const categories = [
     icon: "🤖",
     features: [
       { name: "AI自動返信（Claude搭載）", desc: "最新のClaude AIが患者の問い合わせを理解し、予約状況・決済・配送情報も踏まえた高精度な返信を自動生成。スタッフ確認後に送信で品質を担保" },
-      { name: "自動学習", desc: "スタッフの修正や手動返信をAIが自動学習。独自のナレッジベースを構築し、使い込むほどクリニック固有の返信精度が向上するRAG（検索拡張生成）方式" },
+      { name: "自動学習", desc: "スタッフの修正や手動返信をAIが自動学習。独自のナレッジベースを構築し、使い込むほどクリニック固有の返信精度が向上" },
       { name: "音声カルテ自動生成", desc: "診察中の会話を録音→AIがSOAP形式のカルテを自動生成。医療用語の自動抽出・構造化で、カルテ記入の時間を大幅に短縮" },
       { name: "AIモデル選択", desc: "Claude・GPTなど複数のAIモデルを管理画面からワンクリックで切替。用途やコストに応じて最適なモデルを選択可能" },
     ],
@@ -302,7 +302,7 @@ export default function Features() {
               <h4 className="mb-3 text-xl font-extrabold tracking-tight text-slate-900 md:text-2xl">AIが対応し、学び、進化する</h4>
               <p className="mb-5 text-[14px] leading-[1.9] text-slate-500">AIがFAQ・処方情報に加え、患者ごとの予約・決済・発送状況も踏まえた返信文を自動生成。スタッフの修正や手動返信をAIが自動学習し、使うほど返信精度が向上します。</p>
               <ul className="space-y-2.5">
-                {["スタッフ確認後に送信で品質を担保（自動返信に切り替えも可）", "修正・手動返信をAIが自動学習（RAG方式）", "営業時間外の自動送信モード対応", "音声からSOAPカルテも自動生成"].map((d) => (
+                {["スタッフ確認後に送信で品質を担保（自動返信に切り替えも可）", "修正・手動返信をAIが自動学習", "営業時間外の自動送信モード対応", "音声からSOAPカルテも自動生成"].map((d) => (
                   <li key={d} className="flex items-start gap-2.5 text-[13px] text-slate-600">
                     <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[9px] text-blue-600">&#10003;</span>
                     {d}

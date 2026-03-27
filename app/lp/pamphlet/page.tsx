@@ -464,7 +464,7 @@ function PamphletContent() {
 
           <div className="mt-8 grid gap-3 sm:grid-cols-2">
             <FeatureCard accent="#d97706" name="AI自動返信" desc="FAQ・予約・決済・発送状況を加味した返信文を自動生成。スタッフ確認後に送信するフローで品質を担保。" />
-            <FeatureCard accent="#d97706" name="AI自動学習（RAG）" desc="スタッフの修正送信・手動返信をembeddingベクトルで蓄積。使うほど返信精度が向上。" />
+            <FeatureCard accent="#d97706" name="AI自動学習" desc="スタッフの修正送信・手動返信をAIが自動学習。使うほど返信精度が向上。" />
             <FeatureCard accent="#d97706" name="音声カルテ自動生成" desc="診察中の会話をワンタップ録音。AIが文字起こし→SOAP形式カルテを自動生成。" />
             <FeatureCard accent="#d97706" name="AIモデル切替" desc="用途やコストに応じて管理画面からAIモデルを自由に選択。高精度と高速を使い分け。" />
           </div>

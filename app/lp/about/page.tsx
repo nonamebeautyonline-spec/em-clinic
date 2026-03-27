@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: "Lオペ for CLINICとは？ — AI搭載クリニック特化LINE運用プラットフォーム",
   description:
     "Lオペ for CLINICはClaude AI・自動学習・追跡番号自動配信を搭載したクリニック特化LINE運用プラットフォーム。予約管理・オンライン問診・セグメント配信・決済・配送まで、クリニック業務をLINEで一元化。",
-  keywords: "Lオペ, Lオペとは, Lオペ for CLINIC とは, クリニック LINE AI, Claude AI クリニック, RAG 自動学習, 追跡番号 自動配信, クリニック DX 導入, Lステップ 違い, クリニック 業務効率化, 医療DX プラットフォーム, LINE CRM クリニック",
+  keywords: "Lオペ, Lオペとは, Lオペ for CLINIC とは, クリニック LINE AI, Claude AI クリニック, AI 自動学習, 追跡番号 自動配信, クリニック DX 導入, Lステップ 違い, クリニック 業務効率化, 医療DX プラットフォーム, LINE CRM クリニック",
   alternates: { canonical: `${SITE_URL}/lp/about` },
   openGraph: {
     title: "Lオペ for CLINICとは？ — AI搭載クリニック特化LINE運用プラットフォーム",
@@ -43,7 +43,7 @@ const jsonLd = [
     "@type": "FAQPage",
     mainEntity: [
       { q: "LオペのAI自動返信はどのAIモデルを使っていますか？", a: "Anthropic社のClaude（最新モデル）を標準搭載しています。管理画面からGPTなど他モデルへの切替も可能で、用途やコストに応じて最適なモデルを選択できます。" },
-      { q: "AI自動返信の精度はどのように向上しますか？", a: "RAG（検索拡張生成）方式を採用しています。スタッフが修正した返信や手動で送信したメッセージをAIが自動学習し、クリニック固有のナレッジベースを構築。使い込むほど精度が向上します。" },
+      { q: "AI自動返信の精度はどのように向上しますか？", a: "スタッフが修正した返信や手動で送信したメッセージをAIが自動学習し、クリニック固有のナレッジベースを構築。使い込むほど精度が向上します。" },
       { q: "追跡番号のLINE配信はどのように行われますか？", a: "決済完了した注文を発送リストから選択し、配送会社のラベルをCSV出力。発送後は追跡番号がLINEで患者に自動配信されます。ヤマト運輸・日本郵便に対応しています。" },
       { q: "汎用LINE配信ツール（Lステップ等）との違いは？", a: "Lステップ等はLINE配信に特化した汎用ツールです。Lオペはクリニック専用設計で、予約・問診・カルテ・決済・配送・AI自動返信・音声カルテまで一気通貫で対応。クリニック業務全体をLINE上で完結できます。" },
       { q: "患者の個人情報のセキュリティは大丈夫ですか？", a: "SSL暗号化通信、データの暗号化保存、アクセス権限管理、監査ログ機能を標準搭載。医療情報を扱うサービスとして、セキュリティを最優先に設計しています。" },
@@ -86,9 +86,9 @@ const aiTechStack = [
   },
   {
     icon: "brain",
-    badge: "RAG",
+    badge: "AI",
     title: "自動学習エンジン",
-    desc: "スタッフの修正や手動返信をAIが自動で学習。ベクトル検索で、クリニック固有のナレッジベースを構築し、使い込むほど精度が向上します。",
+    desc: "スタッフの修正や手動返信をAIが自動で学習。クリニック固有のナレッジベースを構築し、使い込むほど精度が向上します。",
     details: [
       "スタッフの修正送信を自動で学習データ化",
       "手動返信もナレッジとして蓄積",
@@ -811,7 +811,7 @@ export default function AboutPage() {
                   <div className="flex flex-col justify-center p-8 md:w-1/2 md:order-2 bg-gradient-to-br from-blue-50/50 to-cyan-50/50">
                     <div className="flex items-center gap-3">
                       <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 text-blue-600">{aiTechIcons.brain}</div>
-                      <span className="rounded-full px-2.5 py-0.5 text-[11px] font-bold bg-blue-100 text-blue-700">RAG</span>
+                      <span className="rounded-full px-2.5 py-0.5 text-[11px] font-bold bg-blue-100 text-blue-700">AI</span>
                     </div>
                     <h3 className="mt-4 text-[18px] font-bold text-gray-900">{aiTechStack[1].title}</h3>
                     <p className="mt-3 text-[14px] leading-relaxed text-gray-500">{aiTechStack[1].desc}</p>

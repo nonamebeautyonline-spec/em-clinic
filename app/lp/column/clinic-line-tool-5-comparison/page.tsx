@@ -109,8 +109,8 @@ export default function Page() {
         <h2 id="5-tools">5社の特徴を1分で把握</h2>
         <h3>1. Lオペ for CLINIC</h3>
         <p>
-          LINE公式アカウントを起点に、<strong>予約・問診・CRM・セグメント配信・決済・配送管理</strong>までワンストップで提供するクリニック特化プラットフォーム。
-          予約管理・問診・配信・決済・配送をLINEで一元管理。AI自動返信で24時間患者対応が可能。院長と事務スタッフ1人で全業務を回せる設計が特徴。保険診療・自由診療の両方に対応。
+          LINE公式アカウントを起点に、<strong>予約・問診・オンライン診療・CRM・セグメント配信・決済・配送管理</strong>までワンストップで提供するクリニック特化プラットフォーム。
+          予約管理・問診・配信・決済・配送をLINEで一元管理。<strong>LINEビデオ通話・電話による音声通話でのオンライン診療</strong>にも対応しており、すぐに導入可能。AI自動返信で24時間患者対応が可能。院長と事務スタッフ1人で全業務を回せる設計が特徴。保険診療・自由診療の両方に対応。
         </p>
 
         <h3>2. メディカルフォース（medicalforce）</h3>
@@ -153,7 +153,7 @@ export default function Page() {
             ["LINE予約管理", "◎", "○", "◎", "◎", "×"],
             ["オンライン問診", "◎", "○", "◎", "◎", "×"],
             ["電子カルテ", "△", "◎", "△", "△", "×"],
-            ["オンライン診療", "×", "○", "◎", "◎", "×"],
+            ["オンライン診療", "○", "○", "◎", "◎", "×"],
             ["セグメント配信", "◎", "○", "◎", "◎", "◎"],
             ["患者CRM・タグ管理", "◎", "○", "◎", "◎", "◎"],
             ["決済", "◎", "○", "◎", "◎", "×"],
@@ -167,7 +167,7 @@ export default function Page() {
 
         <Callout type="point" title="各ツールの立ち位置">
           <ul className="space-y-1 m-0 p-0 ml-4 list-disc text-[14px]">
-            <li><strong>Lオペ</strong> — LINE運用+院内業務効率化のオールインワン。予約・決済・発送状況を加味したAI自動返信あり</li>
+            <li><strong>Lオペ</strong> — LINE運用+オンライン診療+院内業務効率化のオールインワン。予約・決済・発送状況を加味したAI自動返信あり</li>
             <li><strong>メディカルフォース</strong> — 電子カルテ・会計が強み。自由診療のバックオフィス向け</li>
             <li><strong>March</strong> — オンライン診療+物販ECが充実。LINE上の患者体験設計が強い</li>
             <li><strong>medibot</strong> — 予約〜決済までLINE完結。コストパフォーマンスが高い</li>
@@ -184,7 +184,7 @@ export default function Page() {
           <h3 className="text-blue-700 mt-0">Lオペ for CLINICの強み</h3>
           <p>
             <strong>院長+事務スタッフ1人で全業務を完結</strong>できる設計が最大の特徴。問診データのダッシュボード一元管理からLINE配信、決済・配送まで1システムで管理でき、ツール間の連携に悩む必要がありません。
-            <strong>予約管理・問診・配信・決済・配送をLINEで一元管理</strong>でき、対面＋オンラインのハイブリッド運用が可能。
+            <strong>予約管理・問診・オンライン診療・配信・決済・配送をLINEで一元管理</strong>でき、対面＋オンラインのハイブリッド運用が可能。オンライン診療はLINEビデオ通話や電話による音声通話に対応しており、追加ツール不要ですぐに始められます。
             また、<strong>AI自動返信</strong>は5社中唯一の機能で、患者ごとの予約・決済・発送状況を加味した返信を自動生成し、営業時間外の患者対応も自動化できます。
             さらに<strong>LINE通知bot</strong>で予約・決済・AI返信の状況がリアルタイムにプッシュ通知され、スマホのブラウザからトーク画面を操作してAI返信の承認・メッセージ送信・決済確認がどこからでも可能です。保険診療・自由診療の両方に対応。
           </p>
@@ -274,7 +274,7 @@ export default function Page() {
         <div className="rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 p-6 border border-amber-100 mb-6">
           <h3 className="text-amber-800 mt-0">オンライン診療を拡大したいクリニック</h3>
           <p className="text-[14px] text-gray-700 mb-0">
-            ビデオ診療・処方・決済までLINE上で完結させたい場合は<strong>Lオペ</strong>・<strong>March</strong>・<strong>medibot</strong>が対応しています。
+            LINEビデオ通話や電話での音声通話を活用したオンライン診療・処方・決済までLINE上で完結させたい場合は<strong>Lオペ</strong>・<strong>March</strong>・<strong>medibot</strong>が対応しています。
             オンライン診療の費用については<Link href="/lp/column/online-medical-cost" className="text-sky-600 underline hover:text-sky-800">オンライン診療費用ガイド</Link>をご覧ください。
           </p>
         </div>
@@ -340,7 +340,7 @@ export default function Page() {
           クリニック向けLINEツール5社を比較しました。いずれも優れたサービスであり、「どれが最良か」は自院の規模・診療形態・優先したい業務によって異なります。
         </p>
         <ul className="ml-6 list-disc space-y-2 text-[15px] text-gray-700 mt-4">
-          <li><strong>LINE運用+予約・問診・配信・決済・配送の一元管理</strong> → Lオペ for CLINIC</li>
+          <li><strong>LINE運用+予約・問診・オンライン診療・配信・決済・配送の一元管理</strong> → Lオペ for CLINIC</li>
           <li><strong>電子カルテ・会計中心で自由診療特化</strong> → メディカルフォース</li>
           <li><strong>オンライン診療+物販ECを展開</strong> → March</li>
           <li><strong>予約〜決済をLINE完結+コスパ重視</strong> → medibot</li>
