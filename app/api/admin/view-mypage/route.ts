@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
-type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
+type PaymentStatus = "paid" | "pending" | "failed" | "refunded" | "cancelled";
 type RefundStatus = "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED" | "UNKNOWN";
 
 type OrderForMyPage = {
@@ -27,6 +27,7 @@ type OrderForMyPage = {
   refundStatus?: RefundStatus;
   refundedAt?: string;
   refundedAmount?: number;
+  cancelledAt?: string;
 };
 
 function toIsoFlexible(v: unknown): string {
@@ -61,7 +62,7 @@ function toIsoFlexible(v: unknown): string {
 
 function normalizePaymentStatus(v: unknown): PaymentStatus {
   const s = (typeof v === "string" ? v : String(v ?? "")).toLowerCase();
-  if (s === "paid" || s === "pending" || s === "failed" || s === "refunded") return s as PaymentStatus;
+  if (s === "paid" || s === "pending" || s === "failed" || s === "refunded" || s === "cancelled") return s as PaymentStatus;
   if (String(v ?? "").toUpperCase() === "COMPLETED") return "paid";
   return "paid";
 }
@@ -100,6 +101,7 @@ interface OrderDbRow {
   address: string | null;
   shipping_name: string | null;
   shipping_list_created_at: string | null;
+  cancelled_at: string | null;
 }
 
 interface ReorderDbRow {
@@ -276,6 +278,14 @@ async function getOrdersFromSupabase(patientId: string, tenantId: string | null)
       if (o.status === "pending_confirmation") {
         paymentStatus = "pending" as PaymentStatus;
       }
+      if (o.status === "cancelled") {
+        const rs = normalizeRefundStatus(o.refund_status);
+        if (rs === "PENDING" || rs === "COMPLETED") {
+          paymentStatus = "refunded" as PaymentStatus;
+        } else {
+          paymentStatus = "cancelled" as PaymentStatus;
+        }
+      }
 
       return {
         id: String(o.id ?? ""),
@@ -291,6 +301,7 @@ async function getOrdersFromSupabase(patientId: string, tenantId: string | null)
         refundStatus: normalizeRefundStatus(o.refund_status) || (o.status === "cancelled" ? "CANCELLED" as RefundStatus : undefined),
         refundedAt: toIsoFlexible(refundedRaw) || undefined,
         refundedAmount: toNumberOrUndefined(o.refunded_amount),
+        cancelledAt: toIsoFlexible(o.cancelled_at ?? "") || undefined,
         postalCode: o.postal_code ?? undefined,
         address: o.address ?? undefined,
         shippingName: (o.shipping_name && o.shipping_name !== "null") ? o.shipping_name : undefined,

@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
       strictWithTenant(
         supabaseAdmin
           .from("orders")
-          .select("id, product_code, product_name, amount, paid_at, payment_method, tracking_number, shipping_date, shipping_status, refund_status, created_at")
+          .select("id, product_code, product_name, amount, paid_at, payment_method, tracking_number, shipping_date, shipping_status, refund_status, refunded_at, refunded_amount, cancelled_at, status, created_at")
           .eq("patient_id", patientId)
           .order("created_at", { ascending: false })
           .limit(30),
@@ -146,7 +146,10 @@ export async function GET(req: NextRequest) {
       paymentMethod: formatPaymentMethod(o.payment_method),
       trackingNumber: o.tracking_number || "",
       shippingDate: o.shipping_date || "",
-      refundStatus: o.refund_status || null,
+      refundStatus: o.refund_status || (o.status === "cancelled" ? "CANCELLED" : null),
+      refundedAt: o.refunded_at || null,
+      refundedAmount: o.refunded_amount || null,
+      cancelledAt: o.cancelled_at || null,
     }));
 
     // 再処方

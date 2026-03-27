@@ -40,6 +40,9 @@ type HistoryItem = {
   paymentMethod: string;
   trackingNumber: string;
   refundStatus: string | null;
+  refundedAt: string | null;
+  refundedAmount: number | null;
+  cancelledAt: string | null;
 };
 
 type ReorderItem = {
@@ -446,22 +449,40 @@ export default function PatientDetailPage({
                       <p className="text-sm text-gray-400 text-center py-4">履歴なし</p>
                     ) : (
                       <div className="space-y-0 divide-y divide-gray-100 max-h-[300px] overflow-auto">
-                        {history.map((h, i) => (
-                          <div key={h.id || i} className="flex items-center justify-between gap-3 py-2.5">
+                        {history.map((h, i) => {
+                          const isRefunded = h.refundStatus === "COMPLETED" || h.refundStatus === "PENDING";
+                          const isCancelled = !isRefunded && (h.refundStatus === "CANCELLED" || !!h.cancelledAt);
+                          return (
+                          <div key={h.id || i} className={`flex items-center justify-between gap-3 py-2.5 ${isCancelled ? "opacity-50" : ""}`}>
                             <div>
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-medium text-gray-800">{h.productName}</span>
-                                {h.refundStatus && <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-50 text-rose-600 border border-rose-200">返金: {h.refundStatus}</span>}
+                                {isRefunded && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                                    {h.refundStatus === "PENDING" ? "返金手続き中" : "返金済み"}
+                                  </span>
+                                )}
+                                {isCancelled && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 border border-gray-200">
+                                    キャンセル済み
+                                  </span>
+                                )}
                               </div>
                               <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
                                 <span>{formatDateJST(h.paidAt)}</span>
                                 <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 text-[10px]">{h.paymentMethod}</span>
                                 {h.trackingNumber && <span className="text-gray-400">追跡: {h.trackingNumber}</span>}
+                                {isRefunded && h.refundedAt && <span className="text-amber-600">返金日: {formatDateJST(h.refundedAt)}</span>}
+                                {isCancelled && h.cancelledAt && <span className="text-gray-400">キャンセル日: {formatDateJST(h.cancelledAt)}</span>}
                               </div>
+                              {isRefunded && h.refundedAmount && h.refundedAmount > 0 && (
+                                <div className="mt-0.5 text-xs text-amber-600">返金額: ¥{h.refundedAmount.toLocaleString()}</div>
+                              )}
                             </div>
                             <span className="text-sm font-bold text-gray-800 whitespace-nowrap">¥{Number(h.amount).toLocaleString()}</span>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )
                   ) : (
