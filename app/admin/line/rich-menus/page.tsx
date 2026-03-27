@@ -163,6 +163,13 @@ export default function RichMenuManagementPage() {
   const [mediaImages, setMediaImages] = useState<{ id: number; name: string; file_url: string }[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
 
+  // AI画像生成
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiStyle, setAiStyle] = useState<"card" | "gradient" | "banner">("card");
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
   // LINE同期オーバーレイ
   const [syncStatus, setSyncStatus] = useState<{ show: boolean; step: string; done: boolean; error: string | null }>({ show: false, step: "", done: false, error: null });
 
@@ -285,6 +292,90 @@ export default function RichMenuManagementPage() {
       setMediaImages(data.files);
     }
     setLoadingMedia(false);
+  };
+
+  // AI画像生成ハンドラー
+  const handleAiGenerate = async () => {
+    if (!aiPrompt.trim() || aiGenerating) return;
+    setAiGenerating(true);
+    setAiError(null);
+
+    try {
+      const res = await fetch("/api/admin/line/rich-menus/ai-generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          prompt: aiPrompt.trim(),
+          sizeType: "full",
+          buttonCount: buttons.length || 6,
+          buttonLabels: buttons.map(b => b.label).filter(Boolean),
+          style: aiStyle,
+          layoutCells: buttons.map(b => ({
+            x: b.bounds.x,
+            y: b.bounds.y,
+            w: b.bounds.width,
+            h: b.bounds.height,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setAiError(data.error || data.message || "生成に失敗しました");
+        return;
+      }
+
+      // SVG → Canvas → PNG Blob → media APIにアップロード
+      const svgStr = data.svg as string;
+      const img = new Image();
+      const svgBlob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
+      const svgUrl = URL.createObjectURL(svgBlob);
+
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = 2500;
+          canvas.height = 1686;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) { reject(new Error("Canvas未対応")); return; }
+          ctx.drawImage(img, 0, 0, 2500, 1686);
+          URL.revokeObjectURL(svgUrl);
+
+          canvas.toBlob(async (blob) => {
+            if (!blob) { reject(new Error("PNG変換失敗")); return; }
+            // メディアAPIにアップロード
+            const fd = new FormData();
+            fd.append("file", new File([blob], `ai-richmenu-${Date.now()}.png`, { type: "image/png" }));
+            fd.append("file_type", "menu_image");
+            const uploadRes = await fetch("/api/admin/line/media", { method: "POST", credentials: "include", body: fd });
+            const uploadData = await uploadRes.json();
+            if (uploadRes.ok && uploadData.file?.file_url) {
+              setImageUrl(uploadData.file.file_url);
+            } else {
+              reject(new Error(uploadData.error || "アップロード失敗"));
+              return;
+            }
+            resolve();
+          }, "image/png");
+        };
+        img.onerror = () => { URL.revokeObjectURL(svgUrl); reject(new Error("SVG読み込み失敗")); };
+        img.src = svgUrl;
+      });
+
+      // ボタンラベルがあれば反映
+      if (data.buttonLabels?.length) {
+        setButtons(prev => prev.map((btn, i) =>
+          data.buttonLabels[i] ? { ...btn, label: data.buttonLabels[i] } : btn
+        ));
+      }
+
+      setShowAiModal(false);
+      setAiPrompt("");
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "AI画像生成に失敗しました");
+    } finally {
+      setAiGenerating(false);
+    }
   };
 
   const applyPreset = (cols: number, rows: number) => {
@@ -582,6 +673,12 @@ export default function RichMenuManagementPage() {
               <div className="flex items-center gap-4">
                 <button onClick={openImagePicker} className="px-4 py-2 bg-[#06C755] text-white text-sm rounded-lg hover:bg-[#05b34d] w-fit flex-shrink-0">
                   メニュー画像選択
+                </button>
+                <button onClick={() => setShowAiModal(true)} className="px-4 py-2 bg-gradient-to-r from-purple-500 to-violet-600 text-white text-sm rounded-lg hover:from-purple-600 hover:to-violet-700 w-fit flex-shrink-0 flex items-center gap-1.5">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                  </svg>
+                  AIで作成
                 </button>
                 {imageUrl && (
                   <div className="flex items-center gap-3">
@@ -1350,6 +1447,110 @@ export default function RichMenuManagementPage() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI画像生成モーダル */}
+      {showAiModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => !aiGenerating && setShowAiModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            {/* ヘッダー */}
+            <div className="bg-gradient-to-r from-purple-500 to-violet-600 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-white font-bold text-lg">AIでリッチメニュー画像を生成</h2>
+                  <p className="text-white/70 text-xs">デザインの要望を入力するだけで自動生成</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-5 space-y-4">
+              {/* デザインスタイル */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">デザインスタイル</label>
+                <div className="flex gap-3">
+                  {([
+                    { value: "card" as const, label: "カード型", desc: "白パネル×影" },
+                    { value: "gradient" as const, label: "グラデーション", desc: "鮮やか×すりガラス" },
+                    { value: "banner" as const, label: "バナー型", desc: "上部バナー×下部ボタン" },
+                  ]).map(s => (
+                    <button
+                      key={s.value}
+                      type="button"
+                      onClick={() => setAiStyle(s.value)}
+                      disabled={aiGenerating}
+                      className={`flex-1 px-3 py-2.5 rounded-xl border-2 text-left transition-all ${
+                        aiStyle === s.value
+                          ? "border-purple-500 bg-purple-50"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      <span className={`text-sm font-medium block ${aiStyle === s.value ? "text-purple-700" : "text-gray-700"}`}>{s.label}</span>
+                      <span className="text-[11px] text-gray-400">{s.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* デザイン要望 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">デザインの要望</label>
+                <textarea
+                  value={aiPrompt}
+                  onChange={e => setAiPrompt(e.target.value)}
+                  placeholder={"例:\n・清潔感のある医療クリニック向けデザイン\n・ピンクと白を基調とした美容クリニック風\n・モダンで洗練された雰囲気、青と緑のカラー"}
+                  className="w-full h-28 px-4 py-3 rounded-xl border border-gray-300 focus:border-purple-400 focus:ring-2 focus:ring-purple-100 outline-none resize-none text-sm placeholder:text-gray-400"
+                  disabled={aiGenerating}
+                />
+              </div>
+
+              {/* ボタン数表示 */}
+              <p className="text-xs text-gray-400">
+                現在のボタン数: {buttons.length}個（レイアウトに合わせて生成されます）
+              </p>
+
+              {aiError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+                  {aiError}
+                </div>
+              )}
+            </div>
+
+            {/* フッター */}
+            <div className="px-6 py-4 bg-gray-50 flex items-center justify-end gap-3">
+              <button
+                onClick={() => { setShowAiModal(false); setAiError(null); }}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                disabled={aiGenerating}
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleAiGenerate}
+                disabled={!aiPrompt.trim() || aiGenerating}
+                className="px-5 py-2.5 bg-gradient-to-r from-purple-500 to-violet-600 text-white text-sm font-medium rounded-xl hover:from-purple-600 hover:to-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+              >
+                {aiGenerating ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    生成中...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                    </svg>
+                    AIで生成
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

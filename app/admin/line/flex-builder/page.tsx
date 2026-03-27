@@ -9,6 +9,7 @@ import { PanelNavigator } from "./_components/PanelNavigator";
 import { BlockSettingsPanel } from "./_components/BlockSettingsPanel";
 import { PresetGallery } from "./_components/PresetGallery";
 import { WizardStartScreen } from "./_components/WizardStartScreen";
+import { AiFlexGenerator } from "./_components/AiFlexGenerator";
 import { LinePhoneFrame } from "@/components/admin/LinePhoneFrame";
 import { editorPanelsToFlex, panelToBubble } from "@/lib/flex-editor/block-mapping";
 import type { EditorBlock } from "@/lib/flex-editor/block-types";
@@ -84,6 +85,7 @@ export function FlexBuilderInner({ templateIdProp, onClose }: { templateIdProp?:
   const [showSaved, setShowSaved] = useState(false);
   const [templateAutoLoaded, setTemplateAutoLoaded] = useState(false);
   const [wizardDismissed, setWizardDismissed] = useState(false);
+  const [showAiGenerator, setShowAiGenerator] = useState(false);
 
   // ウィザード表示条件: ブロックが空 & テンプレート未読み込み & ユーザーがまだ閉じていない
   const showWizard = !wizardDismissed && !editingTemplateId && panels.every((p) => p.blocks.length === 0);
@@ -220,6 +222,7 @@ export function FlexBuilderInner({ templateIdProp, onClose }: { templateIdProp?:
             setWizardDismissed(true);
           }}
           onStartFromScratch={() => setWizardDismissed(true)}
+          onStartWithAi={() => setShowAiGenerator(true)}
           onSelectPreset={(preset) => {
             selectPreset(preset);
             setWizardDismissed(true);
@@ -233,6 +236,21 @@ export function FlexBuilderInner({ templateIdProp, onClose }: { templateIdProp?:
               setShowPresets(false);
             }}
             onClose={() => setShowPresets(false)}
+          />
+        )}
+        {showAiGenerator && (
+          <AiFlexGenerator
+            onGenerated={(flexJson, name) => {
+              dispatch({
+                type: "LOAD_FLEX_DATA",
+                flexData: flexJson,
+                name,
+                templateId: null,
+              });
+              setShowAiGenerator(false);
+              setWizardDismissed(true);
+            }}
+            onCancel={() => setShowAiGenerator(false)}
           />
         )}
       </div>

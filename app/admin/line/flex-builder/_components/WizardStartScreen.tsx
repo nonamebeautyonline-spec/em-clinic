@@ -5,6 +5,7 @@ import type { FlexPreset } from "../page";
 interface Props {
   onStartFromTemplate: () => void;
   onStartFromScratch: () => void;
+  onStartWithAi: () => void;
   presets: FlexPreset[];
   onSelectPreset: (preset: FlexPreset) => void;
 }
@@ -13,6 +14,7 @@ interface Props {
 export function WizardStartScreen({
   onStartFromTemplate,
   onStartFromScratch,
+  onStartWithAi,
   presets,
   onSelectPreset,
 }: Props) {
@@ -33,12 +35,12 @@ export function WizardStartScreen({
             Flexメッセージを作成
           </h1>
           <p className="text-sm text-gray-500">
-            テンプレートから始めるか、ゼロから自由に作成できます
+            テンプレート・AI生成・ゼロから、お好みの方法で作成できます
           </p>
         </div>
 
-        {/* 2モードカード */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-10">
+        {/* 3モードカード */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
           {/* テンプレートから作る */}
           <button
             onClick={onStartFromTemplate}
@@ -91,6 +93,35 @@ export function WizardStartScreen({
             </p>
             <div className="flex items-center gap-1 text-blue-600 text-sm font-medium mt-4 group-hover:gap-2 transition-all">
               エディタを開く
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </button>
+
+          {/* AIで作る */}
+          <button
+            onClick={onStartWithAi}
+            className="group text-left p-6 bg-white rounded-2xl border-2 border-purple-200 hover:border-purple-400 hover:shadow-lg transition-all duration-200"
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-800">AIで作る</h3>
+                <span className="inline-block px-2 py-0.5 bg-purple-100 text-purple-700 text-[10px] font-medium rounded-full mt-0.5">
+                  NEW
+                </span>
+              </div>
+            </div>
+            <p className="text-sm text-gray-500 leading-relaxed">
+              内容や用途を入力するだけでAIがFlexメッセージを自動生成。あとはエディタで微調整するだけ。
+            </p>
+            <div className="flex items-center gap-1 text-purple-600 text-sm font-medium mt-4 group-hover:gap-2 transition-all">
+              AIで生成する
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
