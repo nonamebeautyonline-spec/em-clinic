@@ -120,6 +120,12 @@ const categoryDesign: Record<string, CategoryDesign> = {
     badgeBg: "#f97316", badgeText: "#ffffff",
     titleColor: "#ffffff", titleAccent: "#fdba74", subColor: "#fed7aa",
   },
+  医薬品解説: {
+    bgHint: "pharmaceutical capsules and medical research documents, teal green tones",
+    overlay: "rgba(15,23,42,0.72)",
+    badgeBg: "#0d9488", badgeText: "#ffffff",
+    titleColor: "#ffffff", titleAccent: "#5eead4", subColor: "#99f6e4",
+  },
 };
 
 const defaultDesign: CategoryDesign = {

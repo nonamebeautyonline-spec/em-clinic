@@ -44,6 +44,12 @@ const catTheme: Record<string, { from: string; to: string; accent: string; label
   ガイド:         { from: "from-sky-50",     to: "to-cyan-100/60",   accent: "#0284c7", label: "bg-sky-100 text-sky-700" },
   業務改善:       { from: "from-cyan-50",    to: "to-blue-100/60",   accent: "#0891b2", label: "bg-cyan-100 text-cyan-700" },
   マーケティング: { from: "from-indigo-50",  to: "to-blue-100/60",   accent: "#4f46e5", label: "bg-indigo-100 text-indigo-700" },
+  経営戦略:       { from: "from-rose-50",    to: "to-red-100/60",    accent: "#f43f5e", label: "bg-rose-100 text-rose-700" },
+  運営ノウハウ:   { from: "from-amber-50",   to: "to-yellow-100/60", accent: "#f59e0b", label: "bg-amber-100 text-amber-700" },
+  "開業・経営":   { from: "from-cyan-50",    to: "to-teal-100/60",   accent: "#06b6d4", label: "bg-cyan-100 text-cyan-700" },
+  医薬品解説:     { from: "from-teal-50",    to: "to-emerald-100/60", accent: "#0d9488", label: "bg-teal-100 text-teal-700" },
+  エビデンス解説: { from: "from-green-50",   to: "to-emerald-100/60", accent: "#10b981", label: "bg-green-100 text-green-700" },
+  収益モデル:     { from: "from-orange-50",  to: "to-amber-100/60",  accent: "#f97316", label: "bg-orange-100 text-orange-700" },
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════

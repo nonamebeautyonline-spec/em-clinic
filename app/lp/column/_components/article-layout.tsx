@@ -138,6 +138,12 @@ const categoryColors: Record<string, { bg: string; text: string }> = {
   ガイド: { bg: "bg-sky-50", text: "text-sky-700" },
   業務改善: { bg: "bg-amber-50", text: "text-amber-700" },
   マーケティング: { bg: "bg-rose-50", text: "text-rose-700" },
+  経営戦略: { bg: "bg-red-50", text: "text-red-700" },
+  運営ノウハウ: { bg: "bg-yellow-50", text: "text-yellow-700" },
+  "開業・経営": { bg: "bg-cyan-50", text: "text-cyan-700" },
+  医薬品解説: { bg: "bg-teal-50", text: "text-teal-700" },
+  エビデンス解説: { bg: "bg-green-50", text: "text-green-700" },
+  収益モデル: { bg: "bg-orange-50", text: "text-orange-700" },
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════

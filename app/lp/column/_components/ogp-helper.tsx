@@ -11,6 +11,12 @@ const categoryColors: Record<string, { bg: string; text: string; dot: string }> 
   "ガイド": { bg: "rgba(59,130,246,0.1)", text: "#1d4ed8", dot: "#3b82f6" },
   "業務改善": { bg: "rgba(245,158,11,0.1)", text: "#b45309", dot: "#f59e0b" },
   "マーケティング": { bg: "rgba(236,72,153,0.1)", text: "#be185d", dot: "#ec4899" },
+  "経営戦略": { bg: "rgba(244,63,94,0.1)", text: "#be123c", dot: "#f43f5e" },
+  "運営ノウハウ": { bg: "rgba(245,158,11,0.1)", text: "#b45309", dot: "#f59e0b" },
+  "開業・経営": { bg: "rgba(6,182,212,0.1)", text: "#0e7490", dot: "#06b6d4" },
+  "医薬品解説": { bg: "rgba(13,148,136,0.1)", text: "#0f766e", dot: "#0d9488" },
+  "エビデンス解説": { bg: "rgba(16,185,129,0.1)", text: "#047857", dot: "#10b981" },
+  "収益モデル": { bg: "rgba(249,115,22,0.1)", text: "#c2410c", dot: "#f97316" },
 };
 
 const defaultColor = { bg: "rgba(59,130,246,0.1)", text: "#1d4ed8", dot: "#3b82f6" };
