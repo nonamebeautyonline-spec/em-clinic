@@ -84,6 +84,7 @@ function PurchaseConfirmContent() {
   });
   const [autoAddress, setAutoAddress] = useState(""); // 郵便番号から自動入力された住所
   const [addressDetail, setAddressDetail] = useState(""); // 番地・建物名等の手動入力
+  const [usePrevShipping, setUsePrevShipping] = useState(false);
 
   // 郵便番号から住所自動入力
   const handlePostalCodeChange = useCallback(async (value: string) => {
@@ -100,6 +101,33 @@ function PurchaseConfirmContent() {
       } catch { /* API失敗時は手入力 */ }
     }
   }, []);
+
+  // 前回の配送先情報を取得
+  const { data: lastShippingData } = useSWR("/api/mypage/last-shipping", swrFetcher, {
+    revalidateOnFocus: false,
+  });
+  const lastShipping = lastShippingData?.hasData ? lastShippingData.shipping : null;
+
+  // 「前回の情報を使用」チェック時に自動入力
+  useEffect(() => {
+    if (usePrevShipping && lastShipping) {
+      setShipping({
+        name: lastShipping.name || "",
+        postalCode: lastShipping.postalCode || "",
+        address: "",
+        phone: lastShipping.phone || "",
+        email: lastShipping.email || "",
+      });
+      // 住所はautoAddress+addressDetailに分割できないため、全体をaddressDetailに設定
+      const addr = lastShipping.address || "";
+      setAutoAddress("");
+      setAddressDetail(addr);
+      // 郵便番号で住所自動検索を試行
+      if (lastShipping.postalCode) {
+        handlePostalCodeChange(lastShipping.postalCode);
+      }
+    }
+  }, [usePrevShipping, lastShipping, handlePostalCodeChange]);
 
   // autoAddress + addressDetail を統合して shipping.address に反映
   const fullAddress = `${autoAddress}${addressDetail}`.trim();
@@ -628,6 +656,23 @@ function PurchaseConfirmContent() {
               {/* 配送先住所フォーム */}
               <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 space-y-3">
                 <p className="text-[11px] font-medium text-slate-700">配送先情報</p>
+                {lastShipping && (
+                  <div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={usePrevShipping}
+                        onChange={(e) => setUsePrevShipping(e.target.checked)}
+                        className="rounded border-slate-300 text-pink-500 focus:ring-pink-500"
+                        disabled={submitting}
+                      />
+                      <span className="text-[12px] font-medium text-slate-700">前回の情報を使用</span>
+                    </label>
+                    {usePrevShipping && (
+                      <p className="mt-1 ml-6 text-[10px] text-amber-600">＊変更や不足がないかご確認ください。</p>
+                    )}
+                  </div>
+                )}
                 <div className="space-y-2.5">
                   <div>
                     <label className="text-[10px] text-slate-500 block mb-0.5">配送先氏名</label>

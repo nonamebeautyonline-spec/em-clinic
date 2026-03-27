@@ -1,8 +1,15 @@
 // app/mypage/purchase/bank-transfer/shipping/page.tsx
 "use client";
 
-import React, { useState, useCallback, Suspense } from "react";
+import React, { useState, useCallback, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import useSWR from "swr";
+
+const swrFetcher = (url: string) =>
+  fetch(url, { credentials: "include" }).then((r) => {
+    if (!r.ok) throw new Error("API error");
+    return r.json();
+  });
 
 function ShippingFormContent() {
   const router = useRouter();
@@ -22,6 +29,7 @@ function ShippingFormContent() {
   const [addressDetail, setAddressDetail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [usePrevShipping, setUsePrevShipping] = useState(false);
 
   // 郵便番号から住所自動入力
   const handlePostalCodeChange = useCallback(async (value: string) => {
@@ -38,6 +46,29 @@ function ShippingFormContent() {
       } catch { /* API失敗時は手入力 */ }
     }
   }, []);
+
+  // 前回の配送先情報を取得
+  const { data: lastShippingData } = useSWR("/api/mypage/last-shipping", swrFetcher, {
+    revalidateOnFocus: false,
+  });
+  const lastShipping = lastShippingData?.hasData ? lastShippingData.shipping : null;
+
+  // 「前回の情報を使用」チェック時に自動入力
+  useEffect(() => {
+    if (usePrevShipping && lastShipping) {
+      setAccountName(lastShipping.accountName || "");
+      setShippingName(lastShipping.name || "");
+      setPhoneNumber(lastShipping.phone || "");
+      setEmail(lastShipping.email || "");
+      // 住所は全体をaddressDetailに設定し、郵便番号で自動検索を試行
+      const addr = lastShipping.address || "";
+      setAutoAddress("");
+      setAddressDetail(addr);
+      if (lastShipping.postalCode) {
+        handlePostalCodeChange(lastShipping.postalCode);
+      }
+    }
+  }, [usePrevShipping, lastShipping, handlePostalCodeChange]);
 
   const fullAddress = `${autoAddress}${addressDetail}`.trim();
 
@@ -118,6 +149,25 @@ function ShippingFormContent() {
       {/* コンテンツ */}
       <div className="mx-auto max-w-md px-4 pb-6 pt-4">
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* 前回の情報を使用 */}
+          {lastShipping && (
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={usePrevShipping}
+                  onChange={(e) => setUsePrevShipping(e.target.checked)}
+                  className="rounded border-slate-300 text-pink-500 focus:ring-pink-500"
+                  disabled={submitting}
+                />
+                <span className="text-[12px] font-medium text-slate-700">前回の情報を使用</span>
+              </label>
+              {usePrevShipping && (
+                <p className="mt-1 ml-6 text-[10px] text-amber-600">＊変更や不足がないかご確認ください。</p>
+              )}
+            </div>
+          )}
+
           {/* 口座名義 */}
           <div>
             <label

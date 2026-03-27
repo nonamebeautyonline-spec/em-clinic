@@ -251,6 +251,7 @@ export default function PatientInfoColumn() {
         {isSectionVisible("latestOrder") && patientDetail?.latestOrder && (
           <div className="px-4 py-3 border-b border-gray-100">
             <SectionLabel>最新決済</SectionLabel>
+            {patientDetail.latestOrder.shipping_name && <InfoRow label="配送先名義">{patientDetail.latestOrder.shipping_name}</InfoRow>}
             <InfoRow label="メニュー">{patientDetail.latestOrder.product}</InfoRow>
             <InfoRow label="金額">{patientDetail.latestOrder.amount}</InfoRow>
             <InfoRow label="決済方法">{patientDetail.latestOrder.payment}</InfoRow>

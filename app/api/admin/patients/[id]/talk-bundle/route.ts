@@ -51,7 +51,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // 決済履歴
     strictWithTenant(supabaseAdmin
       .from("orders")
-      .select("id, product_code, amount, payment_method, shipping_date, tracking_number, created_at, postal_code, address, phone, email, status, refund_status")
+      .select("id, product_code, amount, payment_method, shipping_date, tracking_number, created_at, shipping_name, postal_code, address, phone, email, status, refund_status")
       .eq("patient_id", patientId)
       .order("created_at", { ascending: false })
       .limit(10), tenantId),
@@ -140,6 +140,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     amount: latestOrder.amount ? `¥${latestOrder.amount.toLocaleString()}` : "-",
     payment: formatPaymentMethod(latestOrder.payment_method),
     tracking: latestOrder.tracking_number || "-",
+    shipping_name: latestOrder.shipping_name || "",
     postal_code: latestOrder.postal_code || "",
     address: latestOrder.address || "",
     phone: latestOrder.phone || "",

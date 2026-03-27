@@ -72,6 +72,7 @@ export interface PatientDetail {
     amount: string;
     payment: string;
     tracking: string;
+    shipping_name: string;
     postal_code: string;
     address: string;
     phone: string;
