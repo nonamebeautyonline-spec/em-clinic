@@ -56,13 +56,13 @@ BEGIN
   classified AS (
     SELECT
       CASE
-        WHEN bp.patient_id IS NOT NULL THEN 0
         WHEN pp.patient_id IS NOT NULL THEN 7
         WHEN ia.has_status THEN 6
         WHEN ia.has_reserve THEN 5
         WHEN ia.has_answers THEN 4
         WHEN p.tel IS NOT NULL THEN 3
         WHEN p.patient_id NOT LIKE 'LINE_%' THEN 2
+        WHEN bp.patient_id IS NOT NULL THEN 0
         ELSE 1
       END AS step
     FROM patients p
