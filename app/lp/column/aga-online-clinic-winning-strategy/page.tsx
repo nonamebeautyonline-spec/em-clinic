@@ -21,18 +21,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "AGA市場は大手寡占ではない — 個人クリニックが差別化で勝てる余地は大きい",
@@ -55,7 +43,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         AGA（男性型脱毛症）オンライン診療は参入障壁が低い一方で、大手クリニックとの競合が激化しています。本記事では<strong>個人・小規模クリニックが大手に勝つための具体的な差別化戦略</strong>を、薬剤の仕入れ・販売価格の実数値、診療フローの設計、患者LTV最大化の施策、広告戦略、そして<strong>Lオペ for CLINICを活用したDr1人ミニマム運営モデル</strong>に至るまで徹底的に解説します。

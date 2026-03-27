@@ -28,18 +28,6 @@ export const metadata: Metadata = {
   openGraph: { title, description, url: `${SITE_URL}/lp/column/${slug}`, type: "article", publishedTime: date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: title,
-  description,
-  datePublished: date,
-  dateModified: date,
-  image: `${SITE_URL}/lp/column/${slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${slug}`,
-};
 
 const keyPoints = [
   "開業医の平均年齢は60歳超 — 承継準備は10年前から始めるのが理想",
@@ -61,7 +49,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         クリニックの院長が高齢化するなか、<strong>事業承継の準備不足による「望まない廃院」</strong>が社会的な問題になっています。個人開業と医療法人では承継の手続きが根本的に異なり、税務上の影響も大きく変わります。本記事では、親族承継・第三者承継（M&A）の両方を視野に入れた<strong>承継プランニングの全体像</strong>を解説します。なお、税務・法務の詳細は個別の事情により大きく異なるため、必ず税理士・弁護士にご相談ください。

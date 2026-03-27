@@ -19,18 +19,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "オンライン診療後の処方フローは「院外処方」「院内処方+配送」「薬局連携配送」の3パターン",
@@ -51,7 +39,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         オンライン診療を受けた患者が最も気にするのは「薬をどうやって受け取るか」です。対面診療であれば院内処方でその場で薬を受け取るか、処方箋を持って近くの薬局に行くだけですが、オンライン診療では<strong>処方箋の送付方法・薬の配送手段・到着までの時間</strong>など複数の検討事項があります。本記事では、クリニックが採用可能な3つの処方フローを整理し、それぞれのメリット・デメリットと選定基準を解説します。

@@ -31,18 +31,6 @@ export const metadata: Metadata = {
   openGraph: { title: meta.title, description: meta.description, url: `${SITE_URL}/lp/column/${SLUG}`, type: "article", publishedTime: meta.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: meta.title,
-  description: meta.description,
-  datePublished: meta.date,
-  dateModified: meta.date,
-  image: `${SITE_URL}/lp/column/${SLUG}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${SLUG}`,
-};
 
 const keyPoints = [
   "売上=新患数×初回単価＋既存患者数×リピート率×リピート単価の公式で3つの変数を同時改善",
@@ -63,7 +51,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={SLUG} breadcrumbLabel="マーケティング" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「月商をもう一段引き上げたいが、何から手をつければいいか分からない」——自費診療クリニックの院長先生から最も多く寄せられる相談です。売上を3倍にするには、闇雲に広告費を増やすのではなく、<strong>新患獲得・診療単価アップ・リピート率向上</strong>の3つの変数を構造的に改善する必要があります。本記事では、Lオペ for CLINICの導入クリニックで実際に<strong>月商300万円→900万円</strong>を達成した戦略を、具体的な数値と施策とともに徹底解説します。

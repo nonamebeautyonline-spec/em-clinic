@@ -38,23 +38,6 @@ export const metadata: Metadata = {
   },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: articleMeta.title,
-  description: articleMeta.description,
-  datePublished: articleMeta.date,
-  dateModified: articleMeta.date,
-  image: `${SITE_URL}/lp/column/${SLUG}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: {
-    "@type": "Organization",
-    name: "Lオペ for CLINIC",
-    url: SITE_URL,
-    logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` },
-  },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${SLUG}`,
-};
 
 const keyPoints = [
   "美容内服市場は年率15%超で拡大しオンライン処方との相性が抜群",
@@ -75,7 +58,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={SLUG} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         シミ・肝斑・くすみ対策として美容内服薬の需要が急拡大しています。トラネキサム酸やビタミンC、グルタチオンなどの美容内服は<strong>月額サブスク型のオンライン処方</strong>と相性が良く、クリニックにとっては安定した自費診療収益の柱になります。しかし、処方して終わりでは継続率が伸びません。本記事では、<strong>Lオペ for CLINICのセグメント配信</strong>を活用して肌悩み別・季節別にターゲティングし、リピート率を最大化する具体的な方法を解説します。

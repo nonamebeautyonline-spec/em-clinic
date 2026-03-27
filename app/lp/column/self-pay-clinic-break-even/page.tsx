@@ -28,18 +28,6 @@ export const metadata: Metadata = {
   openGraph: { title, description, url: `${SITE_URL}/lp/column/${slug}`, type: "article", publishedTime: date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: title,
-  description,
-  datePublished: date,
-  dateModified: date,
-  image: `${SITE_URL}/lp/column/${slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${slug}`,
-};
 
 const keyPoints = [
   "損益分岐点＝固定費÷限界利益率 — 自費クリニックは変動費率が低いため固定費管理が命",
@@ -60,7 +48,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         自費クリニックの経営は「売上＝正義」ではありません。<strong>どの売上水準で黒字になるか（損益分岐点）</strong>を正確に把握し、月次で収支を管理することが安定経営の基盤です。本記事では、損益分岐点の計算方法から月次で追うべき経営指標、改善アクションの優先順位まで、<strong>自費クリニックに特化した収支管理の実践法</strong>を解説します。固定費の最適化については<Link href="/lp/column/clinic-fixed-cost-optimization" className="text-sky-600 underline hover:text-sky-800">固定費最適化ガイド</Link>もあわせてご覧ください。

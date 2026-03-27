@@ -20,18 +20,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "厚労省「オンライン診療の適切な実施に関する指針」の策定経緯と最新改定内容",
@@ -58,7 +46,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         オンライン診療を実施するクリニックにとって、厚生労働省の<strong>「オンライン診療の適切な実施に関する指針」</strong>は最も重要な規範です。本記事では、2018年の策定から最新改定までの経緯を踏まえ、指針の重要ポイントをわかりやすく完全解説します。初診解禁の要件、処方制限、本人確認、セキュリティ要件、自費診療のルールまで網羅しています。オンライン診療の全体像は<Link href="/lp/column/online-clinic-complete-guide" className="text-sky-600 underline hover:text-sky-800">オンライン診療完全ガイド</Link>、法規制の体系的な整理は<Link href="/lp/column/online-clinic-regulations" className="text-sky-600 underline hover:text-sky-800">オンライン診療の法規制と薬機法</Link>もあわせてご覧ください。

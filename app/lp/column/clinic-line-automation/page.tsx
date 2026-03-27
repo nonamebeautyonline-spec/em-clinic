@@ -19,18 +19,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "予約リマインド自動化で無断キャンセルを80%削減",
@@ -51,7 +39,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニックのLINE公式アカウント運用において、手動で行っている業務を自動化することで<strong>スタッフの作業時間を月40時間以上削減</strong>できます。本記事では、予約リマインド・フォローアップ・AI返信・セグメント配信の4つの自動化を段階的に導入する方法を解説します。</p>
 

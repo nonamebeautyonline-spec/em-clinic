@@ -20,18 +20,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "バイアグラ・シアリス・レビトラの3大PDE5阻害薬を効果発現・持続時間で比較",
@@ -54,7 +42,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         ED（勃起不全）治療薬は<strong>PDE5阻害薬</strong>と呼ばれ、バイアグラ（シルデナフィル）・シアリス（タダラフィル）・レビトラ（バルデナフィル）の3種類が主流です。それぞれ効果発現時間・持続時間・食事の影響が異なり、患者のライフスタイルに合った薬剤選択が重要です。本記事では各薬剤の特徴・副作用・価格帯に加え、<strong>ジェネリックの選択肢やオンライン処方の活用法</strong>を解説します。処方は必ず医師の判断のもとで行ってください。

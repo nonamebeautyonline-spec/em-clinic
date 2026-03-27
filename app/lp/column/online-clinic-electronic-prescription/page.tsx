@@ -21,18 +21,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "電子処方箋の仕組みと従来の紙処方箋との違いを理解",
@@ -55,7 +43,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         電子処方箋は、オンライン診療のラストワンマイルを変える仕組みです。紙の処方箋をFAXや郵送で薬局に送る手間がなくなり、<strong>診療から調剤までをデジタルで完結</strong>できます。本記事ではHPKIカードの取得から電子処方箋管理サービスへの接続、運用フローの設計、自費診療での活用まで、導入に必要な実務情報を網羅します。
@@ -198,7 +185,7 @@ export default function Page() {
           運用上の注意点として、<strong>患者がマイナンバーカードを持っていない場合</strong>の代替フローも用意しておく必要があります。マイナンバーカード未取得の患者には、従来通り紙の処方箋をFAX+郵送で対応するか、処方箋の引換番号を発行して薬局に伝える方法があります。電子処方箋と紙処方箋の<strong>併用運用</strong>が当面は続くことを前提に、両方のフローをスタッフが理解しておくことが重要です。
         </p>
         <p>
-          オンライン診療の場合、患者が薬局に行かず<strong>配送で薬を受け取りたい</strong>ケースが多数です。この場合、オンライン服薬指導に対応した薬局を患者に案内し、薬局から患者宅に配送する流れになります。院内処方で薬をクリニックから直接配送するフローとは別の選択肢として、電子処方箋+薬局配送のフローを提示できるようにしておくと、患者の利便性が向上します。
+          オンライン診療の場合、患者が薬局に行かず<strong>配送で薬を受け取りたい</strong>ケースが多数です。この場合、オンライン服薬指導に対応した薬局を患者に案内し、薬局から患者宅に配送する流れになります。オンライン服薬指導の実務については<Link href="/lp/column/online-clinic-medication-counseling" className="text-sky-600 underline hover:text-sky-800">服薬指導ガイド</Link>で詳しく解説しています。院内処方で薬をクリニックから直接配送するフローとは別の選択肢として、電子処方箋+薬局配送のフローを提示できるようにしておくと、患者の利便性が向上します。
         </p>
 
         <InlineCTA />
@@ -218,7 +205,7 @@ export default function Page() {
           まず、自費診療の処方箋は保険番号が不要なため、電子処方箋管理サービスとの連携方法が保険診療とは一部異なります。自費処方箋を電子処方箋として発行する場合は、電子カルテの設定で「自費処方」を選択した上で電子署名を行います。対応状況は電子カルテのベンダーによって異なるため、導入前に確認が必要です。
         </p>
         <p>
-          自費診療のオンラインクリニックでは、<strong>院内処方（クリニックが薬を直接配送）</strong>を採用しているケースが多いです。この場合、電子処方箋は使わず、クリニック内で在庫から出荷して配送するフローになります。一方、薬局と連携して調剤・配送を行うモデルであれば、電子処方箋の活用が業務効率化に大きく貢献します。
+          自費診療のオンラインクリニックでは、<strong>院内処方（クリニックが薬を直接配送）</strong>を採用しているケースが多いです。この場合、電子処方箋は使わず、クリニック内で在庫から出荷して配送するフローになります。自費オンライン診療の処方に関する法的ルールは<Link href="/lp/column/self-pay-online-clinic-rules" className="text-sky-600 underline hover:text-sky-800">自費オンライン診療のルールガイド</Link>を参照してください。一方、薬局と連携して調剤・配送を行うモデルであれば、電子処方箋の活用が業務効率化に大きく貢献します。
         </p>
         <p>
           自費診療で電子処方箋を活用するメリットは、<strong>薬局の選択肢を患者に広げられる</strong>点です。院内処方ではクリニックの在庫に限られますが、電子処方箋であれば全国の対応薬局で調剤が可能なため、「自宅近くの薬局で受け取りたい」「かかりつけ薬局で一元管理したい」という患者ニーズに応えられます。

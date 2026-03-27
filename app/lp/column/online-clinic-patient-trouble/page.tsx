@@ -21,18 +21,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "オンライン診療で発生しやすいトラブル5類型と発生頻度",
@@ -55,7 +43,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="運営ノウハウ" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         オンライン診療では対面と異なるトラブルが発生します。配送遅延、副作用、期待と異なる効果、返金要求、ネガティブ口コミ — これらに対する<strong>事前の備えと標準化された対応フロー</strong>が、クリニックの信頼を守る鍵です。本記事ではトラブル類型ごとの対応策と、LINE上での対応標準化の方法を解説します。
@@ -135,7 +122,7 @@ export default function Page() {
           オンラインクリニックで特に多い副作用は、GLP-1の消化器症状（嘔気・下痢）、ピルの不正出血・頭痛、AGA薬の性機能低下、ED薬の頭痛・ほてりです。これらの<strong>頻度の高い副作用については「対応テンプレート」</strong>を事前に作成しておくと、スタッフの対応品質を均一化できます。
         </p>
         <p>
-          患者への事前説明も重要な予防策です。処方時に「このような副作用が出る可能性があります。症状が出た場合はすぐにLINEでご連絡ください」と案内し、問い合わせのハードルを下げておくことで、<strong>軽症の段階で報告が上がりやすく</strong>なり、重症化を防げます。
+          患者への事前説明も重要な予防策です。処方時に「このような副作用が出る可能性があります。症状が出た場合はすぐにLINEでご連絡ください」と案内し、問い合わせのハードルを下げておくことで、<strong>軽症の段階で報告が上がりやすく</strong>なり、重症化を防げます。事前説明と同意取得の具体的な方法は<Link href="/lp/column/online-clinic-consent-form-guide" className="text-sky-600 underline hover:text-sky-800">オンライン診療の同意書ガイド</Link>で詳しく解説しています。
         </p>
       </section>
 
@@ -254,7 +241,7 @@ export default function Page() {
         </Callout>
 
         <p>
-          配送トラブルの詳細な予防策は<Link href="/lp/column/online-clinic-prescription-delivery" className="text-sky-600 underline hover:text-sky-800">医薬品配送ガイド</Link>、オンライン診療の法規制は<Link href="/lp/column/online-clinic-regulations" className="text-sky-600 underline hover:text-sky-800">法規制ガイド</Link>もあわせてご確認ください。お問い合わせは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">こちら</Link>から。
+          配送トラブルの詳細な予防策は<Link href="/lp/column/online-clinic-prescription-delivery" className="text-sky-600 underline hover:text-sky-800">医薬品配送ガイド</Link>、オンライン診療の法規制は<Link href="/lp/column/online-clinic-regulations" className="text-sky-600 underline hover:text-sky-800">法規制ガイド</Link>、オンライン診療の全体像は<Link href="/lp/column/online-clinic-complete-guide" className="text-sky-600 underline hover:text-sky-800">オンライン診療完全ガイド</Link>もあわせてご確認ください。お問い合わせは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">こちら</Link>から。
         </p>
       </section>
     </ArticleLayout>

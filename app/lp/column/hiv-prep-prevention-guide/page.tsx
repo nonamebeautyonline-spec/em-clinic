@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, {
   InlineCTA,
@@ -18,18 +19,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "PrEP（曝露前予防）は正しく服用すればHIV感染リスクを99%低減できる",
@@ -40,7 +29,6 @@ const keyPoints = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={[]}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「HIV予防って、コンドーム以外に方法あるの？」——実はあります。<strong>PrEP（プレップ）</strong>という、HIV陰性の方が事前に抗HIV薬を飲むことで感染を防ぐ方法です。WHOも推奨しているこの予防法について、デイリーPrEPとオンデマンドPrEPの違い、費用、処方の流れまで<strong>まるっと解説</strong>します。
@@ -183,7 +171,7 @@ export default function Page() {
 
         <p>PrEPは、正しく使えばHIV感染リスクを99%低減できる強力な予防手段です。デイリーPrEPは安定した効果が得られ、オンデマンドPrEPは必要なときだけ使えるコスト効率の良い選択肢。日本では自費診療となりますが、<strong>ジェネリックの普及で費用は着実に下がってきています</strong>。</p>
 
-        <p>大切なのは、<strong>定期的な検査とフォローアップを欠かさないこと</strong>。PrEPはHIV以外のSTIは防げませんし、腎機能のモニタリングも必須です。オンライン診療を活用すれば、これらのフォローアップを無理なく継続できます。HIV予防の選択肢を広げることは、患者さんの人生を守ることにつながります。</p>
+        <p>大切なのは、<strong>定期的な検査とフォローアップを欠かさないこと</strong>。PrEPはHIV以外のSTIは防げませんし、腎機能のモニタリングも必須です。細菌性STIの事後予防としては<Link href="/lp/column/doxy-pep-std-prevention" className="text-sky-600 underline hover:text-sky-800">ドキシペップ（Doxy-PEP）</Link>という選択肢も登場しており、PrEPとの併用が注目されています。また、急増する梅毒の検査・治療については<Link href="/lp/column/syphilis-diagnosis-treatment-guide" className="text-sky-600 underline hover:text-sky-800">梅毒の診断・治療ガイド</Link>をご覧ください。オンライン診療を活用すれば、これらのフォローアップを無理なく継続できます。STD領域でのオンライン診療の始め方は<Link href="/lp/column/std-online-clinic-lope" className="text-sky-600 underline hover:text-sky-800">STDオンライン診療の始め方</Link>で解説しています。HIV予防の選択肢を広げることは、患者さんの人生を守ることにつながります。</p>
       </section>
     </ArticleLayout>
   );

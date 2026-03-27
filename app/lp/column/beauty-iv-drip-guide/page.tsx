@@ -27,23 +27,6 @@ export const metadata: Metadata = {
   },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: {
-    "@type": "Organization",
-    name: "Lオペ for CLINIC",
-    url: SITE_URL,
-    logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` },
-  },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "クリニックで提供される主要な美容点滴・注射4種類（白玉点滴・高濃度ビタミンC点滴・プラセンタ注射・にんにく注射）の効果・施術時間・価格帯を徹底比較",
@@ -66,7 +49,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         美容点滴・美容注射は、レーザーや注入系施術に次ぐクリニックの自費メニューとして確立されつつあります。白玉点滴、高濃度ビタミンC点滴、プラセンタ注射、にんにく注射——それぞれの<strong>作用機序・エビデンス・施術時間・価格帯・副作用</strong>を正確に理解し、患者に適切な情報提供を行うことが重要です。本記事では、主要4施術を徹底比較し、リピート促進の運用戦略まで解説します。すべての施術は必ず医師の診察・判断に基づいて実施してください。

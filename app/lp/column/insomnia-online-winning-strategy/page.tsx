@@ -45,23 +45,6 @@ export const metadata: Metadata = {
   },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: {
-    "@type": "Organization",
-    name: "Lオペ for CLINIC",
-    url: SITE_URL,
-    logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` },
-  },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "成人の20〜30%が不眠症状を抱えるが、実際の受診率はわずか10%台 — 巨大な潜在市場",
@@ -82,6 +65,20 @@ const toc = [
   { id: "revenue", label: "月間収益モデル" },
   { id: "summary", label: "まとめ" },
 ];
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: self.title,
+  description: self.description,
+  datePublished: self.date,
+  author: { "@type": "Organization", name: "Lオペ for CLINIC" },
+  publisher: {
+    "@type": "Organization",
+    name: "Lオペ for CLINIC",
+    logo: { "@type": "ImageObject", url: `${SITE_URL}/logo.png` },
+  },
+};
 
 export default function Page() {
   return (

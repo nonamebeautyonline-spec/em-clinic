@@ -18,23 +18,10 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = [
-  {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    headline: self.title,
-    description: self.description,
-    datePublished: `${self.date}T00:00:00+09:00`,
-    dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-    image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-    author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-    publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-    mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-  },
-  {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: [
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
       {
         "@type": "Question",
         name: "メディカルフォースとLオペ for CLINICの違いは？",
@@ -55,9 +42,8 @@ const jsonLd = [
         name: "クリニック向けLINEツールの月額費用の相場は？",
         acceptedAnswer: { "@type": "Answer", text: "ツールにより月額数万円〜20万円以上と幅があります。LINE配信特化型は月3〜6万円、医療特化オールインワン型は月7〜20万円が目安です。複数ツールを組み合わせると合計で月15〜30万円になることもあります。" },
       },
-    ],
-  },
-];
+  ],
+};
 
 const keyPoints = [
   "Lオペ・メディカルフォース・March・medibot・Lステップの5社を比較",

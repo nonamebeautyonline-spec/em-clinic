@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, {
   InlineCTA,
@@ -17,18 +18,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "タダラフィル2.5〜5mgを毎日服用し、常にED治療効果を維持するデイリー療法",
@@ -39,7 +28,6 @@ const keyPoints = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={[]}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「ED薬って、その都度飲むものでしょ？」——実はそうとも限りません。タダラフィル（シアリスのジェネリック）には<strong>毎日少量を飲み続ける「デイリー投与」</strong>という選択肢があります。
@@ -124,7 +112,7 @@ export default function Page() {
           ]}
         />
 
-        <p>シルデナフィルとバルデナフィルは「短距離ランナー」、タダラフィルは「マラソンランナー」とよく例えられます。特に<strong>食事の影響がほぼない</strong>のは地味に大きなメリット。デートのディナー前に空腹を我慢する必要もなく、<strong>日常生活のリズムを崩さずにED治療ができる</strong>のがタダラフィル最大の強みです。</p>
+        <p>シルデナフィルとバルデナフィルは「短距離ランナー」、タダラフィルは「マラソンランナー」とよく例えられます。特に<strong>食事の影響がほぼない</strong>のは地味に大きなメリット。デートのディナー前に空腹を我慢する必要もなく、<strong>日常生活のリズムを崩さずにED治療ができる</strong>のがタダラフィル最大の強みです。3種類のED薬の詳しい比較については<Link href="/lp/column/ed-medication-comparison" className="text-sky-600 underline hover:text-sky-800">ED治療薬の徹底比較ガイド</Link>もあわせてご覧ください。</p>
 
         <p>「じゃあ全員タダラフィルでいいのでは？」と思うかもしれませんが、そう単純でもありません。シルデナフィルは効き目の立ち上がりが早く、<strong>「今日だけ確実に効いてほしい」</strong>というシーンでは頼もしい選択肢。バルデナフィルも即効性に優れています。どの薬がベストかは、患者さんの生活パターンや性行為の頻度によって変わります。</p>
       </section>
@@ -171,7 +159,7 @@ export default function Page() {
 
         <p>ジェネリックの普及により、先発品（シアリス）の<strong>約1/3の価格</strong>で処方可能になりました。月額2,000〜4,000円という水準は、患者さんにとって「続けやすい価格帯」です。そしてデイリー投与は毎月同じ薬を同じ量だけ処方するため、<strong>オンライン診療との親和性が非常に高い</strong>。</p>
 
-        <p>LINEで問診→オンライン診察→処方→自宅配送という流れを構築すれば、患者さんは通院の手間なく毎月の処方を受けられます。ED治療は対面で相談しづらいと感じる方も多いため、<strong>LINEベースのオンライン診療はまさに理想的なチャネル</strong>です。</p>
+        <p>LINEで問診→オンライン診察→処方→自宅配送という流れを構築すれば、患者さんは通院の手間なく毎月の処方を受けられます。ED治療は対面で相談しづらいと感じる方も多いため、<strong>LINEベースのオンライン診療はまさに理想的なチャネル</strong>です。EDオンライン診療の立ち上げ方については<Link href="/lp/column/ed-online-clinic-lope" className="text-sky-600 underline hover:text-sky-800">EDオンライン診療の始め方ガイド</Link>で詳しく解説しています。</p>
 
         <StatGrid stats={[
           { value: "2,000〜4,000", unit: "円/月", label: "ジェネリック デイリー投与の費用目安" },
@@ -185,7 +173,7 @@ export default function Page() {
           デイリータダラフィルは、タイミングを気にしない自然な治療体験と、ジェネリック普及による手頃な費用を両立するED治療の選択肢です。
           週2回以上の性行為がある方、服用のたびにプレッシャーを感じる方には特に検討の価値があります。
           オンライン診療×LINE処方で<strong>「続けやすい仕組み」</strong>を整えることが、ED治療の成功率を高めるカギになるでしょう。
-          クリニック側にとっても、定期処方モデルによる安定した患者リレーションの構築に最適な処方パターンです。
+          クリニック側にとっても、定期処方モデルによる安定した患者リレーションの構築に最適な処方パターンです。EDを含む男性特有の悩みへのオンライン対応については<Link href="/lp/column/mens-health-online-clinic" className="text-sky-600 underline hover:text-sky-800">メンズヘルスオンライン診療</Link>の記事も参考にしてください。
         </Callout>
       </section>
     </ArticleLayout>

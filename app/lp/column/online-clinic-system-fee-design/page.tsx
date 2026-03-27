@@ -20,18 +20,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "システム利用料は「通信費」等の名目で徴収可能だが、金額と根拠の説明が不可欠",
@@ -52,7 +40,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         オンライン診療を導入したクリニックが直面する悩みの一つが、<strong>システム利用料（通信費・予約手数料）をどう設定するか</strong>です。患者に請求すべきか、いくらが適正か、どう説明すれば納得してもらえるか——これらの判断を誤ると、患者離脱の原因になりかねません。本記事では、保険診療・自費診療それぞれのシステム利用料の相場と設計パターンを整理し、収益確保と患者満足度を両立する料金体系の考え方を解説します。

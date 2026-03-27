@@ -25,18 +25,6 @@ export const metadata: Metadata = {
   openGraph: { title, description, url: `${SITE_URL}/lp/column/${slug}`, type: "article", publishedTime: date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: title,
-  description,
-  datePublished: date,
-  dateModified: date,
-  image: `${SITE_URL}/lp/column/${slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${slug}`,
-};
 
 const keyPoints = [
   "アフターピルは72時間以内の服用が必須 — オンライン診療のスピード対応が最大の強み",
@@ -60,7 +48,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         アフターピル（緊急避妊薬）のオンライン処方は、<strong>72時間という時間制限</strong>との闘いです。夜間・休日でも即座に対応できるオンライン診療は、緊急避妊において最も合理的な選択肢となっています。一方で、2024年以降のOTC化議論の進展により、薬局での購入が可能になりつつあるいま、オンラインクリニックには<strong>新たな差別化戦略</strong>が求められています。本記事では、処方フローの最適化からOTC時代の競争戦略、低用量ピルへの転換による収益安定化まで、アフターピル処方クリニックの全体像を解説します。

@@ -25,18 +25,6 @@ export const metadata: Metadata = {
   openGraph: { title, description, url: `${SITE_URL}/lp/column/${slug}`, type: "article", publishedTime: date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: title,
-  description,
-  datePublished: date,
-  dateModified: date,
-  image: `${SITE_URL}/lp/column/${slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${slug}`,
-};
 
 const keyPoints = [
   "アフターピルのOTC化は2024年の試験販売を経て正式に拡大 — 薬局での処方箋なし購入が可能に",
@@ -57,7 +45,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         アフターピル（緊急避妊薬）のOTC化が現実のものとなり、薬局での処方箋なし販売が拡大しています。この変化は、アフターピル処方を収益の一部としてきた婦人科・オンライン診療クリニックにとって<strong>大きな転換点</strong>です。本記事では、OTC化の経緯を時系列で整理し、クリニック経営への影響分析と具体的な対応戦略を徹底解説します。<strong>Lオペ for CLINIC</strong>を活用した収益構造の転換方法も合わせて紹介します。

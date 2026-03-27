@@ -28,29 +28,16 @@ const faqItems = [
   { q: "配信頻度はどのくらいが適切ですか？", a: "月2〜4回が目安です。週1回を超えるとブロック率が上がる傾向があります。ただし、予約リマインドや問診送信などの個別通知は配信頻度にカウントされないため、一斉配信の頻度を抑えつつ個別通知で利便性を高めるのが効果的です。" },
 ];
 
-const jsonLd = [
-  {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    headline: self.title,
-    description: self.description,
-    datePublished: `${self.date}T00:00:00+09:00`,
-    dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-    image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-    author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-    publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-    mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-  },
-  {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: faqItems.map((item) => ({
-      "@type": "Question",
-      name: item.q,
-      acceptedAnswer: { "@type": "Answer", text: item.a },
-    })),
-  },
-];
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "LINE公式アカウントの基本設定から高度な自動化まで、クリニック運用の全体像を把握できる",

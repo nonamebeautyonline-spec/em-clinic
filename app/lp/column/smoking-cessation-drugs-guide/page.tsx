@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, {
   InlineCTA,
@@ -18,18 +19,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "チャンピックス（バレニクリン）は禁煙成功率約50%で最も高い",
@@ -40,7 +29,6 @@ const keyPoints = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={[]}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「タバコをやめたいけど、意志の力だけじゃ無理だった」——その感覚、正しいです。ニコチン依存症は<strong>脳の報酬系に作用する立派な薬物依存</strong>であり、「気合い」で治るものではありません。幸い、日本には<strong>保険適用の禁煙治療薬が3種類</strong>あります。この記事では、それぞれの仕組み・効果・選び方と、12週間の禁煙外来プログラムの流れを解説します。
@@ -178,7 +166,7 @@ export default function Page() {
       <section>
         <h2 id="online" className="text-xl font-bold text-gray-800">オンライン禁煙外来 — 通院のハードルを下げて継続率アップ</h2>
 
-        <p>2020年の規制緩和で、禁煙外来は<strong>初診からオンライン対応が可能</strong>になりました。5回の受診のうち、初回と最終回以外はオンラインで完結できるため、「仕事が忙しくて通えない」という脱落を防げます。</p>
+        <p>2020年の規制緩和で、禁煙外来は<strong>初診からオンライン対応が可能</strong>になりました。5回の受診のうち、初回と最終回以外はオンラインで完結できるため、「仕事が忙しくて通えない」という脱落を防げます。オンライン診療の導入手順や法規制については<Link href="/lp/column/online-clinic-complete-guide" className="text-sky-600 underline hover:text-sky-800">オンライン診療完全ガイド</Link>で詳しく解説しています。</p>
 
         <p>さらに効果的なのは、<strong>LINEを活用した受診間のフォローアップ</strong>です。「吸いたくなったときのメッセージ」「禁煙○日目おめでとうの自動配信」「副作用の相談窓口」をLINEで提供することで、患者の禁煙継続をサポートできます。</p>
 
@@ -191,7 +179,7 @@ export default function Page() {
 
         <p>ニコチン依存症は脳の病気であり、薬物療法は科学的に有効な治療法です。チャンピックスの供給再開により、最も成功率の高い治療選択肢が再び使えるようになりました。保険適用の12週間プログラムはタバコ代より安く、オンライン対応で通院の負担も軽くなっています。</p>
 
-        <p>クリニックとしては、禁煙外来は<strong>初期投資が少なく、定期受診が組み込まれた収益安定型の診療メニュー</strong>です。LINEでの服薬リマインドと禁煙応援メッセージを組み合わせれば、脱落率の改善と患者満足度の向上を同時に実現できます。</p>
+        <p>クリニックとしては、禁煙外来は<strong>初期投資が少なく、定期受診が組み込まれた収益安定型の診療メニュー</strong>です。LINEでの服薬リマインドと禁煙応援メッセージを組み合わせれば、脱落率の改善と患者満足度の向上を同時に実現できます。禁煙と並行して取り組むべき生活習慣病管理のオンライン化については<Link href="/lp/column/lifestyle-disease-online-management" className="text-sky-600 underline hover:text-sky-800">生活習慣病オンライン管理ガイド</Link>も参考にしてください。また、オンライン診療での処方ルールについては<Link href="/lp/column/online-clinic-prescription-rules" className="text-sky-600 underline hover:text-sky-800">オンライン処方ルール解説</Link>をご覧ください。</p>
       </section>
     </ArticleLayout>
   );

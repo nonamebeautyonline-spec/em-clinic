@@ -28,23 +28,6 @@ export const metadata: Metadata = {
   },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: self.date,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: {
-    "@type": "Organization",
-    name: "Lオペ for CLINIC",
-    url: SITE_URL,
-    logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` },
-  },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "生活習慣病の継続処方はストック型収益の典型であり、患者1人あたりの年間LTVは6〜15万円に達する",
@@ -66,7 +49,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         生活習慣病（高血圧・糖尿病・脂質異常症）の継続処方は、<strong>最もストック性の高い診療モデル</strong>のひとつです。患者は数年〜数十年にわたって処方を継続するため、一度構築した患者基盤が安定的な収益を生み続けます。本記事では、オンライン診療を活用した生活習慣病管理の市場機会、疾患別の運用設計、検査値モニタリング、服薬アドヒアランス向上策、そして具体的な収益モデルまでを解説します。

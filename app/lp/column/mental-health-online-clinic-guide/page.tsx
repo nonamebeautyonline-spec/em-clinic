@@ -35,18 +35,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "抗うつ薬（SSRI・SNRI等）のオンライン初診処方は30日分が上限、BZ系睡眠薬・抗不安薬は初診処方不可",
@@ -67,7 +55,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         日本のメンタルヘルス疾患の患者数は<strong>約614万人</strong>（令和2年患者調査）に達し、その中でも不眠症と気分障害（うつ病等）は最も一般的な疾患群です。精神科・心療内科の初診予約は<strong>数週間〜数か月待ち</strong>が常態化しており、「受診したくても受診できない」患者が多数存在します。オンライン診療はこの受診障壁を大幅に下げる手段ですが、<strong>向精神薬には特有のオンライン処方制限</strong>があるため、制度を正確に理解した上での運用設計が不可欠です。本記事では、向精神薬の処方制限、不眠症・軽度うつ病の薬剤選択、オンラインでの初診対応のポイント、そして<strong>Lオペ for CLINICによるLINE問診・評価スケール自動収集・フォロー自動化</strong>まで解説します。

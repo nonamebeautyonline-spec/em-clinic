@@ -28,18 +28,6 @@ export const metadata: Metadata = {
   openGraph: { title, description, url: `${SITE_URL}/lp/column/${slug}`, type: "article", publishedTime: date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: title,
-  description,
-  datePublished: date,
-  dateModified: date,
-  image: `${SITE_URL}/lp/column/${slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${slug}`,
-};
 
 const keyPoints = [
   "クリニック開業資金の相場は5,000万〜1億円 — 診療科・立地で大きく変動",
@@ -61,7 +49,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="開業・経営" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         クリニック開業は医師のキャリアにおける最大の投資です。<strong>開業資金は5,000万〜1億円</strong>と言われますが、調達手段は自己資金だけではありません。本記事では、日本政策金融公庫・民間融資・リースなど複数の調達手段を組み合わせて<strong>キャッシュフローを安定させる「ミックス戦略」</strong>を解説します。開業後の運転資金まで見据えた資金計画の立て方を学び、安定した経営基盤を構築しましょう。なお、開業準備全般については<Link href="/lp/column/minimum-clinic-opening-guide" className="text-sky-600 underline hover:text-sky-800">ミニマム開業ガイド</Link>もあわせてご覧ください。

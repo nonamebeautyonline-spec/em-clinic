@@ -20,18 +20,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "GLP-1はインクレチンホルモンの一種で、血糖依存的にインスリン分泌を促す",
@@ -42,7 +30,6 @@ const keyPoints = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={[]}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「GLP-1ってよく聞くけど、結局なんなの？」——そんな疑問、ありますよね。実はGLP-1は私たちの体が<strong>もともと持っているホルモン</strong>です。この記事では、GLP-1が体の中で何をしているのか、なぜ低血糖になりにくいのか、注射薬から飲み薬（リベルサス）が生まれるまでの道のりを、<strong>できるだけわかりやすく</strong>お話しします。
@@ -63,7 +50,7 @@ export default function Page() {
           { title: "血糖が下がり、食欲も落ち着く", desc: "血糖コントロールに加え、胃の動きを緩やかにして食欲も自然に抑えてくれる。" },
         ]} />
 
-        <p>つまりGLP-1は、<strong>血糖値と食欲の両方に効く「体内の調整役」</strong>なんです。GLP-1受容体作動薬（オゼンピックやリベルサスなど）は、この天然ホルモンの働きを真似した薬。ただし天然のGLP-1は半減期がたった2分なので、そのままでは薬にならない——ここから製薬メーカーの挑戦が始まりました。</p>
+        <p>つまりGLP-1は、<strong>血糖値と食欲の両方に効く「体内の調整役」</strong>なんです。GLP-1受容体作動薬（オゼンピックやリベルサスなど）は、この天然ホルモンの働きを真似した薬。ただし天然のGLP-1は半減期がたった2分なので、そのままでは薬にならない——ここから製薬メーカーの挑戦が始まりました。リベルサス・オゼンピック・マンジャロの3薬剤を比較したい方は<Link href="/lp/column/glp1-medication-comparison" className="text-sky-600 underline hover:text-sky-800">GLP-1薬剤比較ガイド</Link>もあわせてどうぞ。</p>
       </section>
 
       {/* ── セクション2: 低血糖が怖い？ ── */}

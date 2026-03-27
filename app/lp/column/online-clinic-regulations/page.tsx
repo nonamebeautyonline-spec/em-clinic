@@ -20,18 +20,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "厚労省「オンライン診療の適切な実施に関する指針」の最新要件",
@@ -55,7 +43,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         オンライン診療の普及にともない、法規制やガイドラインへの正しい理解がクリニック経営に不可欠となっています。厚労省の指針、薬機法、医療広告ガイドラインなど、<strong>クリニックが遵守すべきルール</strong>は多岐にわたります。本記事では2026年3月時点の最新情報に基づき、法規制の全体像から具体的な注意点までを網羅的に解説します。LINE活用によるオンライン診療の全体像は<Link href="/lp/column/online-medical-line" className="text-sky-600 underline hover:text-sky-800">オンライン診療×LINE完全ガイド</Link>、開業準備からの網羅的な情報は<Link href="/lp/column/online-clinic-complete-guide" className="text-sky-600 underline hover:text-sky-800">オンライン診療完全ガイド</Link>もあわせてご覧ください。

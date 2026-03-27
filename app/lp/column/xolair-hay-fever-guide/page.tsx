@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, {
   InlineCTA,
@@ -18,18 +19,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "ゾレア（オマリズマブ）は抗IgE抗体で、アレルギー反応の「元栓」を閉める薬",
@@ -40,7 +29,6 @@ const keyPoints = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={[]}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「毎年スギ花粉の時期がつらすぎる。薬を飲んでもマスクをしても全然ダメ……」——そんな重症花粉症に悩む方に知ってほしいのが<strong>ゾレア（オマリズマブ）</strong>という注射薬です。もともと気管支喘息の治療薬として使われていたゾレアが、2020年にスギ花粉症にも保険適用になりました。この記事では、鼻アレルギー診療ガイドライン2024に沿って、ゾレアの仕組み・保険適用条件・費用・効果・注意点を<strong>できるだけわかりやすく</strong>まとめます。
@@ -205,7 +193,7 @@ export default function Page() {
 
         <p>ゾレア（オマリズマブ）は、既存の花粉症治療ではコントロールできない重症スギ花粉症に対する<strong>唯一の生物学的製剤</strong>です。IgEという「仲介役」を直接ブロックすることで、くしゃみ・鼻水・鼻づまりのすべてに効果を発揮します。</p>
 
-        <p>ただし、保険適用の条件は厳格で、費用も用量により大きく変わります。患者さんが正しい情報をもとに主治医と相談できるよう、<strong>シーズン前の早期受診の重要性</strong>と<strong>高額療養費制度の存在</strong>を丁寧に案内することが、クリニックにとっても患者さんにとっても大切です。</p>
+        <p>ただし、保険適用の条件は厳格で、費用も用量により大きく変わります。患者さんが正しい情報をもとに主治医と相談できるよう、<strong>シーズン前の早期受診の重要性</strong>と<strong>高額療養費制度の存在</strong>を丁寧に案内することが、クリニックにとっても患者さんにとっても大切です。花粉症のオンライン診療導入については<Link href="/lp/column/hay-fever-online-clinic-lope" className="text-sky-600 underline hover:text-sky-800">花粉症オンライン診療の始め方</Link>や<Link href="/lp/column/hay-fever-online-winning-strategy" className="text-sky-600 underline hover:text-sky-800">花粉症オンライン診療の勝ち筋</Link>もあわせてご覧ください。オンライン診療の全体像については<Link href="/lp/column/online-clinic-complete-guide" className="text-sky-600 underline hover:text-sky-800">オンライン診療完全ガイド</Link>も参考になります。</p>
 
         <Callout type="point" title="鼻アレルギー診療ガイドライン2024について">
           本記事の内容は<strong>鼻アレルギー診療ガイドライン2024</strong>（日本アレルギー学会）に準拠しています。ゾレアの適応判断や用量決定は、必ず最新のガイドラインと添付文書に基づいて行ってください。

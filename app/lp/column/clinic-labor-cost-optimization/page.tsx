@@ -28,18 +28,6 @@ export const metadata: Metadata = {
   openGraph: { title, description, url: `${SITE_URL}/lp/column/${slug}`, type: "article", publishedTime: date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: title,
-  description,
-  datePublished: date,
-  dateModified: date,
-  image: `${SITE_URL}/lp/column/${slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${slug}`,
-};
 
 const keyPoints = [
   "人件費は売上の40〜50% — 「削る」のではなく「最適配分」する発想が重要",
@@ -60,7 +48,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         クリニックの固定費で<strong>最大の比率を占める人件費（売上の40〜50%）</strong>は、経営改善の最重要テーマです。しかし、人件費の「最適化」は「削減」とイコールではありません。安易なコストカットはスタッフの離職を招き、サービスの質が低下して患者離れにつながります。本記事では、非常勤医師やスポット医師の活用、タスクシフト、DXによる自動化を組み合わせて<strong>人件費を「適正な水準」にコントロールする方法</strong>を解説します。固定費全体の最適化は<Link href="/lp/column/clinic-fixed-cost-optimization" className="text-sky-600 underline hover:text-sky-800">固定費最適化ガイド</Link>もご覧ください。

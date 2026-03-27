@@ -20,18 +20,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "ウゴービはBMI 35以上、またはBMI 27以上+2つ以上の肥満関連健康障害が処方条件",
@@ -42,7 +30,6 @@ const keyPoints = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={[]}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「ウゴービって聞いたことあるけど、普通のGLP-1ダイエットと何が違うの？」——2024年2月、日本で初めて<strong>保険が使える肥満症治療薬</strong>としてウゴービが登場しました。ただし処方のハードルはかなり高い。この記事では、処方条件・用量スケジュール・臨床エビデンス・費用・オゼンピックとの違いまで、<strong>ウゴービのすべてをわかりやすく</strong>解説します。
@@ -172,7 +159,7 @@ export default function Page() {
           ]}
         />
 
-        <p>よく誤解されるのが、「オゼンピックを肥満で保険処方してもらえないか」という質問。答えは<strong>NO</strong>です。オゼンピックの保険適用はあくまで2型糖尿病。肥満症で保険が使えるのはウゴービだけです。一方、自費クリニックではオゼンピックやリベルサスをダイエット目的で処方するケースがありますが、これは<strong>適応外使用</strong>であり保険は効きません。</p>
+        <p>よく誤解されるのが、「オゼンピックを肥満で保険処方してもらえないか」という質問。答えは<strong>NO</strong>です。オゼンピックの保険適用はあくまで2型糖尿病。肥満症で保険が使えるのはウゴービだけです。一方、自費クリニックではオゼンピックやリベルサスをダイエット目的で処方するケースがありますが、これは<strong>適応外使用</strong>であり保険は効きません。各薬剤の詳細な比較は<Link href="/lp/column/glp1-medication-comparison" className="text-sky-600 underline hover:text-sky-800">GLP-1薬剤比較ガイド</Link>をご覧ください。</p>
       </section>
 
       {/* ── セクション8: 副作用 ── */}

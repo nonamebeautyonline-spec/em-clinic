@@ -19,18 +19,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "中用量ピルはエストロゲン50μg以上 — 月経移動の第一選択薬",
@@ -41,7 +29,6 @@ const keyPoints = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={[]}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「月経をずらしたいんだけど、どの薬を使うの？」——旅行やイベントを控えた患者さんから、こんな相談を受けたことはありませんか？ そんなとき頼りになるのが<strong>中用量ピル</strong>です。この記事では、中用量ピルの基本から月経移動の具体的な方法、副作用への対処、低用量ピルとの使い分けまで、<strong>処方に必要な実践知識</strong>をまとめました。
@@ -154,7 +141,7 @@ export default function Page() {
           ]}
         />
 
-        <p>ざっくり言うと、<strong>「ピンポイントで短期勝負」が中用量ピル、「じっくり長期管理」が低用量ピル</strong>です。すでに低用量ピルを服用中の患者さんが月経移動を希望する場合は、実薬の延長やシート調整で対応できることも多いので、必ずしも中用量ピルに切り替える必要はありません。</p>
+        <p>ざっくり言うと、<strong>「ピンポイントで短期勝負」が中用量ピル、「じっくり長期管理」が低用量ピル</strong>です。すでに低用量ピルを服用中の患者さんが月経移動を希望する場合は、実薬の延長やシート調整で対応できることも多いので、必ずしも中用量ピルに切り替える必要はありません。長期管理で副作用をさらに抑えたい場合は<Link href="/lp/column/ultra-low-dose-pill-guide" className="text-sky-600 underline hover:text-sky-800">超低用量ピル（LEP製剤）</Link>も選択肢に入ります。</p>
       </section>
 
       {/* ── セクション6: 処方のポイント ── */}
@@ -174,7 +161,7 @@ export default function Page() {
         <p><strong>5. 短期使用が原則であることを強調する。</strong>「残った薬を次回も使おう」と自己判断する方がいるので、<strong>必ず毎回受診して処方を受ける</strong>よう伝えてください。</p>
 
         <Callout type="point" title="オンライン診療との相性は抜群">
-          月経移動の相談は、対面でなくても完結できるケースがほとんどです。LINEでの事前問診で血栓リスク因子を確認し、オンライン診療で処方、薬の配送——この流れを仕組み化すれば、<strong>患者さんの利便性と処方の安全性を両立</strong>できます。処方後のリマインドや副作用フォローもLINEなら手軽に行えます。
+          月経移動の相談は、対面でなくても完結できるケースがほとんどです。LINEでの事前問診で血栓リスク因子を確認し、オンライン診療で処方、薬の配送——この流れを仕組み化すれば、<strong>患者さんの利便性と処方の安全性を両立</strong>できます。処方後のリマインドや副作用フォローもLINEなら手軽に行えます。婦人科のオンライン診療全般については<Link href="/lp/column/gynecology-online-clinic-guide" className="text-sky-600 underline hover:text-sky-800">婦人科オンライン診療ガイド</Link>も参考にしてください。
         </Callout>
       </section>
 

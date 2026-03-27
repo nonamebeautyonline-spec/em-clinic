@@ -28,23 +28,6 @@ export const metadata: Metadata = {
   },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: self.date,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: {
-    "@type": "Organization",
-    name: "Lオペ for CLINIC",
-    url: SITE_URL,
-    logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` },
-  },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "分子栄養学は保険診療の代替ではなく補完として位置づけ、既存診療に自費メニューを上乗せする戦略が有効",
@@ -66,7 +49,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         分子栄養学（オーソモレキュラー栄養療法）は、血液検査データに基づいて個別最適化されたサプリメント処方を行う栄養アプローチです。<strong>保険診療の代替ではなく補完</strong>として位置づけ、既存のクリニック診療に自費メニューを上乗せする形で導入することが現実的です。本記事では、詳細血液検査の設計からサプリメント処方の実務、自費メニュー化のステップ、患者フォローの仕組みまでを解説します。

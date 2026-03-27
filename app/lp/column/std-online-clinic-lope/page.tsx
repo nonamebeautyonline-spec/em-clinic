@@ -29,18 +29,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: self.date,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "性感染症は羞恥心から受診を避ける患者が多く、オンライン診療の需要が急拡大",
@@ -61,7 +49,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         性感染症（STD/STI）は日本国内でも年間報告数が増加傾向にありますが、<strong>「恥ずかしい」「知り合いに見られたくない」</strong>という心理的バリアから受診を先延ばしにする患者が大半です。オンライン診療は、この受診障壁を劇的に下げる手段として急速に普及しています。本記事では、<strong>Lオペ for CLINIC</strong>を活用して、検査キットの郵送から結果通知・処方・フォローアップまでをLINE上で完結させる<strong>プライバシー最優先の診療フロー</strong>と、効果的な集患戦略を具体的に解説します。

@@ -36,23 +36,6 @@ export const metadata: Metadata = {
   },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: articleMeta.title,
-  description: articleMeta.description,
-  datePublished: articleMeta.date,
-  dateModified: articleMeta.date,
-  image: `${SITE_URL}/lp/column/${slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: {
-    "@type": "Organization",
-    name: "Lオペ for CLINIC",
-    url: SITE_URL,
-    logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` },
-  },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${slug}`,
-};
 
 const keyPoints = [
   "原価計算・競合分析・患者の支払い意思額を踏まえた3軸の価格設定法",
@@ -74,7 +57,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="マーケティング" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         自費診療の価格設定は、クリニック経営における最も重要な意思決定の一つです。高すぎれば患者は離れ、安すぎれば利益を圧迫する。<strong>「いくらに設定すべきか」</strong>という問いに明確な答えを持てないまま、なんとなく相場に合わせている院長も少なくありません。本記事では、原価計算・競合分析・患者心理の3つの軸から<strong>科学的に価格を決定する方法</strong>と、コース型・サブスク型などの<strong>具体的な料金モデルの設計手法</strong>を解説します。

@@ -21,18 +21,6 @@ export const metadata: Metadata = {
   openGraph: { title, description, url: `${SITE_URL}/lp/column/${slug}`, type: "article", publishedTime: date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: title,
-  description,
-  datePublished: date,
-  dateModified: date,
-  image: `${SITE_URL}/lp/column/${slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${slug}`,
-};
 
 const keyPoints = [
   "薬機法と医療広告ガイドラインは適用範囲が異なり、両方の遵守が必須",
@@ -55,7 +43,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         クリニックがWeb広告やLINE配信を行う際、<strong>薬機法（旧薬事法）</strong>と<strong>医療広告ガイドライン</strong>への対応は避けて通れません。「知らなかった」では済まされず、違反すれば行政指導や課徴金、最悪の場合は刑事罰に至るケースもあります。本記事では、クリニックの広告担当者が<strong>実務で使える具体的な判断基準</strong>をNG表現・OK表現の対比とともに解説します。<Link href="/lp/column/online-clinic-regulations" className="text-sky-600 underline hover:text-sky-800">オンライン診療の法規制</Link>と合わせてご確認ください。

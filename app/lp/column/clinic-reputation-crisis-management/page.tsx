@@ -28,18 +28,6 @@ export const metadata: Metadata = {
   openGraph: { title, description, url: `${SITE_URL}/lp/column/${slug}`, type: "article", publishedTime: date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: title,
-  description,
-  datePublished: date,
-  dateModified: date,
-  image: `${SITE_URL}/lp/column/${slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${slug}`,
-};
 
 const keyPoints = [
   "ネガティブ口コミへの「正しい返信テンプレート」で評価回復 — 感情的な反論は逆効果",
@@ -60,7 +48,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         自費クリニックにとって<strong>口コミは「最強の集患チャネル」であると同時に「最大のリスク」</strong>でもあります。Google口コミの星1つのレビューが1件増えるだけで新患数が10〜15%減少するという調査もあり、口コミ管理は経営の根幹に関わる課題です。本記事では、ネガティブ口コミへの対応から法的手段、日常の風評管理、そして根本的な予防策まで、<strong>口コミリスクを体系的にマネジメントする方法</strong>を解説します。Google口コミの活用法は<Link href="/lp/column/clinic-google-review" className="text-sky-600 underline hover:text-sky-800">Google口コミ活用ガイド</Link>もご覧ください。

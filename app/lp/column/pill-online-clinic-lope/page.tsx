@@ -25,18 +25,6 @@ export const metadata: Metadata = {
   openGraph: { title, description, url: `${SITE_URL}/lp/column/${slug}`, type: "article", publishedTime: date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: title,
-  description,
-  datePublished: date,
-  dateModified: date,
-  image: `${SITE_URL}/lp/column/${slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${slug}`,
-};
 
 const keyPoints = [
   "日本のピル使用率は先進国最低水準だが、オンライン処方の需要が急拡大中",
@@ -57,7 +45,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         低用量ピル（OC/LEP）のオンライン処方は、婦人科クリニックにとって<strong>最も安定したサブスクリプション型収益</strong>を生み出せる診療領域です。28日周期で確実にリピートが発生するため、定期配送の仕組みさえ整えれば高い継続率を実現できます。本記事では、マーベロン・ファボワール・トリキュラー等の処方フローから、<strong>Lオペ for CLINIC</strong>を活用した定期配送管理・フォローアップ配信・AI自動返信による問い合わせ対応まで、ピル処方クリニックの収益構築を徹底解説します。

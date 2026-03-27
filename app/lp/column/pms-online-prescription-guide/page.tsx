@@ -35,18 +35,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "PMSは月経のある女性の約70〜80%が何らかの症状を経験 — 日常生活に支障をきたす中等度以上は約5〜10%",
@@ -66,7 +54,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         月経のある女性の約70〜80%が何らかのPMS（月経前症候群）症状を経験し、月経困難症は約25%の女性に影響を与えています。にもかかわらず、<strong>「生理痛は我慢するもの」という社会的通念</strong>から受診率は低く、適切な治療を受けていない患者が多数存在します。2020年のオンライン診療恒久化により、<strong>ピルの継続処方がオンラインで完結</strong>できるようになり、働く女性や通院が困難な患者にとって大きな福音となっています。PMS・月経困難症はオンライン診療と<Link href="/lp/column/femtech-clinic-online-strategy" className="text-sky-600 underline hover:text-sky-800">フェムテック戦略</Link>の重要な柱です。本記事では、低用量ピル・漢方薬の使い分け、保険適用LEPと自費OCの違い、そして<strong>Lオペ for CLINICによるLINE問診・服薬フォロー・継続処方リマインドの自動化</strong>まで徹底解説します。

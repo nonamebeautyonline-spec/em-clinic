@@ -28,18 +28,6 @@ export const metadata: Metadata = {
   openGraph: { title, description, url: `${SITE_URL}/lp/column/${slug}`, type: "article", publishedTime: date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: title,
-  description,
-  datePublished: date,
-  dateModified: date,
-  image: `${SITE_URL}/lp/column/${slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${slug}`,
-};
 
 const keyPoints = [
   "医師賠償責任保険は開業医の必須保険 — 年間5〜15万円で最大1億円の賠償リスクをカバー",
@@ -60,7 +48,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         クリニック経営には<strong>医療事故・自然災害・サイバー攻撃・院長の長期離脱</strong>など、さまざまなリスクが潜んでいます。これらのリスクに備える保険は多数存在しますが、すべてに加入すると保険料が膨らみ、逆に必要な保険を見落とすと経営破綻のリスクを負います。本記事では、クリニックに必要な保険を体系的に比較し、<strong>過不足のない保険設計</strong>の考え方を解説します。個別の保険選びは保険代理店やファイナンシャルプランナーにご相談ください。

@@ -28,23 +28,6 @@ export const metadata: Metadata = {
   },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: self.date,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: {
-    "@type": "Organization",
-    name: "Lオペ for CLINIC",
-    url: SITE_URL,
-    logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` },
-  },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "美容皮膚科は対面施術とオンライン処方の二軸運用で患者単価とリピート率を同時に引き上げられる",
@@ -66,7 +49,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         美容皮膚科は<strong>対面での施術</strong>（レーザー・ピーリング・注入治療など）と<strong>オンラインでの処方</strong>（外用薬・内服薬の継続処方）を組み合わせることで、患者体験と経営効率を同時に高められる診療科です。本記事では、対面施術を主軸としながらオンライン処方で継続的な収益基盤をつくる<strong>ハイブリッド運用モデル</strong>の設計方法を解説します。

@@ -183,6 +183,11 @@ const jsonLd = [
 export default function LPLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
+      {/* preconnect / dns-prefetch — 外部リソースの接続を高速化 */}
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+      <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

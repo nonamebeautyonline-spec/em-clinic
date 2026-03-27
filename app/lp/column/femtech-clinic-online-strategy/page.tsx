@@ -28,23 +28,6 @@ export const metadata: Metadata = {
   },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: self.date,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: {
-    "@type": "Organization",
-    name: "Lオペ for CLINIC",
-    url: SITE_URL,
-    logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` },
-  },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "フェムテック市場は2025年時点で国内約2,000億円規模に成長し、月経・更年期・妊活の3領域がクリニック参入の中心",
@@ -66,7 +49,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         フェムテック（FemTech）市場の急成長に伴い、クリニックが<strong>月経・更年期・妊活</strong>の3領域でオンライン診療を活用する動きが加速しています。本記事では、各領域の市場規模と患者ニーズ、オンライン診療に適した処方内容、集患・リテンション戦略、そして具体的な収益モデルまで、<strong>クリニックのフェムテック参入戦略</strong>を体系的に解説します。

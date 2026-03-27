@@ -29,29 +29,16 @@ const faqItems = [
   { q: "DX導入にどのくらいの期間がかかりますか？", a: "LINE公式アカウントの開設と基本設定は最短1週間で完了します。予約システム・問診・セグメント配信まで含めた本格運用開始までは1〜2ヶ月が目安です。段階的に導入するため、業務への影響を最小限に抑えられます。" },
 ];
 
-const jsonLd = [
-  {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    headline: self.title,
-    description: self.description,
-    datePublished: `${self.date}T00:00:00+09:00`,
-    dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-    image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-    author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-    publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-    mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-  },
-  {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: faqItems.map((item) => ({
-      "@type": "Question",
-      name: item.q,
-      acceptedAnswer: { "@type": "Answer", text: item.a },
-    })),
-  },
-];
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "クリニックDXの全体像 -- 電子カルテ・予約・問診・決済・経営管理のデジタル化ロードマップ",

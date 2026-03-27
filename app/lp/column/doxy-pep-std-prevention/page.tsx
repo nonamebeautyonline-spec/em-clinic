@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, {
   InlineCTA,
@@ -18,18 +19,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "ドキシペップは性行為後72時間以内にドキシサイクリン200mgを服用するSTI予防法",
@@ -40,7 +29,6 @@ const keyPoints = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={[]}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「性感染症は予防できないもの」——そう思っていませんか？ 実は海外では、<strong>性行為の"あと"に抗生物質を飲んで感染リスクを大幅に下げる</strong>という新しい予防法が注目されています。それが<strong>ドキシペップ（Doxy-PEP）</strong>です。この記事では、ドキシペップの仕組み・エビデンス・注意点を、できるだけわかりやすく解説します。
@@ -61,14 +49,14 @@ export default function Page() {
           { title: "感染リスクが大幅に低下", desc: "梅毒・クラミジアのリスクを約80〜90%低減。淋病への効果は限定的。" },
         ]} />
 
-        <p>考え方としては、HIVの<strong>PEP（曝露後予防）</strong>に近いものがあります。HIVでは性行為後72時間以内に抗ウイルス薬を飲む方法がすでに確立されていますよね。ドキシペップはこれを<strong>梅毒・クラミジアなどの細菌性STI</strong>に応用したものと理解するとわかりやすいです。</p>
+        <p>考え方としては、HIVの<strong>PEP（曝露後予防）</strong>に近いものがあります。HIVでは性行為後72時間以内に抗ウイルス薬を飲む方法がすでに確立されていますよね。ドキシペップはこれを<strong>梅毒・クラミジアなどの細菌性STI</strong>に応用したものと理解するとわかりやすいです。HIVの事前予防（PrEP）について詳しくは<Link href="/lp/column/hiv-prep-prevention-guide" className="text-sky-600 underline hover:text-sky-800">HIV PrEP予防ガイド</Link>をご覧ください。</p>
       </section>
 
       {/* ── セクション2: なぜ今注目されているのか ── */}
       <section>
         <h2 id="why-now" className="text-xl font-bold text-gray-800">なぜ今、ドキシペップが世界的に注目されているのか</h2>
 
-        <p>背景にあるのは、<strong>梅毒の爆発的な増加</strong>です。日本でも2023年に梅毒の報告数が<strong>過去最多の14,906件</strong>を記録。2013年の約1,200件から10年で12倍以上に急増しています。これは日本だけの問題ではなく、米国・欧州でも同様の傾向が見られます。</p>
+        <p>背景にあるのは、<strong>梅毒の爆発的な増加</strong>です。日本でも2023年に梅毒の報告数が<strong>過去最多の14,906件</strong>を記録。2013年の約1,200件から10年で12倍以上に急増しています。これは日本だけの問題ではなく、米国・欧州でも同様の傾向が見られます。梅毒の症状・検査・治療については<Link href="/lp/column/syphilis-diagnosis-treatment-guide" className="text-sky-600 underline hover:text-sky-800">梅毒の診断・治療ガイド</Link>で詳しくまとめています。</p>
 
         <StatGrid stats={[
           { value: "14,906", unit: "件", label: "日本の梅毒報告数（2023年・過去最多）" },
@@ -179,7 +167,7 @@ export default function Page() {
         <p>ただし、淋病への効果は限定的であること、シスジェンダー女性でのデータが不十分であること、そして抗菌薬耐性の問題は引き続き注視が必要です。<strong>コンドームの使用＋定期的なSTI検査＋ドキシペップ</strong>という多層的な予防アプローチが、現時点でのベストプラクティスと言えるでしょう。</p>
 
         <Callout type="point" title="クリニック運営者の方へ">
-          梅毒・STIの急増に伴い、予防医療への関心は高まっています。ドキシペップのようなエビデンスに基づく予防的処方は、<strong>オンライン診療との相性が非常に良い</strong>分野です。LINE公式アカウントを活用した予約・服薬フォロー・定期検査のリマインドなど、患者さんの継続的な予防行動をサポートする仕組みづくりが重要になってきます。
+          梅毒・STIの急増に伴い、予防医療への関心は高まっています。ドキシペップのようなエビデンスに基づく予防的処方は、<strong>オンライン診療との相性が非常に良い</strong>分野です。LINE公式アカウントを活用した予約・服薬フォロー・定期検査のリマインドなど、患者さんの継続的な予防行動をサポートする仕組みづくりが重要になってきます。STDオンライン診療の立ち上げ方については<Link href="/lp/column/std-online-clinic-lope" className="text-sky-600 underline hover:text-sky-800">STDオンライン診療の始め方</Link>もあわせてお読みください。
         </Callout>
       </section>
     </ArticleLayout>

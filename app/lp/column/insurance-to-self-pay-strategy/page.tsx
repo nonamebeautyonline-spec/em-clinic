@@ -30,18 +30,6 @@ export const metadata: Metadata = {
   openGraph: { title: meta.title, description: meta.description, url: `${SITE_URL}/lp/column/${SLUG}`, type: "article", publishedTime: meta.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: meta.title,
-  description: meta.description,
-  datePublished: meta.date,
-  dateModified: meta.date,
-  image: `${SITE_URL}/lp/column/${SLUG}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${SLUG}`,
-};
 
 const keyPoints = [
   "過去10年の診療報酬改定で本体改定率は実質マイナス傾向 — 保険診療単独の収益モデルは限界に近づいている",
@@ -64,7 +52,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={SLUG} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         2024年度、2026年度と続く診療報酬改定で、保険診療の点数は実質的な引き下げ傾向が続いています。「患者数は維持しているのに収益が伸びない」——そう感じている院長先生は少なくないはずです。本記事では、<strong>診療報酬改定の推移データ</strong>を踏まえ、保険診療中心の経営がなぜ限界に近づいているのか、そして<strong>自費診療へのシフトがなぜ経済合理性の高い戦略なのか</strong>を、市場データ・収支シミュレーション・段階的な移行プランとともに徹底解説します。

@@ -19,18 +19,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "低用量ピルは避妊だけでなくPMS・生理痛の改善にも使われるホルモン薬",
@@ -41,7 +29,6 @@ const keyPoints = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={[]}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「低用量ピルを飲んでみたいけど、種類が多すぎてどれを選べばいいかわからない」「飲み忘れたらどうすれば？」——そんな不安を抱えていませんか？ この記事では、<strong>初めてピルを飲む方</strong>のために、種類の違い・飲み始めのタイミング・飲み忘れたときの対処法まで、<strong>これ1本で全部わかる</strong>ようにまとめました。
@@ -120,7 +107,7 @@ export default function Page() {
           ]}
         />
 
-        <p>最近はオンライン診療の普及もあり、<strong>クイックスタート法</strong>を採用するクリニックが増えています。「次の生理まで待つ」必要がないので、思い立ったその日から始められるのが大きなメリット。ただし、妊娠の可能性がないことの確認と、最初の7日間は<strong>コンドームなど他の避妊法との併用</strong>が必要です。</p>
+        <p>最近はオンライン診療の普及もあり、<strong>クイックスタート法</strong>を採用するクリニックが増えています。「次の生理まで待つ」必要がないので、思い立ったその日から始められるのが大きなメリット。ただし、妊娠の可能性がないことの確認と、最初の7日間は<strong>コンドームなど他の避妊法との併用</strong>が必要です。オンラインでのピル処方の流れについては<Link href="/lp/column/pill-online-clinic-lope" className="text-sky-600 underline hover:text-sky-800">ピルのオンライン診療ガイド</Link>も参考になります。</p>
       </section>
 
       {/* ── セクション5: 飲み忘れ対応 ── */}
@@ -183,7 +170,7 @@ export default function Page() {
           低用量ピルの最も重大な副作用は<strong>静脈血栓塞栓症（VTE）</strong>です。発症率は非常に低いものの、<strong>35歳以上で1日15本以上の喫煙者</strong>はリスクが大幅に上がるため、ピルの処方が原則できません。BMI 30以上の方や、片頭痛に前兆（チカチカした光が見える等）がある方も処方に制限があります。これらに該当する場合は、必ず医師に伝えてください。
         </Callout>
 
-        <p>副作用の出方には個人差があり、ある薬剤で合わなくても別の薬剤に切り替えるとうまくいくケースは多々あります。<strong>「合わないからピルは無理」と決めつけるのではなく、種類を変えて試す</strong>という選択肢があることを覚えておいてください。</p>
+        <p>副作用の出方には個人差があり、ある薬剤で合わなくても別の薬剤に切り替えるとうまくいくケースは多々あります。<strong>「合わないからピルは無理」と決めつけるのではなく、種類を変えて試す</strong>という選択肢があることを覚えておいてください。副作用がより抑えめな<Link href="/lp/column/ultra-low-dose-pill-guide" className="text-sky-600 underline hover:text-sky-800">超低用量ピル（LEP製剤）</Link>への切り替えも選択肢のひとつです。</p>
       </section>
 
       {/* ── まとめ ── */}

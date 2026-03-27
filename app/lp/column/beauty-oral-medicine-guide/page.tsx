@@ -26,23 +26,6 @@ export const metadata: Metadata = {
   },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: {
-    "@type": "Organization",
-    name: "Lオペ for CLINIC",
-    url: SITE_URL,
-    logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` },
-  },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "クリニックで処方される主要な美容内服薬6種類（トラネキサム酸・シナール・ユベラ・ハイチオール・タチオン・ビタメジン）の薬効と副作用を徹底解説",
@@ -65,7 +48,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         美容内服薬は、レーザーや注入系施術と並びクリニックの自費診療メニューとして確立された分野です。しかし、各薬剤の<strong>エビデンスレベルや適正用量、保険適用の可否</strong>を正確に把握している医師は意外と多くありません。本記事では、クリニックで処方される主要6薬剤——<strong>トラネキサム酸・シナール・ユベラ・ハイチオール・タチオン・ビタメジン</strong>——について、作用機序から副作用、患者説明のポイントまでを体系的に解説します。

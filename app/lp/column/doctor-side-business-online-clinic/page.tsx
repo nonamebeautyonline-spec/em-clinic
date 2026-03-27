@@ -30,18 +30,6 @@ export const metadata: Metadata = {
   openGraph: { title: meta.title, description: meta.description, url: `${SITE_URL}/lp/column/${SLUG}`, type: "article", publishedTime: meta.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: meta.title,
-  description: meta.description,
-  datePublished: meta.date,
-  dateModified: meta.date,
-  image: `${SITE_URL}/lp/column/${SLUG}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${SLUG}`,
-};
 
 const keyPoints = [
   "勤務医が本業を続けながらオンライン自費クリニックを開業し、月200〜300万円の副収入を得る具体的ロードマップ",
@@ -64,7 +52,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={SLUG} breadcrumbLabel="開業・経営" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「本業の研鑽は続けたい。でも将来の収入に不安がある」——勤務医から最も多く寄せられる相談です。保険点数の引き下げが続く中、<strong>自費オンライン診療</strong>は勤務医にとって最も合理的な副業の選択肢になりつつあります。週末・夜間だけの診療でも<strong>月200〜300万円の副収入</strong>が見込め、ワンルームマンション1室とDXツールがあればDr1人で開業可能。本記事では、勤務医が本業を続けながらオンライン自費クリニックを副業的に開業するための具体的なロードマップを、法規制・税務・運営体制まで含めて徹底解説します。

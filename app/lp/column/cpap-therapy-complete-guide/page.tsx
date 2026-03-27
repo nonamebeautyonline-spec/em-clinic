@@ -13,24 +13,11 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-/* Article + FAQPage の複合 JSON-LD */
-const jsonLd = [
-  {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    headline: self.title,
-    description: self.description,
-    datePublished: `${self.date}T00:00:00+09:00`,
-    dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-    image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-    author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-    publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-    mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-  },
-  {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: [
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
       {
         "@type": "Question",
         name: "CPAPは一生使い続ける必要がありますか？",
@@ -61,9 +48,8 @@ const jsonLd = [
         name: "CPAPを毎月通院しないと保険が使えなくなりますか？",
         acceptedAnswer: { "@type": "Answer", text: "CPAP管理料は月1回の受診が算定要件です。受診しない月は保険適用の管理料を算定できません。ただしオンライン診療も「受診」に含まれるため、通院負担を大幅に軽減できます。" },
       },
-    ],
-  },
-];
+  ],
+};
 
 const keyPoints = [
   "CPAPの仕組み・機器の種類・マスク選びの基礎知識を網羅",

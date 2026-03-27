@@ -30,18 +30,6 @@ export const metadata: Metadata = {
   openGraph: { title: meta.title, description: meta.description, url: `${SITE_URL}/lp/column/${SLUG}`, type: "article", publishedTime: meta.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: meta.title,
-  description: meta.description,
-  datePublished: meta.date,
-  dateModified: meta.date,
-  image: `${SITE_URL}/lp/column/${SLUG}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${SLUG}`,
-};
 
 const keyPoints = [
   "AGA・ED・ピル・美容内服・GLP-1・花粉症・不眠症・性感染症の8分野を初期投資・患者単価・LTV・難易度・競合度で比較",
@@ -68,7 +56,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={SLUG} breadcrumbLabel="収益モデル" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         自費オンライン診療に参入する際、最も重要な意思決定は<strong>「どの診療分野を選ぶか」</strong>です。分野によって患者単価、LTV（生涯顧客価値）、継続率、競合環境は大きく異なります。本記事では、AGA・ED・低用量ピル・美容内服・メディカルダイエット（GLP-1）・花粉症・不眠症・性感染症の<strong>8分野の収益モデル</strong>を具体的な数値で比較し、自院に最適な組み合わせ戦略を解説します。

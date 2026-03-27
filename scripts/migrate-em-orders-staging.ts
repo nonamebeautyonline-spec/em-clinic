@@ -51,10 +51,12 @@ function getArg(name: string): string | undefined {
 const csvFile = getArg("file");
 const tenantId = getArg("tenant-id");
 const csvYear = getArg("year");
+const cutoffDate = getArg("cutoff"); // 例: "2026-03-21" → 3/21 23:59:59 JST まで
+const methodFilter = getArg("method"); // 例: "現金振込" → 該当する決済方法のみ
 const isExec = args.includes("--exec");
 
 if (!csvFile || !tenantId) {
-  console.error("使い方: npx tsx scripts/migrate-em-orders-staging.ts --file <CSV> --tenant-id <UUID> --year <YYYY> [--exec]");
+  console.error("使い方: npx tsx scripts/migrate-em-orders-staging.ts --file <CSV> --tenant-id <UUID> --year <YYYY> [--cutoff YYYY-MM-DD] [--method 現金振込] [--exec]");
   process.exit(1);
 }
 
@@ -105,7 +107,7 @@ function cleanEmName(raw: string): string {
   return s || trimmed;
 }
 
-// ダブルクォート対応CSVパーサー
+// 単一行CSVパーサー（ヘッダ解析用）
 function parseCSVLine(line: string): string[] {
   const fields: string[] = [];
   let current = "";
@@ -138,6 +140,59 @@ function parseCSVLine(line: string): string[] {
   return fields;
 }
 
+// マルチライン対応CSVパーサー（改行を含むフィールドに対応）
+function parseCSVWithMultiline(content: string): string[][] {
+  const records: string[][] = [];
+  let currentFields: string[] = [];
+  let currentField = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < content.length; i++) {
+    const ch = content[i];
+
+    if (inQuotes) {
+      if (ch === '"') {
+        if (i + 1 < content.length && content[i + 1] === '"') {
+          currentField += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        currentField += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ",") {
+        currentFields.push(currentField.trim());
+        currentField = "";
+      } else if (ch === "\n" || ch === "\r") {
+        if (ch === "\r" && i + 1 < content.length && content[i + 1] === "\n") {
+          i++;
+        }
+        currentFields.push(currentField.trim());
+        if (currentFields.length > 0 && currentFields.some((f) => f !== "")) {
+          records.push(currentFields);
+        }
+        currentFields = [];
+        currentField = "";
+      } else {
+        currentField += ch;
+      }
+    }
+  }
+
+  if (currentField || currentFields.length > 0) {
+    currentFields.push(currentField.trim());
+    if (currentFields.length > 0 && currentFields.some((f) => f !== "")) {
+      records.push(currentFields);
+    }
+  }
+
+  return records;
+}
+
 // 金額パース: "28000" or "￥28,000" → 28000
 function parseAmount(raw: string): number {
   if (!raw) return 0;
@@ -145,20 +200,48 @@ function parseAmount(raw: string): number {
   return parseInt(cleaned, 10) || 0;
 }
 
-// 日時パース: "2024/9/11" or "2025/01/01 0:08:35" → ISO 8601 (JST)
+// 日時パース: 多様な形式 → ISO 8601 (JST)
 function parseJstDateTime(raw: string): string | null {
   if (!raw) return null;
-  // 日時あり: "2025/01/01 0:08:35"
-  const matchFull = raw.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2}):(\d{2})$/);
-  if (matchFull) {
-    const [_, year, month, day, hour, minute, second] = matchFull;
-    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${hour.padStart(2, "0")}:${minute}:${second}+09:00`;
+  // 先頭の絵文字・記号を除去（🟥等）
+  const cleaned = raw.replace(/^[^\d]+/, "").trim();
+  if (!cleaned) return null;
+
+  // YYYY/MM/DD HH:MM:SS
+  const m1 = cleaned.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2}):(\d{2})$/);
+  if (m1) {
+    const [_, y, mo, d, h, mi, s] = m1;
+    return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}T${h.padStart(2, "0")}:${mi}:${s}+09:00`;
   }
-  // 日付のみ: "2024/9/11"
-  const matchDate = raw.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
-  if (matchDate) {
-    const [_, year, month, day] = matchDate;
-    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T00:00:00+09:00`;
+  // YYYY/MM/DD HH:MM（秒なし）
+  const m1b = cleaned.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})$/);
+  if (m1b) {
+    const [_, y, mo, d, h, mi] = m1b;
+    return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}T${h.padStart(2, "0")}:${mi}:00+09:00`;
+  }
+  // YYYY/MM/DD/HH:MM:SS（スラッシュ区切り）
+  const m1c = cleaned.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\/(\d{1,2}):(\d{2}):(\d{2})$/);
+  if (m1c) {
+    const [_, y, mo, d, h, mi, s] = m1c;
+    return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}T${h.padStart(2, "0")}:${mi}:${s}+09:00`;
+  }
+  // YYYY/MM/DD（日付のみ）
+  const m2 = cleaned.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+  if (m2) {
+    const [_, y, mo, d] = m2;
+    return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}T00:00:00+09:00`;
+  }
+  // MM/DD/YYYY HH:MM:SS
+  const m3 = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})$/);
+  if (m3) {
+    const [_, mo, d, y, h, mi, s] = m3;
+    return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}T${h.padStart(2, "0")}:${mi}:${s}+09:00`;
+  }
+  // MM/DD/YYYY（日付のみ）
+  const m4 = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m4) {
+    const [_, mo, d, y] = m4;
+    return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}T00:00:00+09:00`;
   }
   return null;
 }
@@ -186,6 +269,7 @@ type StagingRow = {
   paid_at: string | null;
   csv_year: number | null;
   tenant_id: string;
+  source: string;
 };
 
 async function main() {
@@ -194,14 +278,16 @@ async function main() {
   console.log(`テナントID: ${tenantId}`);
   console.log(`CSVファイル: ${csvFile}`);
   console.log(`年度: ${csvYear || "未指定"}`);
+  if (cutoffDate) console.log(`カットオフ: ${cutoffDate} 23:59:59 JST まで`);
+  if (methodFilter) console.log(`決済方法フィルタ: ${methodFilter}`);
 
-  // 1. CSV読み込み（UTF-8）
+  // 1. CSV読み込み（UTF-8、マルチライン対応）
   const raw = readFileSync(resolve(csvFile), "utf-8");
-  const lines = raw.split("\n").map((l) => l.replace(/\r$/, "")).filter(Boolean);
-  console.log(`\n読み込み行数: ${lines.length}`);
+  const allRows = parseCSVWithMultiline(raw);
+  console.log(`\n読み込みレコード数: ${allRows.length}`);
 
   // ヘッダ解析
-  const header = parseCSVLine(lines[0]);
+  const header = allRows[0];
   console.log(`ヘッダ: ${header.slice(0, 8).join(" | ")}...`);
 
   // カラムインデックスをヘッダから動的特定
@@ -215,8 +301,10 @@ async function main() {
   // 金額: "Product Price" (2024) or "Price" (2025/2026)
   let colPrice = header.findIndex((h) => h === "Price");
   if (colPrice < 0) colPrice = header.findIndex((h) => h === "Product Price");
+  // 決済方法: "cash" カラム（2024: col29, 2025/2026: col30）
+  let colCash = header.findIndex((h) => h === "cash");
 
-  console.log(`\nカラムインデックス: Date=${colDate}, Name=${colName}, Email=${colEmail}, Phone=${colPhone}, Product=${colProduct}, Price=${colPrice}`);
+  console.log(`\nカラムインデックス: Date=${colDate}, Name=${colName}, Email=${colEmail}, Phone=${colPhone}, Product=${colProduct}, Price=${colPrice}, Cash=${colCash}`);
 
   if (colName < 0 || colPhone < 0 || colProduct < 0 || colPrice < 0) {
     console.error("必要なカラムが見つかりません。ヘッダを確認してください。");
@@ -227,17 +315,23 @@ async function main() {
   const records: StagingRow[] = [];
   let parseErrors = 0;
 
-  for (let i = 1; i < lines.length; i++) {
-    const fields = parseCSVLine(lines[i]);
+  for (let i = 1; i < allRows.length; i++) {
+    const fields = allRows[i];
 
     const dateStr = fields[colDate] || "";
+    // 先頭の絵文字・記号を除去してから日付判定
+    const dateStrCleaned = dateStr.replace(/^[^\d]+/, "").trim();
     // 日付っぽくない行はスキップ
-    if (!/^\d{4}\//.test(dateStr)) {
+    if (!/^\d{1,4}\//.test(dateStrCleaned)) {
       parseErrors++;
-      if (parseErrors <= 5) {
-        console.error(`  行${i + 1}: 日付形式不正: "${dateStr.substring(0, 30)}"`);
-      }
+      console.error(`  行${i + 1}: 日付形式不正: "${dateStr.substring(0, 30)}"`);
       continue;
+    }
+
+    // 決済方法フィルタ
+    if (methodFilter && colCash >= 0) {
+      const method = (fields[colCash] || "").trim();
+      if (method !== methodFilter) continue;
     }
 
     const name = fields[colName] || "";
@@ -251,10 +345,18 @@ async function main() {
 
     if (amount === 0 && !amountRaw) {
       parseErrors++;
-      if (parseErrors <= 5) {
-        console.error(`  行${i + 1}: 金額なし: name="${name}" product="${product}"`);
-      }
+      console.error(`  行${i + 1}: 金額なし: name="${name}" product="${product}"`);
       continue;
+    }
+
+    const paidAt = parseJstDateTime(dateStr);
+
+    // cutoffフィルタ: 指定日の23:59:59 JSTまで
+    if (cutoffDate && paidAt) {
+      const cutoffEnd = `${cutoffDate}T23:59:59+09:00`;
+      if (paidAt > cutoffEnd) {
+        continue; // cutoff後のレコードはスキップ
+      }
     }
 
     records.push({
@@ -267,9 +369,10 @@ async function main() {
       source_address: cleanAddress(address),
       product_name: product,
       amount,
-      paid_at: parseJstDateTime(dateStr),
+      paid_at: paidAt,
       csv_year: csvYear ? parseInt(csvYear, 10) : null,
       tenant_id: tenantId!,
+      source: methodFilter === "現金振込" ? "csv_bank" : "csv",
     });
   }
 

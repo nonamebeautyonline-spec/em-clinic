@@ -25,18 +25,6 @@ export const metadata: Metadata = {
   openGraph: { title, description, url: `${SITE_URL}/lp/column/${slug}`, type: "article", publishedTime: date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: title,
-  description,
-  datePublished: date,
-  dateModified: date,
-  image: `${SITE_URL}/lp/column/${slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${slug}`,
-};
 
 const keyPoints = [
   "日本のピル服用率は先進国最低の約3% — 巨大な成長余地がありオンライン処方の需要が急拡大中",
@@ -60,7 +48,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         低用量ピルのオンライン処方は、<strong>28日周期で確実にリピートが発生する最強のサブスクリプション型診療</strong>です。日本のピル服用率はわずか3%と先進国最低水準ですが、それは裏を返せば巨大な成長余地を意味しています。本記事では、ピル処方オンラインクリニックで「勝つ」ための戦略を、市場分析・仕入れ相場・診療フロー・継続率向上策・差別化・広告戦略・Dr1人運営の収益モデルまで、実践レベルで徹底解説します。

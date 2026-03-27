@@ -10,6 +10,27 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      /* コラム記事 — CDNキャッシュ24h + stale-while-revalidate */
+      {
+        source: "/lp/column/:slug((?!category|thumbnails|_components)[^/]+)",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" },
+        ],
+      },
+      /* OG画像 — 7日キャッシュ */
+      {
+        source: "/lp/column/:slug/opengraph-image",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=604800, immutable" },
+        ],
+      },
+      /* サムネイル画像 — 30日キャッシュ */
+      {
+        source: "/lp/column/thumbnails/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=2592000, immutable" },
+        ],
+      },
       {
         source: "/(.*)",
         headers: [

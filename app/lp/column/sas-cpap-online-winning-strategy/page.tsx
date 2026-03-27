@@ -38,18 +38,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "SAS患者は推定300〜500万人、診断率は10%以下 — 膨大な潜在需要が存在",
@@ -72,7 +60,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         いびき・睡眠時無呼吸症候群（SAS）は推定<strong>300〜500万人</strong>の患者がいるにもかかわらず、実際に診断・治療を受けているのは<strong>わずか50万人程度</strong>。診断率10%以下という数字は、裏を返せば膨大な潜在需要が眠っていることを意味します。SAS治療の中核を占めるCPAP療法は、<strong>毎月の管理料が発生するストック型収益モデル</strong>であり、一度獲得した患者が長期間にわたり安定的な収益をもたらします。本記事では、オンライン診療によるSAS/CPAP管理クリニックの開業戦略から、<strong>Lオペ for CLINICを活用したLINEフォロー体制の構築</strong>、Dr1人で月100万円超のリカーリング収益を実現する具体的な方法まで徹底解説します。

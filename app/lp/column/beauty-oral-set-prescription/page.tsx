@@ -27,23 +27,6 @@ export const metadata: Metadata = {
   },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: {
-    "@type": "Organization",
-    name: "Lオペ for CLINIC",
-    url: SITE_URL,
-    logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` },
-  },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "目的別セット処方（美白・ニキビ・エイジングケア）で単剤処方より処方単価と患者満足度を同時に向上",
@@ -65,7 +48,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         美容内服薬の処方で収益と患者満足度を最大化するカギは、<strong>目的別のセット処方</strong>にあります。単剤で処方するよりも、作用機序の異なる薬剤を組み合わせることで相乗効果が生まれ、患者の期待に応える結果を出しやすくなります。本記事では、<strong>美白セット・ニキビセット・エイジングケアセット</strong>の具体的な組み合わせから、松竹梅プランの価格設計、患者説明のテンプレート、定期処方で継続率を高める仕組みまでを体系的に解説します。各薬剤の詳しい効果・副作用については<Link href="/lp/column/beauty-oral-medicine-guide" className="text-emerald-700 underline">美容内服薬の種類と効果ガイド</Link>をご覧ください。

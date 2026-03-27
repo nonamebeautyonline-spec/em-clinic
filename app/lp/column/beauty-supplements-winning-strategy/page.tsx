@@ -38,23 +38,6 @@ export const metadata: Metadata = {
   },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: articleMeta.title,
-  description: articleMeta.description,
-  datePublished: articleMeta.date,
-  dateModified: articleMeta.date,
-  image: `${SITE_URL}/lp/column/${SLUG}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: {
-    "@type": "Organization",
-    name: "Lオペ for CLINIC",
-    url: SITE_URL,
-    logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` },
-  },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${SLUG}`,
-};
 
 const keyPoints = [
   "美容内服市場は年率15%超で成長し、リピート性の高さからオンライン処方との相性が抜群",
@@ -78,7 +61,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={SLUG} breadcrumbLabel="開業・経営" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         美容内服薬は<strong>毎月継続処方されるストック型ビジネス</strong>であり、オンラインクリニックの中でも特に収益性と安定性を両立しやすい領域です。トラネキサム酸、ビタミンC、グルタチオン、ハイチオール（Lシステイン）など主要薬剤の処方戦略から、目的別セット設計、継続率を飛躍的に高めるフォロー施策、そしてDr1人でも回せるDX運営モデルまで、<strong>美容内服オンラインクリニックで勝つための全戦略</strong>を解説します。

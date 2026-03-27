@@ -36,18 +36,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "日本の喘息患者は約800万人 — 吸入薬の自己中断率が高く、コントロール不良の患者が多数存在",
@@ -67,7 +55,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         気管支喘息は日本人の約10%が罹患する<strong>最も一般的な慢性呼吸器疾患</strong>です。吸入ステロイド（ICS）を中心とした長期管理薬により良好なコントロールが可能ですが、<strong>症状が改善すると自己判断で吸入を中断する患者が多い</strong>ことが最大の課題です。吸入薬の自己中断は発作のリスクを高め、QOLの低下や救急受診・入院につながります。オンライン診療による<strong>定期的なフォローアップ</strong>で吸入の継続を支援し、ステップアップ/ダウンの適切な判断を行うことが、喘息管理の質を大きく向上させます。本記事では、吸入薬の選択・吸入デバイスの指導・発作時対応・ピークフローモニタリング、そして<strong>Lオペ for CLINICによる吸入リマインド・ACT評価の自動化</strong>まで解説します。

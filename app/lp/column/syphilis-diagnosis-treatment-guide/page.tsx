@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { articles } from "../articles";
 import ArticleLayout, {
   InlineCTA,
@@ -19,18 +20,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "日本の梅毒報告数は2023年に14,906件と過去最多——2013年の約12倍に急増",
@@ -41,7 +30,6 @@ const keyPoints = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={[]}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「梅毒って昔の病気でしょ？」——そう思っていませんか？ 実は今、日本で梅毒の報告数が<strong>過去最多を更新し続けています</strong>。しかも20代女性を中心に急増中。この記事では、梅毒の症状・検査の読み方・最新の治療法まで、<strong>クリニックで患者さんに説明するときにも使える内容</strong>をわかりやすくまとめました。
@@ -156,7 +144,7 @@ export default function Page() {
 
         <p>梅毒で意外と知られていないのが、<strong>治っても免疫がつかない</strong>という事実。つまり、一度治療して完治しても、再び感染すれば同じように発症します。「一回かかったからもう大丈夫」は完全な誤解です。</p>
 
-        <p>だからこそ重要なのが<strong>パートナーへの検査の推奨</strong>。自分だけ治療しても、パートナーが未治療なら「ピンポン感染」（お互いにうつし合う）が起きてしまいます。</p>
+        <p>だからこそ重要なのが<strong>パートナーへの検査の推奨</strong>。自分だけ治療しても、パートナーが未治療なら「ピンポン感染」（お互いにうつし合う）が起きてしまいます。再感染リスクを下げる手段として、性行為後に抗生物質を服用する<Link href="/lp/column/doxy-pep-std-prevention" className="text-sky-600 underline hover:text-sky-800">ドキシペップ（Doxy-PEP）</Link>という予防法も注目されています。</p>
 
         <Callout type="point" title="梅毒は5類感染症——届出義務があります">
           梅毒は感染症法に基づく<strong>5類感染症</strong>に指定されており、診断した医師は7日以内に最寄りの保健所に届出する義務があります。患者さんには「届出は匿名ではないが、プライバシーは保護される」ことを丁寧に説明し、不安を和らげることが大切です。
@@ -172,7 +160,7 @@ export default function Page() {
         <p>検査はRPRとTPHAの2本立てで行い、ウインドウピリオド（約4週間）に注意。治療はアモキシシリン4週間内服かステルイズ1回筋注の選択肢があり、服薬アドヒアランスの観点からはステルイズの優位性が際立ちます。そして何より、<strong>治っても免疫はつかないので再感染に注意</strong>。パートナーへの検査推奨と、コンドームの適切な使用が予防の基本です。</p>
 
         <Callout type="point" title="クリニックでの患者対応のポイント">
-          梅毒はデリケートな疾患です。LINEを活用した<strong>匿名性の高い事前問診</strong>や、検査結果の<strong>セキュアな通知</strong>は、患者さんの心理的ハードルを大きく下げます。対面で聞きづらいことも、LINEなら正直に答えてくれる——性感染症診療こそ、デジタルコミュニケーションが力を発揮する領域です。
+          梅毒はデリケートな疾患です。LINEを活用した<strong>匿名性の高い事前問診</strong>や、検査結果の<strong>セキュアな通知</strong>は、患者さんの心理的ハードルを大きく下げます。対面で聞きづらいことも、LINEなら正直に答えてくれる——性感染症診療こそ、デジタルコミュニケーションが力を発揮する領域です。STD診療のオンライン化については<Link href="/lp/column/std-online-clinic-lope" className="text-sky-600 underline hover:text-sky-800">STDオンライン診療の始め方</Link>や<Link href="/lp/column/std-online-winning-strategy" className="text-sky-600 underline hover:text-sky-800">STDオンライン診療の勝ち筋</Link>もあわせてお読みください。
         </Callout>
       </section>
     </ArticleLayout>

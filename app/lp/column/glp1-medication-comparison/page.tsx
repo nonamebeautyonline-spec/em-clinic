@@ -20,18 +20,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "リベルサス・オゼンピック・マンジャロの作用機序と減量エビデンスを比較",
@@ -54,7 +42,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         GLP-1受容体作動薬は、2型糖尿病の治療薬として開発された薬剤ですが、強力な<strong>食欲抑制・体重減少効果</strong>から、メディカルダイエットの中核薬剤として注目を集めています。本記事では、リベルサス（内服）・オゼンピック（注射）・マンジャロ（GIP/GLP-1、注射）の3薬剤について、作用機序・減量エビデンス・副作用・価格帯を比較します。<strong>ダイエット目的でのGLP-1使用は日本では適応外</strong>であり、処方は必ず医師の判断のもとで行ってください。
@@ -179,7 +166,7 @@ export default function Page() {
           ]}
         />
 
-        <p>薬剤選択は、<strong>患者の予算・注射への抵抗感・目標体重減少量</strong>の3つを総合的に考慮して決定します。「まずは内服で試したい」ならリベルサス、「確実な効果を求める」ならオゼンピック、「最大限の減量効果を期待する」ならマンジャロが候補となります。</p>
+        <p>薬剤選択は、<strong>患者の予算・注射への抵抗感・目標体重減少量</strong>の3つを総合的に考慮して決定します。「まずは内服で試したい」ならリベルサス、「確実な効果を求める」ならオゼンピック、「最大限の減量効果を期待する」ならマンジャロが候補となります。GLP-1受容体作動薬の基本的な仕組みについては<Link href="/lp/column/glp1-medication-guide" className="text-sky-600 underline hover:text-sky-800">GLP-1受容体作動薬とは — 仕組みをわかりやすく解説</Link>もあわせてご覧ください。</p>
 
         <p>ただし、いずれの薬剤も<strong>投与中止後にリバウンドが起こる</strong>ことが臨床試験で示されています。STEP 1の延長試験では、セマグルチド中止後1年間で失った体重の約2/3が戻ったとの報告があり、「一時的に薬を使って痩せる」だけでは持続的な効果は得られません。食事・運動習慣の改善と併せた包括的アプローチが不可欠です。</p>
       </section>
@@ -219,7 +206,7 @@ export default function Page() {
         <h3 className="text-lg font-semibold text-gray-700 mt-4">副作用マネジメントのポイント</h3>
         <p>消化器症状への対処として、<strong>低用量から開始し段階的に増量する</strong>ことが最も重要です。「効果を早く出したい」と増量を急ぐと副作用が強く出て治療中断に至るケースが少なくありません。食事は少量頻回とし、脂肪分の多い食事を避けることも悪心の軽減に有効です。</p>
 
-        <p>患者フォローでは、増量前に必ず副作用の有無を確認し、消化器症状が持続している場合は増量を見送る判断が必要です。LINEでの定期フォローにより、「悪心がひどいので自己判断で中止した」というケースを防ぎ、適切な対処（増量見送り、制吐剤の処方等）を提案できます。</p>
+        <p>患者フォローでは、増量前に必ず副作用の有無を確認し、消化器症状が持続している場合は増量を見送る判断が必要です。LINEでの定期フォローにより、「悪心がひどいので自己判断で中止した」というケースを防ぎ、適切な対処（増量見送り、制吐剤の処方等）を提案できます。リベルサスの副作用と対処法の詳細は<Link href="/lp/column/rybelsus-side-effects-guide" className="text-sky-600 underline hover:text-sky-800">リベルサスの副作用ガイド</Link>を参照してください。</p>
       </section>
 
       {/* ── セクション7: 自費処方の価格設計 ── */}

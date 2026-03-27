@@ -28,18 +28,6 @@ export const metadata: Metadata = {
   openGraph: { title, description, url: `${SITE_URL}/lp/column/${slug}`, type: "article", publishedTime: date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: title,
-  description,
-  datePublished: date,
-  dateModified: date,
-  image: `${SITE_URL}/lp/column/${slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${slug}`,
-};
 
 const keyPoints = [
   "クリニック固定費の構造（家賃15-25%、人件費40-50%、設備5-10%）を可視化",
@@ -62,7 +50,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="業務改善" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         クリニック経営において、<strong>家賃・人件費・設備費などの固定費は売上の70〜80%</strong>を占めるとも言われます。特に開業初期は患者数が安定しない中で毎月の固定費が重くのしかかり、資金繰りを圧迫します。本記事では、クリニックの固定費構造を分解し、<strong>立地選びの戦略からテナント交渉術、DXによる人件費削減、ツール統合によるコスト圧縮</strong>まで、固定費を最適化して経営を安定させる具体的な方法を解説します。コスト削減の基本は<Link href="/lp/column/clinic-cost-reduction-30man" className="text-sky-600 underline hover:text-sky-800">固定費を月30万円削減する方法</Link>でも紹介していますが、本記事ではより広範な固定費全体に焦点を当てます。

@@ -20,18 +20,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "オンライン診療システムは「専用プラットフォーム型」と「汎用ビデオ通話+周辺ツール型」の2種類に大別される",
@@ -52,7 +40,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ツール比較" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         オンライン診療を始めるにあたり、「どのシステムを導入すべきか」は最も重要な意思決定の一つです。市場には専用プラットフォームから汎用ビデオ通話ツールの活用まで多様な選択肢がありますが、<strong>導入コスト・機能の網羅性・患者側の使いやすさ</strong>を総合的に評価しないと、導入後に「使いにくい」「結局アナログ作業が残る」といった事態に陥ります。本記事では、オンライン診療システムを選ぶ際に比較すべきポイントを体系的に整理します。

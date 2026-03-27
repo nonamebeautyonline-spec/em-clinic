@@ -22,6 +22,8 @@ interface ArticleLayoutProps {
   children: ReactNode;
 }
 
+const SITE_URL = "https://l-ope.jp";
+
 
 /* ═══════════════════════════════════════════════════════════════════════════
    著者カード
@@ -163,9 +165,31 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
   const related = [...sameCategory, ...diffCategory].slice(0, 4);
   const cc = categoryColors[self.category] || { bg: "bg-gray-50", text: "text-gray-600" };
 
+  /* Article JSON-LD（全記事共通で自動生成） */
+  const readMinutes = parseInt(self.readTime) || 5;
+  const estimatedWordCount = readMinutes * 400;
+  const articleJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: self.title,
+    description: self.description,
+    datePublished: `${self.date}T00:00:00+09:00`,
+    dateModified: `${(self.updatedDate || self.date)}T00:00:00+09:00`,
+    image: `${SITE_URL}/lp/column/${slug}/opengraph-image`,
+    author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
+    publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
+    mainEntityOfPage: `${SITE_URL}/lp/column/${slug}`,
+    wordCount: estimatedWordCount,
+    timeRequired: `PT${readMinutes}M`,
+    inLanguage: "ja",
+    isPartOf: { "@type": "WebSite", name: "Lオペ for CLINIC", url: SITE_URL },
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800">
       <ReadingProgress />
+      {/* Article JSON-LD（集約） */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }} />
 
       {/* ヘッダー */}
       <header className="border-b border-gray-200/60 bg-white shadow-sm">
@@ -218,8 +242,12 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
           <div className="overflow-hidden rounded-xl shadow-sm">
             <ArticleThumbnail slug={slug} title={self.title} category={self.category} size="hero" />
           </div>
+          {/* 記事タイトル（h1） */}
+          <h1 className="mt-5 text-[22px] md:text-[26px] font-bold leading-tight text-gray-900">
+            {self.title}
+          </h1>
           {/* メタ情報 */}
-          <div className="mt-5 flex items-center justify-between">
+          <div className="mt-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-[11px] font-bold text-blue-600">L</div>

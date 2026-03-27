@@ -27,23 +27,6 @@ export const metadata: Metadata = {
   },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: {
-    "@type": "Organization",
-    name: "Lオペ for CLINIC",
-    url: SITE_URL,
-    logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` },
-  },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "アンチエイジング内服・サプリメント市場は年率15%成長、2025年で約3,800億円規模に拡大",
@@ -66,7 +49,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         アンチエイジング医療は「注射・施術」から「飲んで若返る」時代へとシフトしつつあります。NMN、グルタチオン、高濃度ビタミンC、プラセンタ、コエンザイムQ10——エビデンスが蓄積され、クリニック処方ならではの高純度・高用量製剤が注目を集めています。本記事では<strong>5大アンチエイジング内服成分の作用機序・エビデンス・推奨用量・価格帯を徹底比較</strong>し、クリニックがどの成分を処方メニューに取り入れるべきか、そしてオンライン処方×LINEを活用した定期収益化戦略まで包括的に解説します。

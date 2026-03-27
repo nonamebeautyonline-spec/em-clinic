@@ -28,18 +28,6 @@ export const metadata: Metadata = {
   openGraph: { title, description, url: `${SITE_URL}/lp/column/${slug}`, type: "article", publishedTime: date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: title,
-  description,
-  datePublished: date,
-  dateModified: date,
-  image: `${SITE_URL}/lp/column/${slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${slug}`,
-};
 
 const keyPoints = [
   "リピート処方のストック収益は「毎月積み上がる」 — 100人×月1万円で月100万円の安定収益基盤",
@@ -60,7 +48,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         自費クリニックの収益は新患の来院に依存しがちですが、<strong>リピート処方による「ストック型収益」</strong>を構築すれば、毎月の売上基盤が安定します。AGA治療薬・ピル・ダイエット薬・スキンケア処方など、継続服用が前提の自費処方は<strong>定期配送＋自動フォローの仕組み化</strong>で収益を積み上げる最適な商材です。本記事では、リピート処方のストック収益モデルの設計から、解約率を最小化する運用ノウハウまでを解説します。サブスクリプションモデル全般については<Link href="/lp/column/self-pay-clinic-subscription-model" className="text-sky-600 underline hover:text-sky-800">サブスクモデル設計ガイド</Link>もあわせてご覧ください。

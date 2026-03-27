@@ -38,18 +38,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "成人の約20%が不眠症状を抱えるが、受診率はわずか10%台にとどまる",
@@ -71,7 +59,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         不眠症は成人の約20%が経験する非常に身近な疾患でありながら、<strong>実際に医療機関を受診している患者はそのうちわずか10%台</strong>にとどまります。「たかが眠れないだけ」と放置する人が多い一方で、慢性不眠は生活習慣病やうつ病のリスクを高める深刻な問題です。オンライン診療の普及により、<strong>通院のハードルを下げて「眠れない」を放置させない仕組み</strong>が実現可能になりました。本記事では、不眠症のオンライン処方を安全に運用するための薬剤選択・依存リスク管理・定期フォロー体制の構築と、<strong>Lオペ for CLINICを活用したLINE問診・セグメント配信・フォローアップ自動化</strong>の方法を解説します。

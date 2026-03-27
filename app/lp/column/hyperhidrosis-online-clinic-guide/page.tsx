@@ -37,18 +37,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "原発性多汗症は日本人の約5〜7%、推定約720万人が罹患 — 受診率はわずか6%程度",
@@ -68,7 +56,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「手汗でスマートフォンが操作できない」「書類が汗で滲む」「人前で握手ができない」——多汗症は生活の質を著しく下げる疾患でありながら、<strong>受診率はわずか6%</strong>と極めて低い領域です。2020年にエクロックゲル、2022年にラピフォートワイプが保険適用されたことで治療の選択肢が大幅に広がり、<strong>オンライン診療との親和性が飛躍的に高まりました</strong>。本記事では、プロバンサイン（プロパンテリン）の内服療法、ラピフォートワイプ・エクロックゲルの外用療法の使い分けから、<strong>Lオペ for CLINICを活用したオンライン多汗症外来の運用方法</strong>まで徹底解説します。

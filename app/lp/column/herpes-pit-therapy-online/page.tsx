@@ -36,18 +36,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "PIT療法は再発の前兆時に患者自身が服薬を開始する治療法 — 2019年にバラシクロビルのPIT適応が承認",
@@ -67,7 +55,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         口唇ヘルペスや性器ヘルペスは<strong>再発を繰り返す疾患</strong>であり、患者にとっては「また症状が出るかもしれない」という不安が日常的な負担となります。2019年にバラシクロビルの<strong>PIT療法（Patient Initiated Therapy: 患者自身による前兆時の服薬開始）</strong>が承認されたことで、再発の前兆を感じたらすぐに手元の薬で治療を開始できるようになりました。PIT療法はオンライン診療との親和性が極めて高く、<strong>初回のPIT説明と処方をオンラインで行い、以後は患者が自律的に治療を開始する</strong>モデルが構築できます。本記事では、PIT療法の用法用量・適応・オンライン診療での導入フロー、そして<strong>Lオペ for CLINICを活用したLINE問診・フォロー・再発相談の自動化</strong>まで解説します。

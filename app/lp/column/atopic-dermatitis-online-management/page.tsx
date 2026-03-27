@@ -36,18 +36,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "日本のアトピー性皮膚炎患者は推定約50万人（重症度を問わず全年齢で10〜15%が経験） — 慢性疾患のため継続管理が不可欠",
@@ -67,7 +55,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         アトピー性皮膚炎は<strong>慢性・再発性の炎症性皮膚疾患</strong>であり、治療の中心は「寛解を維持すること」にあります。ステロイド外用薬による急性期治療だけでなく、<strong>プロアクティブ療法（寛解後も定期的に外用薬を塗布する維持療法）</strong>と適切な保湿指導が長期管理の鍵です。しかし、通院のたびに待合室で長時間待たされる負担から、<strong>治療中断率が高い</strong>ことが大きな課題でした。オンライン診療により「定期的な皮膚状態の確認と処方の継続」が自宅から可能になり、<strong>治療継続率の大幅な改善</strong>が期待できます。本記事では、ステロイド外用薬のランク選択・非ステロイド外用薬の使い分け・保湿指導のポイント、そして<strong>Lオペ for CLINICによるLINE画像共有・フォローアップ自動化</strong>まで解説します。

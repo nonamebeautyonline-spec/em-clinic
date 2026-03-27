@@ -20,18 +20,6 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: self.title,
-  description: self.description,
-  datePublished: `${self.date}T00:00:00+09:00`,
-  dateModified: `${self.updatedDate || self.date}T00:00:00+09:00`,
-  image: `${SITE_URL}/lp/column/${self.slug}/opengraph-image`,
-  author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
-  publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-  mainEntityOfPage: `${SITE_URL}/lp/column/${self.slug}`,
-};
 
 const keyPoints = [
   "自費診療特有のオンライン診療ルールと保険診療との違い",
@@ -57,7 +45,6 @@ const toc = [
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         自費診療でオンライン診療を始める際、保険診療とは異なるルール・規制が多数存在します。厚労省の指針に加え、<strong>薬機法・医療広告ガイドライン・特定商取引法・個人情報保護法</strong>など、関連する法規制は多岐にわたります。本記事では2026年3月時点の最新情報に基づき、自費クリニックが遵守すべきルールの要点を網羅的に整理します。オンライン診療の法規制全般については<Link href="/lp/column/online-clinic-regulations" className="text-sky-600 underline hover:text-sky-800">オンライン診療の法規制と薬機法ガイド</Link>、広告規制の詳細は<Link href="/lp/column/clinic-ad-yakki-ho-guide" className="text-sky-600 underline hover:text-sky-800">クリニック広告の薬機法ガイド</Link>もあわせてご覧ください。
