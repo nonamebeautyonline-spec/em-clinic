@@ -419,13 +419,13 @@ export function ResultCard({ before, after, metric, description }: {
 /* ─── 数値グリッド（KPI表示） ─── */
 export function StatGrid({ stats }: { stats: { value: string; unit?: string; label: string }[] }) {
   return (
-    <div className={`my-6 grid gap-3 ${stats.length <= 3 ? "grid-cols-3" : "grid-cols-2 md:grid-cols-4"}`}>
+    <div className={`my-6 grid gap-4 ${stats.length <= 3 ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2 md:grid-cols-4"}`}>
       {stats.map((s) => (
-        <div key={s.label} className="rounded-lg border border-gray-200 bg-white p-4 text-center">
-          <p className="text-[24px] font-bold tracking-tight text-gray-900">
-            {s.value}<span className="text-[14px] text-gray-400">{s.unit || ""}</span>
+        <div key={s.label} className="rounded-lg border border-gray-200 bg-white px-5 py-5 text-center">
+          <p className="text-[26px] font-bold tracking-tight text-gray-900">
+            {s.value}<span className="ml-0.5 text-[15px] text-gray-400">{s.unit || ""}</span>
           </p>
-          <p className="mt-1 text-[11px] text-gray-500">{s.label}</p>
+          <p className="mt-2 text-[13px] leading-snug text-gray-500">{s.label}</p>
         </div>
       ))}
     </div>
@@ -436,19 +436,21 @@ export function StatGrid({ stats }: { stats: { value: string; unit?: string; lab
 export function BarChart({ data, unit }: { data: { label: string; value: number; color?: string }[]; unit?: string }) {
   const maxVal = Math.max(...data.map((d) => d.value)) || 1;
   return (
-    <div className="my-6 space-y-3">
+    <div className="my-6 space-y-4">
       {data.map((d) => (
-        <div key={d.label} className="flex items-center gap-3">
-          <span className="w-28 shrink-0 text-right text-[12px] text-gray-600">{d.label}</span>
-          <div className="flex-1">
-            <div className="h-7 rounded-sm bg-gray-100">
-              <div
-                className={`h-full rounded-sm ${d.color?.startsWith("#") || d.color?.startsWith("rgb") ? "" : d.color || "bg-sky-500"} transition-all duration-500`}
-                style={{ width: `${(d.value / maxVal) * 100}%`, ...(d.color?.startsWith("#") || d.color?.startsWith("rgb") ? { backgroundColor: d.color } : {}) }}
-              />
+        <div key={d.label}>
+          <span className="mb-1 block text-[13px] font-medium text-gray-600">{d.label}</span>
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <div className="h-8 rounded bg-gray-100">
+                <div
+                  className={`h-full rounded ${d.color?.startsWith("#") || d.color?.startsWith("rgb") ? "" : d.color || "bg-sky-500"} transition-all duration-500`}
+                  style={{ width: `${(d.value / maxVal) * 100}%`, ...(d.color?.startsWith("#") || d.color?.startsWith("rgb") ? { backgroundColor: d.color } : {}) }}
+                />
+              </div>
             </div>
+            <span className="w-20 shrink-0 text-right text-[14px] font-bold text-gray-700">{d.value}{unit || ""}</span>
           </div>
-          <span className="w-16 text-[13px] font-bold text-gray-700">{d.value}{unit || ""}</span>
         </div>
       ))}
     </div>
@@ -462,11 +464,11 @@ export function ComparisonTable({ headers, rows }: {
 }) {
   return (
     <div className="my-6 overflow-x-auto rounded-lg border border-gray-200">
-      <table className="w-full text-[13px]">
+      <table className="w-full text-[14px]">
         <thead>
           <tr className="bg-gray-50">
             {headers.map((h, i) => (
-              <th key={i} className={`px-4 py-3 font-semibold text-gray-700 ${i === 0 ? "text-left" : "text-center"}`}>{h}</th>
+              <th key={i} className={`px-5 py-4 font-semibold text-gray-700 ${i === 0 ? "text-left" : "text-center"}`}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -474,7 +476,7 @@ export function ComparisonTable({ headers, rows }: {
           {rows.map((row, ri) => (
             <tr key={ri} className="hover:bg-gray-50/50">
               {row.map((cell, ci) => (
-                <td key={ci} className={`px-4 py-3 ${ci === 0 ? "text-left text-gray-700" : "text-center"}`}>
+                <td key={ci} className={`px-5 py-4 leading-relaxed ${ci === 0 ? "text-left text-gray-700" : "text-center"}`}>
                   {typeof cell === "boolean" ? (
                     cell ? (
                       <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-sky-100 text-sky-600">

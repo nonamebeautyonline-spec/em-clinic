@@ -70,6 +70,13 @@ export const categories: CategoryDef[] = [
     matchValues: ["開業・経営"],
   },
   {
+    slug: "medication",
+    label: "医薬品解説",
+    description:
+      "クリニックで処方される医薬品の作用機序・エビデンス・副作用・服用方法を医師が解説。GLP-1受容体作動薬、美容内服薬など、患者説明にも活用できる情報を提供します。",
+    matchValues: ["医薬品解説"],
+  },
+  {
     slug: "evidence",
     label: "エビデンス解説",
     description:
