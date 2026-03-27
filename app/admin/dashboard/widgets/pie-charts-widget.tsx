@@ -83,74 +83,32 @@ function PaymentTooltip({ active, payload, creditCardAmount, bankTransferAmount 
   );
 }
 
-// 外側ラベル（引き出し線付き）— 名前+割合を表示
-function renderOuterLabel({ cx, cy, midAngle, outerRadius, name, percent, value }: {
-  cx?: number; cy?: number; midAngle?: number; outerRadius?: number;
-  name?: string; percent?: number; value?: number;
-}) {
-  if (cx == null || cy == null || midAngle == null || outerRadius == null) return null;
-  if (!percent || percent < 0.01) return null; // 1%未満は非表示
-
-  const RADIAN = Math.PI / 180;
-  const sin = Math.sin(-midAngle * RADIAN);
-  const cos = Math.cos(-midAngle * RADIAN);
-
-  // 引き出し線の始点（円の外周）
-  const sx = cx + outerRadius * cos;
-  const sy = cy + outerRadius * sin;
-  // 引き出し線の中間点
-  const mx = cx + (outerRadius + 16) * cos;
-  const my = cy + (outerRadius + 16) * sin;
-  // テキスト位置
-  const ex = mx + (cos >= 0 ? 8 : -8);
-  const ey = my;
-  const textAnchor = cos >= 0 ? "start" : "end";
-
-  const pctText = `${(percent * 100).toFixed(1)}%`;
-
-  return (
-    <g>
-      {/* 引き出し線 */}
-      <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke="#94A3B8" fill="none" strokeWidth={1} />
-      <circle cx={ex} cy={ey} r={2} fill="#94A3B8" />
-      {/* ラベル名 */}
-      <text x={ex + (cos >= 0 ? 6 : -6)} y={ey - 6} textAnchor={textAnchor} fill="#334155" fontSize={11} fontWeight={500}>
-        {name}
-      </text>
-      {/* 割合+人数 */}
-      <text x={ex + (cos >= 0 ? 6 : -6)} y={ey + 8} textAnchor={textAnchor} fill="#64748B" fontSize={10}>
-        {pctText}（{value?.toLocaleString()}人）
-      </text>
-    </g>
-  );
-}
-
-// 内側ラベル（大きいスライス用）
+// 内側ラベル（人数表示）
 function renderInnerLabel({ cx, cy, midAngle, innerRadius, outerRadius, value, percent }: {
   cx?: number; cy?: number; midAngle?: number; innerRadius?: number; outerRadius?: number; value?: number; percent?: number;
 }) {
-  if (!percent || percent < 0.08) return null;
+  if (!percent || percent < 0.05) return null;
   if (cx == null || cy == null || midAngle == null || innerRadius == null || outerRadius == null) return null;
   const RADIAN = Math.PI / 180;
   const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
   return (
-    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={600}>
+    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight={600}>
       {value?.toLocaleString()}
     </text>
   );
 }
 
-// 凡例コンポーネント（固定高さで統一）
-function ChartLegend({ items }: { items: { name: string; value: number; color: string }[] }) {
+// 凡例コンポーネント
+function ChartLegend({ items, unit = "人" }: { items: { name: string; value: number; color: string }[]; unit?: string }) {
   return (
-    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs h-10 overflow-y-auto items-start pt-1">
+    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs items-start pt-1">
       {items.map((item, i) => (
         <div key={i} className="flex items-center gap-1">
           <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
           <span className="text-slate-600">{item.name}</span>
-          <span className="text-slate-400 font-medium">{item.value.toLocaleString()}</span>
+          <span className="text-slate-400 font-medium">{item.value.toLocaleString()}{unit}</span>
         </div>
       ))}
     </div>
@@ -165,7 +123,7 @@ function PieChartCard({ title, subtitle, children, isEmpty }: {
   isEmpty?: boolean;
 }) {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 flex flex-col h-[380px]">
+    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 flex flex-col h-[360px]">
       <div className="mb-1 shrink-0">
         <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
         {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
@@ -188,7 +146,7 @@ export default function PieChartsWidget() {
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[0, 1, 2].map(i => (
-          <div key={i} className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 animate-pulse h-[380px]">
+          <div key={i} className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 animate-pulse h-[360px]">
             <div className="h-4 w-32 bg-slate-200 rounded mb-4" />
             <div className="h-52 bg-slate-100 rounded" />
           </div>
@@ -244,7 +202,7 @@ export default function PieChartsWidget() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {/* 1. 患者ファネル — 外側ラベル（引き出し線） */}
+      {/* 1. 患者ファネル */}
       <PieChartCard
         title="患者ファネル"
         subtitle={`全${funnelTotal.toLocaleString()}人`}
@@ -259,9 +217,9 @@ export default function PieChartsWidget() {
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                outerRadius={65}
+                outerRadius={80}
                 labelLine={false}
-                label={renderOuterLabel}
+                label={renderInnerLabel}
               >
                 {funnelDataWithPercent.map((entry, i) => (
                   <Cell key={i} fill={entry.color} stroke="white" strokeWidth={2} />
@@ -271,9 +229,10 @@ export default function PieChartsWidget() {
             </PieChart>
           </ResponsiveContainer>
         </div>
+        <ChartLegend items={funnelData} />
       </PieChartCard>
 
-      {/* 2. 今月の新規処方 vs 再処方 — 内側ラベル + 凡例 */}
+      {/* 2. 今月の新規処方 vs 再処方 */}
       <PieChartCard
         title="今月の処方内訳"
         subtitle={`合計${prescriptionTotal.toLocaleString()}人`}
@@ -303,7 +262,7 @@ export default function PieChartsWidget() {
         <ChartLegend items={prescriptionData} />
       </PieChartCard>
 
-      {/* 3. 今月の決済方法内訳 — 内側ラベル + 凡例 */}
+      {/* 3. 今月の決済方法内訳 */}
       <PieChartCard
         title="今月の決済方法"
         subtitle={`${paymentTotal.toLocaleString()}件 / ¥${totalAmount.toLocaleString()}`}
@@ -330,7 +289,7 @@ export default function PieChartsWidget() {
             </PieChart>
           </ResponsiveContainer>
         </div>
-        <ChartLegend items={paymentData} />
+        <ChartLegend items={paymentData} unit="件" />
       </PieChartCard>
     </div>
   );
