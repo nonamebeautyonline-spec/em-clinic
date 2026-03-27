@@ -3,6 +3,8 @@
 // Step 2: 決済設定
 import { useState } from "react";
 import { StepNavigation } from "./Step1Line";
+import { AiConcierge } from "@/components/onboarding/AiConcierge";
+import { ONBOARDING_EXPLANATIONS } from "@/lib/onboarding-concierge";
 
 type Provider = "square" | "gmo";
 
@@ -107,6 +109,9 @@ export default function Step2Payment({ completed, onNext, onBack }: Props) {
       <p className="text-sm text-slate-500 mb-6">
         決済サービスを選択してAPIキーを入力してください
       </p>
+
+      {/* AIコンシェルジュ */}
+      <AiConcierge step="payment" initialExplanation={ONBOARDING_EXPLANATIONS.payment} />
 
       {/* エラー */}
       {error && (

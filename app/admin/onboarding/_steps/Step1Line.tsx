@@ -2,6 +2,8 @@
 
 // Step 1: LINE連携設定
 import { useState } from "react";
+import { AiConcierge } from "@/components/onboarding/AiConcierge";
+import { ONBOARDING_EXPLANATIONS } from "@/lib/onboarding-concierge";
 
 interface Props {
   completed: boolean;
@@ -85,6 +87,9 @@ export default function Step1Line({ completed, onNext, onBack }: Props) {
       <p className="text-sm text-slate-500 mb-6">
         LINE Messaging APIの認証情報を入力してください
       </p>
+
+      {/* AIコンシェルジュ */}
+      <AiConcierge step="line" initialExplanation={ONBOARDING_EXPLANATIONS.line} />
 
       {/* 案内バナー */}
       <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
