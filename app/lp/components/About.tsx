@@ -333,6 +333,123 @@ export default function About() {
           </StaggerItem>
         ))}
       </StaggerChildren>
+
+      {/* ── AI FLEXビルダー モック ── */}
+      <FadeIn className="mx-auto mt-16 max-w-5xl" delay={0.15}>
+        <div className="overflow-hidden rounded-xl shadow-2xl shadow-black/10 ring-1 ring-gray-200">
+          {/* ウィンドウバー */}
+          <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50 px-4 py-2.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-[#FF5F57]" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[#FEBC2E]" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[#28C840]" />
+            <span className="ml-3 text-[10px] font-medium text-gray-400">Flex Messageビルダー — AI作成モード</span>
+          </div>
+
+          <div className="flex bg-white" style={{ minHeight: 380 }}>
+            {/* ═══ 左: エディタ側 ═══ */}
+            <div className="flex flex-1 flex-col border-r border-gray-100 p-4">
+              {/* タブ */}
+              <div className="flex items-center gap-1.5 mb-3">
+                <span className="rounded-md bg-violet-100 px-2.5 py-1 text-[9px] font-bold text-violet-700">AI作成</span>
+                <span className="rounded-md bg-gray-100 px-2.5 py-1 text-[9px] text-gray-400">プリセット</span>
+                <span className="rounded-md bg-gray-100 px-2.5 py-1 text-[9px] text-gray-400">手動編集</span>
+                <span className="ml-auto text-[9px] text-gray-300">&#8984;K</span>
+              </div>
+
+              {/* ブロック構造 */}
+              <div className="mb-3 rounded-lg bg-gray-50 p-3">
+                <div className="text-[9px] font-bold text-gray-400 mb-2">ブロック構造</div>
+                <div className="space-y-1.5">
+                  {[
+                    { icon: "🖼", name: "ヒーロー画像", tag: "AI生成", tagColor: "text-blue-500" },
+                    { icon: "T", name: "タイトル", sub: "春の特別キャンペーン" },
+                    { icon: "📝", name: "本文テキスト", sub: null },
+                    { icon: "🎫", name: "クーポンバッジ", sub: "20% OFF", subColor: "text-amber-600" },
+                    { icon: "🔘", name: "予約ボタン", sub: null },
+                  ].map((b) => (
+                    <div key={b.name} className={`flex items-center gap-2 rounded-md bg-white px-2.5 py-1.5 border ${b.tag ? "border-blue-200 shadow-sm" : "border-gray-200"}`}>
+                      <span className="text-[11px] w-4 text-center">{b.icon}</span>
+                      <span className="text-[10px] font-semibold text-gray-700">{b.name}</span>
+                      {b.tag && <span className="ml-auto text-[8px] text-blue-500 font-semibold">{b.tag}</span>}
+                      {b.sub && <span className={`ml-auto text-[8px] ${b.subColor || "text-gray-400"}`}>{b.sub}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* AI指示入力 */}
+              <div className="mt-auto rounded-lg border-2 border-violet-200 bg-violet-50/50 p-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white font-bold">AI</span>
+                  <span className="text-[10px] font-bold text-violet-700">AIに指示して作成</span>
+                </div>
+                {/* 添付画像 */}
+                <div className="mb-2 flex items-center gap-2.5 rounded-md bg-white px-2.5 py-2 border border-gray-200">
+                  <div className="h-10 w-10 shrink-0 rounded-md bg-gradient-to-br from-pink-200 to-pink-100 flex items-center justify-center text-[14px]">🌸</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[9px] font-semibold text-gray-600">sakura-campaign.jpg</div>
+                    <div className="text-[8px] text-gray-400">画像添付済み</div>
+                  </div>
+                  <span className="text-[10px] text-gray-300">✕</span>
+                </div>
+                {/* 指示テキスト */}
+                <div className="rounded-md bg-white border border-violet-200 px-3 py-2.5 text-[11px] text-gray-600 leading-relaxed">
+                  春のキャンペーン告知を作って。添付の桜画像をヒーローに使って、20%OFFクーポンと予約ボタンを入れて
+                </div>
+                <div className="mt-2.5 flex items-center gap-2">
+                  <button className="flex items-center gap-1 rounded-md bg-white border border-gray-200 px-2.5 py-1 text-[9px] text-gray-500">📎 画像</button>
+                  <div className="flex-1" />
+                  <div className="flex items-center gap-1.5 rounded-md bg-violet-500 px-4 py-2 text-[10px] font-bold text-white shadow-sm">
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    生成中...
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ═══ 右: LINEプレビュー ═══ */}
+            <div className="flex w-[280px] shrink-0 flex-col items-center bg-gray-50/50 p-4 md:w-[320px]">
+              <div className="text-[10px] font-semibold text-gray-400 mb-3 self-start">LINEプレビュー</div>
+              {/* LINEフレーム */}
+              <div className="w-full max-w-[240px] rounded-xl border border-gray-200 bg-[#7494C0]/15 p-3 shadow-inner">
+                <div className="overflow-hidden rounded-lg bg-white shadow-sm">
+                  {/* ヒーロー画像 */}
+                  <div className="relative h-28 bg-gradient-to-br from-pink-300 via-pink-200 to-rose-100">
+                    <div className="absolute inset-0 flex items-center justify-center"><span className="text-4xl opacity-60">🌸</span></div>
+                    <div className="absolute bottom-1.5 right-1.5 rounded bg-black/40 px-1.5 py-0.5 text-[7px] text-white">AI配置</div>
+                  </div>
+                  {/* タイトル */}
+                  <div className="px-3.5 pt-3">
+                    <div className="text-[12px] font-extrabold text-gray-800 leading-tight">春の特別キャンペーン</div>
+                  </div>
+                  {/* 本文 */}
+                  <div className="px-3.5 pt-1.5">
+                    <div className="text-[9px] text-gray-500 leading-relaxed">日頃のご愛顧に感謝を込めて、春の特別キャンペーンを開催いたします。この機会にぜひお試しください。</div>
+                  </div>
+                  {/* クーポン */}
+                  <div className="mx-3.5 mt-2.5 rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 px-3 py-2 text-center">
+                    <div className="text-[8px] text-amber-600">期間限定クーポン</div>
+                    <div className="text-[16px] font-extrabold text-amber-600">20% OFF</div>
+                    <div className="text-[8px] text-amber-400">2026/4/30まで</div>
+                  </div>
+                  {/* 予約ボタン */}
+                  <div className="p-3.5 pt-2.5">
+                    <div className="rounded-full bg-[#06C755] py-2.5 text-center text-[10px] font-bold text-white shadow-sm">今すぐ予約する</div>
+                  </div>
+                </div>
+              </div>
+              {/* 生成ステータス */}
+              <div className="mt-3 flex items-center gap-1.5 self-start">
+                <div className="h-2 w-2 rounded-full bg-violet-500 animate-pulse" />
+                <span className="text-[9px] text-violet-600 font-semibold">AIがFLEXメッセージを構築中...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p className="mt-4 text-center text-[12px] text-slate-400">
+          AI Flexビルダー — テキスト指示と画像送信だけでリッチなFlex Messageを自動作成
+        </p>
+      </FadeIn>
     </Section>
   );
 }
