@@ -58,7 +58,11 @@ export function AiCommandBar({ currentFlexJson, onGenerated }: Props) {
     }
   };
 
+  // IME変換中フラグ（日本語入力の確定Enterで送信しない）
+  const composingRef = useRef(false);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (composingRef.current) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -96,6 +100,8 @@ export function AiCommandBar({ currentFlexJson, onGenerated }: Props) {
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={handleKeyDown}
+          onCompositionStart={() => { composingRef.current = true; }}
+          onCompositionEnd={() => { composingRef.current = false; }}
           placeholder={currentFlexJson ? "AIに指示して修正...（例: ヘッダーを赤に / ボタン追加 / カルーセル3枚に）" : "AIに指示してFlexメッセージを作成...（例: キャンペーン告知、予約リマインド）"}
           className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300 focus:border-purple-400 placeholder:text-gray-400"
           disabled={generating}
