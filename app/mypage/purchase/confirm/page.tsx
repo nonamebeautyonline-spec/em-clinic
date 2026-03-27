@@ -37,6 +37,7 @@ type SdkConfig = {
   locationId?: string;
   environment?: "sandbox" | "production";
   threeDsEnabled?: boolean;
+  showCoupon?: boolean;
 };
 
 type SavedCard = {
@@ -141,7 +142,7 @@ function PurchaseConfirmContent() {
   });
   const lastShipping = lastShippingData?.hasData ? lastShippingData.shipping : null;
 
-  // 「前回の情報を使用」チェック時に自動入力
+  // 「前回の情報を使用」チェックON→自動入力、OFF→空欄に戻す
   useEffect(() => {
     if (usePrevShipping && lastShipping) {
       setShipping({
@@ -151,14 +152,17 @@ function PurchaseConfirmContent() {
         phone: lastShipping.phone || "",
         email: lastShipping.email || "",
       });
-      // 住所はautoAddress+addressDetailに分割できないため、全体をaddressDetailに設定
       const addr = lastShipping.address || "";
       setAutoAddress("");
       setAddressDetail(addr);
-      // 郵便番号で住所自動検索を試行
       if (lastShipping.postalCode) {
         handlePostalCodeChange(lastShipping.postalCode);
       }
+    } else if (!usePrevShipping) {
+      setShipping({ name: "", postalCode: "", address: "", phone: "", email: "" });
+      setAutoAddress("");
+      setAddressDetail("");
+      setPostalError(null);
     }
   }, [usePrevShipping, lastShipping, handlePostalCodeChange]);
 
@@ -518,7 +522,7 @@ function PurchaseConfirmContent() {
         </div>
 
         {/* クーポンコード入力 */}
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm px-4 py-3">
+        {sdkConfig?.showCoupon && <div className="rounded-2xl border border-slate-200 bg-white shadow-sm px-4 py-3">
           <div className="text-[11px] font-medium text-slate-700 mb-2">クーポンコード</div>
           <div className="flex gap-2">
             <input
@@ -572,7 +576,7 @@ function PurchaseConfirmContent() {
                 : couponValidation.error}
             </div>
           )}
-        </div>
+        </div>}
 
         {/* 注意書き */}
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">

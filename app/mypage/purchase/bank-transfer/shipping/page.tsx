@@ -87,20 +87,28 @@ function ShippingFormContent() {
   });
   const lastShipping = lastShippingData?.hasData ? lastShippingData.shipping : null;
 
-  // 「前回の情報を使用」チェック時に自動入力
+  // 「前回の情報を使用」チェックON→自動入力、OFF→空欄に戻す
   useEffect(() => {
     if (usePrevShipping && lastShipping) {
       setAccountName(lastShipping.accountName || "");
       setShippingName(lastShipping.name || "");
       setPhoneNumber(lastShipping.phone || "");
       setEmail(lastShipping.email || "");
-      // 住所は全体をaddressDetailに設定し、郵便番号で自動検索を試行
       const addr = lastShipping.address || "";
       setAutoAddress("");
       setAddressDetail(addr);
       if (lastShipping.postalCode) {
         handlePostalCodeChange(lastShipping.postalCode);
       }
+    } else if (!usePrevShipping) {
+      setAccountName("");
+      setShippingName("");
+      setPhoneNumber("");
+      setEmail("");
+      setPostalCode("");
+      setAutoAddress("");
+      setAddressDetail("");
+      setPostalError(null);
     }
   }, [usePrevShipping, lastShipping, handlePostalCodeChange]);
 

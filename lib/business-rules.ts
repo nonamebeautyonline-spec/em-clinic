@@ -42,6 +42,8 @@ export interface BusinessRules {
   showShippingPhone: boolean;
   /** 決済完了Flex: メールアドレス表示 */
   showShippingEmail: boolean;
+  /** 決済画面: クーポンコード入力欄の表示 */
+  showCoupon: boolean;
   /** 同量再処方の自動承認 */
   autoApproveSameDose: boolean;
   /** 不通時のLINE自動通知ON/OFF */
@@ -72,6 +74,7 @@ const DEFAULTS: BusinessRules = {
   showShippingAddress: true,
   showShippingPhone: true,
   showShippingEmail: true,
+  showCoupon: false,
   autoApproveSameDose: false,
   notifyNoAnswer: false,
   noAnswerMessage: "",
@@ -114,6 +117,7 @@ export async function getBusinessRules(tenantId?: string): Promise<BusinessRules
     showShippingAddress: parseBool(get("show_shipping_address"), DEFAULTS.showShippingAddress),
     showShippingPhone: parseBool(get("show_shipping_phone"), DEFAULTS.showShippingPhone),
     showShippingEmail: parseBool(get("show_shipping_email"), DEFAULTS.showShippingEmail),
+    showCoupon: parseBool(get("show_coupon"), DEFAULTS.showCoupon),
     autoApproveSameDose: parseBool(get("auto_approve_same_dose"), DEFAULTS.autoApproveSameDose),
     notifyNoAnswer: parseBool(get("notify_no_answer"), DEFAULTS.notifyNoAnswer),
     noAnswerMessage: get("no_answer_message") ?? DEFAULTS.noAnswerMessage,

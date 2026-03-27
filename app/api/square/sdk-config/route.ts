@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSetting } from "@/lib/settings";
 import { resolveTenantId } from "@/lib/tenant";
 import { getActiveSquareAccount } from "@/lib/square-account-server";
+import { getBusinessRules } from "@/lib/business-rules";
 
 export async function GET(req: NextRequest) {
   const tenantId = resolveTenantId(req);
@@ -25,11 +26,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ enabled: false });
   }
 
+  const rules = await getBusinessRules(tid);
+
   return NextResponse.json({
     enabled: true,
     applicationId: config.applicationId,
     locationId: config.locationId,
     environment: config.env || "production",
     threeDsEnabled: config.threeDsEnabled ?? false,
+    showCoupon: rules.showCoupon,
   });
 }
