@@ -457,7 +457,7 @@ export default function AboutPage() {
 
                           {/* 日付区切り */}
                           <div className="text-center">
-                            <span className="rounded-full bg-gray-400/80 px-4 py-1 text-[8px] font-bold text-white">2026年3月22日</span>
+                            <span className="rounded-full bg-gray-400/80 px-4 py-1 text-[8px] font-bold text-white">2026年9月25日</span>
                           </div>
 
                           {/* アクション通知 — 中央 */}

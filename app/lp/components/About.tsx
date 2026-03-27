@@ -184,9 +184,49 @@ export default function About() {
                         </div>
                       </div>
 
-                      {/* スクロールヒント下のメッセージ（非表示部分を暗示） */}
+                      {/* 日付区切り */}
                       <div className="text-center">
-                        <span className="rounded-full bg-gray-400/80 px-4 py-1 text-[8px] font-bold text-white">2026年3月22日</span>
+                        <span className="rounded-full bg-gray-400/80 px-4 py-1 text-[8px] font-bold text-white">2026年9月25日</span>
+                      </div>
+
+                      {/* アクション通知 */}
+                      <div className="text-center">
+                        <span className="text-[8px] text-gray-400">8:45</span>
+                        <div className="mt-0.5">
+                          <span className="rounded-full bg-gray-200/80 px-3 py-0.5 text-[8px] text-gray-500">「マイページ」をタップしました</span>
+                        </div>
+                      </div>
+
+                      {/* 発送完了のお知らせ */}
+                      <div className="flex items-end justify-end gap-1.5">
+                        <span className="text-[7px] text-gray-400">16:03</span>
+                        <div className="max-w-[75%] overflow-hidden rounded-lg bg-white shadow-sm">
+                          <div className="bg-[#ec4899] px-3 py-2.5 text-[11px] font-bold text-white">発送完了のお知らせ</div>
+                          <div className="p-3">
+                            {/* 配送プログレスバー */}
+                            <div className="flex items-center justify-between text-[8px] text-gray-500">
+                              <span>発送</span>
+                              <span>お届け予定</span>
+                            </div>
+                            <div className="relative mt-1 h-2.5 w-full rounded-full bg-pink-100">
+                              <div className="absolute left-0 top-0 h-2.5 w-[55%] rounded-full bg-gradient-to-r from-yellow-400 to-pink-400" />
+                              <div className="absolute left-0 top-0 flex h-2.5 w-5 items-center justify-center rounded-full bg-pink-200 text-[6px]">✓</div>
+                            </div>
+                            <p className="mt-1 text-center text-[8px] text-gray-500">（ヤマト運輸）</p>
+
+                            <div className="my-2 text-center">
+                              <p className="text-[8px] text-gray-500">追跡番号</p>
+                              <p className="text-[13px] font-bold text-blue-600">1234-5678-9012</p>
+                            </div>
+                            <div className="border-t border-gray-100 pt-2 text-[8px] text-gray-600">
+                              <p>ヤマト運輸からの発送が開始されると日時指定が可能となります。</p>
+                              <div className="my-1.5 border-t border-gray-100" />
+                              <p>お届け後は冷蔵保管をするようにお願いいたします。</p>
+                            </div>
+                            <button className="mt-2 w-full rounded-full bg-[#ec4899] py-1.5 text-[9px] font-bold text-white">配送状況を確認</button>
+                            <p className="mt-1 text-center text-[7px] text-gray-400">マイページからも確認が可能です</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                     {/* スクロールヒント */}
