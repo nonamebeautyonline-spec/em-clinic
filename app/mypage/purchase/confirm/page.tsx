@@ -88,6 +88,7 @@ function PurchaseConfirmContent() {
   const [usePrevShipping, setUsePrevShipping] = useState(false);
   const [postalError, setPostalError] = useState<string | null>(null);
   const [postalSearching, setPostalSearching] = useState(false);
+  const [prevPostalCode, setPrevPostalCode] = useState<string | null>(null);
 
   // 郵便番号からzipcloud検索（リトライ付き）— 成功時はautoAddress文字列を返す
   const searchZipcloud = useCallback(async (digits: string): Promise<string | null> => {
@@ -160,6 +161,7 @@ function PurchaseConfirmContent() {
         if (digits.length === 7) {
           setAutoAddress("");
           setAddressDetail(addr);
+          setPrevPostalCode(lastShipping.postalCode);
           setPostalSearching(true);
           searchZipcloud(digits).then((autoAddr) => {
             setPostalSearching(false);
@@ -183,12 +185,18 @@ function PurchaseConfirmContent() {
       setAutoAddress("");
       setAddressDetail("");
       setPostalError(null);
+      setPrevPostalCode(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usePrevShipping, lastShipping]);
 
   // autoAddress + addressDetail を統合して shipping.address に反映
   const fullAddress = `${autoAddress}${addressDetail}`.trim();
+
+  // 前回情報使用中に郵便番号が変更された場合、丁目以降の変更を促す
+  const postalChanged = usePrevShipping && prevPostalCode !== null
+    && shipping.postalCode.replace(/[^0-9]/g, "") !== prevPostalCode.replace(/[^0-9]/g, "")
+    && shipping.postalCode.replace(/[^0-9]/g, "").length === 7;
 
   // 決済リクエストのAbortController（タイムアウト時にfetch自体をキャンセル）
   const abortRef = useRef<AbortController | null>(null);
@@ -789,9 +797,14 @@ function PurchaseConfirmContent() {
                         onChange={(e) => setAddressDetail(e.target.value)}
                         disabled={submitting}
                         placeholder="丁目以降を入力"
-                        className="w-1/2 rounded-lg border border-slate-200 px-3 py-2 text-[12px] text-slate-900 placeholder:text-slate-300 disabled:opacity-60"
+                        className={`w-1/2 rounded-lg border px-3 py-2 text-[12px] text-slate-900 placeholder:text-slate-300 disabled:opacity-60 ${postalChanged ? "border-red-400" : "border-slate-200"}`}
                       />
                     </div>
+                    {postalChanged && (
+                      <p className="mt-0.5 text-[10px] text-red-500 font-semibold">
+                        ※ 郵便番号が変更されました。丁目以降の住所も確認・修正してください。
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="text-[10px] text-slate-500 block mb-0.5">電話番号</label>

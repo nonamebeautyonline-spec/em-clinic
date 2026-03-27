@@ -32,6 +32,7 @@ function ShippingFormContent() {
   const [usePrevShipping, setUsePrevShipping] = useState(false);
   const [postalError, setPostalError] = useState<string | null>(null);
   const [postalSearching, setPostalSearching] = useState(false);
+  const [prevPostalCode, setPrevPostalCode] = useState<string | null>(null); // 前回情報の郵便番号を記憶
 
   // 郵便番号からzipcloud検索（リトライ付き）— 成功時はautoAddress文字列を返す
   const searchZipcloud = useCallback(async (digits: string): Promise<string | null> => {
@@ -100,6 +101,7 @@ function ShippingFormContent() {
         const digits = lastShipping.postalCode.replace(/[^0-9]/g, "");
         if (digits.length === 7) {
           setPostalCode(lastShipping.postalCode);
+          setPrevPostalCode(lastShipping.postalCode);
           setAutoAddress("");
           setAddressDetail(addr);
           setPostalSearching(true);
@@ -129,11 +131,17 @@ function ShippingFormContent() {
       setAutoAddress("");
       setAddressDetail("");
       setPostalError(null);
+      setPrevPostalCode(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usePrevShipping, lastShipping]);
 
   const fullAddress = `${autoAddress}${addressDetail}`.trim();
+
+  // 前回情報使用中に郵便番号が変更された場合、丁目以降の変更を促す
+  const postalChanged = usePrevShipping && prevPostalCode !== null
+    && postalCode.replace(/[^0-9]/g, "") !== prevPostalCode.replace(/[^0-9]/g, "")
+    && postalCode.replace(/[^0-9]/g, "").length === 7;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -364,13 +372,19 @@ function ShippingFormContent() {
                 value={addressDetail}
                 onChange={(e) => setAddressDetail(e.target.value)}
                 placeholder="丁目以降を入力"
-                className="w-1/2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                className={`w-1/2 rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 ${postalChanged ? "border-red-400 focus:ring-red-400" : "border-slate-200 focus:ring-pink-500"}`}
                 disabled={submitting}
               />
             </div>
-            <p className="mt-1 text-[10px] text-slate-500">
-              ※ 郵便番号を入力すると都道府県・市区町村が自動入力されます
-            </p>
+            {postalChanged ? (
+              <p className="mt-1 text-[10px] text-red-500 font-semibold">
+                ※ 郵便番号が変更されました。丁目以降の住所も確認・修正してください。
+              </p>
+            ) : (
+              <p className="mt-1 text-[10px] text-slate-500">
+                ※ 郵便番号を入力すると都道府県・市区町村が自動入力されます
+              </p>
+            )}
           </div>
 
           {/* 配送先氏名 */}
