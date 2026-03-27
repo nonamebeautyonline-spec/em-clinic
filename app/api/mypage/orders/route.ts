@@ -7,7 +7,7 @@ import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getProductNamesMap } from "@/lib/products";
 
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
-type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
+type PaymentStatus = "paid" | "pending" | "failed" | "refunded" | "cancelled";
 type RefundStatus = "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED" | "UNKNOWN";
 
 type OrderForMyPage = {
@@ -22,8 +22,9 @@ type OrderForMyPage = {
   paymentStatus: PaymentStatus;
   paymentMethod?: "credit_card" | "bank_transfer"; // ★ 決済方法
   refundStatus?: RefundStatus;
-  refundedAt?: string; // ISO
+  refundedAt?: string; // ISO（返金日時）
   refundedAmount?: number;
+  cancelledAt?: string; // ISO（キャンセル日時：支払い前キャンセル・二重入力等）
 };
 
 type OrdersFlags = {
@@ -69,7 +70,7 @@ function toIsoFlexible(v: unknown): string {
 
 function normalizePaymentStatus(v: unknown): PaymentStatus {
   const s = (typeof v === "string" ? v : String(v ?? "")).toLowerCase();
-  if (s === "paid" || s === "pending" || s === "failed" || s === "refunded") return s as PaymentStatus;
+  if (s === "paid" || s === "pending" || s === "failed" || s === "refunded" || s === "cancelled") return s as PaymentStatus;
   if (String(v ?? "").toUpperCase() === "COMPLETED") return "paid";
   return "paid";
 }
@@ -149,6 +150,8 @@ export async function GET(_req: NextRequest) {
       refunded_at?: string;
       refunded_amount?: number;
       refundedAmount?: number;
+      cancelled_at?: string;
+      cancelledAt?: string;
     }
     const orders: OrderForMyPage[] = rawOrders.map((o: RawOrder) => {
       const paidRaw =
@@ -171,6 +174,15 @@ export async function GET(_req: NextRequest) {
       if (o.status === "pending_confirmation") {
         paymentStatus = "pending" as PaymentStatus;
       }
+      // キャンセル/返金のpaymentStatus反映
+      if (o.status === "cancelled") {
+        const rs = normalizeRefundStatus(o.refund_status ?? o.refundStatus);
+        if (rs === "PENDING" || rs === "COMPLETED") {
+          paymentStatus = "refunded" as PaymentStatus;
+        } else {
+          paymentStatus = "cancelled" as PaymentStatus;
+        }
+      }
 
       return {
         id: String(o.id ?? ""),
@@ -186,6 +198,7 @@ export async function GET(_req: NextRequest) {
         refundStatus: normalizeRefundStatus(o.refund_status ?? o.refundStatus) || (o.status === "cancelled" ? "CANCELLED" as RefundStatus : undefined),
         refundedAt: toIsoFlexible(refundedRaw) || undefined,
         refundedAmount: toNumberOrUndefined(o.refunded_amount ?? o.refundedAmount),
+        cancelledAt: toIsoFlexible(o.cancelled_at ?? o.cancelledAt ?? "") || undefined,
       };
     });
 

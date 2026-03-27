@@ -2,7 +2,7 @@
 
 export type ReservationStatus = "scheduled" | "completed" | "canceled";
 export type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
-export type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
+export type PaymentStatus = "paid" | "pending" | "failed" | "refunded" | "cancelled";
 export type RefundStatus = "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED" | "UNKNOWN";
 export type Carrier = "japanpost" | "yamato";
 
@@ -30,8 +30,9 @@ export interface Order {
   paymentStatus: PaymentStatus;
   paymentMethod?: "credit_card" | "bank_transfer";
   refundStatus?: RefundStatus;
-  refundedAt?: string;       // ISO
+  refundedAt?: string;       // ISO（返金日時）
   refundedAmount?: number;   // JPY
+  cancelledAt?: string;      // ISO（キャンセル日時：支払い前キャンセル・二重入力等）
   paidAt?: string;           // ISO
   carrier?: Carrier;
   postalCode?: string;
@@ -210,6 +211,7 @@ export const paymentStatusLabel = (s: PaymentStatus) => {
     case "pending": return "確認中";
     case "failed": return "エラー";
     case "refunded": return "返金済み";
+    case "cancelled": return "キャンセル済み";
     default: return "";
   }
 };
@@ -264,7 +266,8 @@ export const paymentStatusClass = (status: string) => {
   switch (status) {
     case "unpaid": return "bg-rose-50 text-rose-700 border border-rose-100";
     case "paid": return "bg-emerald-50 text-emerald-700 border border-emerald-100";
-    case "refunded": return "bg-slate-50 text-slate-600 border border-slate-200";
+    case "refunded": return "bg-amber-50 text-amber-700 border border-amber-100";
+    case "cancelled": return "bg-slate-50 text-slate-600 border border-slate-200";
     case "failed": return "bg-red-50 text-red-700 border border-red-100";
     default: return "bg-slate-50 text-slate-600 border border-slate-100";
   }

@@ -315,8 +315,17 @@ function OrderCard({
           </div>
         </div>
 
+        {/* 返金手続き中の表示 */}
+        {order.refundStatus === "PENDING" && (
+          <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+            <p className="text-[10px] text-amber-800 leading-relaxed font-medium">
+              返金手続き中です。完了までしばらくお待ちください。
+            </p>
+          </div>
+        )}
+
         {/* 銀行振込の場合の説明 */}
-        {order.paymentMethod === "bank_transfer" && (
+        {order.paymentMethod === "bank_transfer" && !order.refundStatus && (
           <div className="mt-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2">
             <p className="text-[10px] text-blue-900 leading-relaxed">
               <strong>銀行振込について</strong>

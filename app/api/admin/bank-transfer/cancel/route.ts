@@ -75,11 +75,15 @@ export async function POST(req: NextRequest) {
     const notesText = memo ? `${actionLabel}: ${memo}` : actionLabel;
 
     // DB更新
+    // action="refund": 実際に金銭を返金 → refunded_at を記録
+    // action="cancel": 支払い前キャンセル・二重入力等 → cancelled_at を記録
     const updateData: Record<string, unknown> = {
       status: "cancelled",
       updated_at: now,
       refund_status: action === "refund" ? "PENDING" : "CANCELLED",
-      ...(action === "refund" ? { refunded_amount: order.amount } : {}),
+      ...(action === "refund"
+        ? { refunded_amount: order.amount, refunded_at: now }
+        : { cancelled_at: now }),
     };
 
     const { error: updateError } = await strictWithTenant(

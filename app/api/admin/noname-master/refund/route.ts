@@ -126,6 +126,7 @@ export async function POST(req: NextRequest) {
             status: "cancelled",
             refund_status: "PENDING",
             refunded_amount: order.amount,
+            refunded_at: now,
             updated_at: now,
           })
           .eq("id", order_id),

@@ -85,8 +85,11 @@ export function HistorySection() {
           {orderHistoryToRender.map((o) => {
             const paidLabel = formatDateSafe(o.paidAt);
             const isRefunded =
-              o.refundStatus === "COMPLETED" || o.paymentStatus === "refunded";
+              o.refundStatus === "COMPLETED" || o.refundStatus === "PENDING" || o.paymentStatus === "refunded";
+            const isCancelled =
+              !isRefunded && (o.refundStatus === "CANCELLED" || !!o.cancelledAt);
             const refundedLabel = formatDateSafe(o.refundedAt);
+            const cancelledLabel = formatDateSafe(o.cancelledAt);
 
             return (
               <div
@@ -98,6 +101,8 @@ export function HistorySection() {
                     {paidLabel || "—"}
                     {isRefunded && refundedLabel ? (
                       <span className="ml-2">（返金日：{refundedLabel}）</span>
+                    ) : isCancelled && cancelledLabel ? (
+                      <span className="ml-2">（キャンセル日：{cancelledLabel}）</span>
                     ) : null}
                   </div>
 
@@ -108,8 +113,8 @@ export function HistorySection() {
 
                   {isRefunded && (
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
-                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">
-                        返金済み
+                      <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700 border border-amber-100">
+                        {o.refundStatus === "PENDING" ? "返金手続き中" : "返金済み"}
                       </span>
 
                       {typeof o.refundedAmount === "number" && o.refundedAmount > 0 && (
@@ -117,6 +122,14 @@ export function HistorySection() {
                           返金額：¥{o.refundedAmount.toLocaleString()}
                         </span>
                       )}
+                    </div>
+                  )}
+
+                  {isCancelled && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">
+                        キャンセル済み
+                      </span>
                     </div>
                   )}
                 </div>

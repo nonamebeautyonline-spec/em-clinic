@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
-type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
+type PaymentStatus = "paid" | "pending" | "failed" | "refunded" | "cancelled";
 type RefundStatus = "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED" | "UNKNOWN";
 type Carrier = "japanpost" | "yamato";
 
@@ -31,6 +31,7 @@ type OrderForMyPage = {
   refundStatus?: RefundStatus;
   refundedAt?: string;
   refundedAmount?: number;
+  cancelledAt?: string;
   postalCode?: string;
   address?: string;
   shippingName?: string;
@@ -62,7 +63,7 @@ function safeStr(v: unknown) {
 
 function normalizePaymentStatus(v: unknown): PaymentStatus {
   const s = safeStr(v).toLowerCase();
-  if (s === "paid" || s === "pending" || s === "failed" || s === "refunded") return s as PaymentStatus;
+  if (s === "paid" || s === "pending" || s === "failed" || s === "refunded" || s === "cancelled") return s as PaymentStatus;
   if (safeStr(v).toUpperCase() === "COMPLETED") return "paid";
   return "paid";
 }
@@ -96,6 +97,7 @@ interface OrderDbRow {
   address: string | null;
   shipping_name: string | null;
   shipping_list_created_at: string | null;
+  cancelled_at: string | null;
   field_id: string | null;
 }
 
@@ -307,6 +309,17 @@ async function getOrdersFromSupabase(patientId: string, tenantId: string | null)
       if (o.status === "pending_confirmation") {
         paymentStatus = "pending" as PaymentStatus;
       }
+      // キャンセル/返金のpaymentStatus反映
+      // refund_status が PENDING/COMPLETED → 返金（実際に入金された後の返金）
+      // refund_status が CANCELLED or cancelled_at あり → キャンセル（未入金での取消）
+      if (o.status === "cancelled") {
+        const rs = normalizeRefundStatus(o.refund_status);
+        if (rs === "PENDING" || rs === "COMPLETED") {
+          paymentStatus = "refunded" as PaymentStatus;
+        } else {
+          paymentStatus = "cancelled" as PaymentStatus;
+        }
+      }
 
       return {
         id: o.id,
@@ -323,6 +336,7 @@ async function getOrdersFromSupabase(patientId: string, tenantId: string | null)
         refundStatus,
         refundedAt: refundedAt || undefined,
         refundedAmount: o.refunded_amount || undefined,
+        cancelledAt: o.cancelled_at || undefined,
         postalCode: o.postal_code || undefined,
         address: o.address || undefined,
         shippingName: (o.shipping_name && o.shipping_name !== "null") ? o.shipping_name : undefined,
