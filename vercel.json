@@ -50,6 +50,12 @@
     },
     "app/api/cron/send-reports/route.ts": {
       "maxDuration": 120
+    },
+    "app/api/cron/generate-invoices/route.ts": {
+      "maxDuration": 120
+    },
+    "app/api/cron/suspend-overdue/route.ts": {
+      "maxDuration": 60
     }
   },
   "crons": [
@@ -108,6 +114,14 @@
     {
       "path": "/api/cron/refresh-metrics",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/generate-invoices",
+      "schedule": "0 18 1 * *"
+    },
+    {
+      "path": "/api/cron/suspend-overdue",
+      "schedule": "0 6 * * *"
     }
   ]
 }

@@ -400,6 +400,36 @@ export default function TenantDetailPage() {
     }
   };
 
+  // メンバーパスワード強制リセット
+  const handleResetPassword = async (memberId: string, memberName: string) => {
+    const newPassword = prompt(
+      `${memberName} の新しいパスワードを入力してください（8文字以上）:`,
+    );
+    if (!newPassword) return;
+    if (newPassword.length < 8) {
+      showToast("パスワードは8文字以上で入力してください");
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/api/platform/tenants/${tenantId}/members/${memberId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ newPassword }),
+        },
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "パスワードリセットに失敗しました");
+      }
+      showToast(`${memberName} のパスワードをリセットしました`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "エラーが発生しました");
+    }
+  };
+
   // タブ定義
   const tabs: { key: TabKey; label: string }[] = [
     { key: "overview", label: "概要" },
@@ -825,7 +855,18 @@ export default function TenantDetailPage() {
                             <td className="px-6 py-4 text-sm text-slate-500">
                               {formatDateTime(user?.created_at)}
                             </td>
-                            <td className="px-6 py-4 text-right">
+                            <td className="px-6 py-4 text-right space-x-3">
+                              <button
+                                onClick={() =>
+                                  handleResetPassword(
+                                    member.id,
+                                    user?.name || "不明",
+                                  )
+                                }
+                                className="text-sm text-blue-500 hover:text-blue-700 transition-colors"
+                              >
+                                PW変更
+                              </button>
                               <button
                                 onClick={() =>
                                   handleRemoveMember(
@@ -1111,6 +1152,28 @@ export default function TenantDetailPage() {
                 }`}
               >
                 {tenant.is_active ? "テナントを無効化" : "テナントを有効化"}
+              </button>
+            </div>
+
+            {/* データエクスポート */}
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+              <h2 className="text-base font-semibold text-slate-800 mb-2">データエクスポート</h2>
+              <p className="text-sm text-slate-600 mb-4">
+                テナントのプラン・メンバー・請求・使用量データをJSON形式でダウンロードします。患者の個人情報は含まれません。
+              </p>
+              <button
+                onClick={() => {
+                  const a = document.createElement("a");
+                  a.href = `/api/platform/tenants/${tenantId}/export`;
+                  a.download = "";
+                  a.click();
+                }}
+                className="px-5 py-2.5 bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors inline-flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                JSONエクスポート
               </button>
             </div>
 

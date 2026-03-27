@@ -664,14 +664,14 @@ function PlansTab({
               </p>
             </div>
 
-            {/* プラン選択 */}
+            {/* プラン選択 — メッセージプラン */}
             <div className="mb-5">
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                プラン
+                メッセージプラン
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {(
-                  ["trial", "standard", "premium", "enterprise"] as const
+                  ["light", "standard", "pro", "business", "business_30", "business_50", "business_100"] as const
                 ).map((plan) => (
                   <button
                     key={plan}
@@ -695,6 +695,38 @@ function PlansTab({
                   </button>
                 ))}
               </div>
+              {/* レガシープラン */}
+              <details className="mt-3">
+                <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-600">
+                  旧プラン（レガシー）
+                </summary>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {(
+                    ["trial", "premium", "enterprise"] as const
+                  ).map((plan) => (
+                    <button
+                      key={plan}
+                      onClick={() =>
+                        setEditModal({
+                          ...editModal,
+                          planName: plan,
+                          monthlyFee: MONTHLY_FEE_PRESETS[plan],
+                        })
+                      }
+                      className={`px-4 py-3 rounded-lg border-2 text-sm font-medium transition-all ${
+                        editModal.planName === plan
+                          ? "border-blue-500 bg-blue-50 text-blue-700"
+                          : "border-slate-200 text-slate-600 hover:border-slate-300"
+                      }`}
+                    >
+                      <span className="block">{PLAN_LABELS[plan]}</span>
+                      <span className="block text-xs mt-1 opacity-70">
+                        {formatYen(MONTHLY_FEE_PRESETS[plan])}/月
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </details>
             </div>
 
             {/* 月額入力 */}
@@ -843,7 +875,7 @@ function UsageTab() {
           onChange={(e) => setMonth(e.target.value)}
           className="px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <div className="flex gap-4 text-sm">
+        <div className="flex items-center gap-4 text-sm">
           <div>
             <span className="text-slate-500">合計送信数: </span>
             <span className="font-bold text-slate-900">
@@ -856,6 +888,20 @@ function UsageTab() {
               {formatYen(totalOverage)}
             </span>
           </div>
+          <button
+            onClick={() => {
+              const a = document.createElement("a");
+              a.href = `/api/platform/usage/export?month=${month}`;
+              a.download = "";
+              a.click();
+            }}
+            className="ml-auto px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors inline-flex items-center gap-1.5"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            CSV
+          </button>
         </div>
       </div>
 

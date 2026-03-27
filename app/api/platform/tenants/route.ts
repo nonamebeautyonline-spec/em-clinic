@@ -59,7 +59,11 @@ export async function GET(req: NextRequest) {
     }
 
     // フルクエリを試行
-    const fullQuery = supabaseAdmin.from("tenants").select(FULL_SELECT, { count: "exact" }).is("deleted_at", null);
+    const baseQuery = supabaseAdmin.from("tenants").select(FULL_SELECT, { count: "exact" });
+    // deleted フィルター: 削除済みテナントの表示対応
+    const fullQuery = status === "deleted"
+      ? baseQuery.not("deleted_at", "is", null)
+      : baseQuery.is("deleted_at", null);
     const fullResult = await applyFilters(fullQuery);
     let tenants: Record<string, unknown>[] | null = fullResult.data as Record<string, unknown>[] | null;
     let tenantsErr = fullResult.error;

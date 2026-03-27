@@ -31,7 +31,7 @@ function mapStripeStatus(stripeStatus: string): string {
   }
 }
 
-/** invoice.payment_succeeded: 支払い成功 → status=active、billing_invoices作成 */
+/** invoice.payment_succeeded: 支払い成功 → status=active、billing_invoices作成、サスペンド解除 */
 async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
   const invoice = event.data.object as unknown as Record<string, unknown>;
   const customerId = invoice.customer as string;
@@ -43,11 +43,28 @@ async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
     return;
   }
 
+  // プランステータスをactiveに戻し、payment_failed_atをクリア
   await supabaseAdmin
     .from("tenant_plans")
-    .update({ status: "active", updated_at: new Date().toISOString() })
+    .update({
+      status: "active",
+      payment_failed_at: null,
+      updated_at: new Date().toISOString(),
+    })
     .eq("tenant_id", tenant.tenant_id)
     .eq("stripe_subscription_id", subscriptionId);
+
+  // 支払い滞納でサスペンドされていた場合は復活
+  await supabaseAdmin
+    .from("tenants")
+    .update({
+      is_active: true,
+      suspended_at: null,
+      suspend_reason: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", tenant.tenant_id)
+    .eq("suspend_reason", "payment_overdue");
 
   const periodStart = invoice.period_start
     ? new Date((invoice.period_start as number) * 1000).toISOString()
@@ -73,7 +90,7 @@ async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
   });
 }
 
-/** invoice.payment_failed: 支払い失敗 → status=payment_failed */
+/** invoice.payment_failed: 支払い失敗 → status=payment_failed、猶予期間開始 */
 async function handleInvoicePaymentFailed(event: Stripe.Event) {
   const invoice = event.data.object as unknown as Record<string, unknown>;
   const customerId = invoice.customer as string;
@@ -82,9 +99,24 @@ async function handleInvoicePaymentFailed(event: Stripe.Event) {
   const tenant = await findTenantByCustomerId(customerId);
   if (!tenant) return;
 
+  const now = new Date().toISOString();
+
+  // 現在のプラン情報を取得
+  const { data: plan } = await supabaseAdmin
+    .from("tenant_plans")
+    .select("payment_failed_at")
+    .eq("tenant_id", tenant.tenant_id)
+    .eq("stripe_subscription_id", subscriptionId)
+    .single();
+
+  // payment_failed_at は初回失敗時のみ記録（猶予期間の起算日を保持）
   await supabaseAdmin
     .from("tenant_plans")
-    .update({ status: "payment_failed", updated_at: new Date().toISOString() })
+    .update({
+      status: "payment_failed",
+      payment_failed_at: plan?.payment_failed_at || now,
+      updated_at: now,
+    })
     .eq("tenant_id", tenant.tenant_id)
     .eq("stripe_subscription_id", subscriptionId);
 }

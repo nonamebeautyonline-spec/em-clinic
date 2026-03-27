@@ -3,9 +3,9 @@
 // app/platform/tenants/page.tsx
 // テナント一覧ページ — カード型レイアウト、検索、フィルター、ページネーション
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
 
 // テナントデータ型
 interface TenantPlan {
@@ -26,6 +26,7 @@ interface Tenant {
   logo_url: string | null;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
   tenant_plans: TenantPlan[];
   patients_count: number;
   monthly_revenue: number;
@@ -38,7 +39,7 @@ interface Pagination {
   totalPages: number;
 }
 
-type StatusFilter = "all" | "active" | "inactive";
+type StatusFilter = "all" | "active" | "inactive" | "deleted";
 type SortOption = "created_at" | "name" | "patients_count";
 
 export default function TenantsListPage() {
@@ -117,6 +118,7 @@ export default function TenantsListPage() {
     { key: "all", label: "全て" },
     { key: "active", label: "有効" },
     { key: "inactive", label: "無効" },
+    { key: "deleted", label: "削除済み" },
   ];
 
   return (
@@ -325,12 +327,14 @@ export default function TenantsListPage() {
                       </div>
                       <span
                         className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          tenant.is_active
-                            ? "bg-green-100 text-green-700"
-                            : "bg-slate-100 text-slate-500"
+                          tenant.deleted_at
+                            ? "bg-red-100 text-red-600"
+                            : tenant.is_active
+                              ? "bg-green-100 text-green-700"
+                              : "bg-slate-100 text-slate-500"
                         }`}
                       >
-                        {tenant.is_active ? "有効" : "無効"}
+                        {tenant.deleted_at ? "削除済み" : tenant.is_active ? "有効" : "無効"}
                       </span>
                     </div>
 
@@ -369,21 +373,47 @@ export default function TenantsListPage() {
                     {/* フッター */}
                     <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                       <p className="text-xs text-slate-400">
-                        作成: {formatDate(tenant.created_at)}
+                        {tenant.deleted_at
+                          ? `削除: ${formatDate(tenant.deleted_at)}`
+                          : `作成: ${formatDate(tenant.created_at)}`}
                       </p>
-                      <svg
-                        className="w-4 h-4 text-slate-300 group-hover:text-blue-500 transition-colors"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 5l7 7-7 7"
-                        />
-                      </svg>
+                      {tenant.deleted_at ? (
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!confirm(`テナント「${tenant.name}」を復元しますか？`)) return;
+                            try {
+                              const res = await fetch(
+                                `/api/platform/tenants/${tenant.id}/restore`,
+                                { method: "POST", credentials: "include" },
+                              );
+                              const data = await res.json();
+                              if (!res.ok || !data.ok) throw new Error(data.error || "復元に失敗しました");
+                              alert(data.message || "復元しました");
+                              mutate((key: string) => typeof key === "string" && key.startsWith("/api/platform/tenants"));
+                            } catch (err) {
+                              alert(err instanceof Error ? err.message : "エラーが発生しました");
+                            }
+                          }}
+                          className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                        >
+                          復元
+                        </button>
+                      ) : (
+                        <svg
+                          className="w-4 h-4 text-slate-300 group-hover:text-blue-500 transition-colors"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5l7 7-7 7"
+                          />
+                        </svg>
+                      )}
                     </div>
                   </div>
                 );
