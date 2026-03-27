@@ -22,6 +22,10 @@ const KPITargetWidget = dynamic(
   () => import("./widgets/kpi-target-widget"),
   { ssr: false, loading: () => <ChartWidgetSkeleton /> },
 );
+const PieChartsWidget = dynamic(
+  () => import("./widgets/pie-charts-widget"),
+  { ssr: false, loading: () => <ChartWidgetSkeleton /> },
+);
 
 // ウィジェット読み込み中のスケルトン
 function ChartWidgetSkeleton() {
@@ -216,6 +220,11 @@ export default function EnhancedDashboard() {
         sensors={sensors}
         handleDragEnd={handleDragEnd}
       />
+
+      {/* 円グラフ（患者ファネル・処方内訳・予約結果） */}
+      <div className="mb-8">
+        <PieChartsWidget />
+      </div>
 
       {/* KPI目標 vs 実績 */}
       {widgetSettings.kpiTargetChart && (
