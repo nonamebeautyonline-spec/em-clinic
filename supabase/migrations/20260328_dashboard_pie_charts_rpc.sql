@@ -49,9 +49,14 @@ BEGIN
     WHERE tenant_id = p_tenant_id
     GROUP BY patient_id
   ),
+  blocked_pids AS (
+    SELECT patient_id FROM friend_summaries
+    WHERE tenant_id = p_tenant_id AND last_event_type = 'unfollow'
+  ),
   classified AS (
     SELECT
       CASE
+        WHEN bp.patient_id IS NOT NULL THEN 0
         WHEN pp.patient_id IS NOT NULL THEN 7
         WHEN ia.has_status THEN 6
         WHEN ia.has_reserve THEN 5
@@ -63,6 +68,7 @@ BEGIN
     FROM patients p
     LEFT JOIN paid_pids pp ON pp.patient_id = p.patient_id
     LEFT JOIN intake_agg ia ON ia.patient_id = p.patient_id
+    LEFT JOIN blocked_pids bp ON bp.patient_id = p.patient_id
     WHERE p.tenant_id = p_tenant_id
   ),
   step_counts AS (
@@ -74,6 +80,7 @@ BEGIN
   )
   INTO v_funnel
   FROM (VALUES
+    (0, 'ブロック'),
     (1, 'LINE追加のみ'),
     (2, '個人情報入力済み'),
     (3, '電話番号認証済み'),

@@ -1,7 +1,7 @@
 "use client";
 
 // ダッシュボード円グラフウィジェット
-// 1. 患者ファネル 2. 新規/再処方 3. 予約結果内訳
+// 1. 患者ファネル 2. 新規/再処方 3. 決済方法内訳
 
 import useSWR from "swr";
 import {
@@ -10,19 +10,19 @@ import {
   Cell,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 
-// ファネルの色（7色すべて明確に区別）
-const FUNNEL_COLORS = [
-  "#94A3B8", // LINE追加のみ — グレー
-  "#38BDF8", // 個人情報入力済み — スカイブルー
-  "#6366F1", // 電話番号認証済み — インディゴ
-  "#A855F7", // 問診済み — パープル
-  "#F59E0B", // 予約済み — アンバー
-  "#F43F5E", // 診察済み — ローズ
-  "#10B981", // 決済済み — エメラルド
-];
+// ファネルの色（8色すべて明確に区別）
+const FUNNEL_COLORS: Record<string, string> = {
+  "ブロック": "#EF4444",         // レッド
+  "LINE追加のみ": "#94A3B8",    // グレー
+  "個人情報入力済み": "#38BDF8", // スカイブルー
+  "電話番号認証済み": "#6366F1", // インディゴ
+  "問診済み": "#A855F7",         // パープル
+  "予約済み": "#F59E0B",         // アンバー
+  "診察済み": "#EC4899",         // ピンク
+  "決済済み": "#10B981",         // エメラルド
+};
 
 // 処方の色
 const PRESCRIPTION_COLORS = ["#3B82F6", "#F97316"]; // ブルー, オレンジ
@@ -87,7 +87,7 @@ function PaymentTooltip({ active, payload, creditCardAmount, bankTransferAmount 
 function renderLabel({ cx, cy, midAngle, innerRadius, outerRadius, value, percent }: {
   cx?: number; cy?: number; midAngle?: number; innerRadius?: number; outerRadius?: number; value?: number; percent?: number;
 }) {
-  if (!percent || percent < 0.05) return null; // 5%未満は非表示
+  if (!percent || percent < 0.05) return null;
   if (cx == null || cy == null || midAngle == null || innerRadius == null || outerRadius == null) return null;
   const RADIAN = Math.PI / 180;
   const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
@@ -100,25 +100,22 @@ function renderLabel({ cx, cy, midAngle, innerRadius, outerRadius, value, percen
   );
 }
 
-// 凡例レンダラー — recharts の Legend content prop に渡すため any 型を使用
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function renderLegend(props: any) {
-  const payload = props?.payload as { value: string; color: string; payload?: { value: number } }[] | undefined;
-  if (!payload) return null;
+// 凡例コンポーネント（固定高さで統一）
+function ChartLegend({ items }: { items: { name: string; value: number; color: string }[] }) {
   return (
-    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-2 text-xs">
-      {payload.map((entry: { value: string; color: string; payload?: { value: number } }, i: number) => (
+    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs h-16 overflow-y-auto items-start pt-1">
+      {items.map((item, i) => (
         <div key={i} className="flex items-center gap-1">
-          <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-          <span className="text-slate-600">{entry.value}</span>
-          <span className="text-slate-400 font-medium">{entry.payload?.value ?? 0}</span>
+          <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+          <span className="text-slate-600">{item.name}</span>
+          <span className="text-slate-400 font-medium">{item.value.toLocaleString()}</span>
         </div>
       ))}
     </div>
   );
 }
 
-// 個別の円グラフカード
+// 個別の円グラフカード（高さ統一）
 function PieChartCard({ title, subtitle, children, isEmpty }: {
   title: string;
   subtitle?: string;
@@ -126,8 +123,8 @@ function PieChartCard({ title, subtitle, children, isEmpty }: {
   isEmpty?: boolean;
 }) {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 flex flex-col">
-      <div className="mb-2">
+    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 flex flex-col h-[340px]">
+      <div className="mb-2 shrink-0">
         <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
         {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
       </div>
@@ -136,7 +133,7 @@ function PieChartCard({ title, subtitle, children, isEmpty }: {
           データがありません
         </div>
       ) : (
-        <div className="flex-1 min-h-0">{children}</div>
+        <div className="flex-1 min-h-0 flex flex-col">{children}</div>
       )}
     </div>
   );
@@ -149,7 +146,7 @@ export default function PieChartsWidget() {
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[0, 1, 2].map(i => (
-          <div key={i} className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 animate-pulse">
+          <div key={i} className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 animate-pulse h-[340px]">
             <div className="h-4 w-32 bg-slate-200 rounded mb-4" />
             <div className="h-52 bg-slate-100 rounded" />
           </div>
@@ -168,11 +165,11 @@ export default function PieChartsWidget() {
 
   if (!data) return null;
 
-  // ファネルデータ変換
-  const funnelData = data.funnel.map((item, i) => ({
+  // ファネルデータ変換（ラベルから色をマッピング）
+  const funnelData = data.funnel.map((item) => ({
     name: item.label,
     value: item.count,
-    color: FUNNEL_COLORS[i],
+    color: FUNNEL_COLORS[item.label] || "#94A3B8",
   }));
   const funnelTotal = funnelData.reduce((sum, d) => sum + d.value, 0);
   const funnelDataWithPercent = funnelData.map(d => ({
@@ -211,26 +208,28 @@ export default function PieChartsWidget() {
         subtitle={`全${funnelTotal.toLocaleString()}人`}
         isEmpty={funnelTotal === 0}
       >
-        <ResponsiveContainer width="100%" height={260}>
-          <PieChart>
-            <Pie
-              data={funnelDataWithPercent}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="45%"
-              outerRadius={80}
-              labelLine={false}
-              label={renderLabel}
-            >
-              {funnelDataWithPercent.map((entry, i) => (
-                <Cell key={i} fill={entry.color} stroke="white" strokeWidth={2} />
-              ))}
-            </Pie>
-            <Tooltip content={<ChartTooltip />} />
-            <Legend content={renderLegend} />
-          </PieChart>
-        </ResponsiveContainer>
+        <div className="flex-1 min-h-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={funnelDataWithPercent}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={75}
+                labelLine={false}
+                label={renderLabel}
+              >
+                {funnelDataWithPercent.map((entry, i) => (
+                  <Cell key={i} fill={entry.color} stroke="white" strokeWidth={2} />
+                ))}
+              </Pie>
+              <Tooltip content={<ChartTooltip />} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <ChartLegend items={funnelData} />
       </PieChartCard>
 
       {/* 2. 今月の新規処方 vs 再処方 */}
@@ -239,26 +238,28 @@ export default function PieChartsWidget() {
         subtitle={`合計${prescriptionTotal.toLocaleString()}人`}
         isEmpty={prescriptionTotal === 0}
       >
-        <ResponsiveContainer width="100%" height={260}>
-          <PieChart>
-            <Pie
-              data={prescriptionDataWithPercent}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="45%"
-              outerRadius={80}
-              labelLine={false}
-              label={renderLabel}
-            >
-              {prescriptionDataWithPercent.map((entry, i) => (
-                <Cell key={i} fill={entry.color} stroke="white" strokeWidth={2} />
-              ))}
-            </Pie>
-            <Tooltip content={<ChartTooltip />} />
-            <Legend content={renderLegend} />
-          </PieChart>
-        </ResponsiveContainer>
+        <div className="flex-1 min-h-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={prescriptionDataWithPercent}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={75}
+                labelLine={false}
+                label={renderLabel}
+              >
+                {prescriptionDataWithPercent.map((entry, i) => (
+                  <Cell key={i} fill={entry.color} stroke="white" strokeWidth={2} />
+                ))}
+              </Pie>
+              <Tooltip content={<ChartTooltip />} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <ChartLegend items={prescriptionData} />
       </PieChartCard>
 
       {/* 3. 今月の決済方法内訳 */}
@@ -267,26 +268,28 @@ export default function PieChartsWidget() {
         subtitle={`${paymentTotal.toLocaleString()}件 / ¥${totalAmount.toLocaleString()}`}
         isEmpty={paymentTotal === 0}
       >
-        <ResponsiveContainer width="100%" height={260}>
-          <PieChart>
-            <Pie
-              data={paymentDataWithPercent}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="45%"
-              outerRadius={80}
-              labelLine={false}
-              label={renderLabel}
-            >
-              {paymentDataWithPercent.map((entry, i) => (
-                <Cell key={i} fill={entry.color} stroke="white" strokeWidth={2} />
-              ))}
-            </Pie>
-            <Tooltip content={<PaymentTooltip creditCardAmount={data.paymentMethod.creditCardAmount} bankTransferAmount={data.paymentMethod.bankTransferAmount} />} />
-            <Legend content={renderLegend} />
-          </PieChart>
-        </ResponsiveContainer>
+        <div className="flex-1 min-h-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={paymentDataWithPercent}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={75}
+                labelLine={false}
+                label={renderLabel}
+              >
+                {paymentDataWithPercent.map((entry, i) => (
+                  <Cell key={i} fill={entry.color} stroke="white" strokeWidth={2} />
+                ))}
+              </Pie>
+              <Tooltip content={<PaymentTooltip creditCardAmount={data.paymentMethod.creditCardAmount} bankTransferAmount={data.paymentMethod.bankTransferAmount} />} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <ChartLegend items={paymentData} />
       </PieChartCard>
     </div>
   );
