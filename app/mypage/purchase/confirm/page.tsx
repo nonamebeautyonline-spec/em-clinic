@@ -85,22 +85,55 @@ function PurchaseConfirmContent() {
   const [autoAddress, setAutoAddress] = useState(""); // 郵便番号から自動入力された住所
   const [addressDetail, setAddressDetail] = useState(""); // 番地・建物名等の手動入力
   const [usePrevShipping, setUsePrevShipping] = useState(false);
+  const [postalError, setPostalError] = useState<string | null>(null);
+  const [postalSearching, setPostalSearching] = useState(false);
 
-  // 郵便番号から住所自動入力
-  const handlePostalCodeChange = useCallback(async (value: string) => {
-    setShipping((s) => ({ ...s, postalCode: value }));
-    const digits = value.replace(/[^0-9]/g, "");
-    if (digits.length === 7) {
+  // 郵便番号からzipcloud検索（リトライ付き）
+  const searchZipcloud = useCallback(async (digits: string): Promise<boolean> => {
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${digits}`);
         const data = await res.json();
         if (data.results?.[0]) {
           const r = data.results[0];
           setAutoAddress(`${r.address1}${r.address2}${r.address3}`);
+          setPostalError(null);
+          return true;
         }
-      } catch { /* API失敗時は手入力 */ }
+        setPostalError("該当する住所が見つかりません。郵便番号をご確認ください。");
+        return false;
+      } catch {
+        if (attempt < 2) await new Promise(r => setTimeout(r, 500));
+      }
     }
+    setPostalError("住所の検索に失敗しました。「再検索」をお試しください。");
+    return false;
   }, []);
+
+  // 郵便番号入力ハンドラ
+  const handlePostalCodeChange = useCallback(async (value: string) => {
+    setShipping((s) => ({ ...s, postalCode: value }));
+    setPostalError(null);
+    const digits = value.replace(/[^0-9]/g, "");
+    if (digits.length === 7) {
+      setAutoAddress("");
+      setPostalSearching(true);
+      await searchZipcloud(digits);
+      setPostalSearching(false);
+    } else {
+      setAutoAddress("");
+    }
+  }, [searchZipcloud]);
+
+  // 再検索ボタン用
+  const handleRetryPostalSearch = useCallback(async () => {
+    const digits = shipping.postalCode.replace(/[^0-9]/g, "");
+    if (digits.length === 7) {
+      setPostalSearching(true);
+      await searchZipcloud(digits);
+      setPostalSearching(false);
+    }
+  }, [shipping.postalCode, searchZipcloud]);
 
   // 前回の配送先情報を取得
   const { data: lastShippingData } = useSWR("/api/mypage/last-shipping", swrFetcher, {
@@ -209,6 +242,7 @@ function PurchaseConfirmContent() {
   const shippingValid =
     shipping.name.trim() !== "" &&
     shipping.postalCode.trim() !== "" &&
+    autoAddress !== "" &&
     fullAddress !== "" &&
     shipping.phone.trim() !== "" &&
     shipping.email.trim() !== "";
@@ -694,8 +728,24 @@ function PurchaseConfirmContent() {
                       disabled={submitting}
                       placeholder="123-4567"
                       inputMode="numeric"
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[12px] text-slate-900 placeholder:text-slate-300 disabled:opacity-60"
+                      className={`w-full rounded-lg border px-3 py-2 text-[12px] text-slate-900 placeholder:text-slate-300 disabled:opacity-60 ${postalError ? "border-red-400" : "border-slate-200"}`}
                     />
+                    {postalSearching && (
+                      <p className="mt-0.5 text-[10px] text-slate-500">住所を検索中...</p>
+                    )}
+                    {postalError && (
+                      <div className="mt-0.5 flex items-center gap-2">
+                        <p className="text-[10px] text-red-500 font-semibold">{postalError}</p>
+                        <button
+                          type="button"
+                          onClick={handleRetryPostalSearch}
+                          disabled={postalSearching}
+                          className="text-[10px] text-pink-500 underline font-semibold disabled:opacity-50"
+                        >
+                          再検索
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="text-[10px] text-slate-500 block mb-0.5">住所</label>

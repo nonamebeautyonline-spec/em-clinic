@@ -196,7 +196,7 @@ export async function POST(req: NextRequest) {
         payment_method: "credit_card",
         status: "confirmed",
         shipping_name: shipping.name,
-        postal_code: shipping.postalCode,
+        postal_code: (() => { const d = shipping.postalCode.replace(/[^0-9]/g, ""); return d.length === 7 ? `${d.slice(0, 3)}-${d.slice(3)}` : shipping.postalCode; })(),
         address: shipping.address,
         phone: finalPhone,
         email: shipping.email,

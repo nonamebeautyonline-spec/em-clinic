@@ -31,12 +31,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, hasData: false });
   }
 
+  // 郵便番号を正規化（不正な形式がDBに保存されている場合の対策）
+  let postalCode = data.postal_code || "";
+  const postalDigits = postalCode.replace(/[^0-9]/g, "");
+  if (postalDigits.length === 7) {
+    postalCode = `${postalDigits.slice(0, 3)}-${postalDigits.slice(3)}`;
+  }
+
   return NextResponse.json({
     ok: true,
     hasData: true,
     shipping: {
       name: data.shipping_name || "",
-      postalCode: data.postal_code || "",
+      postalCode,
       address: data.address || "",
       phone: data.phone || "",
       email: data.email || "",

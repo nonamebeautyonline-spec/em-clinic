@@ -26,7 +26,11 @@ export async function POST(req: NextRequest) {
 
     const parsed = await parseBody(req, bankTransferShippingSchema);
     if ("error" in parsed) return parsed.error;
-    const { productCode, mode, reorderId, accountName, shippingName, phoneNumber, email, postalCode, address } = parsed.data;
+    const { productCode, mode, reorderId, accountName, shippingName, phoneNumber, email, postalCode: rawPostal, address } = parsed.data;
+
+    // 郵便番号を XXX-XXXX 形式に正規化
+    const postalDigits = rawPostal.replace(/[^0-9]/g, "");
+    const postalCode = `${postalDigits.slice(0, 3)}-${postalDigits.slice(3)}`;
 
     // ★ NG患者は決済不可（statusがnullの再処方カルテを除外）
     {

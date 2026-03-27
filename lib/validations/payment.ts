@@ -12,7 +12,7 @@ export const bankTransferShippingSchema = z
     shippingName: z.string().min(1, "配送先氏名は必須です"),
     phoneNumber: z.string().min(1, "電話番号は必須です"),
     email: z.string().min(1, "メールアドレスは必須です"),
-    postalCode: z.string().min(1, "郵便番号は必須です"),
+    postalCode: z.string().min(1, "郵便番号は必須です").regex(/^\d{3}-?\d{4}$/, "郵便番号は7桁の数字で入力してください"),
     address: z.string().min(1, "住所は必須です"),
   })
   .passthrough();
