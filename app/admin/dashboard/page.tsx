@@ -211,6 +211,11 @@ export default function EnhancedDashboard() {
         </div>
       )}
 
+      {/* 円グラフ（患者ファネル・処方内訳・決済方法） */}
+      <div className="mb-6">
+        <PieChartsWidget />
+      </div>
+
       {/* KPIカード（ドラッグ並び替え対応） */}
       <KPICardGrid
         stats={stats}
@@ -220,11 +225,6 @@ export default function EnhancedDashboard() {
         sensors={sensors}
         handleDragEnd={handleDragEnd}
       />
-
-      {/* 円グラフ（患者ファネル・処方内訳・予約結果） */}
-      <div className="mb-8">
-        <PieChartsWidget />
-      </div>
 
       {/* KPI目標 vs 実績 */}
       {widgetSettings.kpiTargetChart && (

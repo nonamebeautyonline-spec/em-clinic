@@ -34,67 +34,42 @@ BEGIN
 
   -- ============================================================
   -- 1. 患者ファネル（全期間）
-  -- 各患者を最も進んだステップで分類（逆順判定）
   -- ============================================================
-  SELECT jsonb_agg(jsonb_build_object('label', f.label, 'count', f.cnt) ORDER BY f.sort_order)
-  INTO v_funnel
-  FROM (
+  WITH paid_pids AS (
+    SELECT DISTINCT patient_id FROM orders
+    WHERE tenant_id = p_tenant_id AND paid_at IS NOT NULL
+  ),
+  intake_agg AS (
+    SELECT
+      patient_id,
+      bool_or(status IN ('OK', 'NG')) AS has_status,
+      bool_or(reserve_id IS NOT NULL) AS has_reserve,
+      bool_or(answers IS NOT NULL) AS has_answers
+    FROM intake
+    WHERE tenant_id = p_tenant_id
+    GROUP BY patient_id
+  ),
+  classified AS (
     SELECT
       CASE
-        WHEN p.patient_id IN (
-          SELECT DISTINCT o.patient_id FROM orders o
-          WHERE o.tenant_id = p_tenant_id AND o.paid_at IS NOT NULL
-        ) THEN '決済済み'
-        WHEN p.patient_id IN (
-          SELECT DISTINCT i.patient_id FROM intake i
-          WHERE i.tenant_id = p_tenant_id AND i.status IN ('OK', 'NG')
-        ) THEN '診察済み'
-        WHEN p.patient_id IN (
-          SELECT DISTINCT i.patient_id FROM intake i
-          WHERE i.tenant_id = p_tenant_id AND i.reserve_id IS NOT NULL
-        ) THEN '予約済み'
-        WHEN p.patient_id IN (
-          SELECT DISTINCT i.patient_id FROM intake i
-          WHERE i.tenant_id = p_tenant_id AND i.answers IS NOT NULL
-        ) THEN '問診済み'
-        WHEN p.tel IS NOT NULL THEN '電話番号認証済み'
-        WHEN p.patient_id NOT LIKE 'LINE_%' THEN '個人情報入力済み'
-        ELSE 'LINE追加のみ'
-      END AS label,
-      CASE
-        WHEN p.patient_id IN (
-          SELECT DISTINCT o.patient_id FROM orders o
-          WHERE o.tenant_id = p_tenant_id AND o.paid_at IS NOT NULL
-        ) THEN 7
-        WHEN p.patient_id IN (
-          SELECT DISTINCT i.patient_id FROM intake i
-          WHERE i.tenant_id = p_tenant_id AND i.status IN ('OK', 'NG')
-        ) THEN 6
-        WHEN p.patient_id IN (
-          SELECT DISTINCT i.patient_id FROM intake i
-          WHERE i.tenant_id = p_tenant_id AND i.reserve_id IS NOT NULL
-        ) THEN 5
-        WHEN p.patient_id IN (
-          SELECT DISTINCT i.patient_id FROM intake i
-          WHERE i.tenant_id = p_tenant_id AND i.answers IS NOT NULL
-        ) THEN 4
+        WHEN pp.patient_id IS NOT NULL THEN 7
+        WHEN ia.has_status THEN 6
+        WHEN ia.has_reserve THEN 5
+        WHEN ia.has_answers THEN 4
         WHEN p.tel IS NOT NULL THEN 3
         WHEN p.patient_id NOT LIKE 'LINE_%' THEN 2
         ELSE 1
-      END AS sort_order
+      END AS step
     FROM patients p
+    LEFT JOIN paid_pids pp ON pp.patient_id = p.patient_id
+    LEFT JOIN intake_agg ia ON ia.patient_id = p.patient_id
     WHERE p.tenant_id = p_tenant_id
-  ) sub
-  GROUP BY sub.label, sub.sort_order
-  HAVING count(*) > 0
-  ORDER BY sub.sort_order;
-
-  -- 不足ラベルを補完（0件でも全7項目返す）
+  ),
+  step_counts AS (
+    SELECT step, count(*) AS cnt FROM classified GROUP BY step
+  )
   SELECT jsonb_agg(
-    jsonb_build_object('label', labels.label, 'count', COALESCE(
-      (SELECT (elem->>'count')::int FROM jsonb_array_elements(v_funnel) elem WHERE elem->>'label' = labels.label),
-      0
-    ))
+    jsonb_build_object('label', labels.label, 'count', COALESCE(sc.cnt, 0))
     ORDER BY labels.sort_order
   )
   INTO v_funnel
@@ -106,7 +81,8 @@ BEGIN
     (5, '予約済み'),
     (6, '診察済み'),
     (7, '決済済み')
-  ) AS labels(sort_order, label);
+  ) AS labels(sort_order, label)
+  LEFT JOIN step_counts sc ON sc.step = labels.sort_order;
 
   -- ============================================================
   -- 2. 今月の新規処方 vs 再処方（患者単位ユニーク）
