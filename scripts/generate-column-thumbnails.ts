@@ -60,71 +60,53 @@ interface CategoryDesign {
 }
 
 const categoryDesign: Record<string, CategoryDesign> = {
-  活用事例: {
-    bgHint: "modern office reception with smartphone and chat interface, blue tones",
+  "LINE運用・業務改善": {
+    bgHint: "modern clinic reception with smartphone LINE chat interface, blue tones",
     overlay: "rgba(15,23,42,0.72)",
     badgeBg: "#3b82f6", badgeText: "#ffffff",
-    titleColor: "#ffffff", titleAccent: "#7dd3fc", subColor: "#cbd5e1",
+    titleColor: "#ffffff", titleAccent: "#93c5fd", subColor: "#bfdbfe",
   },
-  ツール比較: {
-    bgHint: "comparison of digital tools on desk, multiple screens, violet tones",
-    overlay: "rgba(15,23,42,0.72)",
-    badgeBg: "#8b5cf6", badgeText: "#ffffff",
-    titleColor: "#ffffff", titleAccent: "#c4b5fd", subColor: "#c4b5fd",
-  },
-  ガイド: {
-    bgHint: "tablet showing step by step guide, clean workspace, sky blue tones",
-    overlay: "rgba(15,23,42,0.70)",
-    badgeBg: "#0ea5e9", badgeText: "#ffffff",
-    titleColor: "#ffffff", titleAccent: "#7dd3fc", subColor: "#bae6fd",
-  },
-  業務改善: {
-    bgHint: "efficient modern office with digital screens, organized workspace, teal tones",
-    overlay: "rgba(15,23,42,0.72)",
-    badgeBg: "#0891b2", badgeText: "#ffffff",
-    titleColor: "#ffffff", titleAccent: "#67e8f9", subColor: "#a5f3fc",
-  },
-  マーケティング: {
-    bgHint: "digital marketing dashboard, growth charts, indigo purple tones",
-    overlay: "rgba(15,23,42,0.72)",
-    badgeBg: "#6366f1", badgeText: "#ffffff",
-    titleColor: "#ffffff", titleAccent: "#a5b4fc", subColor: "#c7d2fe",
-  },
-  経営戦略: {
-    bgHint: "strategic business planning scene, financial charts, warm rose tones",
+  "集患・マーケティング": {
+    bgHint: "digital marketing dashboard with growth charts and social media, rose tones",
     overlay: "rgba(15,23,42,0.72)",
     badgeBg: "#f43f5e", badgeText: "#ffffff",
     titleColor: "#ffffff", titleAccent: "#fda4af", subColor: "#fecdd3",
   },
-  運営ノウハウ: {
-    bgHint: "bright meeting room with team collaboration, warm amber lighting",
+  "経営・開業": {
+    bgHint: "professional office with business planning documents and blueprints, slate tones",
     overlay: "rgba(15,23,42,0.72)",
-    badgeBg: "#f59e0b", badgeText: "#1e293b",
-    titleColor: "#ffffff", titleAccent: "#fbbf24", subColor: "#fde68a",
+    badgeBg: "#475569", badgeText: "#ffffff",
+    titleColor: "#ffffff", titleAccent: "#cbd5e1", subColor: "#e2e8f0",
   },
-  "開業・経営": {
-    bgHint: "new business opening with modern interior, blueprints, cyan tones",
-    overlay: "rgba(15,23,42,0.72)",
-    badgeBg: "#06b6d4", badgeText: "#ffffff",
-    titleColor: "#ffffff", titleAccent: "#67e8f9", subColor: "#a5f3fc",
-  },
-  エビデンス解説: {
-    bgHint: "scientific data visualization, research documents, green tones",
-    overlay: "rgba(15,23,42,0.72)",
-    badgeBg: "#10b981", badgeText: "#ffffff",
-    titleColor: "#ffffff", titleAccent: "#6ee7b7", subColor: "#a7f3d0",
-  },
-  収益モデル: {
-    bgHint: "revenue dashboard, financial planning charts, orange warm tones",
+  "自費診療の売上戦略": {
+    bgHint: "luxury clinic interior with pricing charts and revenue dashboard, orange tones",
     overlay: "rgba(15,23,42,0.72)",
     badgeBg: "#f97316", badgeText: "#ffffff",
     titleColor: "#ffffff", titleAccent: "#fdba74", subColor: "#fed7aa",
   },
-  医薬品解説: {
-    bgHint: "pharmaceutical capsules and medical research documents, teal green tones",
+  "オンライン診療": {
+    bgHint: "telemedicine video call on tablet, modern medical office, teal tones",
     overlay: "rgba(15,23,42,0.72)",
-    badgeBg: "#0d9488", badgeText: "#ffffff",
+    badgeBg: "#14b8a6", badgeText: "#ffffff",
     titleColor: "#ffffff", titleAccent: "#5eead4", subColor: "#99f6e4",
+  },
+  "診療科別ガイド": {
+    bgHint: "various medical specialty icons and stethoscope, violet purple tones",
+    overlay: "rgba(15,23,42,0.72)",
+    badgeBg: "#8b5cf6", badgeText: "#ffffff",
+    titleColor: "#ffffff", titleAccent: "#c4b5fd", subColor: "#ddd6fe",
+  },
+  "ツール・システム比較": {
+    bgHint: "comparison of digital tools on desk with multiple screens, cyan tones",
+    overlay: "rgba(15,23,42,0.72)",
+    badgeBg: "#06b6d4", badgeText: "#ffffff",
+    titleColor: "#ffffff", titleAccent: "#67e8f9", subColor: "#a5f3fc",
+  },
+  "医薬品・処方ガイド": {
+    bgHint: "pharmaceutical capsules and medical research documents, emerald green tones",
+    overlay: "rgba(15,23,42,0.72)",
+    badgeBg: "#10b981", badgeText: "#ffffff",
+    titleColor: "#ffffff", titleAccent: "#6ee7b7", subColor: "#a7f3d0",
   },
 };
 

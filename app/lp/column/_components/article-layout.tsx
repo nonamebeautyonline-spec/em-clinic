@@ -135,17 +135,14 @@ export function InlineCTA() {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 const categoryColors: Record<string, { bg: string; text: string }> = {
-  活用事例: { bg: "bg-emerald-50", text: "text-emerald-700" },
-  ツール比較: { bg: "bg-violet-50", text: "text-violet-700" },
-  ガイド: { bg: "bg-sky-50", text: "text-sky-700" },
-  業務改善: { bg: "bg-amber-50", text: "text-amber-700" },
-  マーケティング: { bg: "bg-rose-50", text: "text-rose-700" },
-  経営戦略: { bg: "bg-red-50", text: "text-red-700" },
-  運営ノウハウ: { bg: "bg-yellow-50", text: "text-yellow-700" },
-  "開業・経営": { bg: "bg-cyan-50", text: "text-cyan-700" },
-  医薬品解説: { bg: "bg-teal-50", text: "text-teal-700" },
-  エビデンス解説: { bg: "bg-green-50", text: "text-green-700" },
-  収益モデル: { bg: "bg-orange-50", text: "text-orange-700" },
+  "LINE運用・業務改善": { bg: "bg-blue-50", text: "text-blue-700" },
+  "集患・マーケティング": { bg: "bg-rose-50", text: "text-rose-700" },
+  "経営・開業": { bg: "bg-slate-100", text: "text-slate-700" },
+  "自費診療の売上戦略": { bg: "bg-orange-50", text: "text-orange-700" },
+  "オンライン診療": { bg: "bg-teal-50", text: "text-teal-700" },
+  "診療科別ガイド": { bg: "bg-violet-50", text: "text-violet-700" },
+  "ツール・システム比較": { bg: "bg-cyan-50", text: "text-cyan-700" },
+  "医薬品・処方ガイド": { bg: "bg-emerald-50", text: "text-emerald-700" },
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -156,7 +153,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
   const self = articles.find((a) => a.slug === slug)!;
   /* カテゴリ情報（パンくず用） */
   const catDef = categories.find((c) => c.matchValues.includes(self.category));
-  const catSlug = catDef?.slug ?? "guide";
+  const catSlug = catDef?.slug ?? "line-dx";
   const catLabel = catDef?.label ?? self.category;
   /* 関連記事: 同カテゴリ優先 → 残りから補完して4件 */
   const others = articles.filter((a) => a.slug !== slug);

@@ -118,6 +118,30 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url, 301);
   }
 
+  // === 旧カテゴリスラッグ → 新カテゴリスラッグへの301リダイレクト ===
+  const oldCategoryRedirects: Record<string, string> = {
+    "case-studies": "line-dx",
+    guide: "line-dx",
+    improvement: "line-dx",
+    operation: "line-dx",
+    opening: "management",
+    evidence: "medication",
+    revenue: "self-pay-revenue",
+    // marketing → marketing（スラッグ変更なし）
+    // management → management（スラッグ変更なし）
+    // medication → medication（スラッグ変更なし）
+    // comparison → comparison（スラッグ変更なし）
+  };
+  const categoryMatch = pathname.match(/^\/lp\/column\/category\/([^/]+)$/);
+  if (categoryMatch) {
+    const newSlug = oldCategoryRedirects[categoryMatch[1]];
+    if (newSlug) {
+      const url = new URL(req.url);
+      url.pathname = `/lp/column/category/${newSlug}`;
+      return NextResponse.redirect(url, 301);
+    }
+  }
+
   // === /lp 配下はルートドメイン(l-ope.jp) と localhost のみ許可 ===
   // テナントサブドメイン（noname-beauty.l-ope.jp 等）では非表示
   const isRootDomain = hostWithoutPort === "l-ope.jp" || hostWithoutPort === "www.l-ope.jp";
