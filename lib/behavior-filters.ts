@@ -11,11 +11,12 @@ export async function getLastPaymentDates(
   const result = new Map<string, string | null>();
   if (patientIds.length === 0) return result;
 
+  // .in()はURL長制限でサイレント失敗するためテナント全件取得→JSフィルタ
+  const pidsSet = new Set(patientIds);
   const { data } = await withTenant(
     supabaseAdmin
       .from("orders")
       .select("patient_id, paid_at")
-      .in("patient_id", patientIds)
       .eq("status", "paid")
       .not("paid_at", "is", null)
       .order("paid_at", { ascending: false }),
@@ -23,7 +24,7 @@ export async function getLastPaymentDates(
   );
 
   for (const row of data || []) {
-    if (!result.has(row.patient_id)) {
+    if (pidsSet.has(row.patient_id) && !result.has(row.patient_id)) {
       result.set(row.patient_id, row.paid_at);
     }
   }
@@ -41,16 +42,19 @@ export async function getReorderCounts(
   const result = new Map<string, number>();
   if (patientIds.length === 0) return result;
 
+  // .in()はURL長制限でサイレント失敗するためテナント全件取得→JSフィルタ
+  const pidsSet = new Set(patientIds);
   const { data } = await withTenant(
     supabaseAdmin
       .from("reorders")
-      .select("patient_id")
-      .in("patient_id", patientIds),
+      .select("patient_id"),
     tenantId ?? null
   );
 
   for (const row of data || []) {
-    result.set(row.patient_id, (result.get(row.patient_id) || 0) + 1);
+    if (pidsSet.has(row.patient_id)) {
+      result.set(row.patient_id, (result.get(row.patient_id) || 0) + 1);
+    }
   }
   for (const pid of patientIds) {
     if (!result.has(pid)) result.set(pid, 0);
@@ -71,12 +75,15 @@ export async function getProductPurchasePatients(
   const result = new Set<string>();
   if (patientIds.length === 0 || productCodes.length === 0) return result;
 
+  // .in("patient_id")はURL長制限でサイレント失敗するためテナント全件取得→JSフィルタ
+  // .in("product_code")は通常少数なので問題なし
+  const pidsSet = new Set(patientIds);
+
   // orders テーブルから検索
   let query = withTenant(
     supabaseAdmin
       .from("orders")
       .select("patient_id")
-      .in("patient_id", patientIds)
       .in("product_code", productCodes)
       .eq("status", "paid"),
     tenantId ?? null
@@ -86,7 +93,7 @@ export async function getProductPurchasePatients(
 
   const { data } = await query;
   for (const row of data || []) {
-    result.add(row.patient_id);
+    if (pidsSet.has(row.patient_id)) result.add(row.patient_id);
   }
 
   // reorders テーブルからも検索（再処方も購入歴に含む）
@@ -94,7 +101,6 @@ export async function getProductPurchasePatients(
     supabaseAdmin
       .from("reorders")
       .select("patient_id")
-      .in("patient_id", patientIds)
       .in("product_code", productCodes)
       .eq("status", "paid"),
     tenantId ?? null
@@ -104,7 +110,7 @@ export async function getProductPurchasePatients(
 
   const { data: reorderData } = await reorderQuery;
   for (const row of reorderData || []) {
-    result.add(row.patient_id);
+    if (pidsSet.has(row.patient_id)) result.add(row.patient_id);
   }
 
   return result;

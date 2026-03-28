@@ -114,15 +114,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, broadcast_id: broadcast.id, total: targets.length, status: "scheduled" });
   }
 
-  // 予約日時の差し込み用: 全対象患者の次回予約を一括取得
-  const targetPatientIds = targets.map(t => t.patient_id);
+  // 予約日時の差し込み用: テナント全件取得→JSフィルタ（.in()はURL長制限でサイレント失敗するため）
+  const targetPidsSet = new Set(targets.map(t => t.patient_id));
   const nextReservationMap = new Map<string, { date: string; time: string }>();
-  if (targetPatientIds.length > 0) {
+  if (targetPidsSet.size > 0) {
     const { data: reservations } = await strictWithTenant(
       supabaseAdmin
         .from("reservations")
         .select("patient_id, reserved_date, reserved_time")
-        .in("patient_id", targetPatientIds)
         .neq("status", "canceled")
         .gte("reserved_date", new Date().toISOString().split("T")[0])
         .order("reserved_date", { ascending: true })
@@ -131,7 +130,7 @@ export async function POST(req: NextRequest) {
     );
 
     for (const r of reservations || []) {
-      if (!nextReservationMap.has(r.patient_id)) {
+      if (targetPidsSet.has(r.patient_id) && !nextReservationMap.has(r.patient_id)) {
         nextReservationMap.set(r.patient_id, {
           date: r.reserved_date,
           time: r.reserved_time?.substring(0, 5) || "",
@@ -420,20 +419,24 @@ async function applyCondition(
       const val = condition.value || "";
       if (!val) return targets;
       const pids = targets.map(t => t.patient_id);
+      const pidsSet = new Set(pids);
+      // .in()はURL長制限でサイレント失敗するためテナント全件取得→JSフィルタ
       const { data: patientsData } = await fetchAll(
         () => strictWithTenant(
-          supabaseAdmin.from("patients").select("patient_id, created_at").in("patient_id", pids),
+          supabaseAdmin.from("patients").select("patient_id, created_at"),
           tenantId
         )
       );
       const matchSet = new Set<string>();
       for (const p of patientsData || []) {
+        const pid = p.patient_id as string;
+        if (!pidsSet.has(pid)) continue;
         const createdDate = (p.created_at as string)?.split("T")[0] || "";
         let matched = false;
         if (op === ">=" || op === "after") matched = createdDate >= val;
         else if (op === "<=" || op === "before") matched = createdDate <= val;
         else if (op === "=") matched = createdDate === val;
-        if (matched) matchSet.add(p.patient_id as string);
+        if (matched) matchSet.add(pid);
       }
       if (isInclude) return targets.filter(t => matchSet.has(t.patient_id));
       return targets.filter(t => !matchSet.has(t.patient_id));
@@ -442,17 +445,19 @@ async function applyCondition(
     case "intake_status": {
       const statusVal = condition.value || "none";
       const pids = targets.map(t => t.patient_id);
-      // intake.status でフィルタ
+      const pidsSet = new Set(pids);
+      // .in()はURL長制限でサイレント失敗するためテナント全件取得→JSフィルタ
       const { data: intakes } = await fetchAll(
         () => strictWithTenant(
-          supabaseAdmin.from("intake").select("patient_id, status").in("patient_id", pids),
+          supabaseAdmin.from("intake").select("patient_id, status"),
           tenantId
         )
       );
-      // 各patient_idの最新ステータスを集計
+      // 各patient_idの最新ステータスを集計（対象患者のみ）
       const statusMap = new Map<string, string>();
       for (const row of intakes || []) {
         const pid = row.patient_id as string;
+        if (!pidsSet.has(pid)) continue;
         const st = row.status as string | null;
         if (st === "OK") statusMap.set(pid, "OK");
         else if (st === "NG" && statusMap.get(pid) !== "OK") statusMap.set(pid, "NG");
@@ -469,19 +474,23 @@ async function applyCondition(
     case "reservation_status": {
       const statusVal = condition.value || "none";
       const pids = targets.map(t => t.patient_id);
+      const pidsSet = new Set(pids);
       const today = new Date().toISOString().split("T")[0];
-      // アクティブな予約 = 今日以降かつキャンセルされていない予約
+      // .in()はURL長制限でサイレント失敗するためテナント全件取得→JSフィルタ
       const { data: reservations } = await fetchAll(
         () => strictWithTenant(
           supabaseAdmin.from("reservations")
             .select("patient_id")
-            .in("patient_id", pids)
             .gte("reserved_date", today)
             .neq("status", "canceled"),
           tenantId
         )
       );
-      const hasReservation = new Set((reservations || []).map(r => r.patient_id as string));
+      const hasReservation = new Set<string>();
+      for (const r of reservations || []) {
+        const pid = r.patient_id as string;
+        if (pidsSet.has(pid)) hasReservation.add(pid);
+      }
       const matchSet = new Set<string>();
       for (const pid of pids) {
         const actual = hasReservation.has(pid) ? "has" : "none";
@@ -497,27 +506,24 @@ async function applyCondition(
 
       const pids = targets.map(t => t.patient_id);
 
-      // 必要なデータを一括取得（ブロック判定含む）
+      // 必要なデータを一括取得（.in()はURL長制限でサイレント失敗するためテナント全件取得）
       const [patientsRes, intakesRes, activeResRes, blockedRes] = await Promise.all([
         fetchAll(() => strictWithTenant(
-          supabaseAdmin.from("patients").select("patient_id, tel").in("patient_id", pids),
+          supabaseAdmin.from("patients").select("patient_id, tel"),
           tenantId
         )),
         fetchAll(() => strictWithTenant(
           supabaseAdmin.from("intake").select("patient_id, answers, reserve_id, status, call_status")
-            .in("patient_id", pids)
             .order("created_at", { ascending: false }),
           tenantId
         )),
         fetchAll(() => strictWithTenant(
           supabaseAdmin.from("reservations").select("patient_id, reserved_date")
-            .in("patient_id", pids)
             .not("status", "in", '("canceled","NG")'),
           tenantId
         )),
         fetchAll(() => strictWithTenant(
           supabaseAdmin.from("friend_summaries").select("patient_id")
-            .in("patient_id", pids)
             .eq("last_event_type", "unfollow"),
           tenantId
         )),
@@ -554,28 +560,20 @@ async function applyCondition(
         activeReservationSet.add(r.patient_id as string);
       }
 
-      // 不通の日付制限用: 不通者の最新予約日を取得
+      // 不通の日付制限用: activeResResから不通者の最新予約日を取得
+      // （activeResResはテナント全件取得済みなので.in()不要）
       const noAnswerBefore = condition.funnel_no_answer_before || condition.payment_date_to || "";
-      let noAnswerReservationDates = new Map<string, string>();
+      const noAnswerReservationDates = new Map<string, string>();
       if (stages.includes("no_answer") && noAnswerBefore) {
-        // 不通者の予約日を取得（キャンセルされていない全予約から最新を取得）
-        const noAnswerPids = pids.filter(pid => {
-          const intake = latestIntake.get(pid);
-          return intake?.call_status === "no_answer" || intake?.call_status === "no_answer_sent";
-        });
-        if (noAnswerPids.length > 0) {
-          const { data: resData } = await fetchAll(() => strictWithTenant(
-            supabaseAdmin.from("reservations").select("patient_id, reserved_date")
-              .in("patient_id", noAnswerPids)
-              .not("status", "in", '("canceled")')
-              .order("reserved_date", { ascending: false }),
-            tenantId
-          ));
-          for (const r of resData || []) {
-            const pid = r.patient_id as string;
-            if (!noAnswerReservationDates.has(pid)) {
-              noAnswerReservationDates.set(pid, r.reserved_date as string);
-            }
+        // activeResResにはcanceled/NG以外の予約が含まれている（reserved_dateあり）
+        for (const r of activeResRes.data || []) {
+          const pid = r.patient_id as string;
+          const resDate = r.reserved_date as string;
+          if (!resDate) continue;
+          const existing = noAnswerReservationDates.get(pid);
+          // 最新の予約日を保持
+          if (!existing || resDate > existing) {
+            noAnswerReservationDates.set(pid, resDate);
           }
         }
       }
