@@ -303,6 +303,9 @@ export async function resolveTargets(rules: FilterRules, tenantId: string | null
   return targets;
 }
 
+// ⚠️ 重要: この関数内で .in("patient_id", pids) を使うな
+// PostgRESTはURLパラメータに変換するため、5000件超でサイレント失敗する（エラーなしでnull返却）
+// 代わりにテナント全件取得 → JSのSetでフィルタすること
 async function applyCondition(
   targets: { patient_id: string; patient_name: string; line_id: string | null }[],
   condition: FilterCondition,

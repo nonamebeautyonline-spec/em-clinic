@@ -1,5 +1,6 @@
 // lib/behavior-filters.ts — 行動データフィルタリング共通ライブラリ
 // セグメント配信・リッチメニュー出し分け・ステップ配信の条件評価で共通利用
+// ⚠️ .in("patient_id", pids) 使用禁止 — 5000件超でPostgREST URL長制限によりサイレント失敗する
 import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant } from "@/lib/tenant";
 

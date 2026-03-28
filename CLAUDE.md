@@ -9,6 +9,7 @@
 - **マイグレーションファイル作成 ≠ DB適用**（Supabaseダッシュボードで手動実行が必要）
 - **intake `upsert({ onConflict: "patient_id" })` 使用禁止**
 - **intake/route.tsは`supabaseAdmin`必須**（anon keyだとRLSでブロック）
+- **`.in("patient_id", pids)` 使用禁止**（5000件超でPostgREST URL長制限によりサイレント失敗。テナント全件取得→JSのSetでフィルタする���と）
 
 ## DB SQL実行（毎回検証するな）
 - スクリプト: `node scripts/run-sql.js <sqlファイル>`
