@@ -150,7 +150,10 @@ export default function FriendListColumn() {
           <div className="text-center py-16 text-gray-300 text-xs">該当なし</div>
         ) : (
           <>
-            {ctx.pinnedFriends.length > 0 && ctx.pinnedFriends.map(f => (
+            {ctx.pinnedFriends.length > 0 && ctx.pinnedFriends.filter(f => {
+              if (!ctx.showUnreadOnly) return true;
+              return !!(f.last_text_at && (!ctx.readTimestamps[f.patient_id] || f.last_text_at > ctx.readTimestamps[f.patient_id]));
+            }).map(f => (
               <FriendItem key={f.patient_id} f={f} isPinned={true}
                 isSelected={ctx.selectedPatient?.patient_id === f.patient_id}
                 onSelect={ctx.selectPatient} onTogglePin={ctx.togglePin}
