@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
     const { data: pendingOrdersWithNames, error: fetchNamesError } = await strictWithTenant(
       supabase
         .from("orders")
-        .select("id, patient_id, product_code, amount, account_name, shipping_name")
+        .select("id, patient_id, product_code, amount, account_name, shipping_name, created_at")
         .eq("status", "pending_confirmation")
         .eq("payment_method", "bank_transfer"),
       tenantId

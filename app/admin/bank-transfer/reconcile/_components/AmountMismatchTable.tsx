@@ -54,13 +54,26 @@ export default function AmountMismatchTable({
                 患者ID
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                期限
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                 操作
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-slate-200">
-            {items.map((item, i) => (
-              <tr key={i} className="hover:bg-orange-50">
+            {items.map((item, i) => {
+              const hoursDiff = (() => {
+                if (!item.order.created_at) return null;
+                const t = new Date(item.transfer.date);
+                const o = new Date(item.order.created_at);
+                if (isNaN(t.getTime()) || isNaN(o.getTime())) return null;
+                return Math.abs(t.getTime() - o.getTime()) / (1000 * 60 * 60);
+              })();
+              const isOverdue = hoursDiff !== null && hoursDiff > 72;
+
+              return (
+              <tr key={i} className={`hover:bg-orange-50 ${isOverdue ? "bg-red-50/50" : ""}`}>
                 <td className="px-6 py-4">
                   <input
                     type="checkbox"
@@ -100,6 +113,21 @@ export default function AmountMismatchTable({
                   </button>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  {item.order.created_at ? (
+                    isOverdue ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">
+                        ⚠ {Math.round(hoursDiff!)}h超過
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
+                        OK
+                      </span>
+                    )
+                  ) : (
+                    <span className="text-xs text-slate-400">—</span>
+                  )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
                   <button
                     onClick={() => {
                       // PendingOrder形式に変換して商品変更モーダルを開く
@@ -125,7 +153,8 @@ export default function AmountMismatchTable({
                   </button>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

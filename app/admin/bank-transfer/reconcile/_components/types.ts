@@ -10,6 +10,7 @@ export interface MatchedItem {
     patient_id: string;
     product_code: string;
     amount: number;
+    created_at?: string;
   };
   newPaymentId: string;
   updateSuccess: boolean;
@@ -27,6 +28,7 @@ export interface AmountMismatchItem {
     product_code: string;
     product_name?: string;
     amount: number;
+    created_at?: string;
   };
   difference: number;
 }
