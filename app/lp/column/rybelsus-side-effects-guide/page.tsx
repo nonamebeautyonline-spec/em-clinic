@@ -206,6 +206,7 @@ export default function Page() {
           <li><Link href="/lp/column/glp1-medication-guide" className="text-blue-600 hover:underline">GLP-1受容体作動薬の総合ガイド</Link> — セマグルチドを含むGLP-1薬全般の解説</li>
           <li><Link href="/lp/column/glp1-diet-safety-evidence" className="text-blue-600 hover:underline">GLP-1ダイエットの安全性エビデンス</Link> — 臨床試験データに基づく安全性評価</li>
           <li><Link href="/lp/column/rybelsus-effective-dosing" className="text-blue-600 hover:underline">リベルサスの正しい服用方法</Link> — 効果を最大化するための服用ルール</li>
+          <li><Link href="/lp/column/mounjaro-side-effects-guide" className="text-blue-600 hover:underline">マンジャロの副作用と対処法</Link> — チルゼパチド特有の副作用と管理方法</li>
         </ul>
       </section>
     </ArticleLayout>

@@ -859,6 +859,7 @@ export const articles: Article[] = [
     category: "エビデンス解説",
     readTime: "14分",
     tags: ["脂肪溶解注射", "デオキシコール酸", "GLP-1", "エビデンス", "メディカルダイエット"],
+
   },
   {
     slug: "hay-fever-online-winning-strategy",
@@ -1228,6 +1229,7 @@ export const articles: Article[] = [
     category: "医薬品解説",
     readTime: "14分",
     tags: ["GLP-1", "リベルサス", "オゼンピック", "マンジャロ", "メディカルダイエット", "適応外使用"],
+
   },
   {
     slug: "beauty-derma-online-hybrid",
@@ -1634,6 +1636,7 @@ export const articles: Article[] = [
     category: "医薬品解説",
     readTime: "12分",
     tags: ["GLP-1", "リベルサス", "セマグルチド", "インクレチン", "作用機序"],
+
   },
   {
     slug: "glp1-diet-safety-evidence",
@@ -1643,6 +1646,7 @@ export const articles: Article[] = [
     category: "医薬品解説",
     readTime: "15分",
     tags: ["GLP-1", "臨床試験", "SUSTAIN", "PIONEER", "セマグルチド", "安全性"],
+
   },
   {
     slug: "rybelsus-side-effects-guide",
@@ -1652,6 +1656,7 @@ export const articles: Article[] = [
     category: "医薬品解説",
     readTime: "10分",
     tags: ["リベルサス", "副作用", "吐き気", "セマグルチド", "対処法"],
+
   },
   {
     slug: "rybelsus-effective-dosing",
@@ -1661,6 +1666,7 @@ export const articles: Article[] = [
     category: "医薬品解説",
     readTime: "8分",
     tags: ["リベルサス", "服用方法", "薬物動態", "バイオアベイラビリティ", "食事指導"],
+
   },
   {
     slug: "low-dose-pill-beginners-guide",
@@ -1724,6 +1730,7 @@ export const articles: Article[] = [
     category: "医薬品解説",
     readTime: "12分",
     tags: ["ウゴービ", "セマグルチド", "肥満症", "保険適用", "GLP-1", "STEP試験"],
+
   },
   {
     slug: "aga-domestic-vs-imported-drugs",
@@ -1769,5 +1776,105 @@ export const articles: Article[] = [
     category: "医薬品解説",
     readTime: "10分",
     tags: ["禁煙", "チャンピックス", "バレニクリン", "ニコチンパッチ", "保険診療", "禁煙外来"],
+  },
+  /* ── マンジャロ・肥満症薬シリーズ ── */
+  {
+    slug: "mounjaro-complete-guide",
+    title: "マンジャロとは？ — 効果・仕組み・用量の選び方を医師が解説",
+    description: "マンジャロ（チルゼパチド）はGIPとGLP-1のデュアル受容体作動薬。作用機序・2.5mg〜15mgの用量選択・他のGLP-1薬との違い・よくある勘違い12選を初心者向けにわかりやすく解説します。",
+    date: "2026-03-28",
+    category: "医薬品解説",
+    readTime: "12分",
+    tags: ["マンジャロ", "チルゼパチド", "GIP/GLP-1", "用量選択", "メディカルダイエット"],
+
+  },
+  {
+    slug: "mounjaro-injection-guide",
+    title: "マンジャロの正しい打ち方ガイド — 注射部位・投与間隔・失敗時の対処法",
+    description: "マンジャロ（チルゼパチド）アテオスの使い方を解説。注射部位の選び方・ローテーション、投与間隔のルール、痛みの軽減テクニック、失敗時・液漏れ時の対処法をまとめます。",
+    date: "2026-03-28",
+    category: "医薬品解説",
+    readTime: "10分",
+    tags: ["マンジャロ", "注射方法", "アテオス", "投与間隔", "自己注射"],
+
+  },
+  {
+    slug: "mounjaro-side-effects-guide",
+    title: "マンジャロの副作用と対処法 — 便秘・下痢・吐き気・抜け毛の原因と具体的な対策",
+    description: "マンジャロ（チルゼパチド）の副作用を解説。便秘には浸透圧性下剤が有効で刺激性下剤はNG、下痢に整腸剤が効きにくい理由、抜け毛の栄養対策、受診の目安をまとめます。",
+    date: "2026-03-28",
+    category: "医薬品解説",
+    readTime: "14分",
+    tags: ["マンジャロ", "副作用", "便秘", "吐き気", "抜け毛", "対処法"],
+
+  },
+  {
+    slug: "mounjaro-rebound-prevention",
+    title: "マンジャロとリバウンド — やめたら太る？休薬のコツと体重維持の方法",
+    description: "マンジャロをやめた後のリバウンドリスクをエビデンスで解説。投与間隔を7日→10日→14日と段階的に延ばす休薬法、リベルサス3mg維持への移行、体重維持のコツをまとめます。",
+    date: "2026-03-28",
+    category: "医薬品解説",
+    readTime: "10分",
+    tags: ["マンジャロ", "リバウンド", "休薬", "体重維持", "減量維持"],
+
+  },
+  {
+    slug: "mounjaro-pill-menstruation-guide",
+    title: "マンジャロとピル・月経 — 併用の注意点・不正出血・妊娠への影響",
+    description: "マンジャロとピル（低用量・中用量・アフターピル）の併用可否、胃排出遅延による避妊効果への影響、急激な減量で起きる月経不順のメカニズム、妊娠希望者の1ヶ月ルールを解説します。",
+    date: "2026-03-28",
+    category: "医薬品解説",
+    readTime: "10分",
+    tags: ["マンジャロ", "ピル", "月経", "妊娠", "併用注意"],
+
+  },
+  {
+    slug: "mounjaro-blood-sugar-medications",
+    title: "マンジャロと血糖値・併用薬 — メトホルミン・健康診断・精神科薬との関係",
+    description: "マンジャロ使用中の血糖値変化、将来の糖尿病リスク（むしろ予防効果あり）、メトホルミン併用のメリットと注意点、健康診断への影響、精神科薬・睡眠薬との相互作用を解説します。",
+    date: "2026-03-28",
+    category: "医薬品解説",
+    readTime: "12分",
+    tags: ["マンジャロ", "血糖値", "メトホルミン", "併用薬", "健康診断", "精神科薬"],
+
+  },
+  {
+    slug: "zepbound-obesity-treatment-guide",
+    title: "ゼップバウンド完全ガイド — 保険適用の条件・ウゴービとの違い・処方施設の要件",
+    description: "ゼップバウンド（チルゼパチド肥満症適応）の国内承認状況・最適使用推進ガイドライン・処方条件・薬価・ウゴービとの使い分けを最新情報に基づいて解説します。",
+    date: "2026-03-28",
+    category: "医薬品解説",
+    readTime: "12分",
+    tags: ["ゼップバウンド", "チルゼパチド", "肥満症", "保険適用", "最適使用推進ガイドライン"],
+
+  },
+  {
+    slug: "next-generation-obesity-drugs",
+    title: "次世代肥満症薬まとめ — アミクレチン・survodutide・orforglipronの最新エビデンス",
+    description: "マンジャロの次に来る肥満症薬の開発状況を解説。経口トリプル作動薬アミクレチン、GLP-1/グルカゴンデュアルのsurvodutide、非ペプチド経口GLP-1のorforglipronなど治験データに基づいてまとめます。",
+    date: "2026-03-28",
+    category: "医薬品解説",
+    readTime: "12分",
+    tags: ["アミクレチン", "survodutide", "orforglipron", "retatrutide", "次世代肥満症薬"],
+
+  },
+  {
+    slug: "isotretinoin-acne-guide",
+    title: "イソトレチノイン（アキュテイン）完全ガイド — 重症ニキビへの効果・必要な検査・副作用リスク",
+    description: "イソトレチノイン（アキュテイン・ロアキュタン）の作用機序・臨床エビデンス・必要な血液検査・催奇形性リスク・iPLEDGEプログラムの解説。重症ニキビに対する最後の切り札の正しい使い方をまとめます。",
+    date: "2026-03-28",
+    category: "医薬品解説",
+    readTime: "12分",
+    tags: ["イソトレチノイン", "アキュテイン", "ニキビ", "レチノイド", "iPLEDGE", "血液検査"],
+  },
+  {
+    slug: "metformin-personal-import-risk",
+    title: "メトホルミンの個人輸入は危険？ — 海外通販サイトのリスクと正しい入手方法",
+    description: "メトホルミンの海外個人輸入に潜むリスクを解説。偽造薬・品質管理の問題、税関規制、健康被害事例、国内で安全に処方を受ける方法とマンジャロとの併用ポイントをまとめます。",
+    date: "2026-03-28",
+    category: "医薬品解説",
+    readTime: "8分",
+    tags: ["メトホルミン", "個人輸入", "海外通販", "偽造薬", "安全な入手方法"],
+
   },
 ];

@@ -80,7 +80,7 @@ export default function Page() {
           ]}
         />
 
-        <p>ここで重要なのが<strong>「毎回ずらす」</strong>こと。同じ場所に打ち続けると<strong>脂肪萎縮</strong>（皮下脂肪がへこむ）が起きることがあります。前回の注射跡から最低2〜3cm離して打つのがルールです。脇腹も脂肪が十分あれば使えますよ。</p>
+        <p>ここで重要なのが<strong>「毎回ずらす」</strong>こと。同じ場所に打ち続けると<strong>炎症やしこり、あるいは脂肪萎縮</strong>（皮下脂肪がへこむ）の原因になります。おへそ周辺は吸収が不安定になる可能性があるため、<strong>へそから5cm以上離して脂肪がしっかりあるところ</strong>に打つようにしましょう。</p>
 
         <img src="/lp/column/images/mounjaro/1843474464627143113-GZVWEoeasAE1eXA.jpg" alt="注射部位のローテーション方法" className="rounded-xl my-4 w-full" />
       </section>
@@ -164,9 +164,9 @@ export default function Page() {
 
         <p>注射後に針を抜いたら<strong>数滴液が漏れた</strong>……これ、結構あるあるなんです。でも安心してください。アテオスの構造上、微量の液漏れは想定内で、<strong>効果への影響はほぼありません</strong>。</p>
 
-        <img src="/lp/column/images/mounjaro/1974320675709202498-G2YtRikbMAkk2W6.png" alt="マンジャロの液漏れに関する正しい情報" className="rounded-xl my-4 w-full" />
-
         <p>ただし、薬液窓に液が大量に残っている場合は注射が途中で止まった可能性があります。その場合は<strong>同じアテオスで再注射せず、医師に相談</strong>してください。</p>
+
+        <img src="/lp/column/images/mounjaro/1974320675709202498-G2YtRikbMAkk2W6.png" alt="マンジャロの注射部位（太もも）" className="rounded-xl my-4 w-full" />
       </section>
 
       {/* ── セクション8: まとめ ── */}

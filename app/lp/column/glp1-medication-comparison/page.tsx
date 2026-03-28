@@ -166,7 +166,7 @@ export default function Page() {
           ]}
         />
 
-        <p>薬剤選択は、<strong>患者の予算・注射への抵抗感・目標体重減少量</strong>の3つを総合的に考慮して決定します。「まずは内服で試したい」ならリベルサス、「確実な効果を求める」ならオゼンピック、「最大限の減量効果を期待する」ならマンジャロが候補となります。GLP-1受容体作動薬の基本的な仕組みについては<Link href="/lp/column/glp1-medication-guide" className="text-sky-600 underline hover:text-sky-800">GLP-1受容体作動薬とは — 仕組みをわかりやすく解説</Link>もあわせてご覧ください。</p>
+        <p>薬剤選択は、<strong>患者の予算・注射への抵抗感・目標体重減少量</strong>の3つを総合的に考慮して決定します。「まずは内服で試したい」ならリベルサス、「確実な効果を求める」ならオゼンピック、「最大限の減量効果を期待する」ならマンジャロが候補となります。マンジャロの効果・用量選択についてさらに詳しく知りたい方は<Link href="/lp/column/mounjaro-complete-guide" className="text-sky-600 underline hover:text-sky-800">マンジャロの効果・仕組み・用量の選び方</Link>もあわせてご覧ください。GLP-1受容体作動薬の基本的な仕組みについては<Link href="/lp/column/glp1-medication-guide" className="text-sky-600 underline hover:text-sky-800">GLP-1受容体作動薬とは — 仕組みをわかりやすく解説</Link>も参考になります。</p>
 
         <p>ただし、いずれの薬剤も<strong>投与中止後にリバウンドが起こる</strong>ことが臨床試験で示されています。STEP 1の延長試験では、セマグルチド中止後1年間で失った体重の約2/3が戻ったとの報告があり、「一時的に薬を使って痩せる」だけでは持続的な効果は得られません。食事・運動習慣の改善と併せた包括的アプローチが不可欠です。</p>
       </section>

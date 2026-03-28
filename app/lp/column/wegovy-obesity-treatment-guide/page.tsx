@@ -204,7 +204,7 @@ export default function Page() {
         <p>ただし、処方条件の厳格さは忘れてはいけません。BMI基準、事前治療、施設要件、処方医要件——すべてをクリアして初めて使える薬です。「楽して痩せる薬」ではなく、<strong>「医学的に肥満症と診断された方が、食事・運動療法と併用して使う治療薬」</strong>。この位置づけを正しく理解することが、ウゴービの恩恵を最大限に受ける第一歩です。</p>
 
         <Callout type="point" title="関連記事もあわせてどうぞ">
-          GLP-1受容体作動薬の<strong>基本的な仕組み</strong>については<Link href="/lp/column/glp1-medication-guide" className="text-emerald-700 underline">「GLP-1受容体作動薬とは」</Link>、<strong>安全性エビデンス</strong>については<Link href="/lp/column/glp1-diet-safety-evidence" className="text-emerald-700 underline">「GLP-1ダイエットは危険？」</Link>、肥満症治療の<strong>最新動向</strong>については<Link href="/lp/column/obesity-treatment-trends-2026" className="text-emerald-700 underline">「肥満症治療の最新動向」</Link>をご覧ください。
+          GLP-1受容体作動薬の<strong>基本的な仕組み</strong>については<Link href="/lp/column/glp1-medication-guide" className="text-emerald-700 underline">「GLP-1受容体作動薬とは」</Link>、<strong>安全性エビデンス</strong>については<Link href="/lp/column/glp1-diet-safety-evidence" className="text-emerald-700 underline">「GLP-1ダイエットは危険？」</Link>、肥満症治療の<strong>最新動向</strong>については<Link href="/lp/column/obesity-treatment-trends-2026" className="text-emerald-700 underline">「肥満症治療の最新動向」</Link>をご覧ください。また、同じGIP/GLP-1デュアル作動薬の肥満症適応である<strong>ゼップバウンド</strong>については<Link href="/lp/column/zepbound-obesity-treatment-guide" className="text-emerald-700 underline">ゼップバウンド完全ガイド</Link>で詳しく解説しています。
         </Callout>
       </section>
     </ArticleLayout>

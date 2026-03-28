@@ -50,7 +50,7 @@ export default function Page() {
           { title: "血糖が下がり、食欲も落ち着く", desc: "血糖コントロールに加え、胃の動きを緩やかにして食欲も自然に抑えてくれる。" },
         ]} />
 
-        <p>つまりGLP-1は、<strong>血糖値と食欲の両方に効く「体内の調整役」</strong>なんです。GLP-1受容体作動薬（オゼンピックやリベルサスなど）は、この天然ホルモンの働きを真似した薬。ただし天然のGLP-1は半減期がたった2分なので、そのままでは薬にならない——ここから製薬メーカーの挑戦が始まりました。リベルサス・オゼンピック・マンジャロの3薬剤を比較したい方は<Link href="/lp/column/glp1-medication-comparison" className="text-sky-600 underline hover:text-sky-800">GLP-1薬剤比較ガイド</Link>もあわせてどうぞ。</p>
+        <p>つまりGLP-1は、<strong>血糖値と食欲の両方に効く「体内の調整役」</strong>なんです。GLP-1受容体作動薬（オゼンピックやリベルサスなど）は、この天然ホルモンの働きを真似した薬。ただし天然のGLP-1は半減期がたった2分なので、そのままでは薬にならない——ここから製薬メーカーの挑戦が始まりました。リベルサス・オゼンピック・マンジャロの3薬剤を比較したい方は<Link href="/lp/column/glp1-medication-comparison" className="text-sky-600 underline hover:text-sky-800">GLP-1薬剤比較ガイド</Link>もあわせてどうぞ。なかでもGIP/GLP-1デュアル作動薬として注目されるマンジャロについては<Link href="/lp/column/mounjaro-complete-guide" className="text-sky-600 underline hover:text-sky-800">マンジャロの詳細ガイド</Link>で詳しく解説しています。</p>
       </section>
 
       {/* ── セクション2: 低血糖が怖い？ ── */}
