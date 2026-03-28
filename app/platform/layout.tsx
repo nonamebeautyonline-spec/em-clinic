@@ -14,6 +14,8 @@ const PLATFORM_MENU_ITEMS = [
   { href: "/platform/members", icon: "👥", label: "メンバー管理" },
   { href: "/platform/billing", icon: "💳", label: "契約・請求" },
   { href: "/platform/analytics", icon: "📈", label: "分析" },
+  { href: "/platform/benchmark", icon: "🏆", label: "ベンチマーク" },
+  { href: "/platform/ai-insights", icon: "🧠", label: "AI Insights" },
   { href: "/platform/health", icon: "💚", label: "システムヘルス" },
   { href: "/platform/errors", icon: "⚠️", label: "エラーログ" },
   { href: "/platform/alerts", icon: "🔔", label: "アラート" },
