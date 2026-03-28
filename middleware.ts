@@ -110,10 +110,11 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url, 301);
   }
 
-  // === l-ope.jp のルート → /lp にリダイレクト ===
-  if (hostWithoutPort === "l-ope.jp" && (pathname === "/" || pathname === "")) {
+  // === l-ope.jp の /lp（完全一致）→ / にリダイレクト ===
+  // SEO: メインコンテンツをルートURLに集約し、旧 /lp へのアクセスを転送
+  if (hostWithoutPort === "l-ope.jp" && pathname === "/lp") {
     const url = new URL(req.url);
-    url.pathname = "/lp";
+    url.pathname = "/";
     return NextResponse.redirect(url, 301);
   }
 
@@ -121,7 +122,7 @@ export async function middleware(req: NextRequest) {
   // テナントサブドメイン（noname-beauty.l-ope.jp 等）では非表示
   const isRootDomain = hostWithoutPort === "l-ope.jp" || hostWithoutPort === "www.l-ope.jp";
   const isLocalhost = hostWithoutPort === "localhost" || hostWithoutPort.startsWith("localhost");
-  if (pathname.startsWith("/lp") && !isLocalhost && !isRootDomain) {
+  if ((pathname.startsWith("/lp") || pathname === "/") && !isLocalhost && !isRootDomain && !isOrdix) {
     return new NextResponse("Not Found", { status: 404 });
   }
 

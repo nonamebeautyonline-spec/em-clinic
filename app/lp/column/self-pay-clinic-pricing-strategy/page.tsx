@@ -326,7 +326,7 @@ export default function Page() {
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">Lオペのダッシュボードで効果を可視化</h3>
 
-        <p><Link href="/lp" className="text-emerald-700 underline">Lオペ for CLINIC</Link>のダッシュボードでは、LINE経由で予約・来院した患者の売上データをリアルタイムで集計できます。メニュー別の売上推移、患者あたり平均単価、リピート率の変動を自動でグラフ化するため、Excelで手作業集計する必要がありません。</p>
+        <p><Link href="/" className="text-emerald-700 underline">Lオペ for CLINIC</Link>のダッシュボードでは、LINE経由で予約・来院した患者の売上データをリアルタイムで集計できます。メニュー別の売上推移、患者あたり平均単価、リピート率の変動を自動でグラフ化するため、Excelで手作業集計する必要がありません。</p>
 
         <p>特に有効なのが、<strong>セグメント別の売上分析機能</strong>です。「初診患者の平均単価」「リピーターの平均単価」「コース契約者の月額売上」など、患者セグメント別にKPIを可視化できるため、「どの層に対する施策が効果的だったか」を正確に把握できます。</p>
 
@@ -347,7 +347,7 @@ export default function Page() {
 
         <p>本記事のシミュレーションで示したように、<strong>価格最適化だけで月商500万円→800万円、営業利益2.1倍</strong>という成果は、追加コストなしで実現できます。広告投資を増やす前に、まず既存メニューの価格戦略を見直すことが、最もROIの高い経営改善施策です。</p>
 
-        <p>そして、価格戦略の効果を持続的に発揮するためには、データに基づく継続的なモニタリングと改善が欠かせません。<Link href="/lp" className="text-emerald-700 underline">Lオペ for CLINIC</Link>のダッシュボード・売上分析機能を活用すれば、価格改定の効果を定量的に把握し、次の改善アクションにつなげるPDCAサイクルを回すことができます。</p>
+        <p>そして、価格戦略の効果を持続的に発揮するためには、データに基づく継続的なモニタリングと改善が欠かせません。<Link href="/" className="text-emerald-700 underline">Lオペ for CLINIC</Link>のダッシュボード・売上分析機能を活用すれば、価格改定の効果を定量的に把握し、次の改善アクションにつなげるPDCAサイクルを回すことができます。</p>
 
         <Callout type="point" title="まず取り組むべき3ステップ">
           <strong>1. 現状分析：</strong>施術ごとの正確な原価を把握し、現在の利益率を算出する。<br />

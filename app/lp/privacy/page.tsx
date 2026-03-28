@@ -235,7 +235,7 @@ export default function PrivacyPolicyPage() {
         {/* フッター: LPへ戻る */}
         <div className="mt-12 text-center">
           <Link
-            href="/lp"
+            href="/"
             className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
           >
             ← Lオペ for CLINIC トップページへ戻る

@@ -1,7 +1,23 @@
 import type { Metadata } from "next";
+import dynamic from "next/dynamic";
+import Nav from "./lp/components/Nav";
+import Hero from "./lp/components/Hero";
+import Problems from "./lp/components/Problems";
+import About from "./lp/components/About";
+
+/* ATF（Above The Fold）以外は遅延読み込みで初期JS削減 */
+const Features = dynamic(() => import("./lp/components/Features"));
+const Strengths = dynamic(() => import("./lp/components/Strengths"));
+const MidCTA = dynamic(() => import("./lp/components/MidCTA").then((m) => ({ default: m.MidCTA })));
+const MobileCTA = dynamic(() => import("./lp/components/MobileCTA").then((m) => ({ default: m.MobileCTA })));
+const UseCases = dynamic(() => import("./lp/components/UseCases"));
+const Flow = dynamic(() => import("./lp/components/Flow").then((m) => ({ default: m.Flow })));
+const Pricing = dynamic(() => import("./lp/components/Pricing").then((m) => ({ default: m.Pricing })));
+const FAQ = dynamic(() => import("./lp/components/FAQ").then((m) => ({ default: m.FAQ })));
+const FinalCTA = dynamic(() => import("./lp/components/FinalCTA").then((m) => ({ default: m.FinalCTA })));
+const Footer = dynamic(() => import("./lp/components/Footer").then((m) => ({ default: m.Footer })));
 
 const SITE_URL = "https://l-ope.jp";
-const LP_URL = SITE_URL; // メインLPはルート（/）に移動済み
 const TITLE = "Lオペ | クリニック特化LINE運用プラットフォーム";
 const DESCRIPTION =
   "Lオペ（Lオペ for CLINIC）は、LINE公式アカウントを活用したクリニック特化の業務DXプラットフォームです。Lオペなら患者CRM・予約管理・セグメント配信・リッチメニュー構築・オンライン問診・AI自動返信・決済・配送管理をオールインワンで提供。初期設定サポート無料・最短2週間で導入。";
@@ -17,28 +33,18 @@ export const metadata: Metadata = {
     "max-video-preview": -1,
   },
   keywords: [
-    /* ブランド */
     "Lオペ", "Lオペ for CLINIC", "L-OPE",
-    /* ピラー */
     "LINE公式アカウント クリニック", "クリニック LINE", "クリニック DX", "医療DX", "クリニック 業務効率化",
-    /* LINE運用 */
     "LINE公式アカウント 運用", "セグメント配信", "リッチメニュー", "AI自動返信", "LINE配信", "ステップ配信",
     "キーワード自動返信", "Flex Message", "チャットボット", "LINE 自動化", "LINE CRM",
-    /* 業務管理 */
     "患者CRM", "予約管理システム", "オンライン問診", "電子カルテ 連携", "カルテ管理", "配送管理",
     "クリニック 予約システム", "問診票 電子化", "SOAP カルテ", "音声カルテ",
-    /* 決済・在庫 */
     "クリニック 決済", "オンライン決済 医療", "Square 連携", "GMO決済", "在庫管理 クリニック",
     "処方薬 配送",
-    /* 分析 */
     "クリニック ダッシュボード", "売上分析", "患者LTV", "NPS調査", "LINE配信 分析", "クリック分析",
-    /* 導入検討 */
     "LINE公式 導入 費用", "クリニック 開業 LINE", "クリニック 集患",
-    /* 競合比較 */
     "Lステップ 比較", "Lステップ クリニック", "Liny 比較", "LINE配信ツール 比較", "クリニック LINE ツール",
-    /* 診療科別 */
     "美容クリニック LINE", "歯科 LINE", "皮膚科 LINE", "内科 LINE公式",
-    /* 経営 */
     "クリニック経営", "クリニック 集患 方法", "再診率 向上", "リピート率 向上", "無断キャンセル 防止",
     "クリニック 業務改善", "医療機関 LINE活用",
   ].join(", "),
@@ -47,12 +53,12 @@ export const metadata: Metadata = {
     apple: [{ url: "/icon.png", sizes: "778x778", type: "image/png" }],
   },
   alternates: {
-    canonical: LP_URL,
+    canonical: SITE_URL,
   },
   openGraph: {
     title: TITLE,
     description: DESCRIPTION,
-    url: LP_URL,
+    url: SITE_URL,
     siteName: "Lオペ for CLINIC",
     locale: "ja_JP",
     type: "website",
@@ -66,7 +72,7 @@ export const metadata: Metadata = {
   },
 };
 
-/* JSON-LD 構造化データ — Organization / SoftwareApplication / WebSite / BreadcrumbList */
+/* JSON-LD 構造化データ */
 const jsonLd = [
   {
     "@context": "https://schema.org",
@@ -105,11 +111,11 @@ const jsonLd = [
     applicationSubCategory: "LINE公式アカウント クリニック運用ツール",
     operatingSystem: "Web",
     description: DESCRIPTION,
-    url: LP_URL,
+    url: SITE_URL,
     offers: {
       "@type": "Offer",
       availability: "https://schema.org/InStock",
-      url: LP_URL,
+      url: SITE_URL,
       price: "0",
       priceCurrency: "JPY",
       description: "初期相談・資料請求は無料。貴院の規模・運用体制に合わせた最適プランをご提案",
@@ -129,11 +135,11 @@ const jsonLd = [
       url: SITE_URL,
     },
     description: DESCRIPTION,
-    url: LP_URL,
+    url: SITE_URL,
     areaServed: { "@type": "Country", name: "JP" },
     availableChannel: {
       "@type": "ServiceChannel",
-      serviceUrl: LP_URL,
+      serviceUrl: SITE_URL,
       availableLanguage: "Japanese",
     },
   },
@@ -146,38 +152,11 @@ const jsonLd = [
     description:
       "LINE公式アカウントでクリニック業務をDX化するプラットフォーム「Lオペ for CLINIC」",
   },
-  {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      {
-        "@type": "ListItem",
-        position: 1,
-        name: "ホーム",
-        item: SITE_URL,
-      },
-    ],
-  },
-  /* SiteNavigationElement — Googleサイトリンク表示を促進 */
-  ...[
-    { name: "Lオペとは", url: `${SITE_URL}/lp/about` },
-    { name: "機能一覧", url: `${SITE_URL}/lp/features` },
-    { name: "料金プラン", url: `${SITE_URL}/#pricing` },
-    { name: "コラム", url: `${SITE_URL}/lp/column` },
-    { name: "お問い合わせ", url: `${SITE_URL}/lp/contact` },
-  ].map((item, i) => ({
-    "@context": "https://schema.org",
-    "@type": "SiteNavigationElement",
-    name: item.name,
-    url: item.url,
-    position: i + 1,
-  })),
 ];
 
-export default function LPLayout({ children }: { children: React.ReactNode }) {
+export default function HomePage() {
   return (
     <>
-      {/* preconnect / dns-prefetch — 外部リソースの接続を高速化 */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
@@ -186,7 +165,27 @@ export default function LPLayout({ children }: { children: React.ReactNode }) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      {children}
+      <div className="min-h-screen overflow-x-hidden bg-white text-slate-800" style={{ fontFeatureSettings: "'palt'" }}>
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999] focus:rounded-lg focus:bg-blue-600 focus:px-4 focus:py-2 focus:text-white focus:shadow-lg">メインコンテンツへスキップ</a>
+        <Nav />
+        <main id="main-content">
+          <Hero />
+          <Problems />
+          <About />
+          <Features />
+          <MidCTA title="これだけの機能をオールインワンで" sub="予約・問診・LINE配信・決済・配送管理まで、すべて込み。複数ツールの月額を大幅に削減できます。" />
+          <Strengths />
+          <MidCTA title="まずは無料で資料請求" sub="貴院の課題に合わせたデモのご案内も可能です。お気軽にお問い合わせください。" />
+          <UseCases />
+          <MidCTA title="貴院でも同じ効果を実現しませんか？" sub="導入クリニックの業務効率化事例をもとに、最適なプランをご提案します。" />
+          <Flow />
+          <Pricing />
+          <FAQ />
+          <FinalCTA />
+        </main>
+        <MobileCTA />
+        <Footer />
+      </div>
     </>
   );
 }

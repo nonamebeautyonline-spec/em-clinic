@@ -151,7 +151,7 @@ export default function Page() {
 
         <p>テンプレートの活用により記載の効率化と標準化を図り、LINE問診データとの連携で診察前の情報収集を自動化することで、オンライン診療の運用品質を大幅に向上させることが可能です。</p>
 
-        <p>Lオペ for CLINICでは、LINEを活用した<Link href="/lp" className="text-blue-600 hover:underline">事前問診の自動収集と管理画面でのデータ一元管理</Link>を通じて、オンライン診療のカルテ記載業務の効率化を支援しています。</p>
+        <p>Lオペ for CLINICでは、LINEを活用した<Link href="/" className="text-blue-600 hover:underline">事前問診の自動収集と管理画面でのデータ一元管理</Link>を通じて、オンライン診療のカルテ記載業務の効率化を支援しています。</p>
       </section>
     </ArticleLayout>
   );

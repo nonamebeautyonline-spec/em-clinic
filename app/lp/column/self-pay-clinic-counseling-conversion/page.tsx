@@ -285,7 +285,7 @@ export default function Page() {
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">フォローアップの自動化</h3>
 
-        <p>カウンセリング後のフォローアップもLINEステップ配信で自動化できます。<Link href="/lp" className="text-emerald-700 underline">Lオペ for CLINIC</Link>では、カウンセリングの結果（成約/未成約）に応じて<strong>異なるフォローシナリオを自動で切り替え</strong>る仕組みを構築できます。</p>
+        <p>カウンセリング後のフォローアップもLINEステップ配信で自動化できます。<Link href="/" className="text-emerald-700 underline">Lオペ for CLINIC</Link>では、カウンセリングの結果（成約/未成約）に応じて<strong>異なるフォローシナリオを自動で切り替え</strong>る仕組みを構築できます。</p>
 
         <p>成約した患者には施術前の注意事項と術後ケアの案内を、未成約の患者には段階的な情報提供とフォローメッセージを、それぞれ自動配信します。スタッフが1件1件手動でメッセージを送る必要がないため、<strong>フォローアップの漏れが100%なくなる</strong>点が最大のメリットです。</p>
 
@@ -312,7 +312,7 @@ export default function Page() {
 
         <p>特にインパクトが大きいのは、<strong>事前情報提供とフォローアップの自動化</strong>です。来院前に十分な情報を届けることで患者の意思決定を加速し、当日未成約の患者にも漏れなくフォローすることで取りこぼしを防ぐ。この2つだけで成約率は10〜20ポイント改善するケースが多く見られます。集患コスト（CPA）を最適化して広告投資の回収率を高める方法については<Link href="/lp/column/self-pay-clinic-ad-roi" className="text-sky-600 underline hover:text-sky-800">自費クリニックの広告費ROI最適化ガイド</Link>もあわせてご覧ください。</p>
 
-        <p>そして、これらの施策を効率的に実行するために<strong>LINEの活用は不可欠</strong>です。事前問診・ステップ配信・自動フォローアップ・成約率の可視化まで、カウンセリング成約率の改善に必要な機能を<Link href="/lp" className="text-emerald-700 underline">Lオペ for CLINIC</Link>で一元管理できます。</p>
+        <p>そして、これらの施策を効率的に実行するために<strong>LINEの活用は不可欠</strong>です。事前問診・ステップ配信・自動フォローアップ・成約率の可視化まで、カウンセリング成約率の改善に必要な機能を<Link href="/" className="text-emerald-700 underline">Lオペ for CLINIC</Link>で一元管理できます。</p>
 
         <Callout type="point" title="今すぐ始められる3つのアクション">
           <strong>1. 成約率の計測を始める：</strong>カウンセリング数と成約数を日次で記録し、現状の成約率を正確に把握する。<br />

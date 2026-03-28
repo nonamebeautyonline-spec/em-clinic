@@ -199,7 +199,7 @@ export default function CancelPolicyPage() {
         {/* フッター：LPへの戻りリンク */}
         <div className="mt-10 text-center">
           <Link
-            href="/lp"
+            href="/"
             className="inline-block rounded-full bg-blue-600 px-8 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
           >
             トップページに戻る

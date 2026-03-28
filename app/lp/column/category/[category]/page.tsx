@@ -96,7 +96,7 @@ export default async function CategoryPage({ params }: Props) {
         <header className="sticky top-0 z-30 border-b border-gray-200/60 bg-white/95 backdrop-blur-md">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
             <Link
-              href="/lp"
+              href="/"
               className="flex items-center gap-1.5 text-[16px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition"
             >
               Lオペ <span className="text-blue-600">for CLINIC</span>
@@ -112,7 +112,7 @@ export default async function CategoryPage({ params }: Props) {
                 コラム
               </Link>
               <a
-                href="/lp#contact"
+                href="/#contact"
                 className="rounded-full bg-blue-600 px-6 py-2.5 text-[13px] font-semibold text-white transition hover:bg-blue-700 hover:shadow-md"
               >
                 無料で資料請求
@@ -126,7 +126,7 @@ export default async function CategoryPage({ params }: Props) {
           <nav aria-label="パンくずリスト" className="mx-auto max-w-7xl px-6 py-3">
             <ol className="flex items-center gap-2 text-[13px] text-gray-400 list-none m-0 p-0">
               <li>
-                <Link href="/lp" className="hover:text-blue-600 transition">
+                <Link href="/" className="hover:text-blue-600 transition">
                   トップ
                 </Link>
               </li>
@@ -148,7 +148,7 @@ export default async function CategoryPage({ params }: Props) {
             "@context": "https://schema.org",
             "@type": "BreadcrumbList",
             itemListElement: [
-              { "@type": "ListItem", position: 1, name: "トップ", item: "https://l-ope.jp/lp" },
+              { "@type": "ListItem", position: 1, name: "トップ", item: "https://l-ope.jp" },
               { "@type": "ListItem", position: 2, name: "コラム", item: "https://l-ope.jp/lp/column" },
               { "@type": "ListItem", position: 3, name: cat.label, item: `https://l-ope.jp/lp/column/category/${cat.slug}` },
             ],
@@ -314,7 +314,7 @@ export default async function CategoryPage({ params }: Props) {
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <a
-                href="/lp#contact"
+                href="/#contact"
                 className="rounded-full bg-blue-600 px-8 py-3.5 text-[14px] font-bold text-white transition hover:bg-blue-700 hover:shadow-lg"
               >
                 無料で資料請求
@@ -337,7 +337,7 @@ export default async function CategoryPage({ params }: Props) {
                 Lオペ <span className="text-blue-600">for CLINIC</span>
               </p>
               <div className="flex items-center gap-6">
-                <Link href="/lp" className="text-[13px] text-gray-400 hover:text-blue-600 transition">
+                <Link href="/" className="text-[13px] text-gray-400 hover:text-blue-600 transition">
                   トップ
                 </Link>
                 <Link href="/lp/about" className="text-[13px] text-gray-400 hover:text-blue-600 transition">

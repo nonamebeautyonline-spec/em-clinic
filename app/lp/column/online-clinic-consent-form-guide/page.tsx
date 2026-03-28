@@ -150,7 +150,7 @@ export default function Page() {
 
         <p>電子署名・電子同意の仕組みを導入することで、来院不要のオンライン診療でも確実かつ効率的に同意を取得できます。LINEを活用した事前送付と自動記録により、スタッフの運用負荷を最小限に抑えつつ、コンプライアンスを担保しましょう。</p>
 
-        <p>Lオペ for CLINICでは、LINE上での問診・予約管理に加え、<Link href="/lp" className="text-blue-600 hover:underline">患者への情報提供と同意取得フロー</Link>の効率化を支援しています。</p>
+        <p>Lオペ for CLINICでは、LINE上での問診・予約管理に加え、<Link href="/" className="text-blue-600 hover:underline">患者への情報提供と同意取得フロー</Link>の効率化を支援しています。</p>
       </section>
     </ArticleLayout>
   );

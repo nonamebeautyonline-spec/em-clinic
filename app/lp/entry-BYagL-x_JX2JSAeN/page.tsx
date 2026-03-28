@@ -227,7 +227,7 @@ export default function ApplyPage() {
               )}
             </div>
             <Link
-              href="/lp"
+              href="/"
               className="mt-8 inline-block rounded-xl bg-blue-600 px-8 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
             >
               トップに戻る
@@ -810,7 +810,7 @@ export default function ApplyPage() {
 function Header() {
   return (
     <header className="flex items-center justify-between bg-white px-5 py-3 shadow-sm">
-      <Link href="/lp" className="flex items-center gap-2">
+      <Link href="/" className="flex items-center gap-2">
         <Image
           src="/images/l-ope-logo.png"
           alt="Lオペ"
@@ -823,7 +823,7 @@ function Header() {
         </span>
       </Link>
       <Link
-        href="/lp"
+        href="/"
         className="text-xs text-slate-500 transition hover:text-slate-700"
       >
         トップに戻る

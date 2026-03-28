@@ -22,7 +22,7 @@ export default function Nav() {
   return (
     <nav className="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-xl">
       <div className="mx-auto flex h-[56px] max-w-6xl items-center justify-between px-4">
-        <a href="/lp" className="flex items-center gap-2">
+        <a href="/" className="flex items-center gap-2">
           <Image src="/icon.png" alt="Lオペ" width={32} height={32} className="rounded-lg object-contain" priority />
           <span className="text-[14px] font-bold tracking-tight">Lオペ <span className="text-blue-600">for CLINIC</span></span>
         </a>

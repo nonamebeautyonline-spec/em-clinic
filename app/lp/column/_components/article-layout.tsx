@@ -123,8 +123,8 @@ function KeyPoints({ points }: { points: string[] }) {
 export function InlineCTA() {
   return (
     <div className="my-10 overflow-hidden rounded-xl bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 p-6 text-center ring-1 ring-blue-100">
-      <p className="text-[14px] font-bold text-gray-800">クリニックのLINE運用を<a href="/lp" className="text-blue-600 underline font-bold">Lオペ</a>でまるごと効率化</p>
-      <p className="mt-1 text-[12px] text-gray-500"><a href="/lp" className="text-gray-600 underline">Lオペ for CLINIC</a>の機能・料金・導入事例をまとめた資料をお送りします。</p>
+      <p className="text-[14px] font-bold text-gray-800">クリニックのLINE運用を<a href="/" className="text-blue-600 underline font-bold">Lオペ</a>でまるごと効率化</p>
+      <p className="mt-1 text-[12px] text-gray-500"><a href="/" className="text-gray-600 underline">Lオペ for CLINIC</a>の機能・料金・導入事例をまとめた資料をお送りします。</p>
       <InlineCTAButton />
     </div>
   );
@@ -194,7 +194,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
       {/* ヘッダー */}
       <header className="border-b border-gray-200/60 bg-white shadow-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/lp" className="flex items-center gap-1 text-[14px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition">
+          <Link href="/" className="flex items-center gap-1 text-[14px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition">
             Lオペ <span className="text-blue-600">for CLINIC</span>
           </Link>
           <div className="flex items-center gap-4">
@@ -215,7 +215,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
       <div className="border-b border-gray-200/60 bg-white">
         <nav aria-label="パンくずリスト" className="mx-auto max-w-6xl px-6 py-3">
           <ol className="flex flex-wrap items-center gap-1.5 text-[12px] text-gray-400 list-none m-0 p-0">
-            <li><Link href="/lp" className="hover:text-blue-600 transition">トップ</Link></li>
+            <li><Link href="/" className="hover:text-blue-600 transition">トップ</Link></li>
             <li aria-hidden="true" className="text-gray-300">/</li>
             <li><Link href="/lp/column" className="hover:text-blue-600 transition">コラム</Link></li>
             <li aria-hidden="true" className="text-gray-300">/</li>
@@ -228,7 +228,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
           "@context": "https://schema.org",
           "@type": "BreadcrumbList",
           itemListElement: [
-            { "@type": "ListItem", position: 1, name: "トップ", item: "https://l-ope.jp/lp" },
+            { "@type": "ListItem", position: 1, name: "トップ", item: "https://l-ope.jp" },
             { "@type": "ListItem", position: 2, name: "コラム", item: "https://l-ope.jp/lp/column" },
             { "@type": "ListItem", position: 3, name: catLabel, item: `https://l-ope.jp/lp/column/category/${catSlug}` },
             { "@type": "ListItem", position: 4, name: self.title, item: `https://l-ope.jp/lp/column/${slug}` },
@@ -383,14 +383,14 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
       {/* フッター — ダーク系でプロフェッショナル感を演出 */}
       <footer className="bg-slate-900 py-10 text-center">
         <div className="mx-auto max-w-6xl px-6">
-          <Link href="/lp" className="text-[14px] font-bold tracking-tight text-white hover:opacity-80 transition">
+          <Link href="/" className="text-[14px] font-bold tracking-tight text-white hover:opacity-80 transition">
             Lオペ <span className="text-blue-400">for CLINIC</span>
           </Link>
           <div className="mt-4 flex items-center justify-center gap-6">
             <Link href="/lp/column" className="text-[12px] text-slate-400 hover:text-white transition">
               コラム一覧
             </Link>
-            <Link href="/lp" className="text-[12px] text-slate-400 hover:text-white transition">
+            <Link href="/" className="text-[12px] text-slate-400 hover:text-white transition">
               トップ
             </Link>
             <Link href="/lp/features" className="text-[12px] text-slate-400 hover:text-white transition">

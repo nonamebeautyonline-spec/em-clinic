@@ -196,7 +196,7 @@ export default function TermsPage() {
         {/* フッター */}
         <div className="mt-12 text-center">
           <Link
-            href="/lp"
+            href="/"
             className="inline-block rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
           >
             トップページに戻る

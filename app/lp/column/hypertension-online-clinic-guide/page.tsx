@@ -175,7 +175,7 @@ export default function Page() {
 
         <p>成功の鍵は、<strong>対象患者の適切な選定</strong>、<strong>対面診療との計画的な組み合わせ</strong>、そして<strong>LINE活用による受診間のフォローアップ</strong>です。服薬リマインド・受診リマインド・血圧報告の仕組みを整えることで、治療脱落率を大幅に改善できます。</p>
 
-        <p>Lオペ for CLINICでは、LINE上での予約管理・リマインド配信・患者フォロー機能を通じて、<Link href="/lp" className="text-blue-600 hover:underline">高血圧をはじめとする慢性疾患の継続管理</Link>を支援しています。</p>
+        <p>Lオペ for CLINICでは、LINE上での予約管理・リマインド配信・患者フォロー機能を通じて、<Link href="/" className="text-blue-600 hover:underline">高血圧をはじめとする慢性疾患の継続管理</Link>を支援しています。</p>
       </section>
     </ArticleLayout>
   );

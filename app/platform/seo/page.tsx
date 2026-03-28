@@ -22,7 +22,7 @@ const structuredDataChecks = [
 const metaChecks = [
   { name: "title", status: "ok" as const, value: "Lオペ for CLINIC | LINE公式アカウントでクリニック業務をDX化" },
   { name: "description", status: "ok" as const, value: "LINE公式アカウントを活用したクリニック業務のDX化…" },
-  { name: "canonical", status: "ok" as const, value: "https://l-ope.jp/lp" },
+  { name: "canonical", status: "ok" as const, value: "https://l-ope.jp" },
   { name: "og:title", status: "ok" as const, value: "設定済み" },
   { name: "og:description", status: "ok" as const, value: "設定済み" },
   { name: "og:image", status: "ok" as const, value: "opengraph-image.tsx（next/og動的生成 1200×630）" },

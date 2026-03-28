@@ -236,7 +236,7 @@ const jsonLd = [
     breadcrumb: {
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Lオペ for CLINIC", item: `${SITE_URL}/lp` },
+        { "@type": "ListItem", position: 1, name: "Lオペ for CLINIC", item: SITE_URL },
         { "@type": "ListItem", position: 2, name: "機能一覧", item: `${SITE_URL}/lp/features` },
       ],
     },
@@ -260,7 +260,7 @@ export default function FeaturesPage() {
           {/* パンくず */}
           <nav aria-label="パンくずリスト" className="mb-10">
             <ol className="flex items-center gap-1.5 text-[13px] text-gray-400 list-none m-0 p-0">
-              <li><Link href="/lp" className="hover:text-blue-600 transition">Lオペ for CLINIC</Link></li>
+              <li><Link href="/" className="hover:text-blue-600 transition">Lオペ for CLINIC</Link></li>
               <li aria-hidden="true" className="text-gray-300">/</li>
               <li aria-current="page" className="text-gray-600 font-medium">機能一覧</li>
             </ol>
@@ -378,7 +378,7 @@ export default function FeaturesPage() {
               無料で資料請求
             </a>
             <Link
-              href="/lp#pricing"
+              href="/#pricing"
               className="rounded-lg border border-gray-600 px-8 py-3.5 text-[14px] font-bold text-gray-300 transition hover:border-gray-400 hover:text-white"
             >
               料金プランを見る
@@ -390,7 +390,7 @@ export default function FeaturesPage() {
       {/* ──────────────── フッター ──────────────── */}
       <footer className="border-t border-gray-100 py-8 text-center text-[13px] text-gray-400">
         <div className="flex flex-wrap justify-center gap-6">
-          <Link href="/lp" className="hover:text-blue-600 transition">Lオペ for CLINIC トップ</Link>
+          <Link href="/" className="hover:text-blue-600 transition">Lオペ for CLINIC トップ</Link>
           <Link href="/lp/about" className="hover:text-blue-600 transition">Lオペとは</Link>
           <Link href="/lp/column" className="hover:text-blue-600 transition">コラム</Link>
           <Link href="/lp/contact" className="hover:text-blue-600 transition">お問い合わせ</Link>

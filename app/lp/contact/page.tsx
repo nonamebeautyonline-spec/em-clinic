@@ -82,7 +82,7 @@ function ContactForm() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-sky-50">
         <header className="border-b border-slate-100/60 bg-white/80 backdrop-blur-xl">
           <div className="mx-auto flex h-[60px] max-w-6xl items-center px-5">
-            <Link href="/lp" className="flex items-center gap-2.5">
+            <Link href="/" className="flex items-center gap-2.5">
               <Image src="/icon.png" alt="Lオペ" width={36} height={36} className="rounded-lg object-contain" />
               <span className="text-[15px] font-bold tracking-tight">Lオペ <span className="text-blue-600">for CLINIC</span></span>
             </Link>
@@ -96,7 +96,7 @@ function ContactForm() {
           </div>
           <h1 className="mb-4 text-2xl font-bold text-slate-900">お問い合わせを受け付けました</h1>
           <p className="mb-8 text-slate-500">2営業日以内に担当者よりご連絡いたします。</p>
-          <Link href="/lp" className="inline-block rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 px-8 py-3 text-sm font-bold text-white shadow-lg transition hover:shadow-xl">
+          <Link href="/" className="inline-block rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 px-8 py-3 text-sm font-bold text-white shadow-lg transition hover:shadow-xl">
             トップページに戻る
           </Link>
         </div>
@@ -109,7 +109,7 @@ function ContactForm() {
       {/* ヘッダー */}
       <header className="border-b border-slate-100/60 bg-white/80 backdrop-blur-xl">
         <div className="mx-auto flex h-[60px] max-w-6xl items-center px-5">
-          <Link href="/lp" className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5">
             <Image src="/icon.png" alt="Lオペ" width={36} height={36} className="rounded-lg object-contain" />
             <span className="text-[15px] font-bold tracking-tight">Lオペ <span className="text-blue-600">for CLINIC</span></span>
           </Link>

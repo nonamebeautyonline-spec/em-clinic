@@ -68,7 +68,7 @@ export default function ProductPage() {
                       クリニック特化のLINE運用プラットフォーム。患者体験の向上と業務効率化を同時に実現。
                     </p>
                     <Link
-                      href="/lp"
+                      href="/"
                       className="group mt-10 inline-flex items-center gap-2.5 rounded-full bg-white px-9 py-4 text-[13px] font-bold text-slate-900 transition-all duration-500 hover:shadow-[0_0_40px_rgba(59,130,246,0.15)]"
                       data-cursor-hover
                     >

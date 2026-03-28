@@ -55,7 +55,7 @@ export default function ColumnIndex() {
       {/* ヘッダー */}
       <header className="sticky top-0 z-30 border-b border-gray-200/60 bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
-          <Link href="/lp" className="flex items-center gap-1.5 text-[16px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition">
+          <Link href="/" className="flex items-center gap-1.5 text-[16px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition">
             Lオペ <span className="text-blue-600">for CLINIC</span>
           </Link>
           <div className="flex items-center gap-6">
@@ -63,7 +63,7 @@ export default function ColumnIndex() {
             <Link href="/lp/features" className="hidden text-[14px] text-gray-500 hover:text-blue-600 transition md:block">機能一覧</Link>
             <Link href="/lp/column" className="hidden text-[14px] font-medium text-blue-600 md:block">コラム</Link>
             <a
-              href="/lp#contact"
+              href="/#contact"
               className="rounded-full bg-blue-600 px-6 py-2.5 text-[13px] font-semibold text-white transition hover:bg-blue-700 hover:shadow-md"
             >
               無料で資料請求
@@ -76,7 +76,7 @@ export default function ColumnIndex() {
       <div className="border-b border-gray-200 bg-white">
         <nav aria-label="パンくずリスト" className="mx-auto max-w-7xl px-6 py-3">
           <ol className="flex items-center gap-2 text-[13px] text-gray-400 list-none m-0 p-0">
-            <li><Link href="/lp" className="hover:text-blue-600 transition">トップ</Link></li>
+            <li><Link href="/" className="hover:text-blue-600 transition">トップ</Link></li>
             <li aria-hidden="true" className="text-gray-300">/</li>
             <li className="text-gray-700 font-medium">コラム</li>
           </ol>
@@ -231,7 +231,7 @@ export default function ColumnIndex() {
               </p>
               <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
                 <a
-                  href="/lp#contact"
+                  href="/#contact"
                   className="rounded-full bg-blue-600 px-8 py-3.5 text-[14px] font-bold text-white transition hover:bg-blue-700 hover:shadow-lg"
                 >
                   無料で資料請求
@@ -315,7 +315,7 @@ export default function ColumnIndex() {
                 <p className="text-[14px] font-bold text-gray-800">まずは資料請求から</p>
                 <p className="mt-1.5 text-[12px] text-gray-500">機能・料金・事例をまとめた資料を<br />無料でお送りします</p>
                 <a
-                  href="/lp#contact"
+                  href="/#contact"
                   className="mt-4 inline-block w-full rounded-full bg-blue-600 py-3 text-[13px] font-bold text-white transition hover:bg-blue-700 hover:shadow-md"
                 >
                   無料で資料請求
@@ -334,7 +334,7 @@ export default function ColumnIndex() {
               Lオペ <span className="text-blue-600">for CLINIC</span>
             </p>
             <div className="flex items-center gap-6">
-              <Link href="/lp" className="text-[13px] text-gray-400 hover:text-blue-600 transition">トップ</Link>
+              <Link href="/" className="text-[13px] text-gray-400 hover:text-blue-600 transition">トップ</Link>
               <Link href="/lp/about" className="text-[13px] text-gray-400 hover:text-blue-600 transition">Lオペとは</Link>
               <Link href="/lp/features" className="text-[13px] text-gray-400 hover:text-blue-600 transition">機能一覧</Link>
               <Link href="/lp/column" className="text-[13px] text-blue-600 font-medium">コラム</Link>

@@ -32,7 +32,7 @@ const jsonLd = [
     breadcrumb: {
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "トップ", item: `${SITE_URL}/lp` },
+        { "@type": "ListItem", position: 1, name: "トップ", item: SITE_URL },
         { "@type": "ListItem", position: 2, name: "Lオペ for CLINICとは？", item: `${SITE_URL}/lp/about` },
       ],
     },
@@ -216,14 +216,14 @@ export default function AboutPage() {
       {/* ヘッダー */}
       <header className="sticky top-0 z-50 w-full border-b border-gray-200/60 bg-white/90 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
-          <Link href="/lp" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <span className="text-[15px] font-bold tracking-tight text-gray-900">Lオペ <span className="text-blue-600">for CLINIC</span></span>
           </Link>
           <div className="hidden items-center gap-6 md:flex">
-            <Link href="/lp" className="text-[13px] text-gray-500 hover:text-blue-600 transition">製品トップ</Link>
+            <Link href="/" className="text-[13px] text-gray-500 hover:text-blue-600 transition">製品トップ</Link>
             <Link href="/lp/features" className="text-[13px] text-gray-500 hover:text-blue-600 transition">機能一覧</Link>
             <Link href="/lp/column" className="text-[13px] text-gray-500 hover:text-blue-600 transition">コラム</Link>
-            <a href="/lp#contact" className="rounded-full bg-blue-600 px-5 py-2 text-[12px] font-semibold text-white transition hover:bg-blue-700 hover:shadow-md">
+            <a href="/#contact" className="rounded-full bg-blue-600 px-5 py-2 text-[12px] font-semibold text-white transition hover:bg-blue-700 hover:shadow-md">
               無料で資料請求
             </a>
           </div>
@@ -235,7 +235,7 @@ export default function AboutPage() {
         <nav aria-label="パンくずリスト" className="border-b border-gray-100 bg-white/80 backdrop-blur-sm">
           <div className="mx-auto max-w-6xl px-6 py-2.5">
             <ol className="flex items-center gap-1.5 text-[12px] text-gray-400 list-none m-0 p-0">
-              <li><Link href="/lp" className="hover:text-blue-600 transition">トップ</Link></li>
+              <li><Link href="/" className="hover:text-blue-600 transition">トップ</Link></li>
               <li aria-hidden="true">/</li>
               <li className="font-medium text-gray-600">Lオペ for CLINICとは？</li>
             </ol>
@@ -265,10 +265,10 @@ export default function AboutPage() {
                 予約・問診・決済・配送まで、すべてこの画面から。
               </p>
               <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-                <a href="/lp#contact" className="w-full rounded-full bg-violet-600 px-8 py-3.5 text-center text-[14px] font-bold text-white transition hover:bg-violet-500 hover:shadow-lg hover:shadow-violet-500/25 sm:w-auto">
+                <a href="/#contact" className="w-full rounded-full bg-violet-600 px-8 py-3.5 text-center text-[14px] font-bold text-white transition hover:bg-violet-500 hover:shadow-lg hover:shadow-violet-500/25 sm:w-auto">
                   無料で資料請求
                 </a>
-                <Link href="/lp" className="w-full rounded-full bg-white/10 px-8 py-3.5 text-center text-[14px] font-bold text-white ring-1 ring-white/20 transition hover:bg-white/20 sm:w-auto">
+                <Link href="/" className="w-full rounded-full bg-white/10 px-8 py-3.5 text-center text-[14px] font-bold text-white ring-1 ring-white/20 transition hover:bg-white/20 sm:w-auto">
                   製品トップを見る
                 </Link>
               </div>
@@ -1285,7 +1285,7 @@ export default function AboutPage() {
           <div className="mx-auto max-w-3xl px-6 py-14 text-center">
             <p className="text-[16px] font-bold text-gray-900">AI搭載クリニック運用の全体像をご確認ください</p>
             <p className="mt-2 text-[13px] text-gray-500">AI機能・全機能一覧・料金・導入事例をまとめた資料を無料でお送りします。</p>
-            <a href="/lp#contact" className="mt-5 inline-block rounded-full bg-blue-600 px-8 py-3 text-[13px] font-bold text-white transition hover:bg-blue-700 hover:shadow-lg">
+            <a href="/#contact" className="mt-5 inline-block rounded-full bg-blue-600 px-8 py-3 text-[13px] font-bold text-white transition hover:bg-blue-700 hover:shadow-lg">
               無料で資料請求
             </a>
           </div>
@@ -1360,10 +1360,10 @@ export default function AboutPage() {
               まずは無料の資料請求から。AI機能の詳細や貴院に合わせた活用方法をご提案します。
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <a href="/lp#contact" className="w-full rounded-full bg-blue-600 px-8 py-3.5 text-[14px] font-bold text-white transition hover:bg-blue-700 hover:shadow-lg sm:w-auto">
+              <a href="/#contact" className="w-full rounded-full bg-blue-600 px-8 py-3.5 text-[14px] font-bold text-white transition hover:bg-blue-700 hover:shadow-lg sm:w-auto">
                 無料で資料請求
               </a>
-              <Link href="/lp#pricing" className="w-full rounded-full bg-white px-8 py-3.5 text-[14px] font-bold text-gray-700 ring-1 ring-gray-200 transition hover:bg-gray-50 sm:w-auto">
+              <Link href="/#pricing" className="w-full rounded-full bg-white px-8 py-3.5 text-[14px] font-bold text-gray-700 ring-1 ring-gray-200 transition hover:bg-gray-50 sm:w-auto">
                 料金プランを見る
               </Link>
             </div>
@@ -1376,7 +1376,7 @@ export default function AboutPage() {
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-6 md:flex-row md:justify-between">
           <p className="text-[13px] font-bold text-white">Lオペ <span className="text-blue-400">for CLINIC</span></p>
           <div className="flex items-center gap-6">
-            <Link href="/lp" className="text-[12px] text-slate-400 hover:text-white transition">製品トップ</Link>
+            <Link href="/" className="text-[12px] text-slate-400 hover:text-white transition">製品トップ</Link>
             <Link href="/lp/features" className="text-[12px] text-slate-400 hover:text-white transition">機能一覧</Link>
             <Link href="/lp/column" className="text-[12px] text-slate-400 hover:text-white transition">コラム</Link>
             <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="text-[12px] text-slate-400 hover:text-white transition">運営会社</a>

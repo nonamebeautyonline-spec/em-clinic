@@ -182,7 +182,7 @@ export default function Page() {
 
         <p>適応外使用については、患者への十分な説明と同意取得、定期的な医学的フォロー、医療広告ガイドラインの遵守が不可欠です。GLP-1受容体作動薬は有効な薬剤ですが、<strong>安全な使用のための適切な管理体制</strong>が前提であることを忘れてはなりません。</p>
 
-        <p>Lオペ for CLINICでは、LINE上での予約管理・フォローアップ配信・問診自動化を通じて、<Link href="/lp" className="text-blue-600 hover:underline">肥満症治療を含む慢性疾患管理の継続率向上</Link>を支援しています。</p>
+        <p>Lオペ for CLINICでは、LINE上での予約管理・フォローアップ配信・問診自動化を通じて、<Link href="/" className="text-blue-600 hover:underline">肥満症治療を含む慢性疾患管理の継続率向上</Link>を支援しています。</p>
       </section>
     </ArticleLayout>
   );
