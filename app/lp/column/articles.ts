@@ -247,7 +247,7 @@ export const articles: Article[] = [
   },
   {
     slug: "line-operation-guide",
-    title: "クリニックのLINE公式アカウント運用完全ガイド｜友だち集めから配信・自動化まで",
+    title: "クリニックのLINE公式アカウント運用ガイド — 友だち集めから配信・自動化まで",
     description: "LINE公式アカウントの基本設定から友だち集め・セグメント配信・リッチメニュー・AI自動返信・ブロック率対策まで、クリニックのLINE運用を体系的に解説する完全ガイド。",
     date: "2026-03-18",
     updatedDate: "2026-03-18",
@@ -256,7 +256,7 @@ export const articles: Article[] = [
   },
   {
     slug: "clinic-dx-complete-guide",
-    title: "クリニックDX完全ガイド｜電子カルテ・予約・問診・決済のデジタル化手順",
+    title: "クリニックDX完全ガイド — 電子カルテ・予約・問診・決済のデジタル化手順",
     description: "電子カルテ・予約システム・オンライン問診・オンライン診療・KPIダッシュボードの5領域を体系的に解説。クリニックDXの全体設計図として活用できる完全ガイド。",
     date: "2026-03-18",
     updatedDate: "2026-03-18",
@@ -265,7 +265,7 @@ export const articles: Article[] = [
   },
   {
     slug: "clinic-line-tool-5-comparison",
-    title: "クリニック向けLINEツール5社比較｜メディカルフォース・March・medibot・Lステップとの違い",
+    title: "クリニック向けLINEツール5社比較 — メディカルフォース・March・medibot・Lステップとの違い",
     description: "クリニック向けLINE活用ツール5社（Lオペ for CLINIC・メディカルフォース・March・medibot・Lステップ）を機能・費用・LINE連携度で徹底比較。自院に合うツールの選び方を解説。",
     date: "2026-03-18",
     updatedDate: "2026-03-18",

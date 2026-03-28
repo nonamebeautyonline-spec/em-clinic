@@ -10,7 +10,7 @@ const SITE_URL = "https://l-ope.jp";
 const categoryStyles: Record<string, string> = {
   "LINE運用・業務改善": "bg-blue-50 text-blue-600 ring-blue-200/50",
   "集患・マーケティング": "bg-rose-50 text-rose-600 ring-rose-200/50",
-  "経営・開業": "bg-slate-100 text-slate-600 ring-slate-200/50",
+  "経営・開業": "bg-yellow-50 text-yellow-700 ring-yellow-200/50",
   "自費診療の売上戦略": "bg-orange-50 text-orange-600 ring-orange-200/50",
   "オンライン診療": "bg-teal-50 text-teal-600 ring-teal-200/50",
   "診療科別ガイド": "bg-violet-50 text-violet-600 ring-violet-200/50",

@@ -137,7 +137,7 @@ export function InlineCTA() {
 const categoryColors: Record<string, { bg: string; text: string }> = {
   "LINE運用・業務改善": { bg: "bg-blue-50", text: "text-blue-700" },
   "集患・マーケティング": { bg: "bg-rose-50", text: "text-rose-700" },
-  "経営・開業": { bg: "bg-slate-100", text: "text-slate-700" },
+  "経営・開業": { bg: "bg-yellow-50", text: "text-yellow-700" },
   "自費診療の売上戦略": { bg: "bg-orange-50", text: "text-orange-700" },
   "オンライン診療": { bg: "bg-teal-50", text: "text-teal-700" },
   "診療科別ガイド": { bg: "bg-violet-50", text: "text-violet-700" },

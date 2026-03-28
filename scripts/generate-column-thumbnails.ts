@@ -73,10 +73,10 @@ const categoryDesign: Record<string, CategoryDesign> = {
     titleColor: "#ffffff", titleAccent: "#fda4af", subColor: "#fecdd3",
   },
   "経営・開業": {
-    bgHint: "professional office with business planning documents and blueprints, slate tones",
+    bgHint: "professional office with business planning documents and blueprints, warm yellow tones",
     overlay: "rgba(15,23,42,0.72)",
-    badgeBg: "#475569", badgeText: "#ffffff",
-    titleColor: "#ffffff", titleAccent: "#cbd5e1", subColor: "#e2e8f0",
+    badgeBg: "#eab308", badgeText: "#1e293b",
+    titleColor: "#ffffff", titleAccent: "#fde047", subColor: "#fef08a",
   },
   "自費診療の売上戦略": {
     bgHint: "luxury clinic interior with pricing charts and revenue dashboard, orange tones",

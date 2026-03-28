@@ -10,7 +10,7 @@ import ArticleThumbnail from "./article-thumbnail";
 const categoryStyles: Record<string, { pill: string }> = {
   "LINE運用・業務改善":   { pill: "bg-blue-50 text-blue-600 ring-blue-200/50" },
   "集患・マーケティング": { pill: "bg-rose-50 text-rose-600 ring-rose-200/50" },
-  "経営・開業":           { pill: "bg-slate-100 text-slate-600 ring-slate-200/50" },
+  "経営・開業":           { pill: "bg-yellow-50 text-yellow-700 ring-yellow-200/50" },
   "自費診療の売上戦略":   { pill: "bg-orange-50 text-orange-600 ring-orange-200/50" },
   "オンライン診療":       { pill: "bg-teal-50 text-teal-600 ring-teal-200/50" },
   "診療科別ガイド":       { pill: "bg-violet-50 text-violet-600 ring-violet-200/50" },
