@@ -24,11 +24,11 @@ const nextConfig: NextConfig = {
           { key: "Cache-Control", value: "public, max-age=604800, immutable" },
         ],
       },
-      /* サムネイル画像 — 30日キャッシュ */
+      /* サムネイル画像 — ブラウザ1日 + CDN7日（再デプロイで自動パージ） */
       {
         source: "/lp/column/thumbnails/:path*",
         headers: [
-          { key: "Cache-Control", value: "public, max-age=2592000, immutable" },
+          { key: "Cache-Control", value: "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400" },
         ],
       },
       {
