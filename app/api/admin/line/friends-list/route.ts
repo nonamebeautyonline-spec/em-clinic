@@ -130,9 +130,10 @@ export async function GET(req: NextRequest) {
   const tagFilter = parseInt(url.searchParams.get("tag") || "0", 10) || null;
   const markFilter = url.searchParams.get("mark")?.trim() || "";
   const lineStatus = url.searchParams.get("line_status")?.trim() || "";
+  const unreadOnly = url.searchParams.get("unread_only") === "true";
 
   const effectiveTenantId = tenantId || "00000000-0000-0000-0000-000000000001";
-  const hasFilter = !!(tagFilter || markFilter || lineStatus);
+  const hasFilter = !!(tagFilter || markFilter || lineStatus || unreadOnly);
 
   // タグフィルタ指定時: 該当 patient_id を先に取得
   let tagPatientIds: Set<string> | null = null;
@@ -182,6 +183,19 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // 未読フィルタ用: chat_reads を事前取得
+  let unreadReadMap: Record<string, string> | null = null;
+  if (unreadOnly) {
+    const { data: crData } = await supabaseAdmin
+      .from("chat_reads")
+      .select("patient_id, read_at")
+      .eq("tenant_id", effectiveTenantId);
+    unreadReadMap = {};
+    for (const row of crData || []) {
+      unreadReadMap[row.patient_id] = row.read_at;
+    }
+  }
+
   // RPC でベースデータ取得
   // フィルタ時は多めに取得して後フィルタ（RPC は tag/mark/line_status 非対応のため）
   const fetchLimit = hasFilter ? limit * 4 : limit;
@@ -190,7 +204,7 @@ export async function GET(req: NextRequest) {
 
   let { patients, tRpc, cacheHit } = result;
 
-  // フィルタ適用（tag, mark, line_status）
+  // フィルタ適用（tag, mark, line_status, unread_only）
   if (hasFilter) {
     // フィルタ時は RPC の結果を後フィルタし、正確なページネーションのため
     // RPC から全件取得して手動でフィルタ + ページング
@@ -227,6 +241,12 @@ export async function GET(req: NextRequest) {
       // LINE連携フィルタ
       if (lineStatus === "yes" && !p.line_id) return false;
       if (lineStatus === "no" && p.line_id) return false;
+      // 未読フィルタ: last_text_at > read_at の患者のみ
+      if (unreadOnly && unreadReadMap) {
+        if (!p.last_text_at) return false;
+        const readAt = unreadReadMap[p.patient_id];
+        if (readAt && p.last_text_at <= readAt) return false;
+      }
       return true;
     });
 

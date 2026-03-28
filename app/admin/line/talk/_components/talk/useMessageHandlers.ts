@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo } from "react";
+import useSWR from "swr";
 import type { Friend, MessageLog, Template, MarkOption } from "./types";
 import {
   MSG_BATCH,
@@ -8,6 +9,8 @@ import {
   getMarkColorUtil, getMarkLabelUtil,
 } from "./constants";
 import type { TalkState } from "./useTalkState";
+
+const adminFetcher = (url: string) => fetch(url, { credentials: "include" }).then(r => r.json());
 
 export function useMessageHandlers(
   state: TalkState,
@@ -830,7 +833,13 @@ export function useMessageHandlers(
 
   // 算出値
   const filteredFriends = friends;
-  const unreadCount = useMemo(() => filteredFriends.filter(f => !!(f.last_text_at && (!readTimestamps[f.patient_id] || f.last_text_at > readTimestamps[f.patient_id]))).length, [filteredFriends, readTimestamps]);
+  // 未読カウントはサイドバーと同じAPIから取得（ページネーション範囲外の未読も正確にカウント）
+  const { data: unreadData } = useSWR<{ count: number }>(
+    "/api/admin/unread-count",
+    adminFetcher,
+    { refreshInterval: 15000, revalidateOnFocus: true },
+  );
+  const unreadCount = unreadData?.count ?? 0;
 
   // 孤立ピンマイグレーション
   const allPatientIds = useMemo(() => new Set(friends.map(f => f.patient_id)), [friends]);

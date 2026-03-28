@@ -30,6 +30,7 @@ export function useFriendsList(state: TalkState) {
     readTimestamps, setReadTimestamps,
     visibleSections, setVisibleSections,
     scrollTimerRef,
+    showUnreadOnly,
   } = state;
 
   const PULL_THRESHOLD = 60;
@@ -70,12 +71,13 @@ export function useFriendsList(state: TalkState) {
   }, [pinnedIds, savePins]);
 
   // 友達一覧取得
-  const fetchFriends = useCallback(async (opts?: { id?: string; name?: string; offset?: number; append?: boolean; pinIds?: string[] }) => {
+  const fetchFriends = useCallback(async (opts?: { id?: string; name?: string; offset?: number; append?: boolean; pinIds?: string[]; unreadOnly?: boolean }) => {
     const id = opts?.id ?? "";
     const name = opts?.name ?? "";
     const offset = opts?.offset ?? 0;
     const append = opts?.append ?? false;
     const pinIds = opts?.pinIds ?? pinnedIdsRef.current;
+    const unreadOnlyParam = opts?.unreadOnly ?? false;
     try {
       const params = new URLSearchParams();
       if (id) params.set("id", id);
@@ -85,6 +87,7 @@ export function useFriendsList(state: TalkState) {
       if (pinIds && pinIds.length > 0 && !id && !name && offset === 0) {
         params.set("pin_ids", pinIds.join(","));
       }
+      if (unreadOnlyParam) params.set("unread_only", "true");
       const res = await fetch(`/api/admin/line/friends-list?${params}`, { credentials: "include" });
       const data = await res.json();
       if (data.patients) {
@@ -220,11 +223,11 @@ export function useFriendsList(state: TalkState) {
     if (pullDistance >= PULL_THRESHOLD) {
       setPullRefreshing(true);
       setPullDistance(PULL_THRESHOLD);
-      await fetchFriends({ id: searchId, name: searchName });
+      await fetchFriends({ id: searchId, name: searchName, unreadOnly: showUnreadOnly });
       setPullRefreshing(false);
     }
     setPullDistance(0);
-  }, [pullDistance, fetchFriends, searchId, searchName, isPulling, setPullRefreshing, setPullDistance]);
+  }, [pullDistance, fetchFriends, searchId, searchName, showUnreadOnly, isPulling, setPullRefreshing, setPullDistance]);
 
   // 無限スクロール
   const handleListScroll = useCallback(() => {
@@ -234,22 +237,22 @@ export function useFriendsList(state: TalkState) {
       if (!el) return;
       if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100 && serverHasMore && !friendsSearching) {
         setFriendsSearching(true);
-        fetchFriends({ id: searchId, name: searchName, offset: friendsOffsetRef.current, append: true });
+        fetchFriends({ id: searchId, name: searchName, offset: friendsOffsetRef.current, append: true, unreadOnly: showUnreadOnly });
       }
     }, 150);
-  }, [serverHasMore, friendsSearching, fetchFriends, searchId, searchName, listRef, scrollTimerRef, friendsOffsetRef, setFriendsSearching]);
+  }, [serverHasMore, friendsSearching, fetchFriends, searchId, searchName, showUnreadOnly, listRef, scrollTimerRef, friendsOffsetRef, setFriendsSearching]);
 
-  // 検索デバウンス
+  // 検索デバウンス（showUnreadOnly変更時も再取得）
   useEffect(() => {
     if (!pinsReadyRef.current) return;
     if (friendsSearchTimer.current) clearTimeout(friendsSearchTimer.current);
     setFriendsSearching(true);
     friendsSearchTimer.current = setTimeout(() => {
-      fetchFriends({ id: searchId, name: searchName });
+      fetchFriends({ id: searchId, name: searchName, unreadOnly: showUnreadOnly });
     }, 300);
     return () => { if (friendsSearchTimer.current) clearTimeout(friendsSearchTimer.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- pinnedIdsの変更で再検索は不要
-  }, [searchId, searchName, fetchFriends]);
+  }, [searchId, searchName, showUnreadOnly, fetchFriends]);
 
   // メッセージ検索
   const executeMessageSearch = useCallback(async (q: string) => {
@@ -302,6 +305,7 @@ export function useFriendsList(state: TalkState) {
       if (pinIds.length > 0 && !searchId && !searchName) {
         params.set("pin_ids", pinIds.join(","));
       }
+      if (showUnreadOnly) params.set("unread_only", "true");
       const res = await fetch(`/api/admin/line/friends-list?${params}`, { credentials: "include" });
       const data = await res.json();
       if (data.patients) {
@@ -310,7 +314,7 @@ export function useFriendsList(state: TalkState) {
         setServerHasMore(!!data.hasMore);
       }
     } catch { /* ignore */ }
-  }, [searchId, searchName, friends.length, setPinnedIds, pinnedIdsRef, setFriends, friendsOffsetRef, setServerHasMore]);
+  }, [searchId, searchName, showUnreadOnly, friends.length, setPinnedIds, pinnedIdsRef, setFriends, friendsOffsetRef, setServerHasMore]);
 
   useEffect(() => {
     const interval = setInterval(pollFriendsList, 15000);
