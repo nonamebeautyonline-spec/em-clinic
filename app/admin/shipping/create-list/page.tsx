@@ -75,8 +75,9 @@ export default function CreateShippingListPage() {
   const [originalItems, setOriginalItems] = useState<ShippingItem[]>([]); // 統合前の状態を保存
   const [isMerged, setIsMerged] = useState(false); // 統合済みフラグ
   const [error, setError] = useState("");
-  const [mergeableGroups, setMergeableGroups] = useState<{ patient_id: string; patient_name: string; postal_code?: string; count: number }[]>([]);
+  const [mergeableGroups, setMergeableGroups] = useState<{ patient_id: string; patient_name: string; postal_code?: string; count: number; orders?: PendingOrder[] }[]>([]);
   const [sameNameDiffAddress, setSameNameDiffAddress] = useState<{ patient_name: string; count: number; postal_codes: string[] }[]>([]);
+  const [sameAddressGroups, setSameAddressGroups] = useState<{ postal_code: string; patient_names: string[]; count: number; orders?: PendingOrder[] }[]>([]);
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
@@ -85,7 +86,12 @@ export default function CreateShippingListPage() {
   const tableRef = useRef<HTMLTableElement>(null);
   const [dataInitialized, setDataInitialized] = useState(false);
 
-  const { data: pendingData, error: pendingError, isLoading: loading, isValidating } = useSWR<{ orders: PendingOrder[]; mergeableGroups: { patient_id: string; patient_name: string; postal_code?: string; count: number }[]; sameNameDiffAddress?: { patient_name: string; count: number; postal_codes: string[] }[] }>(
+  const { data: pendingData, error: pendingError, isLoading: loading, isValidating } = useSWR<{
+    orders: PendingOrder[];
+    mergeableGroups: { patient_id: string; patient_name: string; postal_code?: string; count: number; orders?: PendingOrder[] }[];
+    sameAddressGroups?: { postal_code: string; patient_names: string[]; count: number; orders?: PendingOrder[] }[];
+    sameNameDiffAddress?: { patient_name: string; count: number; postal_codes: string[] }[];
+  }>(
     "/api/admin/shipping/pending",
     { revalidateOnFocus: false },
   );
@@ -100,10 +106,11 @@ export default function CreateShippingListPage() {
     if (dataInitialized) return; // ローカル編集中は上書きしない
     const orders = pendingData.orders || [];
     setMergeableGroups(pendingData.mergeableGroups || []);
+    setSameAddressGroups(pendingData.sameAddressGroups || []);
     setSameNameDiffAddress(pendingData.sameNameDiffAddress || []);
 
     // 統合候補または注意喚起がある場合はモーダルを表示
-    if ((pendingData.mergeableGroups || []).length > 0 || (pendingData.sameNameDiffAddress || []).length > 0) {
+    if ((pendingData.mergeableGroups || []).length > 0 || (pendingData.sameAddressGroups || []).length > 0 || (pendingData.sameNameDiffAddress || []).length > 0) {
       setShowMergeModal(true);
     }
 
@@ -572,58 +579,139 @@ export default function CreateShippingListPage() {
       )}
 
       {/* 統合確認モーダル */}
-      {showMergeModal && (mergeableGroups.length > 0 || sameNameDiffAddress.length > 0) && (
+      {showMergeModal && (mergeableGroups.length > 0 || sameAddressGroups.length > 0 || sameNameDiffAddress.length > 0) && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
-            <div className="p-6">
-              <h2 className="text-lg font-bold text-slate-900 mb-4">発送リスト統合の確認</h2>
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+              <h2 className="text-lg font-bold text-slate-900">発送リスト統合の確認</h2>
+              <button onClick={() => setShowMergeModal(false)} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
+            </div>
+            <div className="overflow-y-auto px-6 py-4 space-y-6" style={{ maxHeight: "calc(85vh - 120px)" }}>
 
+              {/* 1. 同一患者の複数注文（確実） */}
               {mergeableGroups.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="font-semibold text-yellow-900 mb-2 flex items-center gap-1">
-                    <span className="text-yellow-500">📦</span> 同一郵便番号の注文（まとめ配送候補）
+                <div>
+                  <h3 className="font-semibold text-yellow-900 mb-3 flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-100 text-sm">📦</span>
+                    まとめ配送候補（同一患者の複数注文）— {mergeableGroups.length}グループ
                   </h3>
-                  <ul className="space-y-2 text-sm">
+                  <div className="space-y-3">
                     {mergeableGroups.map((group, i) => (
-                      <li key={i} className="p-2 bg-yellow-50 border border-yellow-200 rounded">
-                        <span className="font-medium">{group.patient_name}</span>
-                        <span className="text-yellow-700 ml-2">〒{group.postal_code} — {group.count}件</span>
-                      </li>
+                      <div key={i} className="rounded-lg border border-yellow-200 bg-yellow-50/50 overflow-hidden">
+                        <div className="bg-yellow-100/80 px-4 py-2 flex items-center gap-3">
+                          <span className="font-bold text-yellow-900">{group.patient_name}</span>
+                          <span className="text-sm text-yellow-700">{group.count}件の注文</span>
+                        </div>
+                        {group.orders && group.orders.length > 0 && (
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-yellow-200 text-xs text-slate-500">
+                                <th className="px-4 py-1.5 text-left">商品</th>
+                                <th className="px-4 py-1.5 text-left">金額</th>
+                                <th className="px-4 py-1.5 text-left">郵便番号</th>
+                                <th className="px-4 py-1.5 text-left">住所</th>
+                                <th className="px-4 py-1.5 text-left">電話番号</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {group.orders.map((o, j) => (
+                                <tr key={j} className="border-b border-yellow-100 last:border-0">
+                                  <td className="px-4 py-1.5 text-slate-700">{o.product_name}</td>
+                                  <td className="px-4 py-1.5 text-slate-700">¥{o.amount?.toLocaleString()}</td>
+                                  <td className="px-4 py-1.5 text-slate-600">{o.postal_code}</td>
+                                  <td className="px-4 py-1.5 text-slate-600 max-w-[200px] truncate">{o.address}</td>
+                                  <td className="px-4 py-1.5 text-slate-600">{o.phone}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                   <p className="mt-2 text-xs text-slate-500">
                     「同じ郵便番号を統合」ボタンで1つの発送にまとめられます
                   </p>
                 </div>
               )}
 
-              {sameNameDiffAddress.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="font-semibold text-red-900 mb-2 flex items-center gap-1">
-                    <span className="text-red-500">⚠️</span> 同姓同名・住所違い（統合注意）
+              {/* 2. 同一郵便番号・異なる患者（同居家族候補） */}
+              {sameAddressGroups.length > 0 && (
+                <div>
+                  <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-sm">👨‍👩‍👧</span>
+                    同居家族候補（同一郵便番号・異なる患者）— {sameAddressGroups.length}グループ
                   </h3>
-                  <ul className="space-y-2 text-sm">
-                    {sameNameDiffAddress.map((group, i) => (
-                      <li key={i} className="p-2 bg-red-50 border border-red-200 rounded">
-                        <span className="font-medium">{group.patient_name}</span>
-                        <span className="text-red-700 ml-2">{group.count}件 — 〒{group.postal_codes.join("、〒")}</span>
-                      </li>
+                  <div className="space-y-3">
+                    {sameAddressGroups.map((group, i) => (
+                      <div key={i} className="rounded-lg border border-blue-200 bg-blue-50/50 overflow-hidden">
+                        <div className="bg-blue-100/80 px-4 py-2 flex items-center gap-3">
+                          <span className="font-mono text-blue-700">〒{group.postal_code}</span>
+                          <span className="text-sm text-blue-800">{group.patient_names.join("、")}</span>
+                          <span className="text-sm text-blue-600">{group.count}件</span>
+                        </div>
+                        {group.orders && group.orders.length > 0 && (
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-blue-200 text-xs text-slate-500">
+                                <th className="px-4 py-1.5 text-left">患者名</th>
+                                <th className="px-4 py-1.5 text-left">商品</th>
+                                <th className="px-4 py-1.5 text-left">金額</th>
+                                <th className="px-4 py-1.5 text-left">住所</th>
+                                <th className="px-4 py-1.5 text-left">電話番号</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {group.orders.map((o, j) => (
+                                <tr key={j} className="border-b border-blue-100 last:border-0">
+                                  <td className="px-4 py-1.5 font-medium text-slate-700">{o.patient_name}</td>
+                                  <td className="px-4 py-1.5 text-slate-700">{o.product_name}</td>
+                                  <td className="px-4 py-1.5 text-slate-700">¥{o.amount?.toLocaleString()}</td>
+                                  <td className="px-4 py-1.5 text-slate-600 max-w-[200px] truncate">{o.address}</td>
+                                  <td className="px-4 py-1.5 text-slate-600">{o.phone}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
                     ))}
-                  </ul>
-                  <p className="mt-2 text-xs text-slate-500">
-                    同じ名前ですが郵便番号が異なるため、別の送付先です
+                  </div>
+                  <p className="mt-2 text-xs text-blue-600">
+                    ※ 同じ郵便番号ですが別患者です。同居家族等の場合はまとめ配送を検討してください。
                   </p>
                 </div>
               )}
 
-              <div className="flex justify-end gap-3 mt-6">
-                <button
-                  onClick={() => setShowMergeModal(false)}
-                  className="px-4 py-2 text-sm rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200"
-                >
-                  確認した
-                </button>
-              </div>
+              {/* 3. 同姓同名・住所違い（注意喚起） */}
+              {sameNameDiffAddress.length > 0 && (
+                <div>
+                  <h3 className="font-semibold text-red-900 mb-3 flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-red-100 text-sm">⚠️</span>
+                    同姓同名・住所違い（統合注意）— {sameNameDiffAddress.length}件
+                  </h3>
+                  <div className="space-y-2">
+                    {sameNameDiffAddress.map((group, i) => (
+                      <div key={i} className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <span className="font-medium text-red-900">{group.patient_name}</span>
+                        <span className="text-red-700 ml-2">{group.count}件 — 〒{group.postal_codes.join("、〒")}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs text-red-600">
+                    同じ名前ですが郵便番号が異なるため、誤統合しないよう注意してください。
+                  </p>
+                </div>
+              )}
+
+            </div>
+            <div className="border-t border-slate-200 px-6 py-4 flex justify-end">
+              <button
+                onClick={() => setShowMergeModal(false)}
+                className="px-5 py-2.5 text-sm font-medium rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200"
+              >
+                確認した
+              </button>
             </div>
           </div>
         </div>

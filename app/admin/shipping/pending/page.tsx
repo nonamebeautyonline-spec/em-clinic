@@ -44,6 +44,7 @@ export default function ShippingPendingPage() {
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const [editCreatedMode, setEditCreatedMode] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
+  const [showFamilyModal, setShowFamilyModal] = useState(false);
 
   // 過去発送履歴
   type HistoryRange = "week" | "month" | "custom";
