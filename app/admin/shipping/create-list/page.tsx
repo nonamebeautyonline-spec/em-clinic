@@ -78,6 +78,8 @@ export default function CreateShippingListPage() {
   const [mergeableGroups, setMergeableGroups] = useState<{ patient_id: string; patient_name: string; postal_code?: string; count: number; orders?: PendingOrder[] }[]>([]);
   const [sameNameDiffAddress, setSameNameDiffAddress] = useState<{ patient_name: string; count: number; postal_codes: string[] }[]>([]);
   const [sameAddressGroups, setSameAddressGroups] = useState<{ postal_code: string; patient_names: string[]; count: number; orders?: PendingOrder[] }[]>([]);
+  const [selectedMergePatients, setSelectedMergePatients] = useState<Set<string>>(new Set());
+  const [selectedMergePostals, setSelectedMergePostals] = useState<Set<string>>(new Set());
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
@@ -105,12 +107,18 @@ export default function CreateShippingListPage() {
     if (!pendingData) return;
     if (dataInitialized) return; // ローカル編集中は上書きしない
     const orders = pendingData.orders || [];
-    setMergeableGroups(pendingData.mergeableGroups || []);
-    setSameAddressGroups(pendingData.sameAddressGroups || []);
+    const mg = pendingData.mergeableGroups || [];
+    const sag = pendingData.sameAddressGroups || [];
+    setMergeableGroups(mg);
+    setSameAddressGroups(sag);
     setSameNameDiffAddress(pendingData.sameNameDiffAddress || []);
 
+    // デフォルトで同一患者グループは全選択
+    setSelectedMergePatients(new Set(mg.map(g => g.patient_id)));
+    setSelectedMergePostals(new Set());
+
     // 統合候補または注意喚起がある場合はモーダルを表示
-    if ((pendingData.mergeableGroups || []).length > 0 || (pendingData.sameAddressGroups || []).length > 0 || (pendingData.sameNameDiffAddress || []).length > 0) {
+    if (mg.length > 0 || sag.length > 0 || (pendingData.sameNameDiffAddress || []).length > 0) {
       setShowMergeModal(true);
     }
 
@@ -325,37 +333,54 @@ export default function CreateShippingListPage() {
       setItems(originalItems);
       setIsMerged(false);
     } else {
-      // 統合実行
-      setOriginalItems([...items]); // 現在の状態を保存
-      mergeByPostalCode();
-      setIsMerged(true);
+      // モーダルを表示して選択させる
+      setShowMergeModal(true);
     }
   };
 
-  // ★ 同じ郵便番号を統合（同居家族も統合、同姓同名でも住所違いは別扱い）
-  const mergeByPostalCode = () => {
-    const grouped: Record<string, ShippingItem[]> = {};
+  // ★ モーダルから統合を実行
+  const handleConfirmMerge = () => {
+    if (selectedMergePatients.size === 0 && selectedMergePostals.size === 0) {
+      setShowMergeModal(false);
+      return;
+    }
+    setOriginalItems([...items]);
+    mergeSelectedGroups(selectedMergePatients, selectedMergePostals);
+    setIsMerged(true);
+    setShowMergeModal(false);
+  };
 
-    // 選択されている項目のみグルーピング
+  // ★ 選択されたグループのみ統合（patient_id一致 + 郵便番号一致の両方に対応）
+  const mergeSelectedGroups = (patientIds: Set<string>, postalCodes: Set<string>) => {
     const selectedItems = items.filter((item) => item.selected);
     const unselectedItems = items.filter((item) => !item.selected);
 
-    // 郵便番号でグルーピング（ハイフン・空白を除去して正規化）
+    // 統合対象のpatient_idまたは郵便番号に該当するアイテムを分離
+    const toMerge: ShippingItem[] = [];
+    const noMerge: ShippingItem[] = [];
+
     selectedItems.forEach((item) => {
       const postalKey = item.editable.postal_code.replace(/[-\s\u3000]/g, "").trim();
-      if (!grouped[postalKey]) {
-        grouped[postalKey] = [];
+      if (patientIds.has(item.patient_id) || postalCodes.has(postalKey)) {
+        toMerge.push(item);
+      } else {
+        noMerge.push(item);
       }
+    });
+
+    // 統合対象を郵便番号でグルーピング
+    const grouped: Record<string, ShippingItem[]> = {};
+    toMerge.forEach((item) => {
+      const postalKey = item.editable.postal_code.replace(/[-\s\u3000]/g, "").trim();
+      if (!grouped[postalKey]) grouped[postalKey] = [];
       grouped[postalKey].push(item);
     });
 
     const merged: ShippingItem[] = [];
-
     Object.entries(grouped).forEach(([, group]) => {
       if (group.length === 1) {
         merged.push(group[0]);
       } else {
-        // 重複している場合は統合
         const first = group[0];
         const mergedItem: ShippingItem = {
           ...first,
@@ -364,15 +389,14 @@ export default function CreateShippingListPage() {
           dosage_7_5mg: group.reduce((sum, item) => sum + item.dosage_7_5mg, 0),
           dosage_10mg: group.reduce((sum, item) => sum + item.dosage_10mg, 0),
           price: group.reduce((sum, item) => sum + item.price, 0),
-          id: group[0].id, // 合箱時は最初の注文IDを使用（カンマ結合するとヤマトB2インポートでエラーになるため）
+          id: group[0].id,
           product_name: group.map((item) => item.product_name).join(", "),
         };
         merged.push(mergedItem);
       }
     });
 
-    // ★ 統合後も同じ用量順にソート（2.5mg → 5mg → 7.5mg → 10mg、本数降順）
-    const sorted = sortByDosage([...merged, ...unselectedItems]);
+    const sorted = sortByDosage([...merged, ...noMerge, ...unselectedItems]);
     setItems(sorted);
   };
 
@@ -596,42 +620,55 @@ export default function CreateShippingListPage() {
                     まとめ配送候補（同一患者の複数注文）— {mergeableGroups.length}グループ
                   </h3>
                   <div className="space-y-3">
-                    {mergeableGroups.map((group, i) => (
-                      <div key={i} className="rounded-lg border border-yellow-200 bg-yellow-50/50 overflow-hidden">
-                        <div className="bg-yellow-100/80 px-4 py-2 flex items-center gap-3">
-                          <span className="font-bold text-yellow-900">{group.patient_name}</span>
-                          <span className="text-sm text-yellow-700">{group.count}件の注文</span>
-                        </div>
-                        {group.orders && group.orders.length > 0 && (
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b border-yellow-200 text-xs text-slate-500">
-                                <th className="px-4 py-1.5 text-left">商品</th>
-                                <th className="px-4 py-1.5 text-left">金額</th>
-                                <th className="px-4 py-1.5 text-left">郵便番号</th>
-                                <th className="px-4 py-1.5 text-left">住所</th>
-                                <th className="px-4 py-1.5 text-left">電話番号</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {group.orders.map((o, j) => (
-                                <tr key={j} className="border-b border-yellow-100 last:border-0">
-                                  <td className="px-4 py-1.5 text-slate-700">{o.product_name}</td>
-                                  <td className="px-4 py-1.5 text-slate-700">¥{o.amount?.toLocaleString()}</td>
-                                  <td className="px-4 py-1.5 text-slate-600">{o.postal_code}</td>
-                                  <td className="px-4 py-1.5 text-slate-600 max-w-[200px] truncate">{o.address}</td>
-                                  <td className="px-4 py-1.5 text-slate-600">{o.phone}</td>
+                    {mergeableGroups.map((group, i) => {
+                      const checked = selectedMergePatients.has(group.patient_id);
+                      return (
+                        <div key={i} className={`rounded-lg border overflow-hidden transition ${checked ? "border-yellow-300 bg-yellow-50/50" : "border-slate-200 bg-slate-50/50 opacity-60"}`}>
+                          <div className={`px-4 py-2 flex items-center gap-3 ${checked ? "bg-yellow-100/80" : "bg-slate-100/80"}`}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => {
+                                const next = new Set(selectedMergePatients);
+                                if (e.target.checked) next.add(group.patient_id); else next.delete(group.patient_id);
+                                setSelectedMergePatients(next);
+                              }}
+                              className="w-4 h-4 text-yellow-600 rounded focus:ring-yellow-500"
+                            />
+                            <span className="font-bold text-slate-900">{group.patient_name}</span>
+                            <span className="text-sm text-slate-600">{group.count}件の注文</span>
+                            <span className={`ml-auto text-xs font-medium px-2 py-0.5 rounded-full ${checked ? "bg-yellow-200 text-yellow-800" : "bg-slate-200 text-slate-500"}`}>
+                              {checked ? "統合する" : "統合しない"}
+                            </span>
+                          </div>
+                          {group.orders && group.orders.length > 0 && (
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b border-yellow-200/50 text-xs text-slate-500">
+                                  <th className="px-4 py-1.5 text-left">商品</th>
+                                  <th className="px-4 py-1.5 text-left">金額</th>
+                                  <th className="px-4 py-1.5 text-left">郵便番号</th>
+                                  <th className="px-4 py-1.5 text-left">住所</th>
+                                  <th className="px-4 py-1.5 text-left">電話番号</th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
-                      </div>
-                    ))}
+                              </thead>
+                              <tbody>
+                                {group.orders.map((o, j) => (
+                                  <tr key={j} className="border-b border-slate-100 last:border-0">
+                                    <td className="px-4 py-1.5 text-slate-700">{o.product_name}</td>
+                                    <td className="px-4 py-1.5 text-slate-700">¥{o.amount?.toLocaleString()}</td>
+                                    <td className="px-4 py-1.5 text-slate-600">{o.postal_code}</td>
+                                    <td className="px-4 py-1.5 text-slate-600 max-w-[200px] truncate">{o.address}</td>
+                                    <td className="px-4 py-1.5 text-slate-600">{o.phone}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <p className="mt-2 text-xs text-slate-500">
-                    「同じ郵便番号を統合」ボタンで1つの発送にまとめられます
-                  </p>
                 </div>
               )}
 
@@ -643,42 +680,59 @@ export default function CreateShippingListPage() {
                     同居家族候補（同一郵便番号・異なる患者）— {sameAddressGroups.length}グループ
                   </h3>
                   <div className="space-y-3">
-                    {sameAddressGroups.map((group, i) => (
-                      <div key={i} className="rounded-lg border border-blue-200 bg-blue-50/50 overflow-hidden">
-                        <div className="bg-blue-100/80 px-4 py-2 flex items-center gap-3">
-                          <span className="font-mono text-blue-700">〒{group.postal_code}</span>
-                          <span className="text-sm text-blue-800">{group.patient_names.join("、")}</span>
-                          <span className="text-sm text-blue-600">{group.count}件</span>
-                        </div>
-                        {group.orders && group.orders.length > 0 && (
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b border-blue-200 text-xs text-slate-500">
-                                <th className="px-4 py-1.5 text-left">患者名</th>
-                                <th className="px-4 py-1.5 text-left">商品</th>
-                                <th className="px-4 py-1.5 text-left">金額</th>
-                                <th className="px-4 py-1.5 text-left">住所</th>
-                                <th className="px-4 py-1.5 text-left">電話番号</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {group.orders.map((o, j) => (
-                                <tr key={j} className="border-b border-blue-100 last:border-0">
-                                  <td className="px-4 py-1.5 font-medium text-slate-700">{o.patient_name}</td>
-                                  <td className="px-4 py-1.5 text-slate-700">{o.product_name}</td>
-                                  <td className="px-4 py-1.5 text-slate-700">¥{o.amount?.toLocaleString()}</td>
-                                  <td className="px-4 py-1.5 text-slate-600 max-w-[200px] truncate">{o.address}</td>
-                                  <td className="px-4 py-1.5 text-slate-600">{o.phone}</td>
+                    {sameAddressGroups.map((group, i) => {
+                      const postalKey = group.postal_code.replace(/[-\s\u3000]/g, "").trim();
+                      const checked = selectedMergePostals.has(postalKey);
+                      return (
+                        <div key={i} className={`rounded-lg border overflow-hidden transition ${checked ? "border-blue-300 bg-blue-50/50" : "border-slate-200 bg-slate-50/50 opacity-60"}`}>
+                          <div className={`px-4 py-2 flex items-center gap-3 ${checked ? "bg-blue-100/80" : "bg-slate-100/80"}`}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => {
+                                const next = new Set(selectedMergePostals);
+                                if (e.target.checked) next.add(postalKey); else next.delete(postalKey);
+                                setSelectedMergePostals(next);
+                              }}
+                              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                            />
+                            <span className="font-mono text-slate-700">〒{group.postal_code}</span>
+                            <span className="text-sm text-slate-800">{group.patient_names.join("、")}</span>
+                            <span className="text-sm text-slate-600">{group.count}件</span>
+                            <span className={`ml-auto text-xs font-medium px-2 py-0.5 rounded-full ${checked ? "bg-blue-200 text-blue-800" : "bg-slate-200 text-slate-500"}`}>
+                              {checked ? "統合する" : "統合しない"}
+                            </span>
+                          </div>
+                          {group.orders && group.orders.length > 0 && (
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b border-blue-200/50 text-xs text-slate-500">
+                                  <th className="px-4 py-1.5 text-left">患者名</th>
+                                  <th className="px-4 py-1.5 text-left">商品</th>
+                                  <th className="px-4 py-1.5 text-left">金額</th>
+                                  <th className="px-4 py-1.5 text-left">住所</th>
+                                  <th className="px-4 py-1.5 text-left">電話番号</th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
-                      </div>
-                    ))}
+                              </thead>
+                              <tbody>
+                                {group.orders.map((o, j) => (
+                                  <tr key={j} className="border-b border-slate-100 last:border-0">
+                                    <td className="px-4 py-1.5 font-medium text-slate-700">{o.patient_name}</td>
+                                    <td className="px-4 py-1.5 text-slate-700">{o.product_name}</td>
+                                    <td className="px-4 py-1.5 text-slate-700">¥{o.amount?.toLocaleString()}</td>
+                                    <td className="px-4 py-1.5 text-slate-600 max-w-[200px] truncate">{o.address}</td>
+                                    <td className="px-4 py-1.5 text-slate-600">{o.phone}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                   <p className="mt-2 text-xs text-blue-600">
-                    ※ 同じ郵便番号ですが別患者です。同居家族等の場合はまとめ配送を検討してください。
+                    ※ 同じ郵便番号ですが別患者です。同居家族等の場合はチェックを入れてください。
                   </p>
                 </div>
               )}
@@ -705,13 +759,25 @@ export default function CreateShippingListPage() {
               )}
 
             </div>
-            <div className="border-t border-slate-200 px-6 py-4 flex justify-end">
-              <button
-                onClick={() => setShowMergeModal(false)}
-                className="px-5 py-2.5 text-sm font-medium rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200"
-              >
-                確認した
-              </button>
+            <div className="border-t border-slate-200 px-6 py-4 flex items-center justify-between">
+              <span className="text-sm text-slate-500">
+                統合対象: {selectedMergePatients.size + selectedMergePostals.size}グループ
+              </span>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowMergeModal(false)}
+                  className="px-4 py-2.5 text-sm rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200"
+                >
+                  統合しない
+                </button>
+                <button
+                  onClick={handleConfirmMerge}
+                  disabled={selectedMergePatients.size === 0 && selectedMergePostals.size === 0}
+                  className="px-5 py-2.5 text-sm font-medium rounded-lg bg-yellow-500 text-white hover:bg-yellow-600 disabled:bg-slate-300 disabled:cursor-not-allowed"
+                >
+                  選択したグループを統合 ({selectedMergePatients.size + selectedMergePostals.size})
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -730,7 +796,7 @@ export default function CreateShippingListPage() {
                 : "bg-yellow-500 text-white hover:bg-yellow-600"
             }`}
           >
-            {isMerged ? "🔓 統合を解除" : "🔗 同じ郵便番号を統合"}
+            {isMerged ? "🔓 統合を解除" : "🔗 まとめ配送を統合"}
           </button>
           <button
             onClick={() => setShowSortModal(true)}
