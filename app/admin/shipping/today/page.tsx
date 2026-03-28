@@ -20,7 +20,7 @@ interface ShippingItem {
 }
 
 export default function TodayShippingListPage() {
-  const { data, error, isLoading: loading } = useSWR<{ orders: ShippingItem[] }>("/api/admin/shipping/pending");
+  const { data, error, isLoading: loading, isValidating } = useSWR<{ orders: ShippingItem[] }>("/api/admin/shipping/pending");
   const items = data?.orders || [];
 
   const cutoffTime = useMemo(() => {
@@ -91,7 +91,16 @@ export default function TodayShippingListPage() {
           本日の発送対象はありません
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-white rounded-lg shadow overflow-hidden relative">
+          {/* キャッシュ表示中は操作不可オーバーレイ */}
+          {isValidating && !loading && (
+            <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-lg">
+              <div className="flex items-center gap-2 text-slate-500 text-sm">
+                <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+                最新情報を取得中...
+              </div>
+            </div>
+          )}
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50">
               <tr>

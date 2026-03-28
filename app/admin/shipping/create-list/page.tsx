@@ -85,7 +85,7 @@ export default function CreateShippingListPage() {
   const tableRef = useRef<HTMLTableElement>(null);
   const [dataInitialized, setDataInitialized] = useState(false);
 
-  const { data: pendingData, error: pendingError, isLoading: loading } = useSWR<{ orders: PendingOrder[]; mergeableGroups: { patient_id: string; patient_name: string; postal_code?: string; count: number }[]; sameNameDiffAddress?: { patient_name: string; count: number; postal_codes: string[] }[] }>(
+  const { data: pendingData, error: pendingError, isLoading: loading, isValidating } = useSWR<{ orders: PendingOrder[]; mergeableGroups: { patient_id: string; patient_name: string; postal_code?: string; count: number }[]; sameNameDiffAddress?: { patient_name: string; count: number; postal_codes: string[] }[] }>(
     "/api/admin/shipping/pending",
     { revalidateOnFocus: false },
   );
@@ -733,7 +733,16 @@ export default function CreateShippingListPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-lg shadow overflow-hidden relative">
+        {/* キャッシュ表示中は操作不可オーバーレイ */}
+        {isValidating && !loading && (
+          <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-lg">
+            <div className="flex items-center gap-2 text-slate-500 text-sm">
+              <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+              最新情報を取得中...
+            </div>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table ref={tableRef} className="min-w-full divide-y divide-slate-200 text-xs">
             <thead className="bg-slate-50">

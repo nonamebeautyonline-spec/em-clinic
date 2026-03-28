@@ -32,7 +32,7 @@ interface MergeableGroup {
 
 export default function ShippingPendingPage() {
   const router = useRouter();
-  const { data, error, isLoading: loading } = useSWR<{ orders: Order[]; mergeableGroups: MergeableGroup[] }>("/api/admin/shipping/pending");
+  const { data, error, isLoading: loading, isValidating } = useSWR<{ orders: Order[]; mergeableGroups: MergeableGroup[] }>("/api/admin/shipping/pending");
   const orders = data?.orders || [];
   const mergeableGroups = data?.mergeableGroups || [];
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
@@ -227,7 +227,16 @@ export default function ShippingPendingPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-lg shadow overflow-hidden relative">
+        {/* キャッシュ表示中は操作不可オーバーレイ */}
+        {isValidating && !loading && (
+          <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-lg">
+            <div className="flex items-center gap-2 text-slate-500 text-sm">
+              <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+              最新情報を取得中...
+            </div>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
