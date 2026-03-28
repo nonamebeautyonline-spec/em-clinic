@@ -97,6 +97,18 @@ const aiTechStack = [
     ],
   },
   {
+    icon: "flex",
+    badge: "AI",
+    title: "AI Flex Messageビルダー",
+    desc: "テキストと画像を送るだけで、AIがLINE Flex Message（カード型リッチメッセージ）を自動生成。ブロックエディタで微調整も可能。プリセットテンプレートも豊富で、ノーコードでリッチなカード型メッセージを作成・配信できます。",
+    details: [
+      "テキスト指示+画像添付でAIが自動レイアウト",
+      "12種類のブロック（画像・ボタン・クーポン・カウントダウン等）",
+      "プリセットから選ぶだけでも即配信可能",
+      "カルーセル（複数パネル）にも対応",
+    ],
+  },
+  {
     icon: "label",
     badge: "自動化",
     title: "発送ラベル自動生成から追跡番号配信まで",
@@ -126,6 +138,7 @@ const aiTechIcons: Record<string, React.ReactNode> = {
   sparkles: <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" strokeLinecap="round" strokeLinejoin="round" /></svg>,
   brain: <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" strokeLinecap="round" strokeLinejoin="round" /></svg>,
   label: <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" strokeLinecap="round" strokeLinejoin="round" /><path d="M6 6h.008v.008H6V6z" strokeLinecap="round" strokeLinejoin="round" /></svg>,
+  flex: <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" strokeLinecap="round" strokeLinejoin="round" /></svg>,
   flow: <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" strokeLinecap="round" strokeLinejoin="round" /></svg>,
 };
 
@@ -827,16 +840,119 @@ export default function AboutPage() {
                 </div>
               </div>
 
+              {/* ── 2.5 AI Flex Messageビルダー ── */}
+              <div className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/60 transition hover:ring-violet-200 hover:shadow-lg">
+                <div className="flex flex-col md:flex-row">
+                  {/* 左 — Flexビルダーモック */}
+                  <div className="p-6 md:w-1/2 md:order-1">
+                    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                      {/* ツールバー */}
+                      <div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2">
+                        <div className="flex gap-1.5"><span className="h-2 w-2 rounded-full bg-red-400" /><span className="h-2 w-2 rounded-full bg-yellow-400" /><span className="h-2 w-2 rounded-full bg-green-400" /></div>
+                        <span className="ml-3 text-[9px] text-gray-400">Flex Messageビルダー — AI作成モード</span>
+                      </div>
+                      <div className="flex divide-x divide-gray-100" style={{ minHeight: 280 }}>
+                        {/* エディタ側 */}
+                        <div className="flex w-[55%] shrink-0 flex-col p-3">
+                          <div className="flex items-center gap-1.5 mb-2">
+                            <span className="rounded bg-violet-100 px-2 py-0.5 text-[8px] font-bold text-violet-700">AI作成</span>
+                            <span className="rounded bg-gray-100 px-2 py-0.5 text-[8px] text-gray-400">プリセット</span>
+                            <span className="rounded bg-gray-100 px-2 py-0.5 text-[8px] text-gray-400">手動編集</span>
+                          </div>
+                          {/* ブロック構造 */}
+                          <div className="mb-2 rounded-lg bg-gray-50 p-2">
+                            <div className="text-[8px] font-bold text-gray-400 mb-1">ブロック構造</div>
+                            <div className="space-y-1 text-[9px]">
+                              <div className="flex items-center gap-1.5 rounded bg-white px-2 py-1 border border-blue-200 shadow-sm">
+                                <span className="text-[10px]">🖼</span><span className="font-semibold text-gray-700">ヒーロー画像</span><span className="ml-auto text-[7px] text-blue-500">AI生成</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 rounded bg-white px-2 py-1 border border-gray-200">
+                                <span className="text-[10px]">T</span><span className="font-semibold text-gray-700">タイトル</span><span className="ml-auto text-[7px] text-gray-400">春の特別キャンペーン</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 rounded bg-white px-2 py-1 border border-gray-200">
+                                <span className="text-[10px]">📝</span><span className="font-semibold text-gray-700">本文テキスト</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 rounded bg-white px-2 py-1 border border-gray-200">
+                                <span className="text-[10px]">🎫</span><span className="font-semibold text-gray-700">クーポンバッジ</span><span className="ml-auto text-[7px] text-amber-600">20% OFF</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 rounded bg-white px-2 py-1 border border-gray-200">
+                                <span className="text-[10px]">🔘</span><span className="font-semibold text-gray-700">予約ボタン</span>
+                              </div>
+                            </div>
+                          </div>
+                          {/* AI指示エリア */}
+                          <div className="mt-auto rounded-lg border-2 border-violet-200 bg-violet-50/50 p-2">
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-violet-500 text-[8px] text-white">AI</span>
+                              <span className="text-[9px] font-bold text-violet-700">AIに指示して作成</span>
+                            </div>
+                            <div className="mb-1.5 flex items-center gap-2 rounded bg-white px-2 py-1 border border-gray-200">
+                              <div className="h-7 w-7 rounded bg-gradient-to-br from-pink-200 to-pink-100 flex items-center justify-center text-[9px]">🌸</div>
+                              <div><div className="text-[7px] font-semibold text-gray-600">sakura-campaign.jpg</div><div className="text-[6px] text-gray-400">画像添付済み</div></div>
+                            </div>
+                            <div className="rounded bg-white border border-violet-200 px-2 py-1.5 text-[9px] text-gray-600 leading-relaxed">春のキャンペーン告知を作って。添付の桜画像をヒーローに使って、20%OFFクーポンと予約ボタンを入れて</div>
+                            <div className="mt-1.5 flex items-center justify-end">
+                              <div className="flex items-center gap-1 rounded bg-violet-500 px-2.5 py-1 text-[8px] font-bold text-white">⚡ 生成中...</div>
+                            </div>
+                          </div>
+                        </div>
+                        {/* LINEプレビュー */}
+                        <div className="flex flex-1 flex-col items-center px-3 py-3">
+                          <div className="text-[8px] font-semibold text-gray-400 mb-2 self-start">LINEプレビュー</div>
+                          <div className="w-full max-w-[180px] rounded-xl border border-gray-200 bg-[#7494C0]/15 p-2 shadow-inner">
+                            <div className="overflow-hidden rounded-lg bg-white shadow-sm">
+                              <div className="relative h-20 bg-gradient-to-br from-pink-300 via-pink-200 to-rose-100 flex items-center justify-center">
+                                <span className="text-2xl opacity-70">🌸</span>
+                                <div className="absolute bottom-1 right-1 rounded bg-black/40 px-1 py-0.5 text-[6px] text-white">AI配置</div>
+                              </div>
+                              <div className="px-2.5 pt-2"><div className="text-[10px] font-extrabold text-gray-800">春の特別キャンペーン</div></div>
+                              <div className="px-2.5 pt-1"><div className="text-[7px] text-gray-500 leading-relaxed">日頃のご愛顧に感謝を込めて、春の特別キャンペーンを開催いたします。</div></div>
+                              <div className="mx-2.5 mt-1.5 rounded bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 px-2 py-1 text-center">
+                                <div className="text-[6px] text-amber-600">期間限定クーポン</div>
+                                <div className="text-[12px] font-extrabold text-amber-600">20% OFF</div>
+                                <div className="text-[6px] text-amber-400">2026/4/30まで</div>
+                              </div>
+                              <div className="p-2.5 pt-1.5"><div className="rounded-full bg-[#06C755] py-1.5 text-center text-[8px] font-bold text-white">今すぐ予約する</div></div>
+                            </div>
+                          </div>
+                          <div className="mt-1.5 flex items-center gap-1 self-start">
+                            <div className="h-1.5 w-1.5 rounded-full bg-violet-500 animate-pulse" />
+                            <span className="text-[7px] text-violet-600 font-semibold">AIがFLEXメッセージを構築中...</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* 右 — 説明 */}
+                  <div className="flex flex-col justify-center p-8 md:w-1/2 md:order-2 bg-gradient-to-br from-violet-50/50 to-blue-50/50">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-100 text-violet-600">{aiTechIcons.flex}</div>
+                      <span className="rounded-full px-2.5 py-0.5 text-[11px] font-bold bg-violet-100 text-violet-700">{aiTechStack[2].badge}</span>
+                    </div>
+                    <h3 className="mt-4 text-[18px] font-bold text-gray-900">{aiTechStack[2].title}</h3>
+                    <p className="mt-3 text-[14px] leading-relaxed text-gray-500">{aiTechStack[2].desc}</p>
+                    <ul className="mt-4 space-y-2">
+                      {aiTechStack[2].details.map((d) => (
+                        <li key={d} className="flex items-start gap-2 text-[13px] text-gray-600">
+                          <svg className="mt-0.5 h-4 w-4 shrink-0 text-violet-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                          {d}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
               {/* ── 3. 追跡番号配信 ── */}
               <div className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/60 transition hover:ring-violet-200 hover:shadow-lg">
                 <div className="flex flex-col md:flex-row">
                   <div className="flex flex-col justify-center p-8 md:w-1/2 bg-gradient-to-br from-violet-50/50 to-blue-50/50">
                     <div className="flex items-center gap-3">
                       <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-100 text-violet-600">{aiTechIcons.label}</div>
-                      <span className="rounded-full px-2.5 py-0.5 text-[11px] font-bold bg-violet-100 text-violet-700">{aiTechStack[2].badge}</span>
+                      <span className="rounded-full px-2.5 py-0.5 text-[11px] font-bold bg-violet-100 text-violet-700">{aiTechStack[3].badge}</span>
                     </div>
-                    <h3 className="mt-4 text-[18px] font-bold text-gray-900">{aiTechStack[2].title}</h3>
-                    <p className="mt-3 text-[14px] leading-relaxed text-gray-500">{aiTechStack[2].desc}</p>
+                    <h3 className="mt-4 text-[18px] font-bold text-gray-900">{aiTechStack[3].title}</h3>
+                    <p className="mt-3 text-[14px] leading-relaxed text-gray-500">{aiTechStack[3].desc}</p>
                   </div>
                   {/* 右 — 発送リスト画面モック（実装に即した形） */}
                   <div className="p-6 md:w-1/2">
@@ -974,10 +1090,10 @@ export default function AboutPage() {
                       <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 text-blue-600">{aiTechIcons.flow}</div>
                       <span className="rounded-full px-2.5 py-0.5 text-[11px] font-bold bg-blue-100 text-blue-700">自動化</span>
                     </div>
-                    <h3 className="mt-4 text-[18px] font-bold text-gray-900">{aiTechStack[3].title}</h3>
-                    <p className="mt-3 text-[14px] leading-relaxed text-gray-500">{aiTechStack[3].desc}</p>
+                    <h3 className="mt-4 text-[18px] font-bold text-gray-900">{aiTechStack[4].title}</h3>
+                    <p className="mt-3 text-[14px] leading-relaxed text-gray-500">{aiTechStack[4].desc}</p>
                     <ul className="mt-4 space-y-2">
-                      {aiTechStack[3].details.map((d) => (
+                      {aiTechStack[4].details.map((d) => (
                         <li key={d} className="flex items-start gap-2 text-[13px] text-gray-600">
                           <svg className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
                           {d}
