@@ -144,14 +144,15 @@ export async function middleware(req: NextRequest) {
 
   // === /lp 配下はルートドメイン(l-ope.jp) と localhost のみ許可 ===
   // テナントサブドメイン（noname-beauty.l-ope.jp 等）では非表示
+  const bareHost = host.replace(/:\d+$/, "");
   const isRootDomain = hostWithoutPort === "l-ope.jp" || hostWithoutPort === "www.l-ope.jp";
   const isLocalhost = hostWithoutPort === "localhost" || hostWithoutPort.startsWith("localhost");
-  if ((pathname.startsWith("/lp") || pathname === "/") && !isLocalhost && !isRootDomain && !isOrdix) {
+  const isNonameBare = bareHost === "noname-beauty.jp" || bareHost === "www.noname-beauty.jp";
+  if ((pathname.startsWith("/lp") || pathname === "/") && !isLocalhost && !isRootDomain && !isOrdix && !isNonameBare) {
     return new NextResponse("Not Found", { status: 404 });
   }
 
   // === 旧サブドメインからの移行（ベアドメインはのなめLP用にスルー） ===
-  const bareHost = host.replace(/:\d+$/, "");
   if (
     host.includes("noname-beauty.jp") &&
     bareHost !== "noname-beauty.jp" &&
