@@ -166,7 +166,6 @@ export default function Page() {
 
         <p>ただし、薬液窓に液が大量に残っている場合は注射が途中で止まった可能性があります。その場合は<strong>同じアテオスで再注射せず、医師に相談</strong>してください。</p>
 
-        <img src="/lp/column/images/mounjaro/1974320675709202498-G2YtRikbMAkk2W6.png" alt="マンジャロの注射部位（太もも）" className="rounded-xl my-4 w-full" />
       </section>
 
       {/* ── セクション8: まとめ ── */}
