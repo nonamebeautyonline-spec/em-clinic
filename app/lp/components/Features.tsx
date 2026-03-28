@@ -315,7 +315,7 @@ export default function Features() {
 
         {/* 3. すべてがLINEに届く — 自動通知タイムライン */}
         <FadeIn>
-          <div className="flex flex-col gap-8 lg:flex-row-reverse lg:items-start lg:gap-14">
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-14">
             <div className="w-full lg:w-[58%]">
               <MockWindow title="LINE通知 — ステータス自動配信">
                 <div className="space-y-2.5">
@@ -368,7 +368,7 @@ export default function Features() {
 
         {/* 3.5 スマホでどこからでも管理 — LINE通知bot + モバイル操作 */}
         <FadeIn>
-          <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-14">
+          <div className="flex flex-col gap-8 lg:flex-row-reverse lg:items-start lg:gap-14">
             <div className="w-full lg:w-[58%]">
               {/* スマホモック */}
               <div className="mx-auto flex justify-center gap-4">
@@ -681,27 +681,71 @@ export default function Features() {
                       </div>
                     ))}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-lg bg-slate-50 p-3">
-                      <div className="mb-2 text-[10px] font-semibold text-slate-500">月間売上推移</div>
-                      <div className="flex items-end gap-0.5" style={{ height: 60 }}>
-                        {[40, 55, 45, 60, 50, 65, 72, 58, 68, 75, 62, 80].map((h, i) => (
-                          <div key={i} className="flex-1 rounded-t bg-gradient-to-t from-blue-400 to-sky-300" style={{ height: `${h}%` }} />
-                        ))}
+                  {/* 棒グラフ */}
+                  <div className="rounded-lg bg-slate-50 p-3">
+                    <div className="mb-2 text-[10px] font-semibold text-slate-500">月間売上推移</div>
+                    <div className="flex items-end gap-0.5" style={{ height: 50 }}>
+                      {[40, 55, 45, 60, 50, 65, 72, 58, 68, 75, 62, 80].map((h, i) => (
+                        <div key={i} className="flex-1 rounded-t bg-gradient-to-t from-blue-400 to-sky-300" style={{ height: `${h}%` }} />
+                      ))}
+                    </div>
+                  </div>
+                  {/* 3つの円グラフ */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {/* 患者ファネル */}
+                    <div className="rounded-lg bg-slate-50 p-2.5">
+                      <div className="mb-1 text-[9px] font-semibold text-slate-500">患者ファネル</div>
+                      <div className="flex items-center gap-1.5">
+                        <svg viewBox="0 0 36 36" className="h-12 w-12 shrink-0">
+                          <circle cx="18" cy="18" r="14" fill="none" stroke="#e2e8f0" strokeWidth="4" />
+                          <circle cx="18" cy="18" r="14" fill="none" stroke="#3b82f6" strokeWidth="4" strokeDasharray="30 70" strokeDashoffset="25" strokeLinecap="round" />
+                          <circle cx="18" cy="18" r="14" fill="none" stroke="#06b6d4" strokeWidth="4" strokeDasharray="22 78" strokeDashoffset="95" strokeLinecap="round" />
+                          <circle cx="18" cy="18" r="14" fill="none" stroke="#8b5cf6" strokeWidth="4" strokeDasharray="18 82" strokeDashoffset="73" strokeLinecap="round" />
+                          <circle cx="18" cy="18" r="14" fill="none" stroke="#f59e0b" strokeWidth="4" strokeDasharray="15 85" strokeDashoffset="55" strokeLinecap="round" />
+                          <circle cx="18" cy="18" r="14" fill="none" stroke="#10b981" strokeWidth="4" strokeDasharray="15 85" strokeDashoffset="40" strokeLinecap="round" />
+                        </svg>
+                        <div className="space-y-0.5 text-[6px]">
+                          {[
+                            { c: "#3b82f6", l: "予約済" },
+                            { c: "#06b6d4", l: "問診済" },
+                            { c: "#8b5cf6", l: "診察済" },
+                            { c: "#f59e0b", l: "決済済" },
+                            { c: "#10b981", l: "発送済" },
+                          ].map((s) => (
+                            <div key={s.l} className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full" style={{ background: s.c }} /><span className="text-slate-500">{s.l}</span></div>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                    <div className="rounded-lg bg-slate-50 p-3">
-                      <div className="mb-2 text-[10px] font-semibold text-slate-500">商品別売上</div>
-                      {[
-                        { name: "処方薬A", pct: 38 },
-                        { name: "処方薬B", pct: 31 },
-                        { name: "処方薬C", pct: 20 },
-                      ].map((p) => (
-                        <div key={p.name} className="mt-1.5 flex items-center gap-2">
-                          <span className="w-14 text-[9px] text-slate-500">{p.name}</span>
-                          <div className="flex-1 rounded-full bg-slate-200/50" style={{ height: 6 }}><div className="h-full rounded-full bg-gradient-to-r from-blue-400 to-sky-400" style={{ width: `${p.pct * 2.5}%` }} /></div>
+                    {/* 処方内訳 */}
+                    <div className="rounded-lg bg-slate-50 p-2.5">
+                      <div className="mb-1 text-[9px] font-semibold text-slate-500">処方内訳</div>
+                      <div className="flex items-center gap-1.5">
+                        <svg viewBox="0 0 36 36" className="h-12 w-12 shrink-0">
+                          <circle cx="18" cy="18" r="14" fill="none" stroke="#e2e8f0" strokeWidth="4" />
+                          <circle cx="18" cy="18" r="14" fill="none" stroke="#3b82f6" strokeWidth="4" strokeDasharray="62 38" strokeDashoffset="25" strokeLinecap="round" />
+                          <circle cx="18" cy="18" r="14" fill="none" stroke="#f97316" strokeWidth="4" strokeDasharray="38 62" strokeDashoffset="63" strokeLinecap="round" />
+                        </svg>
+                        <div className="space-y-1 text-[6px]">
+                          <div className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" /><span className="text-slate-500">新規 62%</span></div>
+                          <div className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-orange-500" /><span className="text-slate-500">再処方 38%</span></div>
                         </div>
-                      ))}
+                      </div>
+                    </div>
+                    {/* 決済方法 */}
+                    <div className="rounded-lg bg-slate-50 p-2.5">
+                      <div className="mb-1 text-[9px] font-semibold text-slate-500">決済方法</div>
+                      <div className="flex items-center gap-1.5">
+                        <svg viewBox="0 0 36 36" className="h-12 w-12 shrink-0">
+                          <circle cx="18" cy="18" r="14" fill="none" stroke="#e2e8f0" strokeWidth="4" />
+                          <circle cx="18" cy="18" r="14" fill="none" stroke="#8b5cf6" strokeWidth="4" strokeDasharray="72 28" strokeDashoffset="25" strokeLinecap="round" />
+                          <circle cx="18" cy="18" r="14" fill="none" stroke="#22c55e" strokeWidth="4" strokeDasharray="28 72" strokeDashoffset="53" strokeLinecap="round" />
+                        </svg>
+                        <div className="space-y-1 text-[6px]">
+                          <div className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-violet-500" /><span className="text-slate-500">カード 72%</span></div>
+                          <div className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-green-500" /><span className="text-slate-500">振込 28%</span></div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2">
