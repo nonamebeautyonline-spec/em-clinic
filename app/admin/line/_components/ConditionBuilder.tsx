@@ -12,7 +12,7 @@ export interface ProductDef {
 export interface ConditionRule {
   type: "tag" | "mark" | "name" | "registered_date" | "field"
     | "last_payment_date" | "product_purchase" | "reorder_count"
-    | "intake_status" | "reservation_status";
+    | "intake_status" | "reservation_status" | "funnel_stage";
   // タグ条件
   tag_ids?: number[];
   tag_match?: "any_include" | "all_include" | "any_exclude" | "all_exclude";
@@ -45,6 +45,9 @@ export interface ConditionRule {
   product_date_to?: string;
   // 診察ステータス・予約ステータス
   status_value?: string;
+  // ファネルステージ条件
+  funnel_stages?: string[];
+  funnel_no_answer_before?: string;
 }
 
 export interface StepCondition {
@@ -98,6 +101,7 @@ const CONDITION_TYPES: { type: ConditionRule["type"]; label: string }[] = [
   { type: "reorder_count", label: "再処方回数" },
   { type: "intake_status", label: "診察ステータス" },
   { type: "reservation_status", label: "予約ステータス" },
+  { type: "funnel_stage", label: "ファネルステージ" },
 ];
 
 // ── 条件ON/OFFトグル（ステップ横に表示） ────────────────
@@ -222,8 +226,19 @@ export function ConditionSummary({
       parts.push(labels[rule.status_value || "none"] || rule.status_value || "");
     }
     if (rule.type === "reservation_status") {
-      const labels: Record<string, string> = { none: "未予約", has: "予約あり" };
+      const labels: Record<string, string> = { none: "未予���", has: "予���あり" };
       parts.push(labels[rule.status_value || "none"] || rule.status_value || "");
+    }
+    if (rule.type === "funnel_stage" && rule.funnel_stages?.length) {
+      const stageLabels: Record<string, string> = {
+        line_only: "LINE追加のみ",
+        personal_info_done: "個人情報入力済み",
+        questionnaire_done: "問診済み・予約なし",
+        no_answer: "予約不通・再予約なし",
+      };
+      const names = rule.funnel_stages.map(s => stageLabels[s] || s).join(", ");
+      const datePart = rule.funnel_no_answer_before ? ` (不通: ${rule.funnel_no_answer_before}以前)` : "";
+      parts.push(`ファネル: ${names}${datePart}`);
     }
   }
 
@@ -316,6 +331,10 @@ export function ConditionBuilderModal({
     }
     if (type === "reservation_status") {
       newRule.status_value = "none";
+    }
+    if (type === "funnel_stage") {
+      newRule.funnel_stages = [];
+      newRule.funnel_no_answer_before = "";
     }
     setRules(prev => [...prev, newRule]);
   };
@@ -466,6 +485,14 @@ export function ConditionBuilderModal({
                       { value: "none", label: "未予約（アクティブな予約なし）" },
                       { value: "has", label: "予約あり（今日以降の予約あり）" },
                     ]}
+                    rule={rule}
+                    onUpdate={(updates) => updateRule(i, updates)}
+                  />
+                )}
+
+                {/* ファネルステージ条件 */}
+                {rule.type === "funnel_stage" && (
+                  <FunnelStageEditor
                     rule={rule}
                     onUpdate={(updates) => updateRule(i, updates)}
                   />
@@ -984,6 +1011,98 @@ function ProductPurchaseEditor({
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── ファネルステージ条件エディタ ──────────────────────────
+
+const FUNNEL_STAGE_OPTIONS = [
+  { value: "line_only", label: "LINE追加のみ", desc: "個人情報未入力" },
+  { value: "personal_info_done", label: "個人情報入力済み", desc: "問診未回答" },
+  { value: "questionnaire_done", label: "問診済み・予約なし", desc: "予約キャンセル含む" },
+  { value: "no_answer", label: "予約不通・再予約なし", desc: "不通のまま放置" },
+];
+
+function FunnelStageEditor({
+  rule,
+  onUpdate,
+}: {
+  rule: ConditionRule;
+  onUpdate: (updates: Partial<ConditionRule>) => void;
+}) {
+  const selected = rule.funnel_stages || [];
+
+  const toggleStage = (stage: string) => {
+    const next = selected.includes(stage)
+      ? selected.filter(s => s !== stage)
+      : [...selected, stage];
+    onUpdate({ funnel_stages: next });
+  };
+
+  const selectAll = () => {
+    onUpdate({ funnel_stages: FUNNEL_STAGE_OPTIONS.map(o => o.value) });
+  };
+
+  return (
+    <div className="pl-8">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">��ァネルステージ</span>
+        <button
+          type="button"
+          onClick={selectAll}
+          className="text-[10px] text-amber-600 hover:text-amber-700 underline"
+        >
+          全選択
+        </button>
+      </div>
+      <p className="text-[10px] text-gray-400 mb-3">処方未済・アクティブ予約なしの患者をステージ別に絞り込みます</p>
+
+      <div className="space-y-2">
+        {FUNNEL_STAGE_OPTIONS.map(opt => {
+          const isSelected = selected.includes(opt.value);
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => toggleStage(opt.value)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all ${
+                isSelected
+                  ? "bg-amber-50 border-2 border-amber-400"
+                  : "bg-white border border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 ${
+                isSelected ? "bg-amber-500" : "border-2 border-gray-300"
+              }`}>
+                {isSelected && (
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+              <div>
+                <span className="text-xs font-medium text-gray-800">{opt.label}</span>
+                <span className="ml-2 text-[10px] text-gray-400">{opt.desc}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 不通の日付制限 */}
+      {selected.includes("no_answer") && (
+        <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <label className="text-[11px] text-gray-600 font-medium">不通: 予約日がこの日以前の人を対象</label>
+          <input
+            type="date"
+            value={rule.funnel_no_answer_before || ""}
+            onChange={(e) => onUpdate({ funnel_no_answer_before: e.target.value })}
+            className="mt-1.5 w-full px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
+          />
+          <p className="mt-1 text-[10px] text-gray-400">未指定の場合は全期間の不通者が対象</p>
+        </div>
+      )}
     </div>
   );
 }

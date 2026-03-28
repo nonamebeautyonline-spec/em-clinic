@@ -47,6 +47,9 @@ interface FilterCondition {
   product_match?: string;
   product_date_from?: string;
   product_date_to?: string;
+  // ファネルステージフィルタ用
+  funnel_stages?: string[];
+  funnel_no_answer_before?: string;
 }
 
 interface FilterRules {
@@ -484,6 +487,138 @@ async function applyCondition(
         const actual = hasReservation.has(pid) ? "has" : "none";
         if (actual === statusVal) matchSet.add(pid);
       }
+      if (isInclude) return targets.filter(t => matchSet.has(t.patient_id));
+      return targets.filter(t => !matchSet.has(t.patient_id));
+    }
+
+    case "funnel_stage": {
+      const stages = (condition.funnel_stages || condition.values || []) as string[];
+      if (stages.length === 0) return targets;
+
+      const pids = targets.map(t => t.patient_id);
+
+      // 必要なデータを一括取得（ブロック判定含む）
+      const [patientsRes, intakesRes, activeResRes, blockedRes] = await Promise.all([
+        fetchAll(() => strictWithTenant(
+          supabaseAdmin.from("patients").select("patient_id, tel").in("patient_id", pids),
+          tenantId
+        )),
+        fetchAll(() => strictWithTenant(
+          supabaseAdmin.from("intake").select("patient_id, answers, reserve_id, status, call_status")
+            .in("patient_id", pids)
+            .order("created_at", { ascending: false }),
+          tenantId
+        )),
+        fetchAll(() => strictWithTenant(
+          supabaseAdmin.from("reservations").select("patient_id, reserved_date")
+            .in("patient_id", pids)
+            .not("status", "in", '("canceled","NG")'),
+          tenantId
+        )),
+        fetchAll(() => strictWithTenant(
+          supabaseAdmin.from("friend_summaries").select("patient_id")
+            .in("patient_id", pids)
+            .eq("last_event_type", "unfollow"),
+          tenantId
+        )),
+      ]);
+
+      // ブロック済みセット
+      const blockedSet = new Set((blockedRes.data || []).map(r => r.patient_id as string));
+
+      // patients.tel マップ
+      const telMap = new Map<string, string | null>();
+      for (const p of patientsRes.data || []) {
+        telMap.set(p.patient_id as string, p.tel as string | null);
+      }
+
+      // 最新intakeマップ（DISTINCT ON patient_id 相当）
+      const latestIntake = new Map<string, {
+        answers: unknown; reserve_id: string | null; status: string | null; call_status: string | null;
+      }>();
+      for (const row of intakesRes.data || []) {
+        const pid = row.patient_id as string;
+        if (!latestIntake.has(pid)) {
+          latestIntake.set(pid, {
+            answers: row.answers,
+            reserve_id: row.reserve_id as string | null,
+            status: row.status as string | null,
+            call_status: row.call_status as string | null,
+          });
+        }
+      }
+
+      // アクティブ予約セット
+      const activeReservationSet = new Set<string>();
+      for (const r of activeResRes.data || []) {
+        activeReservationSet.add(r.patient_id as string);
+      }
+
+      // 不通の日付制限用: 不通者の最新予約日を取得
+      const noAnswerBefore = condition.funnel_no_answer_before || condition.payment_date_to || "";
+      let noAnswerReservationDates = new Map<string, string>();
+      if (stages.includes("no_answer") && noAnswerBefore) {
+        // 不通者の予約日を取得（キャンセルされていない全予約から最新を取得）
+        const noAnswerPids = pids.filter(pid => {
+          const intake = latestIntake.get(pid);
+          return intake?.call_status === "no_answer" || intake?.call_status === "no_answer_sent";
+        });
+        if (noAnswerPids.length > 0) {
+          const { data: resData } = await fetchAll(() => strictWithTenant(
+            supabaseAdmin.from("reservations").select("patient_id, reserved_date")
+              .in("patient_id", noAnswerPids)
+              .not("status", "in", '("canceled")')
+              .order("reserved_date", { ascending: false }),
+            tenantId
+          ));
+          for (const r of resData || []) {
+            const pid = r.patient_id as string;
+            if (!noAnswerReservationDates.has(pid)) {
+              noAnswerReservationDates.set(pid, r.reserved_date as string);
+            }
+          }
+        }
+      }
+
+      // 各患者のファネルステージを判定（ブロック済みは自動除外）
+      const matchSet = new Set<string>();
+      for (const pid of pids) {
+        if (blockedSet.has(pid)) continue; // ブロック済み → 送信不可なので除外
+
+        const tel = telMap.get(pid);
+        const intake = latestIntake.get(pid);
+        const hasActive = activeReservationSet.has(pid);
+
+        let stage: string;
+        if (intake?.status === "OK" || intake?.status === "NG") {
+          stage = "diagnosed"; // 処方済み → 対象外
+        } else if (intake?.call_status === "no_answer" || intake?.call_status === "no_answer_sent") {
+          // 不通の日付制限チェック
+          if (noAnswerBefore) {
+            const resDate = noAnswerReservationDates.get(pid);
+            if (!resDate || resDate > noAnswerBefore) {
+              stage = "excluded_by_date"; // 日付制限外
+            } else {
+              stage = "no_answer";
+            }
+          } else {
+            stage = "no_answer";
+          }
+        } else if (hasActive) {
+          stage = "has_active_reservation"; // アクティブ予約あり → 対象外
+        } else if (intake?.answers && JSON.stringify(intake.answers) !== "{}" && JSON.stringify(intake.answers) !== "null") {
+          stage = "questionnaire_done";
+        } else if (tel) {
+          stage = "personal_info_done";
+        } else {
+          stage = "line_only";
+        }
+
+        if (stages.includes(stage)) {
+          matchSet.add(pid);
+        }
+      }
+
       if (isInclude) return targets.filter(t => matchSet.has(t.patient_id));
       return targets.filter(t => !matchSet.has(t.patient_id));
     }

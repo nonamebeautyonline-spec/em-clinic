@@ -47,6 +47,9 @@ interface FilterCondition {
   product_match?: string;
   product_date_from?: string;
   product_date_to?: string;
+  // ファネルステージフィルタ用
+  funnel_stages?: string[];
+  funnel_no_answer_before?: string;
 }
 
 interface Broadcast {
@@ -254,6 +257,13 @@ export default function BroadcastSendPage() {
       if (rule.type === "intake_status" || rule.type === "reservation_status") {
         return { type: rule.type, value: rule.status_value || "none" };
       }
+      if (rule.type === "funnel_stage") {
+        return {
+          type: "funnel_stage",
+          values: rule.funnel_stages || [],
+          payment_date_to: rule.funnel_no_answer_before || "",
+        };
+      }
       return { type: rule.type };
     });
 
@@ -299,6 +309,13 @@ export default function BroadcastSendPage() {
       }
       if (c.type === "intake_status" || c.type === "reservation_status") {
         return { type: c.type as ConditionRule["type"], status_value: c.value || "none" };
+      }
+      if (c.type === "funnel_stage") {
+        return {
+          type: "funnel_stage" as const,
+          funnel_stages: (c.funnel_stages || c.values || []) as string[],
+          funnel_no_answer_before: c.funnel_no_answer_before || c.payment_date_to || "",
+        };
       }
       return { type: c.type as ConditionRule["type"] };
     });
