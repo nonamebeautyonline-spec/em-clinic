@@ -157,7 +157,25 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // 同一郵便番号でグルーピング（同居家族も統合対象、同姓同名でも住所違いは別扱い）
+    // ── まとめ配送候補: 同一patient_idで複数注文（最も確実） ──
+    const groupedByPatient = formattedOrders.reduce<Record<string, FormattedOrder[]>>((acc, order) => {
+      if (!order.patient_id) return acc;
+      if (!acc[order.patient_id]) acc[order.patient_id] = [];
+      acc[order.patient_id].push(order);
+      return acc;
+    }, {});
+
+    const mergeableGroups = Object.entries(groupedByPatient)
+      .filter(([, orders]) => orders.length > 1)
+      .map(([patientId, orders]) => ({
+        patient_id: patientId,
+        patient_name: orders[0].patient_name,
+        postal_code: orders[0].postal_code || "",
+        count: orders.length,
+        orders: orders,
+      }));
+
+    // ── 同一郵便番号で異なるpatient_id（同居家族候補・参考情報） ──
     const groupedByPostal = formattedOrders.reduce<Record<string, FormattedOrder[]>>((acc, order) => {
       const postalKey = (order.postal_code || "").replace(/[-\s\u3000]/g, "").trim();
       if (!postalKey) return acc;
@@ -166,18 +184,20 @@ export async function GET(req: NextRequest) {
       return acc;
     }, {});
 
-    // まとめ配送候補を検出（同一郵便番号で複数注文）
-    const mergeableGroups = Object.entries(groupedByPostal)
-      .filter(([, orders]) => orders.length > 1)
+    // 同一郵便番号に異なるpatient_idが含まれるグループのみ（同一患者は上で処理済み）
+    const sameAddressGroups = Object.entries(groupedByPostal)
+      .filter(([, orders]) => {
+        const uniquePatients = new Set(orders.map(o => o.patient_id));
+        return uniquePatients.size > 1; // 異なる患者が同一郵便番号
+      })
       .map(([postalCode, orders]) => ({
-        patient_id: orders[0].patient_id,
-        patient_name: orders.map(o => o.patient_name).filter((v, i, a) => a.indexOf(v) === i).join("、"),
         postal_code: postalCode,
+        patient_names: orders.map(o => o.patient_name).filter((v, i, a) => a.indexOf(v) === i),
         count: orders.length,
         orders: orders,
       }));
 
-    // 同一氏名でグルーピング（同姓同名の別住所注意喚起用）
+    // ── 同姓同名で郵便番号が異なるグループ（注意喚起） ──
     const groupedByName = formattedOrders.reduce<Record<string, FormattedOrder[]>>((acc, order) => {
       const nameKey = (order.patient_name || "").trim();
       if (!nameKey) return acc;
@@ -186,10 +206,11 @@ export async function GET(req: NextRequest) {
       return acc;
     }, {});
 
-    // 同姓同名で郵便番号が異なるグループ（注意喚起）
     const sameNameDiffAddress = Object.entries(groupedByName)
       .filter(([, orders]) => {
         if (orders.length < 2) return false;
+        const uniquePatients = new Set(orders.map(o => o.patient_id));
+        if (uniquePatients.size < 2) return false; // 同一患者は除外
         const postals = new Set(orders.map(o => (o.postal_code || "").replace(/[-\s\u3000]/g, "")));
         return postals.size > 1; // 同姓同名だが郵便番号が異なる
       })
@@ -202,6 +223,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       orders: formattedOrders,
       mergeableGroups: mergeableGroups,
+      sameAddressGroups: sameAddressGroups,
       sameNameDiffAddress: sameNameDiffAddress,
       total: formattedOrders.length,
     });

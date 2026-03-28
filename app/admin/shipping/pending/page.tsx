@@ -33,9 +33,14 @@ interface MergeableGroup {
 
 export default function ShippingPendingPage() {
   const router = useRouter();
-  const { data, error, isLoading: loading, isValidating } = useSWR<{ orders: Order[]; mergeableGroups: MergeableGroup[] }>("/api/admin/shipping/pending");
+  const { data, error, isLoading: loading, isValidating } = useSWR<{
+    orders: Order[];
+    mergeableGroups: MergeableGroup[];
+    sameAddressGroups?: { postal_code: string; patient_names: string[]; count: number; orders: Order[] }[];
+  }>("/api/admin/shipping/pending");
   const orders = data?.orders || [];
   const mergeableGroups = data?.mergeableGroups || [];
+  const sameAddressGroups = data?.sameAddressGroups || [];
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const [editCreatedMode, setEditCreatedMode] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
@@ -169,9 +174,9 @@ export default function ShippingPendingPage() {
         <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">
           <div>
             <h3 className="font-semibold text-yellow-900">
-              ⚠️ まとめ配送候補（同一住所の複数注文）— {mergeableGroups.length}グループ
+              ⚠️ まとめ配送候補（同一患者の複数注文）— {mergeableGroups.length}グループ
             </h3>
-            <p className="text-sm text-yellow-700 mt-1">同一郵便番号の注文が複数あります。配送先を確認してください。</p>
+            <p className="text-sm text-yellow-700 mt-1">同一患者から複数の注文があります。配送先を確認してまとめ発送を検討してください。</p>
           </div>
           <button
             onClick={() => setShowMergeModal(true)}
@@ -187,7 +192,7 @@ export default function ShippingPendingPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowMergeModal(false)}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <h2 className="text-lg font-bold text-slate-900">まとめ配送候補 — 配送先確認</h2>
+              <h2 className="text-lg font-bold text-slate-900">まとめ配送候補 — 同一患者の複数注文</h2>
               <button onClick={() => setShowMergeModal(false)} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
             </div>
             <div className="overflow-y-auto px-6 py-4 space-y-6" style={{ maxHeight: "calc(80vh - 120px)" }}>
@@ -260,6 +265,24 @@ export default function ShippingPendingPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {sameAddressGroups.length > 0 && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h3 className="font-semibold text-blue-900 text-sm">
+            📋 同一郵便番号・異なる患者（同居家族候補）— {sameAddressGroups.length}グループ
+          </h3>
+          <div className="mt-2 space-y-1.5">
+            {sameAddressGroups.map((g, i) => (
+              <div key={i} className="flex items-center gap-2 text-sm text-blue-800">
+                <span className="font-mono text-blue-600">〒{g.postal_code}</span>
+                <span>{g.patient_names.join("、")}</span>
+                <span className="text-blue-500">({g.count}件)</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-blue-600">※ 参考情報です。同居家族等の可能性がある場合はモーダルで配送先を確認してください。</p>
         </div>
       )}
 
