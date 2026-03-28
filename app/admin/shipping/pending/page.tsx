@@ -26,6 +26,7 @@ interface Order {
 interface MergeableGroup {
   patient_id: string;
   patient_name: string;
+  postal_code: string;
   count: number;
   orders: Order[];
 }
@@ -37,6 +38,7 @@ export default function ShippingPendingPage() {
   const mergeableGroups = data?.mergeableGroups || [];
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const [editCreatedMode, setEditCreatedMode] = useState(false);
+  const [showMergeModal, setShowMergeModal] = useState(false);
 
   // 過去発送履歴
   type HistoryRange = "week" | "month" | "custom";
@@ -164,17 +166,100 @@ export default function ShippingPendingPage() {
       )}
 
       {mergeableGroups.length > 0 && (
-        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <h3 className="font-semibold text-yellow-900 mb-2">
-            ⚠️ まとめ配送候補（同一患者の複数注文）
-          </h3>
-          <ul className="space-y-1 text-sm text-yellow-800">
-            {mergeableGroups.map((group) => (
-              <li key={group.patient_id}>
-                {group.patient_name} ({group.patient_id}) - {group.count}件の注文
-              </li>
-            ))}
-          </ul>
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-yellow-900">
+              ⚠️ まとめ配送候補（同一住所の複数注文）— {mergeableGroups.length}グループ
+            </h3>
+            <p className="text-sm text-yellow-700 mt-1">同一郵便番号の注文が複数あります。配送先を確認してください。</p>
+          </div>
+          <button
+            onClick={() => setShowMergeModal(true)}
+            className="shrink-0 ml-4 px-4 py-2 bg-yellow-600 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 transition"
+          >
+            詳細を確認
+          </button>
+        </div>
+      )}
+
+      {/* 統合候補確認モーダル */}
+      {showMergeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowMergeModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+              <h2 className="text-lg font-bold text-slate-900">まとめ配送候補 — 配送先確認</h2>
+              <button onClick={() => setShowMergeModal(false)} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
+            </div>
+            <div className="overflow-y-auto px-6 py-4 space-y-6" style={{ maxHeight: "calc(80vh - 120px)" }}>
+              {mergeableGroups.map((group, gi) => (
+                <div key={gi} className="rounded-lg border border-yellow-200 bg-yellow-50/50 overflow-hidden">
+                  <div className="bg-yellow-100/80 px-4 py-3 flex items-center justify-between">
+                    <div>
+                      <span className="font-bold text-yellow-900">{group.patient_name}</span>
+                      <span className="ml-2 text-sm text-yellow-700">〒{group.postal_code}</span>
+                      <span className="ml-2 text-sm text-yellow-600">{group.count}件の注文</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const ids = new Set(selectedOrderIds);
+                        group.orders.forEach(o => ids.add(o.id));
+                        setSelectedOrderIds(ids);
+                        setShowMergeModal(false);
+                      }}
+                      className="px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded-lg hover:bg-yellow-700 transition"
+                    >
+                      まとめて選択
+                    </button>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-yellow-200 text-xs text-slate-500">
+                        <th className="px-4 py-2 text-left">患者名</th>
+                        <th className="px-4 py-2 text-left">商品</th>
+                        <th className="px-4 py-2 text-left">金額</th>
+                        <th className="px-4 py-2 text-left">郵便番号</th>
+                        <th className="px-4 py-2 text-left">住所</th>
+                        <th className="px-4 py-2 text-left">電話番号</th>
+                        <th className="px-4 py-2 text-left">決済日</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.orders.map((o) => (
+                        <tr key={o.id} className="border-b border-yellow-100 last:border-0">
+                          <td className="px-4 py-2 font-medium text-slate-700">{o.patient_name}</td>
+                          <td className="px-4 py-2 text-slate-600">{o.product_name}</td>
+                          <td className="px-4 py-2 text-slate-700">¥{o.amount?.toLocaleString()}</td>
+                          <td className="px-4 py-2 text-slate-600">{o.postal_code}</td>
+                          <td className="px-4 py-2 text-slate-600 max-w-[200px] truncate">{o.address}</td>
+                          <td className="px-4 py-2 text-slate-600">{o.phone}</td>
+                          <td className="px-4 py-2 text-slate-500">{new Date(o.payment_date).toLocaleDateString("ja-JP")}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
+              <button
+                onClick={() => setShowMergeModal(false)}
+                className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition"
+              >
+                閉じる
+              </button>
+              <button
+                onClick={() => {
+                  const ids = new Set(selectedOrderIds);
+                  mergeableGroups.forEach(g => g.orders.forEach(o => ids.add(o.id)));
+                  setSelectedOrderIds(ids);
+                  setShowMergeModal(false);
+                }}
+                className="px-4 py-2 text-sm font-medium bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition"
+              >
+                全グループをまとめて選択
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
