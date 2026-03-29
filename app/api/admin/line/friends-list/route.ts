@@ -196,7 +196,8 @@ export async function GET(req: NextRequest) {
       supabaseAdmin
         .from("chat_reads")
         .select("patient_id, read_at")
-        .eq("tenant_id", effectiveTenantId),
+        .eq("tenant_id", effectiveTenantId)
+        .limit(100000),
     ]);
     const reads: Record<string, string> = {};
     for (const row of crRes.data || []) reads[row.patient_id] = row.read_at;

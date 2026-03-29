@@ -227,11 +227,31 @@ export function useFriendsList(state: TalkState) {
     }, 150);
   }, [serverHasMore, friendsSearching, fetchFriends, searchId, searchName, showUnreadOnly, listRef, scrollTimerRef, friendsOffsetRef, setFriendsSearching]);
 
-  // 検索デバウンス（showUnreadOnly変更時も再取得）
+  // 検索デバウンス（テキスト検索は300ms、showUnreadOnly切替は即座に取得）
   const isDebouncingRef = useRef(false);
+  const prevUnreadOnlyRef = useRef(showUnreadOnly);
+  const prevSearchIdRef = useRef(searchId);
+  const prevSearchNameRef = useRef(searchName);
   useEffect(() => {
     if (!pinsReadyRef.current) return;
     if (friendsSearchTimer.current) clearTimeout(friendsSearchTimer.current);
+
+    // showUnreadOnly切替はデバウンスなしで即座にfetch（60件→5件フラッシュ防止）
+    const unreadChanged = prevUnreadOnlyRef.current !== showUnreadOnly;
+    const textChanged = prevSearchIdRef.current !== searchId || prevSearchNameRef.current !== searchName;
+    prevUnreadOnlyRef.current = showUnreadOnly;
+    prevSearchIdRef.current = searchId;
+    prevSearchNameRef.current = searchName;
+
+    if (unreadChanged && !textChanged) {
+      // チェックボックス切替 → 即座にfetch（リストをクリアしてローディング表示）
+      setFriends([]);
+      setFriendsSearching(true);
+      fetchFriends({ id: searchId, name: searchName, unreadOnly: showUnreadOnly });
+      return;
+    }
+
+    // テキスト検索 → 300msデバウンス
     isDebouncingRef.current = true;
     setFriendsSearching(true);
     friendsSearchTimer.current = setTimeout(() => {
