@@ -73,7 +73,7 @@ export default function FriendListColumn() {
               onChange={(e) => ctx.setShowUnreadOnly(e.target.checked)}
               className="w-3 h-3 accent-[#00B900] rounded"
             />
-            <span className="text-[10px] text-gray-500">未読のみ（{ctx.unreadCount}件）</span>
+            <span className="text-[10px] text-gray-500">未読のみ（{ctx.showUnreadOnly ? ctx.filteredFriends.length : ctx.unreadCount}件）</span>
           </label>
         </div>
       </div>
