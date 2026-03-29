@@ -14,20 +14,11 @@ export async function GET(req: NextRequest) {
 
     const tenantId = resolveTenantIdOrThrow(req);
 
-    // 今日の0時〜23:59:59の範囲
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStart = today.toISOString();
+    console.log(`[TodayShipped] Fetching orders with shipping_list_created_at set and shipping_status=pending`);
 
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStart = tomorrow.toISOString();
-
-    console.log(`[TodayShipped] Fetching orders with shipping_list_created_at between ${todayStart} and ${tomorrowStart}`);
-
-    // 本日shipping_list_created_atが設定された注文を取得
+    // ラベル作成済み＆追跡未付与（pending）の注文を取得（日付不問）
     const { data: orders, error: ordersError } = await strictWithTenant(
-      supabaseAdmin.from("orders").select("id, patient_id, tracking_number").gte("shipping_list_created_at", todayStart).lt("shipping_list_created_at", tomorrowStart).order("shipping_list_created_at", { ascending: true }),
+      supabaseAdmin.from("orders").select("id, patient_id, tracking_number, shipping_list_created_at").not("shipping_list_created_at", "is", null).eq("shipping_status", "pending").order("shipping_list_created_at", { ascending: true }),
       tenantId
     );
 

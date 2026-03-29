@@ -153,27 +153,33 @@ export default function TrackingNumberPage() {
       const data = await res.json();
 
       // 既存のpreviewResultがある場合（本日発送分を読み込み済み）、マージする
-      if (previewResult) {
+      if (previewResult && previewResult.entries.length > 0) {
         // CSVの追跡番号をマップに変換
-        const csvTrackingMap = new Map<string, string>();
+        const csvTrackingMap = new Map<string, TrackingEntry>();
         data.entries.forEach((entry: TrackingEntry) => {
           if (entry.tracking_number) {
-            csvTrackingMap.set(entry.payment_id, entry.tracking_number);
+            csvTrackingMap.set(entry.payment_id, entry);
           }
         });
 
         // 既存のentriesを更新
         const mergedEntries = previewResult.entries.map((entry) => {
-          const csvTracking = csvTrackingMap.get(entry.payment_id);
-          if (csvTracking) {
+          const csvEntry = csvTrackingMap.get(entry.payment_id);
+          if (csvEntry) {
+            csvTrackingMap.delete(entry.payment_id); // マージ済みを除外
             return {
               ...entry,
-              tracking_number: csvTracking,
+              tracking_number: csvEntry.tracking_number,
               matched: true,
             };
           }
           return entry;
         });
+
+        // CSVにあって本日発送分にないエントリも追加（昨日分など）
+        for (const csvEntry of csvTrackingMap.values()) {
+          mergedEntries.push(csvEntry);
+        }
 
         setPreviewResult({
           entries: mergedEntries,
@@ -184,7 +190,7 @@ export default function TrackingNumberPage() {
           },
         });
       } else {
-        // 本日発送分を読み込んでいない場合は、そのまま設定
+        // 本日発送分が空 or 未読み込みの場合は、CSVデータをそのまま設定
         setPreviewResult(data);
       }
     } catch (err) {
@@ -386,10 +392,10 @@ export default function TrackingNumberPage() {
 
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-lg font-semibold text-slate-900 mb-4">
-          1. 本日発送分（ラベル作成済み）
+          1. 追跡番号 未付与（ラベル作成済み）
         </h2>
         <p className="text-sm text-slate-600 mb-4">
-          本日Yamato B2 CSVを出力した全注文を自動表示しています。まとめ配送で消えたpayment_idも含まれます。
+          ラベル作成済みで追跡番号が未付与の全注文を自動表示しています。まとめ配送で消えたpayment_idも含まれます。
         </p>
         <div className="flex items-center gap-4">
           <button
