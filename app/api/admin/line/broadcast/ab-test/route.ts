@@ -74,22 +74,21 @@ export async function POST(req: NextRequest) {
     return serverError("配信レコード作成失敗");
   }
 
-  // 次回予約情報の取得
-  const allIds = sendable.map(t => t.patient_id);
+  // 次回予約情報の取得（テナント全件取得→JSフィルタ — .in()はURL長制限でサイレント失敗するため）
+  const targetPidsSet = new Set(sendable.map(t => t.patient_id));
   const nextReservationMap = new Map<string, { date: string; time: string }>();
-  if (allIds.length > 0) {
+  if (targetPidsSet.size > 0) {
     const { data: reservations } = await strictWithTenant(
       supabaseAdmin
         .from("reservations")
         .select("patient_id, reserved_date, reserved_time")
-        .in("patient_id", allIds)
         .neq("status", "canceled")
         .gte("reserved_date", new Date().toISOString().split("T")[0])
         .order("reserved_date", { ascending: true }),
       tenantId
     );
     for (const r of reservations || []) {
-      if (!nextReservationMap.has(r.patient_id)) {
+      if (targetPidsSet.has(r.patient_id) && !nextReservationMap.has(r.patient_id)) {
         nextReservationMap.set(r.patient_id, { date: r.reserved_date, time: r.reserved_time?.substring(0, 5) || "" });
       }
     }

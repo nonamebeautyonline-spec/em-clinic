@@ -44,17 +44,20 @@ export async function POST(
   let distributed = 0;
   let sent = 0;
 
-  // 既に配布済みの患者を一括取得
-  const targetIds = withLineId.map(t => t.patient_id);
+  // 既に配布済みの患者を一括取得（テナント全件取得→JSフィルタ — .in()はURL長制限でサイレント失敗するため）
+  const targetIdSet = new Set(withLineId.map(t => t.patient_id));
   const { data: existingIssues } = await strictWithTenant(
     supabaseAdmin.from("coupon_issues")
       .select("patient_id")
       .eq("coupon_id", coupon.id)
-      .in("patient_id", targetIds)
       .eq("status", "issued"),
     tenantId
   );
-  const alreadyIssuedSet = new Set((existingIssues || []).map((e: { patient_id: string }) => e.patient_id));
+  const alreadyIssuedSet = new Set(
+    (existingIssues || [])
+      .filter((e: { patient_id: string }) => targetIdSet.has(e.patient_id))
+      .map((e: { patient_id: string }) => e.patient_id)
+  );
 
   // 未配布の対象者のみ抽出
   const newTargets = withLineId.filter(t => !alreadyIssuedSet.has(t.patient_id));
