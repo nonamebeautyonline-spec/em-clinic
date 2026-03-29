@@ -268,7 +268,7 @@ export async function GET(req: NextRequest) {
     const tRpc = Date.now();
 
     console.log("[friends-list] unread fast path:", { unread: total, ms: tRpc - tUnreadStart });
-    return await buildResponse(req, paged, hasMoreUnread, total, effectiveTenantId, tenantId, pinIdsRaw, searchId, searchName, offset, t0, tAuth, tRpc, false, true, true);
+    return await buildResponse(req, paged, hasMoreUnread, total, effectiveTenantId, tenantId, pinIdsRaw, searchId, searchName, offset, t0, tAuth, tRpc, false, true);
   }
 
   // 未読フィルタ用: chat_reads を事前取得（他フィルタとの組み合わせ時）
@@ -362,11 +362,10 @@ async function buildResponse(
   tRpc: number,
   cacheHit: boolean,
   hasFilter: boolean,
-  isUnreadOnly?: boolean,
 ) {
   // ピン留め患者を補完（初回ロード時のみ、メイン結果に含まれないピンを別途取得）
-  // 未読フィルタ時もピン留めは常に表示するため補完する
-  if (pinIdsRaw && !searchId && !searchName && offset === 0 && (!hasFilter || isUnreadOnly)) {
+  // 未読フィルタ時はピン補完しない（未読の友だちのみ表示）
+  if (pinIdsRaw && !searchId && !searchName && offset === 0 && !hasFilter) {
     const pinIds = pinIdsRaw.split(",").filter(Boolean);
     const existingIds = new Set(patients.map((p: { patient_id: string }) => p.patient_id));
     const missingPinIds = pinIds.filter(id => !existingIds.has(id));
