@@ -195,6 +195,17 @@ vi.mock("@/lib/line-richmenu", () => ({
   linkRichMenuToUser: vi.fn().mockResolvedValue(true),
 }));
 
+vi.mock("@/lib/patient-session", () => ({
+  createPatientToken: vi.fn().mockResolvedValue("mock-jwt-token"),
+  patientSessionCookieOptions: vi.fn().mockReturnValue({
+    httpOnly: true,
+    secure: true,
+    sameSite: "none" as const,
+    path: "/",
+    maxAge: 365 * 24 * 60 * 60,
+  }),
+}));
+
 import { POST as personalInfoPOST } from "@/app/api/register/personal-info/route";
 
 function createPersonalInfoRequest(body: Record<string, unknown>, cookies: Record<string, string> = {}) {

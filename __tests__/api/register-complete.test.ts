@@ -66,6 +66,17 @@ vi.mock("@/lib/validations/register", () => ({
   registerCompleteSchema: {},
 }));
 
+vi.mock("@/lib/patient-session", () => ({
+  createPatientToken: vi.fn().mockResolvedValue("mock-jwt-token"),
+  patientSessionCookieOptions: vi.fn().mockReturnValue({
+    httpOnly: true,
+    secure: true,
+    sameSite: "none" as const,
+    path: "/",
+    maxAge: 365 * 24 * 60 * 60,
+  }),
+}));
+
 const mockExecuteLifecycleActions = vi.fn().mockResolvedValue({ actionDetails: [] });
 vi.mock("@/lib/lifecycle-actions", () => ({
   executeLifecycleActions: (...args: unknown[]) => mockExecuteLifecycleActions(...args),
