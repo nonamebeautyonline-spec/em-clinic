@@ -283,43 +283,69 @@ export function useFriendsList(state: TalkState) {
     return () => { if (msgSearchTimer.current) clearTimeout(msgSearchTimer.current); };
   }, [searchMessage, executeMessageSearch, clearMessageSearch, setMsgSearching, msgSearchTimer]);
 
-  // 友だちリストポーリング
-  const pollFriendsList = useCallback(async () => {
-    try {
-      const pinsRes = await fetch("/api/admin/pins", { credentials: "include" });
-      const pinsData = await pinsRes.json();
-      if (Array.isArray(pinsData.pins)) {
-        const newPins: string[] = pinsData.pins;
-        if (JSON.stringify(newPins) !== JSON.stringify(pinnedIdsRef.current)) {
-          setPinnedIds(newPins);
-          pinnedIdsRef.current = newPins;
-        }
-      }
-
-      const params = new URLSearchParams();
-      if (searchId) params.set("id", searchId);
-      if (searchName) params.set("name", searchName);
-      params.set("offset", "0");
-      params.set("limit", String(Math.max(50, friends.length)));
-      const pinIds = pinnedIdsRef.current;
-      if (pinIds.length > 0 && !searchId && !searchName) {
-        params.set("pin_ids", pinIds.join(","));
-      }
-      if (showUnreadOnly) params.set("unread_only", "true");
-      const res = await fetch(`/api/admin/line/friends-list?${params}`, { credentials: "include" });
-      const data = await res.json();
-      if (data.patients) {
-        setFriends(data.patients);
-        friendsOffsetRef.current = data.patients.length;
-        setServerHasMore(!!data.hasMore);
-      }
-    } catch { /* ignore */ }
-  }, [searchId, searchName, showUnreadOnly, friends.length, setPinnedIds, pinnedIdsRef, setFriends, friendsOffsetRef, setServerHasMore]);
+  // 友だちリストポーリング（AbortController でインターバル再作成時に実行中リクエストをキャンセル）
+  const showUnreadOnlyRef = useRef(showUnreadOnly);
+  showUnreadOnlyRef.current = showUnreadOnly;
+  const searchIdRef = useRef(searchId);
+  searchIdRef.current = searchId;
+  const searchNameRef = useRef(searchName);
+  searchNameRef.current = searchName;
+  const friendsLengthRef = useRef(friends.length);
+  friendsLengthRef.current = friends.length;
 
   useEffect(() => {
-    const interval = setInterval(pollFriendsList, 15000);
-    return () => clearInterval(interval);
-  }, [pollFriendsList]);
+    const abortController = new AbortController();
+    const signal = abortController.signal;
+
+    const poll = async () => {
+      try {
+        const pinsRes = await fetch("/api/admin/pins", { credentials: "include", signal });
+        const pinsData = await pinsRes.json();
+        if (Array.isArray(pinsData.pins)) {
+          const newPins: string[] = pinsData.pins;
+          if (JSON.stringify(newPins) !== JSON.stringify(pinnedIdsRef.current)) {
+            setPinnedIds(newPins);
+            pinnedIdsRef.current = newPins;
+          }
+        }
+
+        // ref から最新値を取得（クロージャの古い値を使わない）
+        const curSearchId = searchIdRef.current;
+        const curSearchName = searchNameRef.current;
+        const curUnreadOnly = showUnreadOnlyRef.current;
+
+        const params = new URLSearchParams();
+        if (curSearchId) params.set("id", curSearchId);
+        if (curSearchName) params.set("name", curSearchName);
+        params.set("offset", "0");
+        params.set("limit", String(Math.max(50, friendsLengthRef.current)));
+        const pinIds = pinnedIdsRef.current;
+        if (pinIds.length > 0 && !curSearchId && !curSearchName) {
+          params.set("pin_ids", pinIds.join(","));
+        }
+        if (curUnreadOnly) params.set("unread_only", "true");
+        const res = await fetch(`/api/admin/line/friends-list?${params}`, { credentials: "include", signal });
+        const data = await res.json();
+        if (signal.aborted) return; // キャンセルされた場合は結果を破棄
+        if (data.patients) {
+          setFriends(data.patients);
+          friendsOffsetRef.current = data.patients.length;
+          setServerHasMore(!!data.hasMore);
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        /* ignore other errors */
+      }
+    };
+
+    const interval = setInterval(poll, 15000);
+    return () => {
+      clearInterval(interval);
+      abortController.abort();
+    };
+  // ポーリングはref経由で最新値を参照するため、deps は安定したsetterのみ
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setPinnedIds, pinnedIdsRef, setFriends, friendsOffsetRef, setServerHasMore]);
 
   return {
     fetchFriends,

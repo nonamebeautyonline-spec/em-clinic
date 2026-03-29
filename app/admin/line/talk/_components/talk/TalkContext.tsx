@@ -158,7 +158,7 @@ export interface TalkContextValue {
   // ハンドラ
   selectPatient: (friend: Friend) => void;
   togglePin: (patientId: string) => void;
-  fetchFriends: (opts?: { id?: string; name?: string; offset?: number; append?: boolean; pinIds?: string[] }) => Promise<void>;
+  fetchFriends: (opts?: { id?: string; name?: string; offset?: number; append?: boolean; pinIds?: string[]; unreadOnly?: boolean }) => Promise<void>;
   handleListScroll: () => void;
   handleTouchStart: (e: React.TouchEvent) => void;
   handleTouchMove: (e: React.TouchEvent) => void;
