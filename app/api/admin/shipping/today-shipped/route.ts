@@ -16,9 +16,9 @@ export async function GET(req: NextRequest) {
 
     console.log(`[TodayShipped] Fetching orders with shipping_list_created_at set and shipping_status=pending`);
 
-    // ラベル作成済み＆追跡未付与（pending）の注文を取得（日付不問）
+    // ラベル作成済み＆追跡未付与（pending）の注文を取得（日付不問、返金済み除外）
     const { data: orders, error: ordersError } = await strictWithTenant(
-      supabaseAdmin.from("orders").select("id, patient_id, tracking_number, shipping_list_created_at").not("shipping_list_created_at", "is", null).eq("shipping_status", "pending").order("shipping_list_created_at", { ascending: true }),
+      supabaseAdmin.from("orders").select("id, patient_id, tracking_number, shipping_list_created_at").not("shipping_list_created_at", "is", null).eq("shipping_status", "pending").is("tracking_number", null).or("refund_status.is.null,refund_status.neq.COMPLETED").order("shipping_list_created_at", { ascending: true }),
       tenantId
     );
 
