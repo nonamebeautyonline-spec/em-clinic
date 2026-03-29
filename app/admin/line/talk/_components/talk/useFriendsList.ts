@@ -70,20 +70,21 @@ export function useFriendsList(state: TalkState) {
     }
   }, [pinnedIds, savePins]);
 
-  // 友達一覧取得
-  const fetchFriends = useCallback(async (opts?: { id?: string; name?: string; offset?: number; append?: boolean; pinIds?: string[]; unreadOnly?: boolean }) => {
-    const id = opts?.id ?? "";
-    const name = opts?.name ?? "";
+  // 友達一覧取得（引数省略時は現在のstate値を使用 → ポーリングからの呼び出しが安全）
+  const fetchFriends = useCallback(async (opts?: { id?: string; name?: string; offset?: number; append?: boolean; pinIds?: string[]; unreadOnly?: boolean; limit?: number }) => {
+    const id = opts?.id ?? searchId;
+    const name = opts?.name ?? searchName;
     const offset = opts?.offset ?? 0;
     const append = opts?.append ?? false;
     const pinIds = opts?.pinIds ?? pinnedIdsRef.current;
-    const unreadOnlyParam = opts?.unreadOnly ?? false;
+    const unreadOnlyParam = opts?.unreadOnly ?? showUnreadOnly;
+    const fetchLimit = opts?.limit ?? PAGE_SIZE;
     try {
       const params = new URLSearchParams();
       if (id) params.set("id", id);
       if (name) params.set("name", name);
       params.set("offset", String(offset));
-      params.set("limit", String(PAGE_SIZE));
+      params.set("limit", String(fetchLimit));
       if (pinIds && pinIds.length > 0 && !id && !name && offset === 0) {
         params.set("pin_ids", pinIds.join(","));
       }
@@ -109,7 +110,7 @@ export function useFriendsList(state: TalkState) {
     } catch { /* ignore */ }
     setFriendsLoading(false);
     setFriendsSearching(false);
-  }, [setFriends, friendsOffsetRef, setServerHasMore, setFriendsLoading, setFriendsSearching, pinnedIdsRef]);
+  }, [searchId, searchName, showUnreadOnly, setFriends, friendsOffsetRef, setServerHasMore, setFriendsLoading, setFriendsSearching, pinnedIdsRef]);
   const fetchFriendsRef = useRef(fetchFriends);
   fetchFriendsRef.current = fetchFriends;
 
@@ -165,26 +166,10 @@ export function useFriendsList(state: TalkState) {
       const colData = await colRes.json();
       if (colData.sections) setVisibleSections(colData.sections);
     } catch { /* ignore */ }
-    // ピン取得完了 → ピン付きで友達一覧を直接取得
-    try {
-      const params = new URLSearchParams();
-      params.set("offset", "0");
-      params.set("limit", String(PAGE_SIZE));
-      if (pinnedIdsRef.current.length > 0) {
-        params.set("pin_ids", pinnedIdsRef.current.join(","));
-      }
-      const friendsRes = await fetch(`/api/admin/line/friends-list?${params}`, { credentials: "include" });
-      const friendsData = await friendsRes.json();
-      if (friendsData.patients) {
-        setFriends(friendsData.patients);
-        friendsOffsetRef.current = friendsData.patients.length;
-        setServerHasMore(!!friendsData.hasMore);
-        try { sessionStorage.setItem("friends-list-cache", JSON.stringify(friendsData.patients)); } catch { /* quota */ }
-      }
-    } catch { /* ignore */ }
-    setFriendsLoading(false);
+    // ピン取得完了 → fetchFriends経由で友達一覧を取得（初期化時は検索/フィルタなし）
     pinsReadyRef.current = true;
-  }, [setPinnedIds, pinnedIdsRef, setReadTimestamps, setVisibleSections, setFriends, friendsOffsetRef, setServerHasMore, setFriendsLoading, pinsReadyRef]);
+    await fetchFriendsRef.current({ id: "", name: "", unreadOnly: false });
+  }, [setPinnedIds, pinnedIdsRef, setReadTimestamps, setVisibleSections, pinsReadyRef]);
 
   useEffect(() => {
     if (initialPinnedIds !== undefined) {
@@ -243,14 +228,20 @@ export function useFriendsList(state: TalkState) {
   }, [serverHasMore, friendsSearching, fetchFriends, searchId, searchName, showUnreadOnly, listRef, scrollTimerRef, friendsOffsetRef, setFriendsSearching]);
 
   // 検索デバウンス（showUnreadOnly変更時も再取得）
+  const isDebouncingRef = useRef(false);
   useEffect(() => {
     if (!pinsReadyRef.current) return;
     if (friendsSearchTimer.current) clearTimeout(friendsSearchTimer.current);
+    isDebouncingRef.current = true;
     setFriendsSearching(true);
     friendsSearchTimer.current = setTimeout(() => {
+      isDebouncingRef.current = false;
       fetchFriends({ id: searchId, name: searchName, unreadOnly: showUnreadOnly });
     }, 300);
-    return () => { if (friendsSearchTimer.current) clearTimeout(friendsSearchTimer.current); };
+    return () => {
+      if (friendsSearchTimer.current) clearTimeout(friendsSearchTimer.current);
+      isDebouncingRef.current = false;
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- pinnedIdsの変更で再検索は不要
   }, [searchId, searchName, showUnreadOnly, fetchFriends]);
 
@@ -283,23 +274,17 @@ export function useFriendsList(state: TalkState) {
     return () => { if (msgSearchTimer.current) clearTimeout(msgSearchTimer.current); };
   }, [searchMessage, executeMessageSearch, clearMessageSearch, setMsgSearching, msgSearchTimer]);
 
-  // 友だちリストポーリング（AbortController でインターバル再作成時に実行中リクエストをキャンセル）
-  const showUnreadOnlyRef = useRef(showUnreadOnly);
-  showUnreadOnlyRef.current = showUnreadOnly;
-  const searchIdRef = useRef(searchId);
-  searchIdRef.current = searchId;
-  const searchNameRef = useRef(searchName);
-  searchNameRef.current = searchName;
-  const friendsLengthRef = useRef(friends.length);
-  friendsLengthRef.current = friends.length;
-
+  // 友だちリストポーリング（fetchFriends一元化 + デバウンス中スキップ）
   useEffect(() => {
-    const abortController = new AbortController();
-    const signal = abortController.signal;
+    const ac = new AbortController();
 
     const poll = async () => {
+      // デバウンス中はスキップ（デバウンス側の結果を優先）
+      if (isDebouncingRef.current) return;
+
+      // ピン同期（他タブ/他ユーザーからの変更を検知）
       try {
-        const pinsRes = await fetch("/api/admin/pins", { credentials: "include", signal });
+        const pinsRes = await fetch("/api/admin/pins", { credentials: "include", signal: ac.signal });
         const pinsData = await pinsRes.json();
         if (Array.isArray(pinsData.pins)) {
           const newPins: string[] = pinsData.pins;
@@ -308,46 +293,21 @@ export function useFriendsList(state: TalkState) {
             pinnedIdsRef.current = newPins;
           }
         }
-
-        // ref から最新値を取得（クロージャの古い値を使わない）
-        const curSearchId = searchIdRef.current;
-        const curSearchName = searchNameRef.current;
-        const curUnreadOnly = showUnreadOnlyRef.current;
-
-        const params = new URLSearchParams();
-        if (curSearchId) params.set("id", curSearchId);
-        if (curSearchName) params.set("name", curSearchName);
-        params.set("offset", "0");
-        params.set("limit", String(Math.max(50, friendsLengthRef.current)));
-        const pinIds = pinnedIdsRef.current;
-        if (pinIds.length > 0 && !curSearchId && !curSearchName) {
-          params.set("pin_ids", pinIds.join(","));
-        }
-        if (curUnreadOnly) params.set("unread_only", "true");
-        const res = await fetch(`/api/admin/line/friends-list?${params}`, { credentials: "include", signal });
-        const data = await res.json();
-        if (signal.aborted) return;
-        // リクエスト中に条件が変わっていたら結果を破棄（デバウンス側の結果を優先）
-        if (curSearchId !== searchIdRef.current || curSearchName !== searchNameRef.current || curUnreadOnly !== showUnreadOnlyRef.current) return;
-        if (data.patients) {
-          setFriends(data.patients);
-          friendsOffsetRef.current = data.patients.length;
-          setServerHasMore(!!data.hasMore);
-        }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
-        /* ignore other errors */
       }
+      if (ac.signal.aborted) return;
+
+      // 友だちリスト更新（fetchFriends再利用 — 引数なし=現在のstate値を使用）
+      // limit: 現在表示中の件数以上を取得（リスト縮小を防止）
+      await fetchFriendsRef.current({ limit: Math.max(PAGE_SIZE, friendsOffsetRef.current) });
     };
 
     const interval = setInterval(poll, 15000);
-    return () => {
-      clearInterval(interval);
-      abortController.abort();
-    };
-  // ポーリングはref経由で最新値を参照するため、deps は安定したsetterのみ
+    return () => { clearInterval(interval); ac.abort(); };
+  // fetchFriendsRef経由で最新クロージャを参照するため、deps は安定したsetterのみ
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setPinnedIds, pinnedIdsRef, setFriends, friendsOffsetRef, setServerHasMore]);
+  }, [setPinnedIds, pinnedIdsRef, friendsOffsetRef]);
 
   return {
     fetchFriends,
