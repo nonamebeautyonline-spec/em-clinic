@@ -132,13 +132,22 @@ export async function POST(req: NextRequest) {
     let paySourceId = sourceId;
     let customerId: string | undefined;
 
-    // カード保存フラグ（決済成功後に非同期で保存を試みる）
-    let shouldSaveCard = false;
-
     if (isNonce) {
-      // nonceで直接決済（フロントが送ったnonceをそのまま使う）
       customerId = (await ensureSquareCustomer(baseUrl, accessToken, patientId, tenantId)) ?? undefined;
-      if (saveCard) shouldSaveCard = true;
+
+      // カード保存: nonceが有効なうちに先にCards APIで保存 → card_id で決済
+      // （nonceは1回しか使えないため、決済後の payment_id からでは保存できない）
+      if (saveCard && customerId) {
+        try {
+          const savedCardId = await saveCardOnFile(baseUrl, accessToken, patientId, sourceId, tenantId);
+          if (savedCardId) {
+            paySourceId = savedCardId;
+          }
+        } catch (e) {
+          // カード保存失敗でもnonce決済にフォールバック（決済を止めない）
+          console.error("[square/pay] card save error (fallback to nonce):", e);
+        }
+      }
     } else {
       // 2回目以降: card_id で直接決済
       // customer_id 取得 + カードID所有権検証
@@ -224,14 +233,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 決済成功後に payment_id でカード保存（失敗しても決済結果には影響しない）
-    if (shouldSaveCard) {
-      try {
-        await saveCardOnFile(baseUrl, accessToken, patientId, paymentId, tenantId);
-      } catch (e) {
-        console.error("[square/pay] card save error:", e);
-      }
-    }
 
     // 決済完了サンクスFlex送信
     try {
