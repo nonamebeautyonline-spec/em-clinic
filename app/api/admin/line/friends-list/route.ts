@@ -183,7 +183,95 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // 未読フィルタ用: chat_reads を事前取得
+  // 未読フィルタ専用高速パス（全件ループ不要）
+  if (unreadOnly && !tagFilter && !markFilter && !lineStatus) {
+    const tUnreadStart = Date.now();
+    // 1. 未読patient_idをDBから直接取得（friend_summaries と chat_reads を比較）
+    const [fsRes, crRes] = await Promise.all([
+      supabaseAdmin
+        .from("friend_summaries")
+        .select("patient_id, last_msg_at, last_msg_content, last_incoming_at, last_template_content, last_event_content, last_event_type, last_event_at, last_outgoing_content, last_outgoing_at")
+        .eq("tenant_id", effectiveTenantId)
+        .not("last_msg_at", "is", null),
+      supabaseAdmin
+        .from("chat_reads")
+        .select("patient_id, read_at")
+        .eq("tenant_id", effectiveTenantId),
+    ]);
+    const reads: Record<string, string> = {};
+    for (const row of crRes.data || []) reads[row.patient_id] = row.read_at;
+
+    // 未読のみ抽出
+    const unreadRows = (fsRes.data || []).filter(row => {
+      const readAt = reads[row.patient_id];
+      return !readAt || row.last_msg_at! > readAt;
+    });
+
+    if (unreadRows.length === 0) {
+      const tEnd = Date.now();
+      return NextResponse.json({
+        patients: [], hasMore: false, total: 0,
+        _timing: { auth_ms: tAuth - t0, total_ms: tEnd - t0, rows: 0 },
+      });
+    }
+
+    // 2. 未読患者の詳細情報を取得
+    const unreadIds = unreadRows.map(r => r.patient_id);
+    const [ptRes, pmRes] = await Promise.all([
+      supabaseAdmin
+        .from("patients")
+        .select("patient_id, name, line_id, line_display_name, line_picture_url")
+        .in("patient_id", unreadIds)
+        .eq("tenant_id", effectiveTenantId),
+      supabaseAdmin
+        .from("patient_marks")
+        .select("patient_id, mark")
+        .in("patient_id", unreadIds)
+        .eq("tenant_id", effectiveTenantId),
+    ]);
+    const ptMap = new Map((ptRes.data || []).map(r => [r.patient_id, r]));
+    const pmMap = new Map((pmRes.data || []).map(r => [r.patient_id, r.mark]));
+
+    // 3. transformRow で統一フォーマットに変換（last_msg_at降順ソート）
+    const sorted = [...unreadRows].sort((a, b) => (a.last_msg_at! > b.last_msg_at! ? -1 : 1));
+    const patients = sorted.map(fs => {
+      const pt = ptMap.get(fs.patient_id);
+      return transformRow({
+        patient_id: fs.patient_id,
+        patient_name: pt?.name || "",
+        line_id: pt?.line_id || null,
+        line_display_name: pt?.line_display_name || null,
+        line_picture_url: pt?.line_picture_url || null,
+        mark: pmMap.get(fs.patient_id) || "none",
+        last_msg_content: fs.last_msg_content,
+        last_msg_at: fs.last_msg_at,
+        last_incoming_at: fs.last_incoming_at,
+        last_template_content: fs.last_template_content,
+        last_event_content: fs.last_event_content,
+        last_event_type: fs.last_event_type,
+        last_event_at: fs.last_event_at,
+        last_outgoing_content: fs.last_outgoing_content,
+        last_outgoing_at: fs.last_outgoing_at,
+      });
+    });
+
+    // 名前/ID検索も適用
+    const filtered = patients.filter(p => {
+      if (searchId && !p.patient_id.includes(searchId)) return false;
+      if (searchName && !p.patient_name.includes(searchName)) return false;
+      return true;
+    });
+
+    const total = filtered.length;
+    const paged = filtered.slice(offset, offset + limit);
+    const hasMoreUnread = offset + limit < total;
+    const tRpc = Date.now();
+
+    console.log("[friends-list] unread fast path:", { unread: total, ms: tRpc - tUnreadStart });
+    return await buildResponse(req, paged, hasMoreUnread, total, effectiveTenantId, tenantId, pinIdsRaw, searchId, searchName, offset, t0, tAuth, tRpc, false, true);
+  }
+
+  // 未読フィルタ用: chat_reads を事前取得（他フィルタとの組み合わせ時）
   let unreadReadMap: Record<string, string> | null = null;
   if (unreadOnly) {
     const { data: crData } = await supabaseAdmin
@@ -204,12 +292,8 @@ export async function GET(req: NextRequest) {
 
   let { patients, tRpc, cacheHit } = result;
 
-  // フィルタ適用（tag, mark, line_status, unread_only）
+  // フィルタ適用（tag, mark, line_status, unread_only の組み合わせ）
   if (hasFilter) {
-    // フィルタ時は RPC の結果を後フィルタし、正確なページネーションのため
-    // RPC から全件取得して手動でフィルタ + ページング
-    // （パフォーマンス改善は将来 RPC にフィルタ条件を追加して対応）
-
     // 全件取得のため、RPC を再帰的に呼び出して全データを収集
     let allPatients = [...patients];
     let currentOffset = fetchLimit;
@@ -221,27 +305,20 @@ export async function GET(req: NextRequest) {
       allPatients = [...allPatients, ...moreResult.patients];
       moreData = moreResult.hasMore;
       currentOffset += fetchLimit;
-      // 安全上限: 最大10,000件
       if (allPatients.length > 10000) break;
     }
 
-    // フィルタ適用
     const filtered = allPatients.filter(p => {
-      // タグフィルタ
       if (tagPatientIds && !tagPatientIds.has(p.patient_id)) return false;
-      // マークフィルタ
       if (markFilter && markPatientIds) {
         if (markFilter === "none") {
-          // markPatientIds = 除外リスト（none以外のマークを持つ患者）
           if (markPatientIds.has(p.patient_id)) return false;
         } else {
           if (!markPatientIds.has(p.patient_id)) return false;
         }
       }
-      // LINE連携フィルタ
       if (lineStatus === "yes" && !p.line_id) return false;
       if (lineStatus === "no" && p.line_id) return false;
-      // 未読フィルタ: last_text_at > read_at の患者のみ
       if (unreadOnly && unreadReadMap) {
         if (!p.last_text_at) return false;
         const readAt = unreadReadMap[p.patient_id];
@@ -256,9 +333,6 @@ export async function GET(req: NextRequest) {
 
     patients = pagedFiltered;
 
-    // ピン留め、流入経路、レスポンス構築は下で共通処理
-    // total をレスポンスに含めるため変数として保持
-    // （フィルタ時は fetchTotalCount を使わず手動カウント）
     return await buildResponse(req, patients, hasMore, total, effectiveTenantId, tenantId, pinIdsRaw, searchId, searchName, offset, t0, tAuth, tRpc, cacheHit, hasFilter);
   }
 

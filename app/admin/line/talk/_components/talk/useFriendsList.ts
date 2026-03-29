@@ -326,7 +326,9 @@ export function useFriendsList(state: TalkState) {
         if (curUnreadOnly) params.set("unread_only", "true");
         const res = await fetch(`/api/admin/line/friends-list?${params}`, { credentials: "include", signal });
         const data = await res.json();
-        if (signal.aborted) return; // キャンセルされた場合は結果を破棄
+        if (signal.aborted) return;
+        // リクエスト中に条件が変わっていたら結果を破棄（デバウンス側の結果を優先）
+        if (curSearchId !== searchIdRef.current || curSearchName !== searchNameRef.current || curUnreadOnly !== showUnreadOnlyRef.current) return;
         if (data.patients) {
           setFriends(data.patients);
           friendsOffsetRef.current = data.patients.length;
