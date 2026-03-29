@@ -30,6 +30,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "性感染症のオンライン診療ガイドでLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "性感染症は羞恥心から受診を避ける患者が多く、オンライン診療の需要が急拡大",
   "検査キット郵送→自宅採取→LINE結果通知→処方配送の完全オンラインフローを構築",
@@ -44,12 +61,14 @@ const toc = [
   { id: "marketing", label: "集患戦略" },
   { id: "lope-std", label: "Lオペで実現するSTD診療の自動化" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         性感染症（STD/STI）は日本国内でも年間報告数が増加傾向にありますが、<strong>「恥ずかしい」「知り合いに見られたくない」</strong>という心理的バリアから受診を先延ばしにする患者が大半です。オンライン診療は、この受診障壁を劇的に下げる手段として急速に普及しています。本記事では、<strong>Lオペ for CLINIC</strong>を活用して、検査キットの郵送から結果通知・処方・フォローアップまでをLINE上で完結させる<strong>プライバシー最優先の診療フロー</strong>と、効果的な集患戦略を具体的に解説します。
       </p>
@@ -268,6 +287,17 @@ export default function Page() {
         <p>Lオペ for CLINICは、性感染症のオンライン診療に最適化されたLINE運用プラットフォームです。匿名予約・検査キット管理・結果通知・処方リマインドまで、すべてをワンストップで自動化できます。<Link href="/lp/column/online-clinic-complete-guide" className="text-emerald-700 underline">オンライン診療の始め方</Link>や、<Link href="/lp/column/online-clinic-regulations" className="text-emerald-700 underline">規制対応のポイント</Link>もあわせてご確認ください。</p>
 
         <p>性感染症のオンライン診療の立ち上げを検討されているクリニック様は、まずは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>からお気軽にお問い合わせください。プライバシーに配慮した診療フローの設計から、集患戦略の立案まで、Lオペチームが一貫してサポートいたします。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

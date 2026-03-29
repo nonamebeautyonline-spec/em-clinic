@@ -22,6 +22,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニックの固定費を月30万円削減する方法の導入にどのくらいの期間がかかりますか？", a: "基本的な設定は1〜2週間で完了します。LINE公式アカウントの開設からリッチメニュー設計・自動メッセージ設定まで、Lオペ for CLINICなら初期設定サポート付きで最短2週間で運用開始できます。" },
+  { q: "クリニックの固定費を月30万円削減する方法でスタッフの負荷は増えませんか？", a: "むしろ減ります。電話対応・手動での予約管理・問診確認などの定型業務を自動化することで、スタッフの作業時間を月40時間以上削減できた事例もあります。導入初月はサポートを受けながら進めれば、2ヶ月目以降はスムーズに運用できます。" },
+  { q: "小規模クリニックでも導入効果はありますか？", a: "はい、むしろ小規模クリニックほど効果を実感しやすいです。スタッフ数が限られる分、業務自動化によるインパクトが大きく、受付1名分の工数を削減できた事例もあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "クリニックで乱立しやすいツールの月額費用を可視化",
   "予約・CRM・配信・問診をLINE一本化して固定費を大幅削減",
@@ -36,12 +53,14 @@ const toc = [
   { id: "reinvestment", label: "削減コストの再投資" },
   { id: "how-to-start", label: "導入ステップ" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="業務改善" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         クリニック経営で意外と見落とされがちなのが、<strong>複数の業務ツールにかかる月額固定費</strong>の総額です。予約システム、CRM、LINE配信ツール、問診システム——ひとつひとつは数万円でも、積み重なれば月14万円以上になることも珍しくありません。さらに、各ツールの運用にスタッフの手間が奪われ、人件費も膨らみます。本記事では、<strong>複数ツールをLINE運用プラットフォームに一本化し、ツール費用と人件費を合わせて月30万円以上を削減する具体的な方法</strong>を解説します。
       </p>
@@ -268,6 +287,17 @@ export default function Page() {
             <Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談・お問い合わせ</Link> — コスト削減シミュレーションのご相談はこちら
           </li>
         </ul>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

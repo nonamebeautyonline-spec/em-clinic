@@ -21,6 +21,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "梅毒の診断と治療ガイドはオンライン診療で処方できますか？", a: "多くの場合、オンライン診療での処方が可能です。ただし初診では処方日数に制限がある場合があります。再診であれば対面診療と同等の処方が可能です。詳しくは各薬剤の処方ルールをご確認ください。" },
+  { q: "副作用が出た場合はどうすればいいですか？", a: "軽度の副作用であれば経過観察で改善することが多いですが、症状が強い場合は速やかに処方医に相談してください。LINEでの個別相談に対応しているクリニックであれば、気軽に症状を報告できます。" },
+  { q: "オンラインクリニックでの処方薬の配送はどうなりますか？", a: "多くのオンラインクリニックでは決済後、最短翌日〜数日で発送されます。温度管理が必要な薬剤はクール便での配送に対応しているクリニックを選びましょう。Lオペ for CLINICでは配送管理・追跡番号の自動配信機能も搭載しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "日本の梅毒報告数は2023年に14,906件と過去最多——2013年の約12倍に急増",
   "第1期は痛みのない潰瘍が自然消失するため「治った」と誤解されやすい",
@@ -31,6 +48,7 @@ export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={[]}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「梅毒って昔の病気でしょ？」——そう思っていませんか？ 実は今、日本で梅毒の報告数が<strong>過去最多を更新し続けています</strong>。しかも20代女性を中心に急増中。この記事では、梅毒の症状・検査の読み方・最新の治療法まで、<strong>クリニックで患者さんに説明するときにも使える内容</strong>をわかりやすくまとめました。
       </p>
@@ -162,6 +180,17 @@ export default function Page() {
         <Callout type="point" title="クリニックでの患者対応のポイント">
           梅毒はデリケートな疾患です。LINEを活用した<strong>匿名性の高い事前問診</strong>や、検査結果の<strong>セキュアな通知</strong>は、患者さんの心理的ハードルを大きく下げます。対面で聞きづらいことも、LINEなら正直に答えてくれる——性感染症診療こそ、デジタルコミュニケーションが力を発揮する領域です。STD診療のオンライン化については<Link href="/lp/column/std-online-clinic-lope" className="text-sky-600 underline hover:text-sky-800">STDオンライン診療の始め方</Link>や<Link href="/lp/column/std-online-winning-strategy" className="text-sky-600 underline hover:text-sky-800">STDオンライン診療の勝ち筋</Link>もあわせてお読みください。
         </Callout>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

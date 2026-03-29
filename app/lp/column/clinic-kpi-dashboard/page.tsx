@@ -14,6 +14,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニック経営の数値管理の導入にどのくらいの期間がかかりますか？", a: "基本的な設定は1〜2週間で完了します。LINE公式アカウントの開設からリッチメニュー設計・自動メッセージ設定まで、Lオペ for CLINICなら初期設定サポート付きで最短2週間で運用開始できます。" },
+  { q: "クリニック経営の数値管理でスタッフの負荷は増えませんか？", a: "むしろ減ります。電話対応・手動での予約管理・問診確認などの定型業務を自動化することで、スタッフの作業時間を月40時間以上削減できた事例もあります。導入初月はサポートを受けながら進めれば、2ヶ月目以降はスムーズに運用できます。" },
+  { q: "小規模クリニックでも導入効果はありますか？", a: "はい、むしろ小規模クリニックほど効果を実感しやすいです。スタッフ数が限られる分、業務自動化によるインパクトが大きく、受付1名分の工数を削減できた事例もあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "クリニック経営に必要な7つのKPIと具体的な目標値の設定方法",
   "LINEダッシュボードを活用したリアルタイムデータの可視化手法",
@@ -31,12 +48,14 @@ const toc = [
   { id: "kpi-7", label: "KPI 7: 売上推移と客単価" },
   { id: "dashboard", label: "ダッシュボードの活用方法（週次レビュー）" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="経営KPI" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニック経営を改善するには、新患数・リピート率・患者LTV・予約充填率・LINE友だち数・開封率・売上推移の<strong>7つのKPI</strong>を定期的に計測することが重要です。本記事では各KPIの目標値の設定方法と、LINEダッシュボードを使った<strong>週次レビュー</strong>の実践フレームワークを紹介します。</p>
 
       {/* SEO用セマンティックリスト — Featured Snippet対策 */}
@@ -197,6 +216,17 @@ export default function Page() {
           { title: "週次レビューで改善サイクル", desc: "数値に基づいた意思決定を習慣化する" },
         ]} />
         <p className="mt-4">Lオペ for CLINICは、LINE公式アカウントの運用データとクリニックの経営データを統合し、これらのKPIを<Link href="/lp/features#分析・レポート" className="text-sky-600 underline hover:text-sky-800">ダッシュボード</Link>で一元管理できるプラットフォームです。データドリブンなクリニック経営を始めてみませんか？</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

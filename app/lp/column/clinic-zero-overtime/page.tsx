@@ -40,6 +40,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニックスタッフの残業をゼロにするの導入にどのくらいの期間がかかりますか？", a: "基本的な設定は1〜2週間で完了します。LINE公式アカウントの開設からリッチメニュー設計・自動メッセージ設定まで、Lオペ for CLINICなら初期設定サポート付きで最短2週間で運用開始できます。" },
+  { q: "クリニックスタッフの残業をゼロにするでスタッフの負荷は増えませんか？", a: "むしろ減ります。電話対応・手動での予約管理・問診確認などの定型業務を自動化することで、スタッフの作業時間を月40時間以上削減できた事例もあります。導入初月はサポートを受けながら進めれば、2ヶ月目以降はスムーズに運用できます。" },
+  { q: "小規模クリニックでも導入効果はありますか？", a: "はい、むしろ小規模クリニックほど効果を実感しやすいです。スタッフ数が限られる分、業務自動化によるインパクトが大きく、受付1名分の工数を削減できた事例もあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "クリニックで残業が発生する5つの原因と構造的な悪循環",
   "DXで自動化できる業務一覧と月間62時間の削減効果",
@@ -54,12 +71,14 @@ const toc = [
   { id: "business-impact", label: "残業削減が経営にもたらす効果" },
   { id: "how-to-start", label: "Lオペで残業ゼロを始める" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="業務改善" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {/* ── イントロ ── */}
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         クリニックスタッフの離職理由で最も多いのは「残業の多さ」です。日本医師会の調査によると、クリニック勤務の看護師・医療事務の約<strong>68%</strong>が「残業が負担」と回答しています。しかし、残業の原因を分析すると、その大半は<strong>DXによる自動化で解消可能な業務</strong>であることがわかります。本記事では、Lオペ for CLINICを活用した業務自動化によって残業をゼロにし、スタッフの定着率を劇的に改善する方法を解説します。
@@ -256,6 +275,17 @@ export default function Page() {
           <li><Link href="/lp/column/clinic-staff-training" className="text-sky-600 underline hover:text-sky-800">スタッフ研修ガイド</Link> — DXツール導入時の研修プログラム</li>
           <li><Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談・お問い合わせ</Link></li>
         </ul>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

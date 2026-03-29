@@ -20,6 +20,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "眼科クリニックのLINE活用術でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "コンタクトレンズ処方の定期リマインドで再来院率を向上",
   "定期検診（緑内障・糖尿病網膜症等）の自動フォロー体制",
@@ -34,12 +51,14 @@ const toc = [
   { id: "prevention", label: "ドライアイ予防情報の配信" },
   { id: "results", label: "眼科クリニックでの導入効果" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">眼科クリニックでは、コンタクトレンズの定期処方・緑内障等の経過観察・術後フォローなど、<strong>継続的な通院管理</strong>が経営の柱です。LINE公式アカウントを活用すれば、これらの管理業務を自動化しながら、<strong>再来院率を30%以上向上</strong>させることが可能です。本記事では眼科特有のLINE活用術を解説します。</p>
 
       {/* ── コンタクト処方 ── */}
@@ -146,6 +165,17 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICは、眼科クリニックの特有の業務フローに対応した<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">クリニック専用LINE運用プラットフォーム</Link>です。コンタクト処方管理・定期検診フォロー・術後ケアの自動化で、患者満足度と経営効率を同時に向上させます。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

@@ -13,6 +13,23 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "AI自動返信の精度はどのくらいですか？", a: "導入初期は70〜80%の精度ですが、スタッフの修正を学習することで数週間で90%以上の精度に向上します。Lオペ for CLINICではClaude AIを搭載しており、医療分野の質問にも適切に回答できます。" },
+  { q: "AI自動返信で医療相談に回答しても問題ありませんか？", a: "AIが直接医療診断を行うことは避けるべきです。Lオペ for CLINICでは、症状相談や緊急性の高い質問は自動でスタッフに引き継ぐルールを設定でき、AIが対応する範囲を予約案内・営業時間・料金案内等に限定できます。" },
+  { q: "AI返信の学習データはどこから取得しますか？", a: "スタッフが手動で返信した内容やAI返信を修正した内容が自動的に学習データとなります。また、よくある質問と回答をナレッジベースとして事前登録することで、初期精度を高めることも可能です。" },
+  { q: "24時間対応のAI返信で患者満足度は上がりますか？", a: "はい、特に夜間・休日の問い合わせ対応で効果が大きいです。導入クリニックでは『すぐに返信が来て安心した』という声が多く、患者満足度の向上と同時にスタッフの時間外対応の負荷も大幅に削減できています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "夜間・休日の問い合わせ対応が新患獲得に直結する理由とデータ",
@@ -29,11 +46,13 @@ const toc = [
   { id: "escalation-design", label: "エスカレーション設計" },
   { id: "results", label: "導入効果" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="AI自動返信" keyPoints={keyPoints} toc={toc}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニックの初回問い合わせの<strong>約70%</strong>は営業時間外に発生しており、AI自動返信の導入で新患獲得率を<strong>大幅に改善</strong>できます。本記事では、ルールベースとAI返信の違い、精度を高める学習方法、エスカレーション設計まで実践的な導入ステップを解説します。</p>
 
@@ -231,6 +250,16 @@ export default function Page() {
           <li><strong>エスカレーション設計が最重要</strong> — AIが対応すべきでないケースを明確に定義し、確実に人間にバトンタッチ。AI返信の活用全般については<Link href="/lp/column/clinic-ai-reply-guide" className="text-sky-600 underline hover:text-sky-800">AI返信活用ガイド</Link>、業務効率化の全体像は<Link href="/lp/column/clinic-dx-complete-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>もご参照ください</li>
         </ol>
         <p className="mt-4">Lオペ for CLINICの<Link href="/lp/features#AI機能" className="text-sky-600 underline hover:text-sky-800">AI自動返信</Link>は、クリニック向けに最適化されたナレッジベースとスタッフ修正フィードバック機能を標準搭載。導入から運用改善まで一貫してサポートします。24時間の問い合わせ対応で、新患獲得を最大化しませんか。</p>
+      </section>
+
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

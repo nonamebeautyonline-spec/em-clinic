@@ -53,6 +53,7 @@ const toc = [
   { id: "ai-auto-reply", label: "AI自動返信の活用" },
   { id: "block-rate", label: "ブロック率を下げるコツ" },
   { id: "outsource-vs-inhouse", label: "運用代行 vs 自社運用" },
+  { id: "ad-guideline", label: "医療広告ガイドラインとLINE運用" },
   { id: "summary", label: "まとめ" },
 ];
 
@@ -62,8 +63,14 @@ export default function Page() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
-        クリニックがLINE公式アカウントを最大限に活用するには、アカウント開設からセグメント配信、AI自動返信まで一貫した運用設計が欠かせません。本記事では、友だち集めからブロック率対策まで7つのテーマを体系的に解説し、各テーマの詳細記事へのリンクも掲載しています。「何から手をつけるべきか」を迷わず判断できるピラーガイドとしてご活用ください。
+        LINE公式アカウントの月間利用者数は<strong>9,700万人以上</strong>（2024年時点）。メールの開封率が10〜20%に対し、LINEメッセージの開封率は<strong>約90%</strong>と圧倒的です。クリニックがLINE公式アカウントを最大限に活用するには、アカウント開設からセグメント配信、AI自動返信まで一貫した運用設計が欠かせません。本記事では、導入手順から友だち集め・セグメント配信・ブロック率対策・医療広告ガイドライン対応まで8つのテーマを体系的に解説します。
       </p>
+
+      <StatGrid stats={[
+        { value: "9,700", unit: "万人", label: "LINE月間利用者数" },
+        { value: "90", unit: "%", label: "LINEメッセージ開封率" },
+        { value: "86", unit: "%", label: "日本人口カバー率" },
+      ]} />
 
       {/* ── 1. 基本設定 ── */}
       <section>
@@ -206,6 +213,26 @@ export default function Page() {
         <Callout type="point" title="運用代行と自社運用の詳細比較はこちら">
           規模別の最適な判断基準は<Link href="/lp/column/line-operation-outsource-vs-inhouse" className="text-emerald-700 underline">LINE運用代行 vs 自社運用 -- どちらが正解？</Link>で詳しく解説しています。
         </Callout>
+      </section>
+
+      {/* ── 8. 医療広告ガイドライン ── */}
+      <section>
+        <h2 id="ad-guideline" className="text-xl font-bold text-gray-800">8. 医療広告ガイドラインとLINE運用</h2>
+        <p>クリニックがLINE公式アカウントで情報発信する際は、<strong>医療広告ガイドライン</strong>への準拠が必須です。2018年の改正医療法により、Webサイトやソーシャルメディアも広告規制の対象となりました。LINE上のメッセージ配信やリッチメニューも例外ではありません。</p>
+
+        <Callout type="warning" title="LINE配信で注意すべき医療広告ガイドラインのポイント">
+          <ul className="list-disc pl-5 space-y-1 mt-1">
+            <li><strong>ビフォーアフター写真</strong>: 一斉配信での使用は原則禁止。患者本人への経過報告（個別送信）は広告に該当しない</li>
+            <li><strong>体験談・口コミの引用</strong>: 「痩せました」「効果ありました」等の体験談を広告として配信するのはNG</li>
+            <li><strong>誇大表現の禁止</strong>: 「必ず治る」「最高の技術」「日本一」等の表現は使用不可</li>
+            <li><strong>未承認医薬品の広告制限</strong>: 自費診療の薬剤についてはリスク・副作用を明示する必要がある</li>
+            <li><strong>限定解除要件</strong>: 自費診療の費用・治療内容・リスクを記載すれば、一定の広告表現が可能になる</li>
+          </ul>
+        </Callout>
+
+        <p>ただし、<strong>個別の患者に対する1対1のメッセージ</strong>（予約確認・フォローアップ・問診送信等）は広告規制の対象外です。セグメント配信であっても、不特定多数への一斉配信は広告に該当する可能性があるため、内容には十分注意しましょう。</p>
+
+        <p>不安な場合は、各地方厚生局の医療広告相談窓口に事前確認することをおすすめします。Lオペ for CLINICでは、医療広告ガイドラインに配慮した配信テンプレートを標準で用意しています。</p>
       </section>
 
       {/* ── まとめ ── */}

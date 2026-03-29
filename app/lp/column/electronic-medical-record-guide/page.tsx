@@ -14,6 +14,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニックの電子カルテ選び方ガイドの導入にどのくらいの期間がかかりますか？", a: "基本的な設定は1〜2週間で完了します。LINE公式アカウントの開設からリッチメニュー設計・自動メッセージ設定まで、Lオペ for CLINICなら初期設定サポート付きで最短2週間で運用開始できます。" },
+  { q: "クリニックの電子カルテ選び方ガイドでスタッフの負荷は増えませんか？", a: "むしろ減ります。電話対応・手動での予約管理・問診確認などの定型業務を自動化することで、スタッフの作業時間を月40時間以上削減できた事例もあります。導入初月はサポートを受けながら進めれば、2ヶ月目以降はスムーズに運用できます。" },
+  { q: "小規模クリニックでも導入効果はありますか？", a: "はい、むしろ小規模クリニックほど効果を実感しやすいです。スタッフ数が限られる分、業務自動化によるインパクトが大きく、受付1名分の工数を削減できた事例もあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "クラウド型とオンプレミス型の違いと選び方",
   "LINE連携で問診→カルテの業務効率を劇的改善",
@@ -27,12 +44,14 @@ const toc = [
   { id: "five-checkpoints", label: "5つのチェックポイント" },
   { id: "case-study", label: "導入事例" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="電子カルテ" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         クリニック向け電子カルテは、初期費用が安く院外からもアクセスできるクラウド型が主流になりつつあります。さらにLINE連携により問診データを自動でカルテに取り込めば、業務効率が<strong>劇的に改善</strong>します。本記事では、クラウド型とオンプレミス型の比較、選定時の<strong>5つのチェックポイント</strong>、導入事例を解説します。
       </p>
@@ -145,6 +164,17 @@ export default function Page() {
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: LINE連携を前提に電子カルテを選ぶ時代</h2>
         <p>電子カルテ選びは「カルテ入力の効率化」だけでなく、<strong>患者コミュニケーション全体の効率化</strong>という視点が重要です。LINE連携に対応した電子カルテを選ぶことで、問診・予約・リマインド・フォローアップまで一気通貫の業務効率化が実現します。Web問診の導入についてさらに詳しく知りたい方は<Link href="/lp/column/online-questionnaire-guide" className="text-sky-600 underline hover:text-sky-800">オンライン問診導入ガイド</Link>も参考にしてください。また、クリニック全体のDX推進については<Link href="/lp/column/clinic-dx-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>で体系的に解説しています。</p>
         <p>Lオペ for CLINICは、LINE上の問診データをダッシュボードで一元管理し、カルテ入力時の参照に活用可能です。来院データに基づく自動フォローメッセージなど、<strong>問診データ活用とLINE運用の架け橋</strong>となるプラットフォームです。<Link href="/lp/features#予約・診察" className="text-sky-600 underline hover:text-sky-800">予約・診察カテゴリの全機能</Link>もご確認ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

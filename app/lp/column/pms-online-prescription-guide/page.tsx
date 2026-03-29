@@ -36,6 +36,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "PMS・月経困難症のオンライン処方ガイドでLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "PMSは月経のある女性の約70〜80%が何らかの症状を経験 — 日常生活に支障をきたす中等度以上は約5〜10%",
   "LEP（ヤーズ・フリウェル等）は月経困難症に保険適用、OC（マーベロン・トリキュラー等）は自費 — 適応の違いに注意",
@@ -49,12 +66,14 @@ const toc = [
   { id: "lope-pms", label: "Lオペ for CLINICでPMS診療を運用" },
   { id: "revenue", label: "収益モデルと継続処方の設計" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         月経のある女性の約70〜80%が何らかのPMS（月経前症候群）症状を経験し、月経困難症は約25%の女性に影響を与えています。にもかかわらず、<strong>「生理痛は我慢するもの」という社会的通念</strong>から受診率は低く、適切な治療を受けていない患者が多数存在します。2020年のオンライン診療恒久化により、<strong>ピルの継続処方がオンラインで完結</strong>できるようになり、働く女性や通院が困難な患者にとって大きな福音となっています。PMS・月経困難症はオンライン診療と<Link href="/lp/column/femtech-clinic-online-strategy" className="text-sky-600 underline hover:text-sky-800">フェムテック戦略</Link>の重要な柱です。本記事では、低用量ピル・漢方薬の使い分け、保険適用LEPと自費OCの違い、そして<strong>Lオペ for CLINICによるLINE問診・服薬フォロー・継続処方リマインドの自動化</strong>まで徹底解説します。
       </p>
@@ -281,6 +300,17 @@ export default function Page() {
             <Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談・お問い合わせ</Link> — PMS・月経困難症オンライン外来の運用設計をご相談いただけます
           </li>
         </ul>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

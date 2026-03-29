@@ -23,6 +23,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニックDXで1日の業務がここまで変わるの導入にどのくらいの期間がかかりますか？", a: "基本的な設定は1〜2週間で完了します。LINE公式アカウントの開設からリッチメニュー設計・自動メッセージ設定まで、Lオペ for CLINICなら初期設定サポート付きで最短2週間で運用開始できます。" },
+  { q: "クリニックDXで1日の業務がここまで変わるでスタッフの負荷は増えませんか？", a: "むしろ減ります。電話対応・手動での予約管理・問診確認などの定型業務を自動化することで、スタッフの作業時間を月40時間以上削減できた事例もあります。導入初月はサポートを受けながら進めれば、2ヶ月目以降はスムーズに運用できます。" },
+  { q: "小規模クリニックでも導入効果はありますか？", a: "はい、むしろ小規模クリニックほど効果を実感しやすいです。スタッフ数が限られる分、業務自動化によるインパクトが大きく、受付1名分の工数を削減できた事例もあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "DX導入前後のクリニックの1日を時系列で徹底比較",
   "受付・問診・予約・会計・フォローの業務別ビフォーアフターを数値で解説",
@@ -37,12 +54,14 @@ const toc = [
   { id: "staff-voice", label: "スタッフの声" },
   { id: "lope-dx", label: "Lオペで実現するDXの全体像" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="業務改善" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「クリニックDX」という言葉は聞くけれど、実際に導入すると<strong>1日の業務がどう変わるのか</strong>がイメージしにくい——そんな声をよく耳にします。本記事では、<strong>Lオペ for CLINIC</strong>を導入したクリニックの1日を導入前後で時系列比較し、受付・問診・予約管理・会計・患者フォローがどれだけ効率化されるかを具体的な数値データとともに解説します。「忙しいのに売上が伸びない」というジレンマを抱えるクリニック経営者の方に、ぜひ読んでいただきたい内容です。
       </p>
@@ -245,6 +264,17 @@ export default function Page() {
         <p className="mt-4">
           <Link href="/lp/contact" className="inline-block bg-sky-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-sky-700 transition-colors">無料相談・デモを予約する</Link>
         </p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

@@ -31,6 +31,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "ED治療オンラインクリニックの勝ち方でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "国内ED推定患者1,130万人・受診率10%以下 — オンライン診療で未受診層を取り込む勝機",
   "シルデナフィル・タダラフィル・バルデナフィルの仕入れ相場と利益率の高い価格設定",
@@ -48,6 +65,7 @@ const toc = [
   { id: "dx-one-doctor", label: "DX活用でDr1人運営を実現" },
   { id: "revenue-model", label: "月間収益モデル" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
@@ -55,6 +73,7 @@ export default function Page() {
     <>
       <ArticleLayout slug={self.slug} breadcrumbLabel="運営ノウハウ" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
         <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
           ED（勃起不全）治療は、国内推定患者1,130万人に対して実際の受診率が10%以下という<strong>巨大な未開拓市場</strong>です。自費診療のため保険点数に縛られず、リピート処方で安定収益が見込め、オンライン診療との親和性も極めて高い。本記事では、ED治療のオンラインクリニックで「勝つ」ための具体戦略を、薬剤の仕入れ・価格設定から診療フロー、差別化、リピート施策、広告戦略、DXによるDr1人運営モデル、収益シミュレーションまで徹底的に解説します。
         </p>
@@ -401,7 +420,18 @@ export default function Page() {
             <li><Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">お問い合わせ・無料相談</Link></li>
           </ul>
         </section>
-      </ArticleLayout>
+      
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
+      </section>
+    </ArticleLayout>
     </>
   );
 }

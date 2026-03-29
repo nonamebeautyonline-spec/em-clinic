@@ -31,6 +31,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "勤務医のオンライン副業開業ガイドで最も重要なポイントは何ですか？", a: "資金計画と集患戦略の両立です。開業資金だけでなく、運転資金（最低6ヶ月分）の確保と、開業前からのLINE公式アカウントやWebサイトによる認知獲得が成功の鍵です。" },
+  { q: "開業前から準備すべきことは何ですか？", a: "開業3ヶ月前からLINE公式アカウントの開設、Webサイトの公開、Googleビジネスプロフィールの登録を始めましょう。内覧会の案内や開業日のお知らせをLINEで配信することで、開業初月から安定した来院数を確保できます。" },
+  { q: "クリニック経営で失敗しやすいポイントは？", a: "集患に過度に広告費をかけてしまうこと、リピート率を軽視すること、DX化を後回しにすることが代表的な失敗パターンです。既存患者のLTV（生涯価値）を最大化する仕組みを早期に構築することが重要です。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "勤務医が本業を続けながらオンライン自費クリニックを開業し、月200〜300万円の副収入を得る具体的ロードマップ",
   "ワンルームマンション（月10万円程度）＋DX活用で初期投資を最小化し、Dr1人でも回る運営体制を構築",
@@ -47,12 +64,14 @@ const toc = [
   { id: "revenue-simulation", label: "収益シミュレーション" },
   { id: "tax-corporate", label: "税務・法人化のタイミング" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={SLUG} breadcrumbLabel="開業・経営" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「本業の研鑽は続けたい。でも将来の収入に不安がある」——勤務医から最も多く寄せられる相談です。保険点数の引き下げが続く中、<strong>自費オンライン診療</strong>は勤務医にとって最も合理的な副業の選択肢になりつつあります。週末・夜間だけの診療でも<strong>月200〜300万円の副収入</strong>が見込め、ワンルームマンション1室とDXツールがあればDr1人で開業可能。本記事では、勤務医が本業を続けながらオンライン自費クリニックを副業的に開業するための具体的なロードマップを、法規制・税務・運営体制まで含めて徹底解説します。
       </p>
@@ -394,6 +413,17 @@ export default function Page() {
         <p>関連コラムもぜひご参照ください。<Link href="/lp/column/online-clinic-complete-guide" className="text-emerald-700 underline">オンラインクリニック開業完全ガイド</Link>では開業の全体像を、<Link href="/lp/column/online-clinic-regulations" className="text-emerald-700 underline">オンライン診療の法規制ガイド</Link>では規制面の詳細を、<Link href="/lp/column/self-pay-pricing-guide" className="text-emerald-700 underline">自費診療の価格設計ガイド</Link>では料金設定の考え方を、<Link href="/lp/column/clinic-dx-complete-guide" className="text-emerald-700 underline">クリニックDX完全ガイド</Link>ではDX導入の実践方法を解説しています。</p>
 
         <p>副業開業を本気で検討している勤務医の先生は、まずは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>からお気軽にお問い合わせください。現在の勤務状況に合わせた最適な開業プランを、具体的な収益シミュレーション付きでご提案いたします。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

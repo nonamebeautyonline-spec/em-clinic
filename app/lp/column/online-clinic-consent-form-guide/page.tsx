@@ -20,6 +20,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "オンライン診療の同意書・契約書の整備を始めるために必要な準備は何ですか？", a: "厚生労働省のオンライン診療ガイドラインに基づく届出、ビデオ通話システムの導入、オンライン決済の設定が必要です。Lオペ for CLINICならLINEビデオ通話・電話音声通話でのオンライン診療に対応しており、別途システム導入が不要です。" },
+  { q: "オンライン診療で処方できる薬に制限はありますか？", a: "初診のオンライン診療では処方日数に制限があります（原則7日分まで）。再診では対面診療と同等の処方が可能です。向精神薬・麻薬等の一部薬剤はオンライン診療での処方が制限されています。" },
+  { q: "オンライン診療の診療報酬はどのくらいですか？", a: "保険診療では対面診療より低い点数設定ですが、自費診療であれば自由に価格設定が可能です。通院負担の軽減による患者満足度向上と、遠方からの新患獲得を考慮すると、十分な収益性が見込めます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "厚労省指針に基づくオンライン診療の同意書に必須の記載事項を網羅",
   "電子署名・電子同意の法的有効性と導入時の注意点を解説",
@@ -34,12 +51,14 @@ const toc = [
   { id: "operation-flow", label: "同意取得の運用フロー" },
   { id: "trouble-cases", label: "トラブル事例と書面での防止策" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         オンライン診療では、対面診療とは異なるリスク（通信障害、診察の限界、薬剤配送の遅延等）が存在するため、<strong>患者への十分な説明と同意取得</strong>が不可欠です。厚労省「オンライン診療の適切な実施に関する指針」でも同意取得が明示的に求められています。本記事では、法的リスクを防ぐための書面設計と、電子署名を活用した効率的な同意取得フローを解説します。
       </p>
@@ -151,6 +170,17 @@ export default function Page() {
         <p>電子署名・電子同意の仕組みを導入することで、来院不要のオンライン診療でも確実かつ効率的に同意を取得できます。LINEを活用した事前送付と自動記録により、スタッフの運用負荷を最小限に抑えつつ、コンプライアンスを担保しましょう。</p>
 
         <p>Lオペ for CLINICでは、LINE上での問診・予約管理に加え、<Link href="/" className="text-blue-600 hover:underline">患者への情報提供と同意取得フロー</Link>の効率化を支援しています。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

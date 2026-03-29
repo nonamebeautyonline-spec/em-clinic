@@ -20,6 +20,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "ゾレア（オマリズマブ）花粉症治療ガイドはオンライン診療で処方できますか？", a: "多くの場合、オンライン診療での処方が可能です。ただし初診では処方日数に制限がある場合があります。再診であれば対面診療と同等の処方が可能です。詳しくは各薬剤の処方ルールをご確認ください。" },
+  { q: "副作用が出た場合はどうすればいいですか？", a: "軽度の副作用であれば経過観察で改善することが多いですが、症状が強い場合は速やかに処方医に相談してください。LINEでの個別相談に対応しているクリニックであれば、気軽に症状を報告できます。" },
+  { q: "オンラインクリニックでの処方薬の配送はどうなりますか？", a: "多くのオンラインクリニックでは決済後、最短翌日〜数日で発送されます。温度管理が必要な薬剤はクール便での配送に対応しているクリニックを選びましょう。Lオペ for CLINICでは配送管理・追跡番号の自動配信機能も搭載しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "ゾレア（オマリズマブ）は抗IgE抗体で、アレルギー反応の「元栓」を閉める薬",
   "保険適用には血清総IgE値・特異的IgE値・既存治療無効など厳格な条件がある",
@@ -30,6 +47,7 @@ export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={[]}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「毎年スギ花粉の時期がつらすぎる。薬を飲んでもマスクをしても全然ダメ……」——そんな重症花粉症に悩む方に知ってほしいのが<strong>ゾレア（オマリズマブ）</strong>という注射薬です。もともと気管支喘息の治療薬として使われていたゾレアが、2020年にスギ花粉症にも保険適用になりました。この記事では、鼻アレルギー診療ガイドライン2024に沿って、ゾレアの仕組み・保険適用条件・費用・効果・注意点を<strong>できるだけわかりやすく</strong>まとめます。
       </p>
@@ -198,6 +216,17 @@ export default function Page() {
         <Callout type="point" title="鼻アレルギー診療ガイドライン2024について">
           本記事の内容は<strong>鼻アレルギー診療ガイドライン2024</strong>（日本アレルギー学会）に準拠しています。ゾレアの適応判断や用量決定は、必ず最新のガイドラインと添付文書に基づいて行ってください。
         </Callout>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

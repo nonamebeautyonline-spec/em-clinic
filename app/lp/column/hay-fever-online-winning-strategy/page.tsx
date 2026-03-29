@@ -40,6 +40,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "花粉症オンライン診療の勝ち方でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "花粉症市場は国民の約4割 — 毎年繰り返す季節性需要をストック型収益に変える",
   "抗ヒスタミン薬・点鼻薬・点眼薬の仕入れ相場と利益率の高い価格設定",
@@ -58,12 +75,14 @@ const toc = [
   { id: "dx-solo-operation", label: "DX活用でDr1人運営" },
   { id: "revenue-model", label: "季節別収益モデル" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {/* ── イントロ ── */}
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         花粉症は日本人の約<strong>4割</strong>が罹患する国民病です。毎年1月〜5月にかけて膨大な患者需要が発生し、しかも「毎年同じ薬をもらいに行く」というリピート性の高さから、オンライン診療との相性は抜群です。しかし、多くのクリニックは花粉シーズンが始まってから慌てて対応するだけで、<strong>事前の集患設計・価格戦略・オフシーズンの収益確保</strong>ができていません。本記事では「花粉症オンライン診療クリニックの勝ち方」を、仕入れ・価格設定から季節別収益モデルまで徹底的に解説します。
@@ -424,6 +443,17 @@ export default function Page() {
         <p>花粉症オンライン診療の開業を検討されている方は、ぜひ<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">Lオペ for CLINICの無料相談</Link>をご利用ください。季節別の集患戦略設計から、Lオペの初期設定・配信シナリオの構築まで、専門スタッフが伴走いたします。</p>
 
         <p>関連記事: <Link href="/lp/column/hay-fever-online-clinic-lope" className="text-sky-600 underline hover:text-sky-800">花粉症オンライン診療ガイド</Link> / <Link href="/lp/column/online-clinic-complete-guide" className="text-sky-600 underline hover:text-sky-800">オンライン診療の完全ガイド</Link> / <Link href="/lp/column/self-pay-pricing-guide" className="text-sky-600 underline hover:text-sky-800">自費診療の価格設定ガイド</Link> / <Link href="/lp/column/one-room-clinic-simulation" className="text-sky-600 underline hover:text-sky-800">ワンルームクリニック収益シミュレーション</Link> / <Link href="/lp/column/clinic-fixed-cost-optimization" className="text-sky-600 underline hover:text-sky-800">クリニック固定費最適化ガイド</Link></p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

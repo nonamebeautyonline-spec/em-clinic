@@ -14,6 +14,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "医療DXの成功事例5選の導入にどのくらいの期間がかかりますか？", a: "基本的な設定は1〜2週間で完了します。LINE公式アカウントの開設からリッチメニュー設計・自動メッセージ設定まで、Lオペ for CLINICなら初期設定サポート付きで最短2週間で運用開始できます。" },
+  { q: "医療DXの成功事例5選でスタッフの負荷は増えませんか？", a: "むしろ減ります。電話対応・手動での予約管理・問診確認などの定型業務を自動化することで、スタッフの作業時間を月40時間以上削減できた事例もあります。導入初月はサポートを受けながら進めれば、2ヶ月目以降はスムーズに運用できます。" },
+  { q: "小規模クリニックでも導入効果はありますか？", a: "はい、むしろ小規模クリニックほど効果を実感しやすいです。スタッフ数が限られる分、業務自動化によるインパクトが大きく、受付1名分の工数を削減できた事例もあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "LINE起点の医療DXで予約数150%増・無断キャンセル80%減を実現した具体的事例",
   "業務自動化・セグメント配信・オンライン診療の導入プロセスと成果を詳細に解説",
@@ -29,12 +46,14 @@ const toc = [
   { id: "case-5", label: "事例5: 地方患者を獲得した皮膚科" },
   { id: "common-rules", label: "5つの事例に共通する成功法則" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医療DX事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">LINE起点の医療DXにより、<strong>予約数150%増</strong>・<strong>無断キャンセル80%減</strong>・<strong>スタッフ残業ゼロ</strong>を実現したクリニックが続出しています。本記事では<strong>5つの成功事例</strong>の具体的な導入プロセスと成果データ、そして共通する3つの成功法則を解説します。</p>
 
       <section>
@@ -202,6 +221,17 @@ export default function Page() {
           ]}
         />
         <p className="mt-4">Lオペ for CLINICは、これら5つの事例で活用された機能をすべて備えたクリニック専用のLINE運用プラットフォームです。予約管理・問診・自動配信・決済・配送・AI返信まで、クリニックのDXをワンストップで実現します。<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">全機能一覧はこちら</Link>。あなたのクリニックでも、LINEから始める医療DXを検討してみませんか？</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

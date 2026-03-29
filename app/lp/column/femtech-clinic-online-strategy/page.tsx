@@ -29,6 +29,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "フェムテック市場とクリニックの参入戦略でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "フェムテック市場は2025年時点で国内約2,000億円規模に成長し、月経・更年期・妊活の3領域がクリニック参入の中心",
   "ピル処方はオンライン診療との親和性が最も高く、定期処方モデルで月商200万円超の収益構造が構築可能",
@@ -44,12 +61,14 @@ const toc = [
   { id: "line-utilization", label: "LINE活用による患者フォロー" },
   { id: "revenue-model", label: "収益モデルシミュレーション" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         フェムテック（FemTech）市場の急成長に伴い、クリニックが<strong>月経・更年期・妊活</strong>の3領域でオンライン診療を活用する動きが加速しています。本記事では、各領域の市場規模と患者ニーズ、オンライン診療に適した処方内容、集患・リテンション戦略、そして具体的な収益モデルまで、<strong>クリニックのフェムテック参入戦略</strong>を体系的に解説します。
       </p>
@@ -212,6 +231,17 @@ export default function Page() {
         <p>参入に際しては、まずピル処方の単一領域でオペレーションを確立し、その後に更年期ケア・妊活サポートへ横展開する段階的アプローチが現実的です。LINEを活用した服薬リマインドと体調管理の自動化は、患者体験の向上とスタッフ工数の削減を両立させる実践的な手段として有効です。ピルの種類ごとの特性と選び方については<Link href="/lp/column/pill-types-comparison" className="text-sky-600 underline hover:text-sky-800">低用量ピルの種類比較ガイド</Link>もあわせてご覧ください。</p>
 
         <InlineCTA />
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

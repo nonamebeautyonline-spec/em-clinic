@@ -20,6 +20,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "オンライン診療×服薬指導の一気通貫フローを始めるために必要な準備は何ですか？", a: "厚生労働省のオンライン診療ガイドラインに基づく届出、ビデオ通話システムの導入、オンライン決済の設定が必要です。Lオペ for CLINICならLINEビデオ通話・電話音声通話でのオンライン診療に対応しており、別途システム導入が不要です。" },
+  { q: "オンライン診療で処方できる薬に制限はありますか？", a: "初診のオンライン診療では処方日数に制限があります（原則7日分まで）。再診では対面診療と同等の処方が可能です。向精神薬・麻薬等の一部薬剤はオンライン診療での処方が制限されています。" },
+  { q: "オンライン診療の診療報酬はどのくらいですか？", a: "保険診療では対面診療より低い点数設定ですが、自費診療であれば自由に価格設定が可能です。通院負担の軽減による患者満足度向上と、遠方からの新患獲得を考慮すると、十分な収益性が見込めます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "改正薬機法に基づくオンライン服薬指導の要件と対応フローを整理",
   "診療→処方→服薬指導→配送を一気通貫でつなぐ薬局連携の実務を解説",
@@ -34,12 +51,14 @@ const toc = [
   { id: "line-optimization", label: "LINE活用による患者体験の最適化" },
   { id: "comparison", label: "対面服薬指導とオンラインの比較" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         オンライン診療の普及に伴い、<strong>処方後の服薬指導・薬剤配送</strong>をいかにシームレスにつなぐかが患者体験の鍵を握っています。2020年の薬機法改正でオンライン服薬指導が恒久化され、2022年の規制緩和で初回からのオンライン実施も可能になりました。本記事では、診療から服薬指導・配送までを<strong>一気通貫でつなぐ運用設計</strong>と、薬剤師との連携実務を解説します。
       </p>
@@ -156,6 +175,17 @@ export default function Page() {
         <p>成功の鍵は、<strong>薬局との事前の連携体制構築</strong>と、<strong>LINEを活用した患者導線の最適化</strong>です。診察終了から服薬指導・配送完了までの各ステップで患者が迷わない導線を設計し、配送状況の通知や服用後のフォローアップまで含めた一貫した体験を提供しましょう。</p>
 
         <p>Lオペ for CLINICでは、LINE上での予約管理・メッセージ自動配信・フォローアップ機能を通じて、オンライン診療の前後フローを含めた<Link href="/" className="text-blue-600 hover:underline">患者コミュニケーションの一元化</Link>を支援しています。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

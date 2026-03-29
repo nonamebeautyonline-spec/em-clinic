@@ -23,6 +23,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "AGA治療のオンライン診療ガイドでLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "AGA市場は2000億円超、オンライン診療との親和性が極めて高い",
   "フィナステリド・ミノキシジルの定期処方をLINEで完全自動化",
@@ -38,12 +55,14 @@ const toc = [
   { id: "lope-aga", label: "Lオペで実現するAGA診療の自動化" },
   { id: "success-case", label: "AGA専門オンラインクリニックの成功事例" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         AGA（男性型脱毛症）治療は、オンライン診療と最も相性が良い領域の一つです。羞恥心から対面受診をためらう患者が多く、治療薬の定期処方が中心であるため、<strong>LINE起点の予約・問診・処方・配送フロー</strong>が極めて有効に機能します。本記事では、AGA治療のオンライン診療を成功させるための市場分析・処方戦略・集患マーケティング・そして<strong>Lオペ for CLINICを活用した診療業務の完全自動化</strong>について解説します。
       </p>
@@ -284,6 +303,17 @@ export default function Page() {
         <p>AGA治療のオンライン診療に本格的に取り組みたいクリニック、あるいはAGA専門のオンラインクリニック開業を検討されている方は、まずは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>からお気軽にお問い合わせください。現在の状況に合わせた最適な運用設計をご提案いたします。</p>
 
         <p>関連コラムもあわせてご覧ください。<Link href="/lp/column/online-clinic-complete-guide" className="text-emerald-700 underline">オンライン診療の完全ガイド</Link>、<Link href="/lp/column/clinic-self-pay-revenue" className="text-emerald-700 underline">自費診療の売上アップ戦略</Link>、<Link href="/lp/column/clinic-line-revenue-growth" className="text-emerald-700 underline">LINE活用の売上改善</Link>では、より幅広い視点からクリニック経営の成長戦略を解説しています。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

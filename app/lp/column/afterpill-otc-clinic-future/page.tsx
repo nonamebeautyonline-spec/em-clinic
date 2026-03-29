@@ -26,6 +26,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "アフターピル（緊急避妊薬）OTC化の経緯と今後のクリニック処方の展望でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "アフターピルのOTC化は2024年の試験販売を経て正式に拡大 — 薬局での処方箋なし購入が可能に",
   "OTC化によりアフターピル処方の来院・オンライン診療は減少見込み — クリニックの収益構造転換が急務",
@@ -40,12 +57,14 @@ const toc = [
   { id: "lope-transition", label: "Lオペで収益構造を転換する" },
   { id: "future-outlook", label: "今後の展望" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         アフターピル（緊急避妊薬）のOTC化が現実のものとなり、薬局での処方箋なし販売が拡大しています。この変化は、アフターピル処方を収益の一部としてきた婦人科・オンライン診療クリニックにとって<strong>大きな転換点</strong>です。本記事では、OTC化の経緯を時系列で整理し、クリニック経営への影響分析と具体的な対応戦略を徹底解説します。<strong>Lオペ for CLINIC</strong>を活用した収益構造の転換方法も合わせて紹介します。
       </p>
@@ -350,6 +369,17 @@ export default function Page() {
         </ul>
 
         <p className="mt-4">まずは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800 font-semibold">無料相談</Link>で、アフターピルOTC化後の収益シミュレーションをお試しください。貴院の現在の処方データをもとに、低用量ピル定期処方への転換プランを専任コンサルタントがご提案いたします。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

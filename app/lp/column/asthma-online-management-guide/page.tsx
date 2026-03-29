@@ -37,6 +37,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "喘息のオンライン継続管理でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "日本の喘息患者は約800万人 — 吸入薬の自己中断率が高く、コントロール不良の患者が多数存在",
   "ICS（吸入ステロイド）を軸とした長期管理を月1回のオンラインフォローで継続、ステップアップ/ダウンを適切に判断",
@@ -50,12 +67,14 @@ const toc = [
   { id: "lope-asthma", label: "Lオペ for CLINICで喘息管理を運用" },
   { id: "revenue", label: "収益モデル" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         気管支喘息は日本人の約10%が罹患する<strong>最も一般的な慢性呼吸器疾患</strong>です。吸入ステロイド（ICS）を中心とした長期管理薬により良好なコントロールが可能ですが、<strong>症状が改善すると自己判断で吸入を中断する患者が多い</strong>ことが最大の課題です。吸入薬の自己中断は発作のリスクを高め、QOLの低下や救急受診・入院につながります。オンライン診療による<strong>定期的なフォローアップ</strong>で吸入の継続を支援し、ステップアップ/ダウンの適切な判断を行うことが、喘息管理の質を大きく向上させます。本記事では、吸入薬の選択・吸入デバイスの指導・発作時対応・ピークフローモニタリング、そして<strong>Lオペ for CLINICによる吸入リマインド・ACT評価の自動化</strong>まで解説します。
       </p>
@@ -266,6 +285,17 @@ export default function Page() {
             <Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談・お問い合わせ</Link> — 喘息のオンライン管理体制をご相談いただけます
           </li>
         </ul>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

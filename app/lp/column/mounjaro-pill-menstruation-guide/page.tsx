@@ -19,6 +19,23 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "マンジャロとピル・月経はオンライン診療で処方できますか？", a: "多くの場合、オンライン診療での処方が可能です。ただし初診では処方日数に制限がある場合があります。再診であれば対面診療と同等の処方が可能です。詳しくは各薬剤の処方ルールをご確認ください。" },
+  { q: "副作用が出た場合はどうすればいいですか？", a: "軽度の副作用であれば経過観察で改善することが多いですが、症状が強い場合は速やかに処方医に相談してください。LINEでの個別相談に対応しているクリニックであれば、気軽に症状を報告できます。" },
+  { q: "オンラインクリニックでの処方薬の配送はどうなりますか？", a: "多くのオンラインクリニックでは決済後、最短翌日〜数日で発送されます。温度管理が必要な薬剤はクール便での配送に対応しているクリニックを選びましょう。Lオペ for CLINICでは配送管理・追跡番号の自動配信機能も搭載しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "マンジャロとピルの併用は基本OK。ただし胃排出遅延で一時的に避妊効果が低下する可能性",
   "急激な体重減少がホルモンバランスを乱して月経不順・無月経を引き起こすメカニズム",
@@ -33,12 +50,14 @@ const toc = [
   { id: "pregnancy", label: "妊娠を考えている方へ" },
   { id: "during-period", label: "生理中の投与について" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「マンジャロ飲みながらピルも飲んで大丈夫？」「生理が来なくなったんだけど…」――ダイエット目的でマンジャロを使う女性が増える中、ピルとの併用や月経への影響を心配する声がとても多いです。この記事では、<strong>実際のリスクと正しい対処法</strong>を整理してお伝えします。
       </p>
@@ -155,6 +174,17 @@ export default function Page() {
         <p>女性がマンジャロを使う際は、婦人科の担当医にもマンジャロの使用を伝えて、ピルや他のホルモン剤との兼ね合いを確認してもらいましょう。総合的な使い方については<Link href="/lp/column/mounjaro-complete-guide" className="text-sky-600 underline hover:text-sky-800">マンジャロ完全ガイド</Link>をご参照ください。</p>
       </section>
 
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
+      </section>
     </ArticleLayout>
   );
 }

@@ -20,6 +20,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "オンライン診療の初診と再診の違いを始めるために必要な準備は何ですか？", a: "厚生労働省のオンライン診療ガイドラインに基づく届出、ビデオ通話システムの導入、オンライン決済の設定が必要です。Lオペ for CLINICならLINEビデオ通話・電話音声通話でのオンライン診療に対応しており、別途システム導入が不要です。" },
+  { q: "オンライン診療で処方できる薬に制限はありますか？", a: "初診のオンライン診療では処方日数に制限があります（原則7日分まで）。再診では対面診療と同等の処方が可能です。向精神薬・麻薬等の一部薬剤はオンライン診療での処方が制限されています。" },
+  { q: "オンライン診療の診療報酬はどのくらいですか？", a: "保険診療では対面診療より低い点数設定ですが、自費診療であれば自由に価格設定が可能です。通院負担の軽減による患者満足度向上と、遠方からの新患獲得を考慮すると、十分な収益性が見込めます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "2022年の指針改定で初診からのオンライン診療が恒久化されたが、一定の制限がある",
   "初診と再診では算定できる診療報酬点数・処方日数・向精神薬の取り扱いが異なる",
@@ -34,12 +51,14 @@ const toc = [
   { id: "self-pay-rules", label: "自費診療における初診・再診の扱い" },
   { id: "operation-tips", label: "運用上の注意点と対策" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         オンライン診療における「初診」と「再診」の違いは、単なる来院回数の問題ではありません。厚生労働省の「オンライン診療の適切な実施に関する指針」と診療報酬の算定ルールの両面で、<strong>初診と再診では適用される要件が大きく異なります</strong>。本記事では、2022年の指針改定以降のルールを整理し、保険診療・自費診療それぞれの観点から、クリニックが押さえるべき実務上の注意点を解説します。
       </p>
@@ -171,6 +190,17 @@ export default function Page() {
           <strong>3.</strong> オンライン診療の同意書をWeb問診に組み込み、初診時に電子取得する<br />
           <strong>4.</strong> 再診が連続する患者に定期的な対面受診を促すリマインド設定を行う
         </Callout>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

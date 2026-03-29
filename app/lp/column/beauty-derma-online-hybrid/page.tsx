@@ -28,6 +28,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "美容皮膚科のオンライン診療戦略でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "美容皮膚科がオンライン診療と対面施術を組み合わせるハイブリッドモデルの全体設計を解説",
   "内服処方（トラネキサム酸・シナール等）はオンライン、施術（レーザー・ピーリング等）は対面で収益を最大化する方法",
@@ -43,12 +60,14 @@ const toc = [
   { id: "line-bridge", label: "LINE活用で対面とオンラインをつなぐ" },
   { id: "operations", label: "運用体制と人員配置" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         美容皮膚科は「施術で来院させる」ビジネスモデルが主流でした。しかし、オンライン診療の普及により、<strong>内服処方はオンライン・施術は対面</strong>というハイブリッドモデルが新たな成長戦略として注目されています。本記事では、患者導線の設計から収益シミュレーションまで、ハイブリッドモデルの全体像を解説します。すべての処方・施術は必ず医師の診断に基づいて行ってください。
       </p>
@@ -209,6 +228,17 @@ export default function Page() {
         <p>美容内服薬の詳細については<Link href="/lp/column/beauty-oral-medicine-guide" className="text-emerald-700 underline">美容内服薬ガイド</Link>を、LINE活用の全体像については<Link href="/lp/column/beauty-clinic-line" className="text-emerald-700 underline">美容クリニックのLINE活用術</Link>を併せてご参照ください。</p>
 
         <p>ハイブリッドモデルの導入にあたっては、予約管理・オンライン診療・処方配送・LINE配信を一元管理できるプラットフォームの選定が重要です。Lオペ for CLINICでは、これらの機能をワンストップで提供しています。導入をご検討の方はお気軽にお問い合わせください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

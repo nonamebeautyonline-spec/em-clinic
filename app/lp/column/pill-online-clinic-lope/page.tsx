@@ -26,6 +26,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "ピル処方のオンライン診療ガイドでLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "日本のピル使用率は先進国最低水準だが、オンライン処方の需要が急拡大中",
   "28日サイクルの定期配送モデルで月額サブスク収益を安定化できる",
@@ -40,12 +57,14 @@ const toc = [
   { id: "safety", label: "安全管理と副作用モニタリング" },
   { id: "lope-pill", label: "Lオペでピル処方クリニックを運用" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         低用量ピル（OC/LEP）のオンライン処方は、婦人科クリニックにとって<strong>最も安定したサブスクリプション型収益</strong>を生み出せる診療領域です。28日周期で確実にリピートが発生するため、定期配送の仕組みさえ整えれば高い継続率を実現できます。本記事では、マーベロン・ファボワール・トリキュラー等の処方フローから、<strong>Lオペ for CLINIC</strong>を活用した定期配送管理・フォローアップ配信・AI自動返信による問い合わせ対応まで、ピル処方クリニックの収益構築を徹底解説します。
       </p>
@@ -310,6 +329,17 @@ export default function Page() {
         </ul>
 
         <p className="mt-4">まずは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800 font-semibold">無料相談</Link>で、貴院のピル処方オンライン診療の収益シミュレーションをお試しください。患者数・プラン設計・配送フローの最適化まで、専任コンサルタントがご提案いたします。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

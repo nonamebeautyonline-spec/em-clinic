@@ -20,6 +20,22 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "ステップ配信とは何ですか？", a: "友だち追加やイベント発生を起点に、あらかじめ設定したメッセージを自動で順番に配信する仕組みです。例えば初診後3日目にフォロー、7日目に再診案内、30日目に定期検診リマインドを自動配信できます。" },
+  { q: "ステップ配信の効果的なシナリオ設計のコツは？", a: "患者の行動に合わせた『ゴール設定』が重要です。初診→再診、カウンセリング→施術、治療完了→定期検診など、患者を次のアクションに導くシナリオを設計しましょう。配信間隔は3〜7日が適切です。" },
+  { q: "ステップ配信の通数はメッセージ課金に含まれますか？", a: "はい、LINE公式アカウントの料金プランにおいてステップ配信も通数にカウントされます。ただし、Lオペ for CLINICではセグメント配信と組み合わせることで、必要な患者にのみ配信し通数を最適化できます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "初診後7日→30日→90日の3段階フォローシナリオの設計方法",
@@ -36,11 +52,13 @@ const toc = [
   { id: "churn-prevention", label: "離脱防止シナリオの設計" },
   { id: "flow-builder", label: "フロービルダーで配信を自動化" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="マーケティング" keyPoints={keyPoints} toc={toc}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         LINEのステップ配信は、あらかじめ設定したシナリオに沿って患者に自動でメッセージを届ける仕組みです。初診後のフォローアップから定期来院の促進まで、<strong>手動では実現が難しい「一人ひとりに合わせた継続フォロー」</strong>をLINE上で自動化できます。本記事では、クリニックの診療科や患者属性に合わせたステップ配信の設計方法を解説します。
@@ -184,6 +202,16 @@ export default function Page() {
         </Callout>
 
         <p>Lオペのフロービルダーとステップ配信機能を活用すれば、ノーコードでこれらのシナリオを構築・運用できます。まずは基本の3段階フォローシナリオから始めて、効果を見ながら段階的にシナリオを拡充していきましょう。</p>
+      </section>
+
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

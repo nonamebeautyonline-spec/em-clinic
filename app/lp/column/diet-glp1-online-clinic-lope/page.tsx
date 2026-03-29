@@ -30,6 +30,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "メディカルダイエットのオンライン診療ガイドでLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "GLP-1メディカルダイエットはオンライン診療との相性が極めて高い成長市場",
   "適切なスクリーニングと副作用モニタリング体制が安全な処方の鍵",
@@ -45,6 +62,7 @@ const toc = [
   { id: "marketing", label: "集患戦略" },
   { id: "lope-diet", label: "Lオペで実現するダイエット診療" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
@@ -52,6 +70,7 @@ export default function Page() {
     <>
       <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
         <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
           GLP-1受容体作動薬を活用した<strong>メディカルダイエット</strong>は、オンライン診療との相性が極めて高い自費診療メニューです。処方薬は配送可能で、経過フォローもオンラインで完結するため、従来の対面診療に比べて患者・クリニック双方の負担が大幅に軽減されます。しかし、安全な処方には適切なスクリーニング・副作用モニタリング・定期的な経過観察が不可欠です。本記事では、GLP-1メディカルダイエットのオンライン診療を<strong>安全かつ効率的に運用する方法</strong>を解説し、<strong>Lオペ for CLINIC</strong>を活用した予約・問診・処方管理・経過フォローの自動化方法をご紹介します。
         </p>
@@ -289,7 +308,18 @@ export default function Page() {
 
           <p>GLP-1メディカルダイエットの市場は今後も拡大が予測されています。<strong>先行者優位を確保</strong>するためにも、オンライン診療体制の早期構築をご検討ください。まずは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>で、貴院に最適な導入プランをご提案いたします。</p>
         </section>
-      </ArticleLayout>
+      
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
+      </section>
+    </ArticleLayout>
     </>
   );
 }

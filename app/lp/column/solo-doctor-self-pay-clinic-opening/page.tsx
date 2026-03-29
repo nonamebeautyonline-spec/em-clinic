@@ -22,6 +22,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "個人医師の自費クリニック開業完全ガイドで最も重要なポイントは何ですか？", a: "資金計画と集患戦略の両立です。開業資金だけでなく、運転資金（最低6ヶ月分）の確保と、開業前からのLINE公式アカウントやWebサイトによる認知獲得が成功の鍵です。" },
+  { q: "開業前から準備すべきことは何ですか？", a: "開業3ヶ月前からLINE公式アカウントの開設、Webサイトの公開、Googleビジネスプロフィールの登録を始めましょう。内覧会の案内や開業日のお知らせをLINEで配信することで、開業初月から安定した来院数を確保できます。" },
+  { q: "クリニック経営で失敗しやすいポイントは？", a: "集患に過度に広告費をかけてしまうこと、リピート率を軽視すること、DX化を後回しにすることが代表的な失敗パターンです。既存患者のLTV（生涯価値）を最大化する仕組みを早期に構築することが重要です。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "自費クリニック開業の初期費用は診療科により1,500〜5,000万円（ミニマム開業とは別路線）",
   "個人事業主vs医療法人は年間所得2,000万円超で法人化が有利に転じる",
@@ -39,12 +56,14 @@ const toc = [
   { id: "pre-opening-marketing", label: "開業前の集患準備" },
   { id: "dx-efficiency", label: "DXで運営を効率化する" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="開業・経営" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {/* ── イントロ ── */}
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「勤務医として十分な経験を積んだ。そろそろ独立して自分のクリニックを持ちたい」——しかし本格的なクリニック開業には、法人化の判断、数千万円の資金調達、物件選定、内装工事、許認可、スタッフ採用と、越えるべきハードルが山積みです。
@@ -319,6 +338,17 @@ export default function Page() {
           <li><Link href="/lp/column/doctor-side-business-online-clinic" className="text-sky-600 hover:underline">医師の副業オンラインクリニック — 勤務医を続けながら自費診療を始める方法</Link></li>
           <li><Link href="/lp/column/self-pay-clinic-opening-marketing" className="text-sky-600 hover:underline">自費クリニック開業時のマーケティング計画</Link></li>
         </ul>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

@@ -20,6 +20,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "低用量ピルの飲み方完全ガイドはオンライン診療で処方できますか？", a: "多くの場合、オンライン診療での処方が可能です。ただし初診では処方日数に制限がある場合があります。再診であれば対面診療と同等の処方が可能です。詳しくは各薬剤の処方ルールをご確認ください。" },
+  { q: "副作用が出た場合はどうすればいいですか？", a: "軽度の副作用であれば経過観察で改善することが多いですが、症状が強い場合は速やかに処方医に相談してください。LINEでの個別相談に対応しているクリニックであれば、気軽に症状を報告できます。" },
+  { q: "オンラインクリニックでの処方薬の配送はどうなりますか？", a: "多くのオンラインクリニックでは決済後、最短翌日〜数日で発送されます。温度管理が必要な薬剤はクール便での配送に対応しているクリニックを選びましょう。Lオペ for CLINICでは配送管理・追跡番号の自動配信機能も搭載しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "低用量ピルは避妊だけでなくPMS・生理痛の改善にも使われるホルモン薬",
   "28錠タイプなら休薬管理が不要——飲み忘れ防止に向いている",
@@ -30,6 +47,7 @@ export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={[]}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「低用量ピルを飲んでみたいけど、種類が多すぎてどれを選べばいいかわからない」「飲み忘れたらどうすれば？」——そんな不安を抱えていませんか？ この記事では、<strong>初めてピルを飲む方</strong>のために、種類の違い・飲み始めのタイミング・飲み忘れたときの対処法まで、<strong>これ1本で全部わかる</strong>ようにまとめました。
       </p>
@@ -184,6 +202,17 @@ export default function Page() {
         <Callout type="point" title="もっと詳しく知りたい方へ">
           低用量ピルの<strong>種類・世代別の違い</strong>については<Link href="/lp/column/pill-types-comparison" className="text-emerald-700 underline">「低用量ピルの種類と選び方」</Link>、<strong>PMS・月経困難症の処方設計</strong>については<Link href="/lp/column/pms-online-prescription-guide" className="text-emerald-700 underline">「PMS・月経困難症のオンライン処方ガイド」</Link>をあわせてご覧ください。
         </Callout>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

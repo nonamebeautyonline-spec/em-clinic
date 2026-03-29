@@ -13,6 +13,22 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "開業前からLINE公式アカウントを開設するメリットは？", a: "開業前から近隣住民への認知活動を始められます。内覧会の案内や開業日のお知らせをLINEで配信することで、開業初月から一定の来院数を確保できます。開業3ヶ月前からの運用開始がおすすめです。" },
+  { q: "開業時のLINE友だち目標は何人ですか？", a: "開業初月で100〜200人を目標にしましょう。内覧会での友だち追加、近隣へのチラシ配布（QRコード付き）、WebサイトへのLINE追加ボタン設置を組み合わせれば達成可能な数字です。" },
+  { q: "開業時にLINEと予約システムは同時に導入すべきですか？", a: "同時導入をおすすめします。Lオペ for CLINICのようなオールインワンツールなら、LINE公式アカウント・予約管理・問診・決済を一括で立ち上げられるため、開業時の業務負荷を最小限に抑えられます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "開業前からLINEを始めるべき3つの理由",
@@ -29,10 +45,13 @@ const toc = [
   { id: "ongoing-operation", label: "開業後の継続運用" },
   { id: "checklist", label: "LINE活用チェックリスト" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
+    <>
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
     <ArticleLayout slug={self.slug} breadcrumbLabel="開業×LINE" keyPoints={keyPoints} toc={toc}>
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
@@ -232,6 +251,17 @@ export default function Page() {
 
         <p>Lオペ for CLINICは、開業準備期間からのLINE構築をトータルサポート。アカウント開設・リッチメニュー設計・予約連携・問診フォーム・自動配信まで、<strong>開業に必要なLINE機能をワンパッケージ</strong>で提供しています。<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">全機能一覧</Link>もご確認の上、開業を控えたドクターはぜひ早めにご相談ください。</p>
       </section>
+
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
+      </section>
     </ArticleLayout>
+    </>
   );
 }

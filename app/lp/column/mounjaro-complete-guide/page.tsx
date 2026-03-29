@@ -19,6 +19,23 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "マンジャロとは？はオンライン診療で処方できますか？", a: "多くの場合、オンライン診療での処方が可能です。ただし初診では処方日数に制限がある場合があります。再診であれば対面診療と同等の処方が可能です。詳しくは各薬剤の処方ルールをご確認ください。" },
+  { q: "副作用が出た場合はどうすればいいですか？", a: "軽度の副作用であれば経過観察で改善することが多いですが、症状が強い場合は速やかに処方医に相談してください。LINEでの個別相談に対応しているクリニックであれば、気軽に症状を報告できます。" },
+  { q: "オンラインクリニックでの処方薬の配送はどうなりますか？", a: "多くのオンラインクリニックでは決済後、最短翌日〜数日で発送されます。温度管理が必要な薬剤はクール便での配送に対応しているクリニックを選びましょう。Lオペ for CLINICでは配送管理・追跡番号の自動配信機能も搭載しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "マンジャロは世界初のGIP/GLP-1デュアル受容体作動薬で、従来のGLP-1薬より強い減量効果",
   "用量は2.5mg〜15mgの6段階。初回は2.5mgから開始し、4週間ごとに調整",
@@ -32,12 +49,14 @@ const toc = [
   { id: "comparison", label: "他薬との違い" },
   { id: "myths", label: "よくある勘違い12選" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「マンジャロって名前は聞くけど、結局なにがスゴいの？」と思っている方、多いですよね。マンジャロ（チルゼパチド）は、従来のGLP-1薬とは<strong>構造からして別モノ</strong>の新世代ダイエット薬です。この記事では、仕組み・用量の選び方・他薬との違い・よくある勘違いまで、初めての方にもわかるようにまとめました。
       </p>
@@ -157,6 +176,17 @@ export default function Page() {
         <p>打ち方の具体的な手順は<Link href="/lp/column/mounjaro-injection-guide" className="text-sky-600 underline hover:text-sky-800">マンジャロの正しい打ち方ガイド</Link>で解説しています。GLP-1薬全体の比較は<Link href="/lp/column/glp1-medication-comparison" className="text-sky-600 underline hover:text-sky-800">GLP-1受容体作動薬の種類比較</Link>もあわせてどうぞ。</p>
       </section>
 
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
+      </section>
     </ArticleLayout>
   );
 }

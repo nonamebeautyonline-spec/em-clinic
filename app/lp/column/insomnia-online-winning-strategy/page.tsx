@@ -46,6 +46,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "不眠症・睡眠薬オンライン処方の勝ち方でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "成人の20〜30%が不眠症状を抱えるが、実際の受診率はわずか10%台 — 巨大な潜在市場",
   "非ベンゾ系（ゾルピデム・エスゾピクロン）やオレキシン受容体拮抗薬（レンボレキサント・スボレキサント）が主流",
@@ -64,6 +81,7 @@ const toc = [
   { id: "dx-solo", label: "DX活用でDr1人運営" },
   { id: "revenue", label: "月間収益モデル" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
@@ -75,6 +93,7 @@ export default function Page() {
       toc={toc}
     >
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         不眠症は成人の20〜30%が経験する「最もありふれた睡眠障害」です。しかし
         <strong>実際に受診している患者はわずか10%台</strong>
@@ -891,6 +910,17 @@ export default function Page() {
             — 不眠症オンライン処方の運用設計をご相談いただけます
           </li>
         </ul>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

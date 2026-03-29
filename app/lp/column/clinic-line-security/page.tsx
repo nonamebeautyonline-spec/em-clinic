@@ -20,6 +20,22 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "LINE公式アカウントで個人情報を扱っても法的に問題ありませんか？", a: "適切な運用を行えば問題ありません。利用目的の明示・同意取得・要配慮個人情報の適切な管理が必要です。プライバシーポリシーにLINEでの個人情報取り扱いについて明記し、友だち追加時に同意を得る仕組みを構築しましょう。" },
+  { q: "スタッフが退職した場合のアカウント管理はどうすればいいですか？", a: "退職時は即座にアカウント権限を削除し、パスワードを変更してください。クリニック専用ツールであれば個人ごとの権限管理と操作ログの記録ができるため、退職者のアクセスを確実に遮断できます。" },
+  { q: "LINEのトーク履歴は何年保存すべきですか？", a: "医療法では診療録の保存期間は5年ですが、LINEのトーク履歴も同等の期間保存することをおすすめします。クリニック専用ツールを使えば自動でデータが保存されるため、LINE公式の保存期間制限に依存しません。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "医療機関のLINE運用で遵守すべき個人情報保護法の要件",
@@ -35,11 +51,13 @@ const toc = [
   { id: "audit-checklist", label: "セキュリティ監査チェックリスト" },
   { id: "incident-response", label: "インシデント発生時の対応" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニックのLINE公式アカウント運用では、患者の氏名・生年月日・診療情報などの<strong>要配慮個人情報</strong>を扱います。個人情報保護法に準拠したセキュリティ対策は法的義務であると同時に、<strong>患者からの信頼を守る経営課題</strong>です。本記事では具体的な対策方法とチェックリストを解説します。</p>
 
@@ -154,6 +172,16 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICは、医療機関のセキュリティ要件に対応した設計で、ロールベースの権限管理・操作ログ・データ暗号化を標準搭載しています。安心・安全なLINE運用を実現し、患者の信頼を守りましょう。LINE運用の全体設計については<Link href="/lp/column/line-operation-guide" className="text-sky-600 underline hover:text-sky-800">LINE運用完全ガイド</Link>、オンライン診療の法規制については<Link href="/lp/column/online-clinic-regulations" className="text-sky-600 underline hover:text-sky-800">法規制と薬機法ガイド</Link>もご覧ください。</p>
+      </section>
+
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

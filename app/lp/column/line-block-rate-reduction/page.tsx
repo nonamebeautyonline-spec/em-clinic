@@ -13,6 +13,22 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "クリニックのLINEブロック率の平均はどのくらいですか？", a: "業界平均は20〜30%程度ですが、配信頻度と内容を最適化しているクリニックでは10%以下に抑えられています。週1回以上の一斉配信を行うとブロック率が急増する傾向があります。" },
+  { q: "一度ブロックされた患者を復帰させることはできますか？", a: "LINEの仕組み上、ブロック解除は患者本人の操作でしか行えません。ただし、院内ポスターやWebサイトに再追加を促す導線を設けることで、一部の患者が再登録するケースはあります。ブロック防止が最も重要です。" },
+  { q: "配信停止の選択肢を用意すべきですか？", a: "はい、リッチメニューに『配信頻度の変更』や『お知らせ配信のオフ』の選択肢を設けることをおすすめします。完全ブロックではなく配信頻度を下げる選択肢があれば、友だちリストからの離脱を防げます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "LINE配信のブロック率業界平均とクリニック経営への影響",
@@ -29,10 +45,13 @@ const toc = [
   { id: "rule-5", label: "鉄則5: ブロック分析とPDCA" },
   { id: "case-study", label: "ブロック率5%→0.8%の事例" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
+    <>
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
     <ArticleLayout slug={self.slug} breadcrumbLabel="ブロック率対策" keyPoints={keyPoints} toc={toc}>
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
@@ -237,6 +256,17 @@ export default function Page() {
         </ol>
         <p className="mt-4">Lオペ for CLINICなら、<Link href="/lp/features#メッセージ配信" className="text-sky-600 underline hover:text-sky-800">セグメント配信</Link>・配信スケジュール管理・<Link href="/lp/features#分析・レポート" className="text-sky-600 underline hover:text-sky-800">ブロック率分析ダッシュボード</Link>までオールインワンで提供。患者に嫌われない配信運用を、すぐに始められます。ブロック率を含むクリニック経営のKPI管理については<Link href="/lp/column/clinic-kpi-dashboard" className="text-sky-600 underline hover:text-sky-800">KPI7選</Link>も参考にしてください。</p>
       </section>
+
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
+      </section>
     </ArticleLayout>
+    </>
   );
 }

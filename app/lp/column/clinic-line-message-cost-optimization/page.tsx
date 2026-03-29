@@ -21,6 +21,22 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "LINEメッセージの配信コストを下げるにはどうすればいいですか？", a: "最も効果的なのはセグメント配信の活用です。全員に一斉配信するのではなく、対象患者を絞って配信することで通数を50〜70%削減できます。月額料金プランの範囲内で最大の効果を得られます。" },
+  { q: "1通あたりの配信コストはいくらですか？", a: "LINE公式アカウントのライトプランで月5,000通まで月額5,000円（1通1円）、スタンダードプランで月30,000通まで月額15,000円（1通0.5円）です。追加メッセージは1通あたり約3円です。" },
+  { q: "配信通数を抑えつつ効果を維持する方法はありますか？", a: "個別通知（予約リマインド・問診送信等）は通数にカウントされないため積極活用し、一斉配信はセグメントを絞って月2〜4回に抑えるのが最適です。これにより通数を半減しつつ開封率・クリック率は向上します。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "LINE公式アカウントの3つの料金プランと通数課金の仕組み",
@@ -36,11 +52,13 @@ const toc = [
   { id: "segment-cost", label: "セグメント配信でコスト削減" },
   { id: "online-notification", label: "オンライン患者の通知活用" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="業務改善" keyPoints={keyPoints} toc={toc}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         LINE公式アカウントは2023年6月の料金改定以降、メッセージ配信に通数課金が発生する仕組みに変更されました。友だち数が増えるほど配信コストが膨らむため、<strong>「誰に・何を・いつ送るか」を最適化する戦略</strong>が欠かせません。本記事では、クリニックがLINE通数課金を抑えながら効果的な配信を行う方法を解説します。
@@ -177,6 +195,16 @@ export default function Page() {
         </Callout>
 
         <p>Lオペのセグメント配信機能と患者CRMを活用すれば、配信対象の最適化を効率的に行えます。まずは現在の配信数と費用を棚卸しし、セグメント配信の導入から始めてみてください。</p>
+      </section>
+
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

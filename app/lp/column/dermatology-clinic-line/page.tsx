@@ -14,6 +14,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "皮膚科クリニックのLINE活用でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "皮膚科特有の課題（慢性疾患の継続治療・処方薬の定期補充）をLINEで解決",
   "写真送信による再診フローとオンライン決済・配送の自動化",
@@ -28,12 +45,14 @@ const toc = [
   { id: "skincare-content", label: "スキンケア情報の定期配信" },
   { id: "follow-up", label: "長期フォローアップシナリオ" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="皮膚科LINE活用" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">皮膚科クリニックでは、慢性疾患の治療継続と処方薬の定期補充が最大の課題です。LINEを活用した写真送信による再診フロー、オンライン決済・配送の自動化、アトピー・ニキビ等の長期フォローアップシナリオで治療継続率を<strong>大幅に向上</strong>できます。</p>
 
       <section>
@@ -149,6 +168,17 @@ export default function Page() {
           { title: "長期フォローアップの自動化", desc: "治療段階に応じたメッセージ配信で慢性疾患の継続治療をサポート" },
         ]} />
         <p className="mt-4">Lオペ for CLINICは、これらの皮膚科特化機能をすべて備えたLINE運用プラットフォームです。処方薬の<Link href="/lp/features#決済・配送" className="text-sky-600 underline hover:text-sky-800">配送管理</Link>から患者の写真管理、フォローアップの自動化まで、皮膚科クリニックのDXを強力にサポートします。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

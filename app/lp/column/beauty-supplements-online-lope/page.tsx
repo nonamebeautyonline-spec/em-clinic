@@ -39,6 +39,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "美容内服のオンライン処方ガイドでLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "美容内服市場は年率15%超で拡大しオンライン処方との相性が抜群",
   "肌悩み別セグメント配信でリピート率35%→78%に改善した事例",
@@ -53,12 +70,14 @@ const toc = [
   { id: "pricing", label: "価格設定と収益モデル" },
   { id: "lope-beauty", label: "Lオペで美容内服クリニックを運用" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={SLUG} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         シミ・肝斑・くすみ対策として美容内服薬の需要が急拡大しています。トラネキサム酸やビタミンC、グルタチオンなどの美容内服は<strong>月額サブスク型のオンライン処方</strong>と相性が良く、クリニックにとっては安定した自費診療収益の柱になります。しかし、処方して終わりでは継続率が伸びません。本記事では、<strong>Lオペ for CLINICのセグメント配信</strong>を活用して肌悩み別・季節別にターゲティングし、リピート率を最大化する具体的な方法を解説します。
       </p>
@@ -289,6 +308,17 @@ export default function Page() {
         <p>しかし、処方して終わりでは継続率が伸びず、安定収益にはつながりません。Lオペ for CLINICのセグメント配信を活用し、肌悩み別・季節別の最適なフォローを行うことで、リピート率は35%から78%へと大幅に改善できます。</p>
 
         <p>美容内服のオンライン処方に興味をお持ちのクリニックは、まずは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>からお気軽にお問い合わせください。現在の診療体制をヒアリングし、最適なオンライン処方フローとセグメント配信の設計をご提案いたします。<Link href="/lp/column/online-clinic-complete-guide" className="text-emerald-700 underline">オンライン診療の導入ガイド</Link>や<Link href="/lp/column/clinic-self-pay-revenue" className="text-emerald-700 underline">自費診療売上を伸ばす戦略</Link>も併せてご参照ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

@@ -19,6 +19,23 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "マンジャロと血糖値・併用薬はオンライン診療で処方できますか？", a: "多くの場合、オンライン診療での処方が可能です。ただし初診では処方日数に制限がある場合があります。再診であれば対面診療と同等の処方が可能です。詳しくは各薬剤の処方ルールをご確認ください。" },
+  { q: "副作用が出た場合はどうすればいいですか？", a: "軽度の副作用であれば経過観察で改善することが多いですが、症状が強い場合は速やかに処方医に相談してください。LINEでの個別相談に対応しているクリニックであれば、気軽に症状を報告できます。" },
+  { q: "オンラインクリニックでの処方薬の配送はどうなりますか？", a: "多くのオンラインクリニックでは決済後、最短翌日〜数日で発送されます。温度管理が必要な薬剤はクール便での配送に対応しているクリニックを選びましょう。Lオペ for CLINICでは配送管理・追跡番号の自動配信機能も搭載しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "マンジャロは血糖依存性にインスリン分泌を促進 — 膵臓疲弊の心配はむしろ逆で糖尿病予防効果あり",
   "メトホルミン併用で効果アップ。特にマンジャロ7.5mg以上で効果が鈍化した場合に有効",
@@ -33,12 +50,14 @@ const toc = [
   { id: "psychiatric", label: "精神科薬・睡眠薬との関係" },
   { id: "contraindicated", label: "併用禁止の薬剤" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         マンジャロを使っていると「血糖値は大丈夫？」「将来糖尿病になりやすくならない？」「今飲んでる薬と併用できる？」といった疑問が出てきますよね。この記事では、マンジャロと血糖値の関係から、メトホルミン併用のメリット、健康診断への影響、精神科薬との相互作用まで、<strong>併用薬に関する気になるポイント</strong>をまるっと解説します。
       </p>
@@ -181,6 +200,17 @@ export default function Page() {
         <p>マンジャロは多くの薬と安全に併用できますが、「自己判断での併用」は危険です。必ず担当医に相談してから使い始めましょう。マンジャロ全般の使い方については<Link href="/lp/column/mounjaro-complete-guide" className="text-sky-600 underline hover:text-sky-800">マンジャロ完全ガイド</Link>、GLP-1薬の全体像は<Link href="/lp/column/glp1-diet-safety-evidence" className="text-sky-600 underline hover:text-sky-800">GLP-1ダイエットのエビデンス</Link>をご覧ください。</p>
       </section>
 
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
+      </section>
     </ArticleLayout>
   );
 }

@@ -20,6 +20,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニックのデータ移行ガイドの導入にどのくらいの期間がかかりますか？", a: "基本的な設定は1〜2週間で完了します。LINE公式アカウントの開設からリッチメニュー設計・自動メッセージ設定まで、Lオペ for CLINICなら初期設定サポート付きで最短2週間で運用開始できます。" },
+  { q: "クリニックのデータ移行ガイドでスタッフの負荷は増えませんか？", a: "むしろ減ります。電話対応・手動での予約管理・問診確認などの定型業務を自動化することで、スタッフの作業時間を月40時間以上削減できた事例もあります。導入初月はサポートを受けながら進めれば、2ヶ月目以降はスムーズに運用できます。" },
+  { q: "小規模クリニックでも導入効果はありますか？", a: "はい、むしろ小規模クリニックほど効果を実感しやすいです。スタッフ数が限られる分、業務自動化によるインパクトが大きく、受付1名分の工数を削減できた事例もあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "データ移行の計画立案から完了まで5つのフェーズ",
   "データクレンジングで移行後のトラブルを未然に防止",
@@ -34,12 +51,14 @@ const toc = [
   { id: "verification", label: "移行後の検証方法" },
   { id: "rollback", label: "ロールバック計画" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">既存システムから新しいプラットフォームへのデータ移行は、クリニックにとって最大のハードルの一つです。本記事では、<strong>計画立案・データクレンジング・段階移行・検証・ロールバック</strong>の5つのフェーズに分けて、安全かつ確実なデータ移行の方法を解説します。</p>
 
       {/* ── 移行計画 ── */}
@@ -153,6 +172,17 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICでは、CSV/APIによるデータインポート機能と専門スタッフによる移行サポートを提供しています。既存の予約システム・電子カルテ・CRMからの乗り換えをご検討の場合は、まずはお気軽にご相談ください。DX導入の全体的な進め方は<Link href="/lp/column/clinic-dx-complete-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>を、DX導入前後のビフォーアフターは<Link href="/lp/column/clinic-dx-before-after" className="text-sky-600 underline hover:text-sky-800">DX導入ビフォーアフター事例</Link>もご参照ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

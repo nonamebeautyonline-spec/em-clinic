@@ -23,6 +23,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "開業医が忙しい理由と業務効率化の方法の導入にどのくらいの期間がかかりますか？", a: "基本的な設定は1〜2週間で完了します。LINE公式アカウントの開設からリッチメニュー設計・自動メッセージ設定まで、Lオペ for CLINICなら初期設定サポート付きで最短2週間で運用開始できます。" },
+  { q: "開業医が忙しい理由と業務効率化の方法でスタッフの負荷は増えませんか？", a: "むしろ減ります。電話対応・手動での予約管理・問診確認などの定型業務を自動化することで、スタッフの作業時間を月40時間以上削減できた事例もあります。導入初月はサポートを受けながら進めれば、2ヶ月目以降はスムーズに運用できます。" },
+  { q: "小規模クリニックでも導入効果はありますか？", a: "はい、むしろ小規模クリニックほど効果を実感しやすいです。スタッフ数が限られる分、業務自動化によるインパクトが大きく、受付1名分の工数を削減できた事例もあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "開業医の1日のスケジュールと時間配分の実態",
   "開業医が忙しい3つの理由（経営兼務・DX対応・急患）",
@@ -37,12 +54,14 @@ const toc = [
   { id: "efficiency", label: "業務効率化の3つの方法" },
   { id: "dx-detail", label: "DXで変わるクリニック業務" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="業務改善" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">開業医が忙しい最大の理由は、診療に加え経営・労務・DX対応を1人で兼務する構造にあります。LINE予約・オンライン問診・AI自動返信の<strong>3つのDX施策</strong>を導入することで、<strong>1日あたり2〜3時間</strong>の業務削減が可能です。本記事では具体的な効率化方法を解説します。</p>
 
       {/* ── スケジュール ── */}
@@ -167,6 +186,17 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICは、開業医の「診療に集中したい」という想いを実現するクリニック専用のLINE運用プラットフォームです。予約・問診・配信・決済・配送管理を<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">オールインワンで自動化</Link>し、忙しい開業医の時間を取り戻します。AI自動返信による問い合わせ対応の自動化については<Link href="/lp/column/ai-auto-reply-guide" className="text-sky-600 underline hover:text-sky-800">AI自動返信導入ガイド</Link>もご覧ください。DX導入前後の変化を時系列で見たい方は<Link href="/lp/column/clinic-dx-daily-transformation" className="text-sky-600 underline hover:text-sky-800">DXで1日の業務がここまで変わる</Link>も参考になります。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

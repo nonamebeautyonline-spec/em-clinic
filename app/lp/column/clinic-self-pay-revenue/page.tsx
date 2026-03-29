@@ -23,6 +23,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニックの自費診療売上を伸ばすLINE配信戦略で売上を伸ばす最も効果的な方法は？", a: "既存患者へのセグメント配信が最も即効性があります。来院履歴・診療内容に基づいて、関連する自費メニューをLINEで個別提案することで、押し売り感なく自費転換率を高められます。導入クリニックでは自費率が15%→35%に向上した事例もあります。" },
+  { q: "自費診療の価格設定で注意すべき点は？", a: "原価率・地域相場・競合価格の3軸で分析し、松竹梅の3プランを用意するのが基本です。中間プランの選択率が60%以上になるよう設計すると、売上と患者満足度の両方を最大化できます。" },
+  { q: "自費診療のLINE訴求で医療広告ガイドラインに抵触しませんか？", a: "一斉配信で自費診療を訴求する場合は、費用・リスク・副作用の明示が必要です（限定解除要件）。個別の患者へのフォローアップとしての1対1メッセージは広告規制の対象外です。Lオペ for CLINICではガイドラインに配慮した配信テンプレートを用意しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "自費診療の売上比率を上げることがクリニック経営安定の鍵",
   "セグメント配信で患者属性に合わせた自費メニュー提案が可能",
@@ -37,12 +54,14 @@ const toc = [
   { id: "results", label: "導入クリニックの成果" },
   { id: "lope-features", label: "Lオペで自費診療売上を伸ばす具体的な機能" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="マーケティング" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         保険診療の診療報酬は年々厳しくなり、クリニック経営を保険点数だけに頼るのはリスクが高まっています。<strong>自費診療の売上比率を高める</strong>ことが経営安定の鍵ですが、「押し売りにならないか」「患者満足度が下がるのでは」という不安から踏み出せないクリニックも多いのが実情です。本記事では、LINE公式アカウントの<strong>セグメント配信</strong>を活用し、患者属性に合わせた自然な自費メニュー提案で<strong>診療単価を向上させる具体的な方法</strong>を解説します。
       </p>
@@ -244,6 +263,17 @@ export default function Page() {
         <p>Lオペ for CLINICは、セグメント配信・患者属性の自動タグ付け・配信効果の分析ダッシュボードなど、自費診療の売上アップに必要な機能をすべて備えたクリニック専用LINE運用プラットフォームです。<Link href="/lp/column/segment-delivery-repeat" className="text-emerald-700 underline">セグメント配信の基本</Link>から、<Link href="/lp/column/clinic-line-revenue-growth" className="text-emerald-700 underline">収益改善の全体戦略</Link>まで、関連コラムもぜひご参照ください。オンライン決済との連携で自費診療の購入導線を整える方法は<Link href="/lp/column/clinic-payment-guide" className="text-sky-600 underline hover:text-sky-800">オンライン決済導入ガイド</Link>をご覧ください。</p>
 
         <p>自費診療の売上アップに課題を感じているクリニックは、まずは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>からお気軽にお問い合わせください。現在の運用状況をヒアリングし、最適なセグメント配信の設計をご提案いたします。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

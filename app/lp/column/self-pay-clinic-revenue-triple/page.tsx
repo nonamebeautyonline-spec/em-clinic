@@ -32,6 +32,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "自費クリニックの売上を3倍にするマーケティング戦略で売上を伸ばす最も効果的な方法は？", a: "既存患者へのセグメント配信が最も即効性があります。来院履歴・診療内容に基づいて、関連する自費メニューをLINEで個別提案することで、押し売り感なく自費転換率を高められます。導入クリニックでは自費率が15%→35%に向上した事例もあります。" },
+  { q: "自費診療の価格設定で注意すべき点は？", a: "原価率・地域相場・競合価格の3軸で分析し、松竹梅の3プランを用意するのが基本です。中間プランの選択率が60%以上になるよう設計すると、売上と患者満足度の両方を最大化できます。" },
+  { q: "自費診療のLINE訴求で医療広告ガイドラインに抵触しませんか？", a: "一斉配信で自費診療を訴求する場合は、費用・リスク・副作用の明示が必要です（限定解除要件）。個別の患者へのフォローアップとしての1対1メッセージは広告規制の対象外です。Lオペ for CLINICではガイドラインに配慮した配信テンプレートを用意しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "売上=新患数×初回単価＋既存患者数×リピート率×リピート単価の公式で3つの変数を同時改善",
   "チャネル別集患コスト比較と単価アップのセット・コース設計で平均単価1.9倍",
@@ -46,12 +63,14 @@ const toc = [
   { id: "case-study", label: "成功事例 — 月商300万→900万の軌跡" },
   { id: "lope-strategy", label: "Lオペで3つの戦略を同時実行" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={SLUG} breadcrumbLabel="マーケティング" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「月商をもう一段引き上げたいが、何から手をつければいいか分からない」——自費診療クリニックの院長先生から最も多く寄せられる相談です。売上を3倍にするには、闇雲に広告費を増やすのではなく、<strong>新患獲得・診療単価アップ・リピート率向上</strong>の3つの変数を構造的に改善する必要があります。本記事では、Lオペ for CLINICの導入クリニックで実際に<strong>月商300万円→900万円</strong>を達成した戦略を、具体的な数値と施策とともに徹底解説します。
       </p>
@@ -293,6 +312,17 @@ export default function Page() {
         <p>関連コラムもぜひご参照ください。<Link href="/lp/column/clinic-line-revenue-growth" className="text-emerald-700 underline">クリニックの売上を上げるLINE活用術</Link>では収益構造全体の改善方法を、<Link href="/lp/column/clinic-self-pay-revenue" className="text-emerald-700 underline">自費診療の売上を伸ばすLINE配信戦略</Link>ではセグメント配信の具体的なノウハウを、<Link href="/lp/column/clinic-line-friends-growth" className="text-emerald-700 underline">LINE友だちを効率的に増やす方法</Link>では集患の入り口戦略を、<Link href="/lp/column/clinic-patient-ltv" className="text-emerald-700 underline">患者LTVを最大化する方法</Link>ではリピート率とLTVの関係を詳しく解説しています。</p>
 
         <p>売上3倍を本気で目指したいクリニックは、まずは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>からお気軽にお問い合わせください。現在の売上構造を分析し、3軸それぞれの改善ポテンシャルを具体的な数値でご提示いたします。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

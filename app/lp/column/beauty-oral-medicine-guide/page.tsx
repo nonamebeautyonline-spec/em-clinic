@@ -27,6 +27,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "美容内服薬の種類と効果ガイドはオンライン診療で処方できますか？", a: "多くの場合、オンライン診療での処方が可能です。ただし初診では処方日数に制限がある場合があります。再診であれば対面診療と同等の処方が可能です。詳しくは各薬剤の処方ルールをご確認ください。" },
+  { q: "副作用が出た場合はどうすればいいですか？", a: "軽度の副作用であれば経過観察で改善することが多いですが、症状が強い場合は速やかに処方医に相談してください。LINEでの個別相談に対応しているクリニックであれば、気軽に症状を報告できます。" },
+  { q: "オンラインクリニックでの処方薬の配送はどうなりますか？", a: "多くのオンラインクリニックでは決済後、最短翌日〜数日で発送されます。温度管理が必要な薬剤はクール便での配送に対応しているクリニックを選びましょう。Lオペ for CLINICでは配送管理・追跡番号の自動配信機能も搭載しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "クリニックで処方される主要な美容内服薬6種類（トラネキサム酸・シナール・ユベラ・ハイチオール・タチオン・ビタメジン）の薬効と副作用を徹底解説",
   "各薬剤のエビデンスレベル・推奨用量・保険適用条件を整理し、処方時の判断基準を明確化",
@@ -43,12 +60,14 @@ const toc = [
   { id: "vitamedin", label: "ビタメジン（ビタミンB1・B6・B12）" },
   { id: "prescribing-tips", label: "処方時の注意点と患者説明のコツ" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         美容内服薬は、レーザーや注入系施術と並びクリニックの自費診療メニューとして確立された分野です。しかし、各薬剤の<strong>エビデンスレベルや適正用量、保険適用の可否</strong>を正確に把握している医師は意外と多くありません。本記事では、クリニックで処方される主要6薬剤——<strong>トラネキサム酸・シナール・ユベラ・ハイチオール・タチオン・ビタメジン</strong>——について、作用機序から副作用、患者説明のポイントまでを体系的に解説します。
       </p>
@@ -289,6 +308,17 @@ export default function Page() {
         <p>具体的なセット処方の組み方については、<Link href="/lp/column/beauty-oral-set-prescription" className="text-emerald-700 underline">美容内服セット処方の組み方ガイド</Link>で詳しく解説しています。また、美容内服をオンライン診療で提供するための経営戦略については、<Link href="/lp/column/beauty-supplements-winning-strategy" className="text-emerald-700 underline">美容内服オンラインクリニックの勝ち方</Link>も併せてご覧ください。</p>
 
         <p>処方後の<strong>LINEフォローアップ</strong>を仕組み化することで、患者の継続率を飛躍的に高められます。Lオペ for CLINICでは、処方日を起点としたステップ配信や服用リマインドの自動化が可能です。アンチエイジング領域の最新成分トレンドは<Link href="/lp/column/anti-aging-beauty-medicine-trends" className="text-sky-600 underline hover:text-sky-800">アンチエイジング内服薬の最新トレンド</Link>もご参照ください。定期処方のDX化に興味のある方は、ぜひお気軽にお問い合わせください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

@@ -39,6 +39,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "いびき・SAS治療オンラインクリニックの勝ち方でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "SAS患者は推定300〜500万人、診断率は10%以下 — 膨大な潜在需要が存在",
   "CPAP管理は月額5,000〜10,000円のリカーリング収益で、LTVは数十万円に達する",
@@ -55,12 +72,14 @@ const toc = [
   { id: "lope-sas", label: "Lオペ for CLINICでSAS診療を運用" },
   { id: "revenue", label: "収益シミュレーション" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         いびき・睡眠時無呼吸症候群（SAS）は推定<strong>300〜500万人</strong>の患者がいるにもかかわらず、実際に診断・治療を受けているのは<strong>わずか50万人程度</strong>。診断率10%以下という数字は、裏を返せば膨大な潜在需要が眠っていることを意味します。SAS治療の中核を占めるCPAP療法は、<strong>毎月の管理料が発生するストック型収益モデル</strong>であり、一度獲得した患者が長期間にわたり安定的な収益をもたらします。本記事では、オンライン診療によるSAS/CPAP管理クリニックの開業戦略から、<strong>Lオペ for CLINICを活用したLINEフォロー体制の構築</strong>、Dr1人で月100万円超のリカーリング収益を実現する具体的な方法まで徹底解説します。
       </p>
@@ -452,6 +471,17 @@ export default function Page() {
             <Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談・お問い合わせ</Link> — SASオンラインクリニックの運用設計をご相談いただけます
           </li>
         </ul>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

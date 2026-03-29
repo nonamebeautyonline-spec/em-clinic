@@ -22,6 +22,22 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "LINE導入コストを抑える方法は？", a: "最も効果的なのは、複数ツールを一本化することです。予約システム・LINE配信ツール・CRMを個別に契約すると月額10万円以上になることもありますが、Lオペ for CLINICのようなオールインワンツールなら半額以下に抑えられます。" },
+  { q: "無料のLINE公式アカウントだけで十分ですか？", a: "友だち数が少ないうちは無料プランでも運用可能ですが、月200通以上のメッセージ配信やセグメント配信を行う場合はクリニック専用ツールが必要です。費用対効果を考えると、早い段階で専用ツールを導入する方が結果的にコストを抑えられます。" },
+  { q: "既存のシステムからの移行コストはどのくらいですか？", a: "一般的にデータ移行は1〜2週間で完了します。Lオペ for CLINICでは移行サポートを提供しており、既存の患者データやLINE友だち情報をスムーズに引き継ぐことが可能です。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "典型的なクリニックが支払っているツール月額費用の実態（平均15万円超）",
@@ -37,11 +53,13 @@ const toc = [
   { id: "operation-savings", label: "運用工数の削減効果" },
   { id: "migration-steps", label: "移行の進め方" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="業務改善" keyPoints={keyPoints} toc={toc}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         予約システム、CRM、LINE配信ツール、WEB問診、SMS送信サービス...。気づけばクリニックの月額ツール費用が<strong>15万円を超えている</strong>というケースは珍しくありません。しかも、それぞれのツールにデータが分散し、スタッフは複数の管理画面を行き来する日々。本記事では、これらのバラバラなツールを<strong>LINE運用プラットフォームに一本化</strong>し、ツール費用と運用工数の両方を半減させる具体的な戦略を解説します。
@@ -258,6 +276,16 @@ export default function Page() {
           <li><Link href="/lp/column/clinic-line-roi" className="text-sky-600 underline hover:text-sky-800">LINE導入ROIの計算方法</Link> — 費用対効果を定量的に算出</li>
           <li><Link href="/lp/column/clinic-data-migration" className="text-sky-600 underline hover:text-sky-800">データ移行ガイド</Link> — 既存ツールからの安全なデータ移行手順</li>
         </ul>
+      </section>
+
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

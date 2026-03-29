@@ -20,6 +20,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニックの紹介制度をLINEで仕組み化の効果はどのくらいで実感できますか？", a: "施策にもよりますが、LINE配信やSEO対策は1〜3ヶ月で効果が出始めるケースが多いです。特にセグメント配信は導入直後から開封率・クリック率の改善が見られます。継続的な改善サイクルを回すことで、半年後には大きな成果に繋がります。" },
+  { q: "集患施策にかかるコストはどのくらいですか？", a: "LINE公式アカウント自体は無料で開設でき、月額5,000〜15,000円程度で配信が可能です。Web広告と比較してCPA（獲得単価）が低く、既存患者のリピート促進にも効果的なため、費用対効果は非常に高いです。" },
+  { q: "Web広告とLINE配信はどちらが効果的ですか？", a: "新規集患にはWeb広告、リピート促進にはLINE配信が効果的です。LINE配信はメッセージ開封率90%と圧倒的なリーチ力を持ち、既存患者への再来院促進・自費診療の訴求に適しています。両方を組み合わせるのが最も効率的です。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "紹介制度の設計ポイント（特典設計・紹介条件・医療広告ガイドライン対応）",
   "LINE上のデジタル紹介カードで紹介のハードルを下げる",
@@ -34,12 +51,14 @@ const toc = [
   { id: "measurement", label: "効果測定とROI" },
   { id: "compliance", label: "医療広告ガイドラインへの対応" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="マーケティング" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニックの新患獲得で最も費用対効果が高いのが<strong>患者紹介</strong>です。紹介で来院した患者は定着率が高く、LTVも一般患者の1.5倍以上。しかし多くのクリニックでは紹介制度が「紙のカード」止まりで、追跡も効果測定もできていません。本記事ではLINEを活用して<strong>紹介制度を完全にデジタル化・自動化</strong>する方法を解説します。</p>
 
       {/* ── 設計 ── */}
@@ -149,6 +168,17 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICは、デジタル紹介カード・特典自動付与・紹介追跡ダッシュボードを<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">標準搭載</Link>したクリニック専用LINE運用プラットフォームです。紹介制度のデジタル化で、広告費ゼロの口コミ集患を実現します。季節ごとのキャンペーン設計については<Link href="/lp/column/clinic-seasonal-campaign" className="text-sky-600 underline hover:text-sky-800">季節別LINE配信戦略</Link>もあわせてご覧ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

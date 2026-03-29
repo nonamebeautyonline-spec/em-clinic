@@ -20,6 +20,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニックの予約枠最適化の導入にどのくらいの期間がかかりますか？", a: "基本的な設定は1〜2週間で完了します。LINE公式アカウントの開設からリッチメニュー設計・自動メッセージ設定まで、Lオペ for CLINICなら初期設定サポート付きで最短2週間で運用開始できます。" },
+  { q: "クリニックの予約枠最適化でスタッフの負荷は増えませんか？", a: "むしろ減ります。電話対応・手動での予約管理・問診確認などの定型業務を自動化することで、スタッフの作業時間を月40時間以上削減できた事例もあります。導入初月はサポートを受けながら進めれば、2ヶ月目以降はスムーズに運用できます。" },
+  { q: "小規模クリニックでも導入効果はありますか？", a: "はい、むしろ小規模クリニックほど効果を実感しやすいです。スタッフ数が限られる分、業務自動化によるインパクトが大きく、受付1名分の工数を削減できた事例もあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "予約データ分析で時間帯別の稼働率を可視化",
   "キャンセル待ち管理で空き枠を有効活用",
@@ -34,12 +51,14 @@ const toc = [
   { id: "no-show", label: "ノーショー対策の実践方法" },
   { id: "optimization", label: "データドリブンな予約枠設計" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="業務改善" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニックの予約枠は「感覚」で設定されていることが多く、時間帯によって稼働率に大きな偏りがあります。LINE予約データを分析し、<strong>データに基づいた予約枠設計</strong>を行うことで、稼働率を20%向上させ、売上を15%増加させた事例を紹介します。</p>
 
       {/* ── 予約データ分析 ── */}
@@ -144,6 +163,17 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICは、LINE予約データの分析からキャンセル待ち管理、自動リマインドまでを一元管理できるクリニック専用プラットフォームです。まずは現在の予約データを分析して、改善ポイントを把握するところから始めましょう。待ち時間対策による患者満足度向上は<Link href="/lp/column/clinic-waiting-time" className="text-sky-600 underline hover:text-sky-800">待ち時間対策ガイド</Link>を、経営KPIの設計全体は<Link href="/lp/column/clinic-kpi-dashboard" className="text-sky-600 underline hover:text-sky-800">クリニック経営のKPI7選</Link>もご参照ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

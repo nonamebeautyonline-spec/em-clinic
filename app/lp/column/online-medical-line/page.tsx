@@ -14,6 +14,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "オンライン診療×LINEを始めるために必要な準備は何ですか？", a: "厚生労働省のオンライン診療ガイドラインに基づく届出、ビデオ通話システムの導入、オンライン決済の設定が必要です。Lオペ for CLINICならLINEビデオ通話・電話音声通話でのオンライン診療に対応しており、別途システム導入が不要です。" },
+  { q: "オンライン診療で処方できる薬に制限はありますか？", a: "初診のオンライン診療では処方日数に制限があります（原則7日分まで）。再診では対面診療と同等の処方が可能です。向精神薬・麻薬等の一部薬剤はオンライン診療での処方が制限されています。" },
+  { q: "オンライン診療の診療報酬はどのくらいですか？", a: "保険診療では対面診療より低い点数設定ですが、自費診療であれば自由に価格設定が可能です。通院負担の軽減による患者満足度向上と、遠方からの新患獲得を考慮すると、十分な収益性が見込めます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "オンライン診療の市場動向と規制緩和の最新状況",
   "LINE起点で予約から配送まで完結するフロー設計",
@@ -27,12 +44,14 @@ const toc = [
   { id: "five-points", label: "患者体験を最大化する5つのポイント" },
   { id: "effects", label: "導入効果" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="オンライン診療" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         オンライン診療はLINEを起点にすることで、予約・問診・ビデオ通話・決済・処方薬配送まで<strong>一気通貫で完結</strong>できます。初診からのオンライン診療が恒久化された今、患者体験を最大化する<strong>5つの運用ポイント</strong>と導入効果を本記事で解説します。
       </p>
@@ -154,6 +173,17 @@ export default function Page() {
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: LINEでオンライン診療の患者体験を根本から変える</h2>
         <p>オンライン診療の成功は、医療の質だけでなく<strong>患者体験（UX）の設計</strong>にかかっています。専用アプリ・別システム決済・煩雑な予約といった従来の課題を、LINE起点のフローで一掃することで、患者の利便性とクリニックの業務効率を同時に向上させられます。なお、オンライン診療フローの起点となるリッチメニューの設計については<Link href="/lp/column/rich-menu-design" className="text-sky-600 underline hover:text-sky-800">リッチメニュー設計5つのポイント</Link>で詳しく解説しています。また、電子カルテとの連携を検討中の方は<Link href="/lp/column/electronic-medical-record-guide" className="text-sky-600 underline hover:text-sky-800">電子カルテ選び方ガイド</Link>も参考にしてください。</p>
         <p>Lオペ for CLINICは、LINE上での予約・問診・決済・配送追跡・フォローアップまでワンストップで提供。<strong>オンライン診療に最適化されたLINE運用プラットフォーム</strong>として、クリニックのオンライン診療を全面的にサポートします。<Link href="/lp/features#決済・配送" className="text-sky-600 underline hover:text-sky-800">決済・配送管理機能</Link>の詳細もご覧ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

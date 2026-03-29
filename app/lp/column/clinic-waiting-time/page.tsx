@@ -20,6 +20,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニックの待ち時間対策の導入にどのくらいの期間がかかりますか？", a: "基本的な設定は1〜2週間で完了します。LINE公式アカウントの開設からリッチメニュー設計・自動メッセージ設定まで、Lオペ for CLINICなら初期設定サポート付きで最短2週間で運用開始できます。" },
+  { q: "クリニックの待ち時間対策でスタッフの負荷は増えませんか？", a: "むしろ減ります。電話対応・手動での予約管理・問診確認などの定型業務を自動化することで、スタッフの作業時間を月40時間以上削減できた事例もあります。導入初月はサポートを受けながら進めれば、2ヶ月目以降はスムーズに運用できます。" },
+  { q: "小規模クリニックでも導入効果はありますか？", a: "はい、むしろ小規模クリニックほど効果を実感しやすいです。スタッフ数が限られる分、業務自動化によるインパクトが大きく、受付1名分の工数を削減できた事例もあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "クリニックの待ち時間が発生する3つの構造的原因",
   "LINE順番通知システムで院内滞在時間を50%短縮",
@@ -34,12 +51,14 @@ const toc = [
   { id: "time-optimization", label: "時間帯別予約の最適化" },
   { id: "effects", label: "導入効果の実績データ" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="業務改善" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニックの待ち時間は患者満足度の最大の低下要因です。厚生労働省の調査によると、外来患者の<strong>約40%</strong>が「待ち時間が長い」と不満を感じています。本記事ではLINE通知を活用した順番管理・混雑可視化・予約最適化により、<strong>院内待ち時間を平均50%削減</strong>する具体策を解説します。</p>
 
       {/* ── 原因 ── */}
@@ -148,6 +167,17 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICは、LINE順番通知・混雑可視化・オンライン問診・予約管理を<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">オールインワンで提供</Link>するクリニック専用プラットフォームです。待ち時間の問題を解消し、患者満足度とクリニックの生産性を同時に向上させます。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

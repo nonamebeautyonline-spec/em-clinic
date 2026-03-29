@@ -19,6 +19,22 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "LINE配信の効果測定で最も重要なKPIは何ですか？", a: "クリニックでは『予約転換率』（配信→予約に至った割合）が最も重要です。開封率やクリック率も参考になりますが、最終的に来院に繋がったかどうかが売上に直結します。" },
+  { q: "開封率が低い場合の改善方法は？", a: "まずは配信時間帯を見直してください。クリニック系は平日18〜20時、土曜午前の開封率が高い傾向があります。次にタイトル（冒頭14文字）を工夫し、患者にとってのメリットを明確に伝えましょう。" },
+  { q: "セグメント配信の効果はどのくらい違いますか？", a: "一斉配信と比較して、セグメント配信は開封率が1.5〜2倍、クリック率が3倍以上になるケースが一般的です。診療科別・来院頻度別・最終来院日別のセグメントが特に効果的です。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "LINE配信で計測すべき5つの指標（開封率・クリック率・CV率・ブロック率・ROI）",
@@ -34,11 +50,13 @@ const toc = [
   { id: "pdca", label: "改善PDCAサイクル" },
   { id: "dashboard", label: "ダッシュボードの活用" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="マーケティング" keyPoints={keyPoints} toc={toc}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">LINE配信を「送りっぱなし」にしていませんか？ 効果測定なしの配信は、患者のブロックを招くだけでなく、通数課金の無駄遣いにもつながります。本記事では、開封率・CV率・ROIの計測から<strong>ABテストによる継続的な改善</strong>まで、データドリブンなLINE運用の実践方法を解説します。ブロック率を下げるコツは<Link href="/lp/column/line-block-rate-reduction" className="text-sky-600 underline hover:text-sky-800">ブロック率を下げる鉄則</Link>で詳しく解説しています。</p>
 
@@ -151,6 +169,16 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICは、配信分析ダッシュボード・ABテスト機能・ROI自動算出を<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">標準搭載</Link>したクリニック専用LINE運用プラットフォームです。データに基づいた配信最適化で、通数コストの無駄をなくし、売上最大化を支援します。LINE運用の全体設計については<Link href="/lp/column/line-operation-guide" className="text-sky-600 underline hover:text-sky-800">LINE運用完全ガイド</Link>も併せてご確認ください。</p>
+      </section>
+
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

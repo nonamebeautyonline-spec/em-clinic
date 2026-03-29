@@ -29,6 +29,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "美容医療の施術トレンドとクリニック導入判断でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "HIFU・ピコレーザー・RF治療はそれぞれ適応・施術時間・ダウンタイムが異なり、ターゲット患者層を見極めた選定が重要",
   "機器導入は1台800万〜3,000万円の投資判断であり、投資回収までの月間施術件数と損益分岐点を事前にシミュレーションすべき",
@@ -44,12 +61,14 @@ const toc = [
   { id: "investment-simulation", label: "投資回収シミュレーション" },
   { id: "selection-criteria", label: "導入判断の選定基準" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         美容医療機器の選定は、クリニック経営において最も大きな投資判断のひとつです。HIFU（高密度焦点式超音波）、ピコレーザー、RF（高周波）治療を中心に、各機器の<strong>施術特性・ターゲット患者層・原価構造・投資回収シミュレーション</strong>を比較し、クリニックの方向性に合った導入判断の基準を解説します。
       </p>
@@ -238,6 +257,17 @@ export default function Page() {
         <p>機器単体の施術売上だけでなく、内服・外用薬の処方、コースメニュー、LINEを活用したリピート促進など、周辺の収益機会も含めた<strong>トータルの投資対効果</strong>で評価することが、持続可能なクリニック経営の基盤を築くポイントです。集患から施術リピートまでの一貫したマーケティング戦略は<Link href="/lp/column/self-pay-clinic-marketing-guide" className="text-sky-600 underline hover:text-sky-800">自費クリニック集患マーケティング完全ガイド</Link>で体系的に解説しています。</p>
 
         <InlineCTA />
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

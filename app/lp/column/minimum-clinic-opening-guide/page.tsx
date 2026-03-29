@@ -14,6 +14,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "ミニマム開業完全ガイドで最も重要なポイントは何ですか？", a: "資金計画と集患戦略の両立です。開業資金だけでなく、運転資金（最低6ヶ月分）の確保と、開業前からのLINE公式アカウントやWebサイトによる認知獲得が成功の鍵です。" },
+  { q: "開業前から準備すべきことは何ですか？", a: "開業3ヶ月前からLINE公式アカウントの開設、Webサイトの公開、Googleビジネスプロフィールの登録を始めましょう。内覧会の案内や開業日のお知らせをLINEで配信することで、開業初月から安定した来院数を確保できます。" },
+  { q: "クリニック経営で失敗しやすいポイントは？", a: "集患に過度に広告費をかけてしまうこと、リピート率を軽視すること、DX化を後回しにすることが代表的な失敗パターンです。既存患者のLTV（生涯価値）を最大化する仕組みを早期に構築することが重要です。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "ワンルームマンション（月10万円）でもオンライン診療クリニックは開業可能",
   "Dr1人＋DXツール（Lオペ）で受付・問診・予約・配送まで全て運用できる",
@@ -30,12 +47,14 @@ const toc = [
   { id: "dx-strategy", label: "固定費を極限まで抑えるDX戦略" },
   { id: "lope-minimum", label: "Lオペでワンオペ運用を実現" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ミニマム開業完全ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {/* ── イントロ ── */}
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「クリニックを開業したいが、テナント契約・内装工事・スタッフ採用で数千万円の初期投資は無理」——そんな勤務医の悩みを解決するのが<strong>ミニマム開業</strong>という選択肢です。
@@ -385,6 +404,17 @@ export default function Page() {
         <p>ミニマム開業を検討されている方は、まずは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>でLオペの導入プランをご相談ください。診療メニューの選定からLINE公式アカウントの設計、集患戦略まで、専任スタッフがトータルでサポートします。</p>
 
         <p className="mt-4 text-[13px] text-gray-500">関連コラム: <Link href="/lp/column/online-clinic-complete-guide" className="text-sky-600 underline hover:text-sky-800">オンライン診療完全ガイド</Link> / <Link href="/lp/column/online-medical-cost" className="text-sky-600 underline hover:text-sky-800">オンライン診療のコスト完全解説</Link> / <Link href="/lp/column/clinic-cost-reduction-30man" className="text-sky-600 underline hover:text-sky-800">クリニックコスト削減30万円</Link> / <Link href="/lp/column/clinic-self-pay-revenue" className="text-sky-600 underline hover:text-sky-800">自費診療の収益化</Link> / <Link href="/lp/column/lope-complete-introduction" className="text-sky-600 underline hover:text-sky-800">Lオペ完全ガイド</Link></p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

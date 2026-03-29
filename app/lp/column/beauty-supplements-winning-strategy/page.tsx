@@ -39,6 +39,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "美容内服オンラインクリニックの勝ち方でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "美容内服市場は年率15%超で成長し、リピート性の高さからオンライン処方との相性が抜群",
   "目的別セット処方（美白・ニキビケア・エイジングケア）で月額5,000〜15,000円の単価設計",
@@ -56,12 +73,14 @@ const toc = [
   { id: "dx-solo", label: "DX活用でDr1人運営" },
   { id: "revenue-model", label: "月間収益モデル" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={SLUG} breadcrumbLabel="開業・経営" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         美容内服薬は<strong>毎月継続処方されるストック型ビジネス</strong>であり、オンラインクリニックの中でも特に収益性と安定性を両立しやすい領域です。トラネキサム酸、ビタミンC、グルタチオン、ハイチオール（Lシステイン）など主要薬剤の処方戦略から、目的別セット設計、継続率を飛躍的に高めるフォロー施策、そしてDr1人でも回せるDX運営モデルまで、<strong>美容内服オンラインクリニックで勝つための全戦略</strong>を解説します。
       </p>
@@ -459,6 +478,17 @@ export default function Page() {
         <p>成功の要は<strong>「処方して終わり」にしないこと</strong>です。肌悩みに寄り添った継続フォロー、効果の可視化、タイミングを捉えたアップセル提案 — これらをすべて手動で行うのは非現実的ですが、Lオペ for CLINICのセグメント配信・フォローアップルール・AI自動返信・患者CRMを活用すれば、Dr1人でも数百名の定期処方患者を管理・フォローできます。</p>
 
         <p>美容内服オンラインクリニックの開業・運営に興味をお持ちの方は、まずは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>からお気軽にお問い合わせください。現在の状況をヒアリングし、最適な処方戦略とDXツールの導入プランをご提案いたします。<Link href="/lp/column/online-clinic-complete-guide" className="text-emerald-700 underline">オンライン診療の完全ガイド</Link>、<Link href="/lp/column/beauty-supplements-online-lope" className="text-emerald-700 underline">美容内服のオンライン処方ガイド</Link>、<Link href="/lp/column/doctor-side-business-online-clinic" className="text-emerald-700 underline">医師の副業としてのオンラインクリニック</Link>も併せてご参照ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

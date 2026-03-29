@@ -39,6 +39,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "不眠症・睡眠薬のオンライン処方ガイドでLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "成人の約20%が不眠症状を抱えるが、受診率はわずか10%台にとどまる",
   "オレキシン受容体拮抗薬やメラトニン受容体作動薬など依存性の低い薬剤がオンライン処方に適している",
@@ -54,12 +71,14 @@ const toc = [
   { id: "lope-insomnia", label: "Lオペで不眠症診療を運用" },
   { id: "revenue", label: "収益モデル" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         不眠症は成人の約20%が経験する非常に身近な疾患でありながら、<strong>実際に医療機関を受診している患者はそのうちわずか10%台</strong>にとどまります。「たかが眠れないだけ」と放置する人が多い一方で、慢性不眠は生活習慣病やうつ病のリスクを高める深刻な問題です。オンライン診療の普及により、<strong>通院のハードルを下げて「眠れない」を放置させない仕組み</strong>が実現可能になりました。本記事では、不眠症のオンライン処方を安全に運用するための薬剤選択・依存リスク管理・定期フォロー体制の構築と、<strong>Lオペ for CLINICを活用したLINE問診・セグメント配信・フォローアップ自動化</strong>の方法を解説します。
       </p>
@@ -325,6 +344,17 @@ export default function Page() {
             <Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談・お問い合わせ</Link> — 不眠症オンライン診療の運用設計をご相談いただけます
           </li>
         </ul>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

@@ -22,6 +22,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "オンライン診療の規制緩和動向を始めるために必要な準備は何ですか？", a: "厚生労働省のオンライン診療ガイドラインに基づく届出、ビデオ通話システムの導入、オンライン決済の設定が必要です。Lオペ for CLINICならLINEビデオ通話・電話音声通話でのオンライン診療に対応しており、別途システム導入が不要です。" },
+  { q: "オンライン診療で処方できる薬に制限はありますか？", a: "初診のオンライン診療では処方日数に制限があります（原則7日分まで）。再診では対面診療と同等の処方が可能です。向精神薬・麻薬等の一部薬剤はオンライン診療での処方が制限されています。" },
+  { q: "オンライン診療の診療報酬はどのくらいですか？", a: "保険診療では対面診療より低い点数設定ですが、自費診療であれば自由に価格設定が可能です。通院負担の軽減による患者満足度向上と、遠方からの新患獲得を考慮すると、十分な収益性が見込めます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "2022年の初診解禁から現在までの規制緩和の流れを時系列で整理",
   "処方制限・対面原則・特例措置の恒久化など現行ルールの要点を網羅",
@@ -37,12 +54,14 @@ const toc = [
   { id: "future-outlook", label: "今後の規制緩和予測" },
   { id: "action-items", label: "クリニックが今やるべき準備" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         オンライン診療を取り巻く規制環境は、2020年のコロナ特例から2022年の初診解禁、そして2025年以降の電子処方箋義務化へと<strong>急速に変化</strong>しています。規制緩和の流れを正確に把握し、先手を打つクリニックだけが<strong>オンライン診療市場の成長を取り込める</strong>時代です。本記事では、規制の変遷から今後の見通し、そしてクリニックが今すぐ着手すべき準備事項までを体系的に整理します。
       </p>
@@ -202,6 +221,17 @@ export default function Page() {
         </Callout>
 
         <p>オンライン診療の規制環境は今後も変化し続けます。最新の動向を継続的にキャッチアップし、制度変更に柔軟に対応できる体制を構築することが、クリニック経営の安定と成長の鍵です。Lオペ for CLINICは、規制変更に合わせたシステムアップデートを自動で提供し、クリニックの運営負荷を最小限に抑えます。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

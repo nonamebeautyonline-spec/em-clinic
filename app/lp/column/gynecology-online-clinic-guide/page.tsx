@@ -28,6 +28,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "婦人科オンライン診療の始め方でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "婦人科領域でオンライン診療が特に適している理由と、ピル処方・月経困難症・更年期障害・アフターピルの遠隔管理方法を解説",
   "保険診療（LEP）と自費診療（OC）の使い分け、アフターピルの処方要件を整理し、収益モデルを提示",
@@ -44,12 +61,14 @@ const toc = [
   { id: "privacy-line", label: "プライバシー配慮とLINE活用" },
   { id: "revenue-model", label: "収益モデル" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         婦人科領域は、オンライン診療との親和性が極めて高い分野です。ピル処方、月経困難症の管理、更年期障害のHRT（ホルモン補充療法）、アフターピル——いずれも<strong>定期的な処方と継続的なフォロー</strong>が必要であり、毎回の対面診察が必ずしも必要ではありません。本記事では、婦人科オンライン診療の始め方を網羅的に解説します。すべての処方は医師の診察・判断に基づいて行ってください。
       </p>
@@ -213,6 +232,17 @@ export default function Page() {
         <p>ピルのオンライン処方については<Link href="/lp/column/pill-online-clinic-lope" className="text-emerald-700 underline">ピルオンラインクリニックの運用ガイド</Link>を、アフターピルについては<Link href="/lp/column/afterpill-online-clinic-guide" className="text-emerald-700 underline">アフターピルオンライン診療ガイド</Link>を併せてご参照ください。</p>
 
         <p>婦人科オンライン診療の導入にあたっては、予約管理・問診・処方配送・LINEフォローを一元管理できるプラットフォームが不可欠です。Lオペ for CLINICでは、プライバシーに配慮したLINE運用と処方管理をワンストップで提供しています。ご検討中の方はお気軽にお問い合わせください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

@@ -22,6 +22,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "自費クリニックのInstagram運用戦略の効果はどのくらいで実感できますか？", a: "施策にもよりますが、LINE配信やSEO対策は1〜3ヶ月で効果が出始めるケースが多いです。特にセグメント配信は導入直後から開封率・クリック率の改善が見られます。継続的な改善サイクルを回すことで、半年後には大きな成果に繋がります。" },
+  { q: "集患施策にかかるコストはどのくらいですか？", a: "LINE公式アカウント自体は無料で開設でき、月額5,000〜15,000円程度で配信が可能です。Web広告と比較してCPA（獲得単価）が低く、既存患者のリピート促進にも効果的なため、費用対効果は非常に高いです。" },
+  { q: "Web広告とLINE配信はどちらが効果的ですか？", a: "新規集患にはWeb広告、リピート促進にはLINE配信が効果的です。LINE配信はメッセージ開封率90%と圧倒的なリーチ力を持ち、既存患者への再来院促進・自費診療の訴求に適しています。両方を組み合わせるのが最も効率的です。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "Instagramは自費クリニックの「第一印象」を形成する最重要SNS",
   "投稿ジャンルの黄金比率とリール活用で月間フォロワー500人増を実現",
@@ -37,12 +54,14 @@ const toc = [
   { id: "instagram-to-line", label: "InstagramからLINEへの導線設計" },
   { id: "ad-guideline", label: "医療広告ガイドラインの注意点" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="マーケティング" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         自費クリニック（美容皮膚科・AGA・ピル・メディカルダイエット等）にとって、<strong>Instagram</strong>は新患獲得の最重要チャネルのひとつです。ホットペッパービューティーや口コミサイトと異なり、<strong>自院の世界観を自由にコントロール</strong>でき、広告費をかけずにターゲット層にリーチできます。本記事では、フォロワー獲得から実際の来院予約につなげるまでの投稿設計を体系的に解説します。
       </p>
@@ -355,6 +374,17 @@ export default function Page() {
         </ul>
 
         <p className="mt-4">まずは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800 font-semibold">無料相談</Link>で、Instagram×LINEの運用設計についてご相談ください。貴院のターゲット層と診療科に最適な投稿戦略と導線設計をご提案いたします。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

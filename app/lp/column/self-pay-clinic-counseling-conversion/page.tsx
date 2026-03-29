@@ -23,6 +23,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "自費クリニックのカウンセリング成約率を上げる方法で売上を伸ばす最も効果的な方法は？", a: "既存患者へのセグメント配信が最も即効性があります。来院履歴・診療内容に基づいて、関連する自費メニューをLINEで個別提案することで、押し売り感なく自費転換率を高められます。導入クリニックでは自費率が15%→35%に向上した事例もあります。" },
+  { q: "自費診療の価格設定で注意すべき点は？", a: "原価率・地域相場・競合価格の3軸で分析し、松竹梅の3プランを用意するのが基本です。中間プランの選択率が60%以上になるよう設計すると、売上と患者満足度の両方を最大化できます。" },
+  { q: "自費診療のLINE訴求で医療広告ガイドラインに抵触しませんか？", a: "一斉配信で自費診療を訴求する場合は、費用・リスク・副作用の明示が必要です（限定解除要件）。個別の患者へのフォローアップとしての1対1メッセージは広告規制の対象外です。Lオペ for CLINICではガイドラインに配慮した配信テンプレートを用意しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "自費クリニックのカウンセリング成約率の業界平均は30〜40%、トップクリニックは70%超",
   "事前情報提供・当日フロー・クロージング・フォローアップの4段階で成約率を改善",
@@ -38,12 +55,14 @@ const toc = [
   { id: "follow-up", label: "フォローアップで取りこぼしを防ぐ" },
   { id: "line-conversion", label: "LINE活用で成約率を上げる" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="マーケティング" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         自費クリニックの売上は「カウンセリングの成約率」で決まると言っても過言ではありません。広告費をかけて集めた初診患者が、カウンセリング後に「少し考えます」と帰ってしまう――この取りこぼしを放置すると、<strong>月数十万〜数百万円の機会損失</strong>が発生します。本記事では、成約率が低い原因の分析から、事前情報提供・当日フロー設計・クロージング技法・フォローアップまで、<strong>カウンセリング成約率を体系的に引き上げる方法</strong>を解説します。
       </p>
@@ -319,6 +338,17 @@ export default function Page() {
           <strong>2. 事前問診を導入する：</strong>LINE経由でカウンセリング前に患者の情報を収集し、当日の提案精度を上げる。<br />
           <strong>3. フォローアップを仕組み化する：</strong>未成約患者への段階的なフォローを自動配信で設計し、取りこぼしをゼロにする。
         </Callout>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

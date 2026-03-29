@@ -14,6 +14,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "オンライン診療完全ガイドを始めるために必要な準備は何ですか？", a: "厚生労働省のオンライン診療ガイドラインに基づく届出、ビデオ通話システムの導入、オンライン決済の設定が必要です。Lオペ for CLINICならLINEビデオ通話・電話音声通話でのオンライン診療に対応しており、別途システム導入が不要です。" },
+  { q: "オンライン診療で処方できる薬に制限はありますか？", a: "初診のオンライン診療では処方日数に制限があります（原則7日分まで）。再診では対面診療と同等の処方が可能です。向精神薬・麻薬等の一部薬剤はオンライン診療での処方が制限されています。" },
+  { q: "オンライン診療の診療報酬はどのくらいですか？", a: "保険診療では対面診療より低い点数設定ですが、自費診療であれば自由に価格設定が可能です。通院負担の軽減による患者満足度向上と、遠方からの新患獲得を考慮すると、十分な収益性が見込めます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "オンライン診療の基本と法的位置づけ、届出手続きの全手順",
   "システム選定のポイントとプラットフォーム比較",
@@ -30,12 +47,14 @@ const toc = [
   { id: "revenue", label: "収益モデル" },
   { id: "lope-online", label: "Lオペで最大化" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="オンライン診療完全ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {/* ── イントロ ── */}
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         2026年、オンライン診療市場は<strong>推定1,200億円規模</strong>にまで拡大し、クリニックにとっての「参入するかどうか」ではなく「いかに効率よく始めるか」のフェーズに入りました。
@@ -317,6 +336,17 @@ export default function Page() {
         <p>Lオペ for CLINICは、これら4つの要素をすべてカバーするクリニック特化型のLINE運用プラットフォームです。オンライン診療の開業を検討されている方も、すでに開始していて伸び悩みを感じている方も、まずは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>でお気軽にご相談ください。</p>
 
         <p className="mt-4 text-[13px] text-gray-500">関連コラム: <Link href="/lp/column/online-medical-line" className="text-sky-600 underline hover:text-sky-800">オンライン診療×LINE活用術</Link> / <Link href="/lp/column/online-medical-cost" className="text-sky-600 underline hover:text-sky-800">オンライン診療のコスト完全解説</Link> / <Link href="/lp/column/clinic-line-revenue-growth" className="text-sky-600 underline hover:text-sky-800">LINE活用で売上1.5倍にする方法</Link> / <Link href="/lp/column/lope-complete-introduction" className="text-sky-600 underline hover:text-sky-800">Lオペ完全ガイド</Link></p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

@@ -18,6 +18,23 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "次世代肥満症薬まとめはオンライン診療で処方できますか？", a: "多くの場合、オンライン診療での処方が可能です。ただし初診では処方日数に制限がある場合があります。再診であれば対面診療と同等の処方が可能です。詳しくは各薬剤の処方ルールをご確認ください。" },
+  { q: "副作用が出た場合はどうすればいいですか？", a: "軽度の副作用であれば経過観察で改善することが多いですが、症状が強い場合は速やかに処方医に相談してください。LINEでの個別相談に対応しているクリニックであれば、気軽に症状を報告できます。" },
+  { q: "オンラインクリニックでの処方薬の配送はどうなりますか？", a: "多くのオンラインクリニックでは決済後、最短翌日〜数日で発送されます。温度管理が必要な薬剤はクール便での配送に対応しているクリニックを選びましょう。Lオペ for CLINICでは配送管理・追跡番号の自動配信機能も搭載しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "レタトルチド（トリプル作動薬）が68週で28.7%減を達成し、現時点で最強の減量効果",
   "オルフォグリプロンは初の経口GLP-1肥満薬として2026年4月にFDA審査結果予定",
@@ -33,12 +50,14 @@ const toc = [
   { id: "pemvidutide", label: "ペムビデュチド" },
   { id: "comparison", label: "横断比較" },
   { id: "outlook", label: "今後の展望" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         マンジャロ・ウゴービ・ゼップバウンドの次に来る肥満症薬、気になりますよね。2026年現在、複数の次世代薬が臨床試験の最終段階に入っています。この記事では、<strong>最新のエビデンスをもとに5つの注目薬剤</strong>を横断比較します。
       </p>
@@ -207,6 +226,17 @@ export default function Page() {
         <p>現時点で利用できる薬剤について知りたい方は、<Link href="/lp/column/mounjaro-complete-guide" className="text-sky-600 underline hover:text-sky-800">マンジャロ完全ガイド</Link>や<Link href="/lp/column/zepbound-obesity-treatment-guide" className="text-sky-600 underline hover:text-sky-800">ゼップバウンド完全ガイド</Link>、<Link href="/lp/column/wegovy-obesity-treatment-guide" className="text-sky-600 underline hover:text-sky-800">ウゴービ完全ガイド</Link>もあわせてチェックしてみてください。</p>
       </section>
 
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
+      </section>
     </ArticleLayout>
   );
 }

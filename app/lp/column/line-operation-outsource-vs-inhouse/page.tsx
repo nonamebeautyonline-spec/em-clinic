@@ -14,6 +14,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニックのLINE公式アカウント運用代行 vs 自社運用で選ぶ際の最も重要な基準は何ですか？", a: "クリニック業務への適合性が最も重要です。汎用ツールは安価ですが医療ワークフローへの対応に大量のカスタマイズが必要です。クリニック専用ツールなら予約管理・問診・カルテ・決済が標準搭載されており、導入直後から運用できます。" },
+  { q: "ツール移行時にデータは引き継げますか？", a: "LINE公式アカウントはそのまま維持し、連携ツールだけを切り替える形になります。友だちリストやトーク履歴はLINE公式側に残るため、患者への影響はありません。Lオペ for CLINICでは移行サポートも提供しています。" },
+  { q: "無料で使えるツールではダメですか？", a: "無料ツールは基本的な配信機能のみで、予約管理・問診・カルテ連携・セグメント配信などクリニックに必要な機能が不足しています。月額費用をかけてでも専用ツールを導入した方が、業務効率化による人件費削減で十分に元が取れます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "運用代行と自社運用のメリット・デメリットを費用・効果の両面で比較",
   "クリニック規模別の最適な運用方法の判断基準を明確に解説",
@@ -29,12 +46,14 @@ const toc = [
   { id: "hybrid", label: "ハイブリッド運用という選択肢" },
   { id: "tool-selection", label: "自社運用を成功させるためのツール選び" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="運用代行vs自社" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニックのLINE運用は、初期構築を外注し運用は自社で行う<strong>「ハイブリッド方式」</strong>が最もコストパフォーマンスに優れています。本記事では、運用代行と自社運用の費用・効果を比較し、クリニック規模別の最適な運用方法と判断基準を解説します。</p>
 
       <section>
@@ -169,6 +188,17 @@ export default function Page() {
           { value: "半額以下", unit: "", label: "ハイブリッド方式の年間コスト" },
         ]} />
         <p className="mt-4">Lオペ for CLINICは、クリニックの自社運用を前提に設計されたLINE運用プラットフォームです。直感的な操作性と充実したテンプレートで、ITに詳しくないスタッフでもすぐに運用を開始できます。<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">全機能一覧</Link>もご覧ください。初期構築サポートからトレーニングまで、自社運用の立ち上げを伴走いたします。まずは<Link href="/lp/column/clinic-line-friends-growth" className="text-sky-600 underline hover:text-sky-800">LINE友だち集め月100人増やす7つの施策</Link>から取り組んでみてはいかがでしょうか。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

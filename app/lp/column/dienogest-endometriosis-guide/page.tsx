@@ -20,6 +20,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "ジエノゲスト（ディナゲスト）処方ガイドはオンライン診療で処方できますか？", a: "多くの場合、オンライン診療での処方が可能です。ただし初診では処方日数に制限がある場合があります。再診であれば対面診療と同等の処方が可能です。詳しくは各薬剤の処方ルールをご確認ください。" },
+  { q: "副作用が出た場合はどうすればいいですか？", a: "軽度の副作用であれば経過観察で改善することが多いですが、症状が強い場合は速やかに処方医に相談してください。LINEでの個別相談に対応しているクリニックであれば、気軽に症状を報告できます。" },
+  { q: "オンラインクリニックでの処方薬の配送はどうなりますか？", a: "多くのオンラインクリニックでは決済後、最短翌日〜数日で発送されます。温度管理が必要な薬剤はクール便での配送に対応しているクリニックを選びましょう。Lオペ for CLINICでは配送管理・追跡番号の自動配信機能も搭載しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "ジエノゲストは子宮内膜症の保険適用治療薬 — エストロゲンフリーでピルが使えない方にも処方可能",
   "GnRHaと異なり骨密度低下リスクが少なく、投与期間の制限がない",
@@ -30,6 +47,7 @@ export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={[]}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「子宮内膜症の痛みがつらいけど、ピルは飲めない」「GnRHaは骨密度が心配で長く使えない」——そんな悩みに応える薬が<strong>ジエノゲスト（ディナゲスト）</strong>です。日本で2008年に承認された第4世代プロゲスチンで、エストロゲンを含まないのが最大の特徴。この記事では、作用機序から臨床エビデンス、処方時の実践的なポイントまで、<strong>ガイドラインに基づいて</strong>まとめました。
       </p>
@@ -173,6 +191,17 @@ export default function Page() {
         <p>ジエノゲストの最大の価値は、<strong>効果と安全性のバランスが良く、期間制限なく使い続けられる</strong>こと。GnRHaと同等の疼痛改善効果を持ちながら、骨密度低下や更年期様症状のリスクが大幅に低い。エストロゲンフリーのためピル禁忌の患者さんにも使える。これだけの条件を満たす薬剤は、現時点で他にありません。</p>
 
         <p>もちろん、不正出血という「避けて通れない副作用」はあります。しかし、事前の丁寧な説明と最初の3ヶ月を乗り越えるサポートがあれば、多くの患者さんが長期的な疼痛管理を実現できます。<strong>「正しい情報提供」と「継続的なフォロー」</strong>——この2つが揃ったとき、ジエノゲストは子宮内膜症治療の強力な武器になるのです。婦人科領域のオンライン診療については<Link href="/lp/column/gynecology-online-clinic-guide" className="text-sky-600 underline hover:text-sky-800">婦人科オンライン診療ガイド</Link>も参考にしてください。PMSへの処方アプローチについては<Link href="/lp/column/pms-online-prescription-guide" className="text-sky-600 underline hover:text-sky-800">PMSオンライン処方ガイド</Link>もあわせてご覧ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

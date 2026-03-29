@@ -29,6 +29,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "美容皮膚科のオンライン診療活用でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "美容皮膚科は対面施術とオンライン処方の二軸運用で患者単価とリピート率を同時に引き上げられる",
   "施術後の外用薬・内服薬フォローをオンライン化すれば来院負担を減らしつつ月次ストック収益を構築可能",
@@ -44,12 +61,14 @@ const toc = [
   { id: "line-automation", label: "LINE活用による自動化" },
   { id: "compliance", label: "法規制・広告ガイドライン" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         美容皮膚科は<strong>対面での施術</strong>（レーザー・ピーリング・注入治療など）と<strong>オンラインでの処方</strong>（外用薬・内服薬の継続処方）を組み合わせることで、患者体験と経営効率を同時に高められる診療科です。本記事では、対面施術を主軸としながらオンライン処方で継続的な収益基盤をつくる<strong>ハイブリッド運用モデル</strong>の設計方法を解説します。
       </p>
@@ -206,6 +225,17 @@ export default function Page() {
         <p>導入のポイントは、①オンライン処方に適した薬剤メニューの整備、②施術後フォローのフロー標準化、③LINEを活用した自動化の3点に集約されます。これらを段階的に構築していくことで、既存の対面施術の売上を維持しながら、処方のストック収益を上乗せできる経営構造が完成します。LINE活用による美容クリニックの集患・リテンション戦略は<Link href="/lp/column/beauty-clinic-line" className="text-sky-600 underline hover:text-sky-800">美容クリニックのLINE活用ガイド</Link>もあわせてご覧ください。</p>
 
         <InlineCTA />
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

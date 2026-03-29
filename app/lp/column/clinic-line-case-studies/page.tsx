@@ -21,6 +21,23 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "LINE公式アカウントの導入にかかる期間は？", a: "基本的な設定は1〜2週間で完了します。アカウント開設・リッチメニュー設計・あいさつメッセージ設定を行い、院内QRコードを掲示すれば運用開始できます。Lオペ for CLINICなら初期設定サポートも含まれています。" },
+  { q: "LINE公式アカウントの導入で患者からのクレームはありませんか？", a: "LINEは患者自身が友だち追加する仕組みのため、押し売り感がなくクレームはほぼありません。むしろ予約リマインドやフォローアップで『便利になった』という声が多いです。ブロック率を低く保つには月2〜4回の配信頻度が目安です。" },
+  { q: "スタッフのITリテラシーが低くても運用できますか？", a: "クリニック専用ツールを使えばLINEの管理画面より直感的に操作できます。実際の事例でも、導入初月はサポートを受けながら、2ヶ月目以降はスタッフだけで運用できるケースがほとんどです。" },
+  { q: "小規模クリニックでもLINE導入の効果はありますか？", a: "むしろ小規模クリニックほど効果を実感しやすいです。スタッフ数が少ない分、予約リマインド・問診自動送信・AI返信による業務削減のインパクトが大きく、受付1名分の工数を削減できた事例もあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "LINE公式アカウントを活用した5つのクリニック事例と具体的な成果",
@@ -36,11 +53,13 @@ const toc = [
   { id: "case-4", label: "事例4: オンライン決済+配送" },
   { id: "case-5", label: "事例5: AI自動返信で24時間対応" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         クリニックのLINE公式アカウント活用で成果を出すには、問診自動化・セグメント配信・自動リマインド・オンライン決済・AI返信の<strong>5施策</strong>が効果的です。本記事では、実際に成果を上げた<strong>5つのクリニック事例</strong>と、汎用ツールではなくクリニック専用ツールを選ぶべき理由を具体的なデータとともに解説します。
@@ -217,6 +236,16 @@ export default function Page() {
         />
 
         <p>Lオペ for CLINICは、これら5つの事例で紹介した施策をすべて実現できるクリニック専用のLINE運用プラットフォームです。予約管理・セグメント配信・AI自動返信・決済連携など、搭載している<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">全機能の一覧はこちら</Link>でご確認いただけます。LINE運用の始め方から自動化まで体系的に知りたい方は<Link href="/lp/column/line-operation-guide" className="text-emerald-700 underline">LINE公式アカウント運用完全ガイド</Link>をご覧ください。</p>
+      </section>
+
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

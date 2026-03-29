@@ -13,6 +13,22 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "歯科クリニックのLINE活用で最も効果的な施策は？", a: "定期検診リマインドの自動配信が最も効果的です。3ヶ月・6ヶ月ごとのリマインドにより、定期検診の継続率が40〜60%向上した事例があります。患者の口腔健康維持にも直結するため、双方にメリットがあります。" },
+  { q: "歯科で自費診療のLINE訴求は効果がありますか？", a: "ホワイトニング・インプラント・矯正など自費メニューのセグメント配信は非常に効果的です。過去の問診データや来院履歴からニーズの高い患者にのみ配信すれば、押し売り感なく自費転換率を高められます。" },
+  { q: "小児歯科でもLINEは活用できますか？", a: "保護者向けにお子様の定期検診リマインドや仕上げ磨きのアドバイスを配信すると好評です。保護者のLINEに直接届くため、ハガキや電話より確実に情報が伝わります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "歯科クリニック特有の課題（定期検診離脱・治療中断・キャンセル）のLINE解決策",
@@ -29,13 +45,16 @@ const toc = [
   { id: "oral-care-tips", label: "口腔ケアTips配信" },
   { id: "case-study", label: "導入効果: 定期検診通院率の向上事例" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
+    <>
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
     <ArticleLayout slug={self.slug} breadcrumbLabel="歯科LINE活用" keyPoints={keyPoints} toc={toc}>
 
-      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">歯科クリニックの定期検診離脱・治療中断・無断キャンセルは、LINEの自動リマインド・治療計画共有・口腔ケアTips配信で<strong>大幅に改善</strong>できます。本記事では、小児歯科や矯正・インプラント等の自費診療も含め、LINE活用の具体策と導入効果を紹介します。</p>
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">LINEの月間利用者数は<strong>9,700万人以上</strong>（2024年時点）、日本人口の<strong>約86%</strong>をカバーし、メッセージ開封率は<strong>約90%</strong>とメールの3〜7倍です。この高い到達力を活用すれば、歯科クリニックの定期検診離脱・治療中断・無断キャンセルは、自動リマインド・治療計画共有・口腔ケアTips配信で<strong>大幅に改善</strong>できます。本記事では、小児歯科や矯正・インプラント等の自費診療も含め、LINE活用の具体策と導入効果を紹介します。</p>
 
       <section>
         <h2 id="dental-challenges" className="text-xl font-bold text-gray-800">歯科クリニック特有の課題 — 定期検診の離脱・治療中断・キャンセル</h2>
@@ -217,6 +236,17 @@ export default function Page() {
 
         <p className="mt-4">歯科クリニックでもLINE友だちの集め方は重要です。具体的な施策は<Link href="/lp/column/clinic-line-friends-growth" className="text-blue-600 underline">LINE友だち集め月100人増やす7つの施策</Link>を参考にしてください。Lオペ for CLINICは、歯科クリニックの定期検診リマインド・治療計画管理・<Link href="/lp/features#予約・診察" className="text-sky-600 underline hover:text-sky-800">予約連携</Link>をオールインワンで提供します。定期検診の通院率向上とキャンセル削減を実現しませんか。</p>
       </section>
+
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
+      </section>
     </ArticleLayout>
+    </>
   );
 }

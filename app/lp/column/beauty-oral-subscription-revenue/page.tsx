@@ -28,6 +28,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "美容内服の定期処方で安定収益を作る方法で売上を伸ばす最も効果的な方法は？", a: "既存患者へのセグメント配信が最も即効性があります。来院履歴・診療内容に基づいて、関連する自費メニューをLINEで個別提案することで、押し売り感なく自費転換率を高められます。導入クリニックでは自費率が15%→35%に向上した事例もあります。" },
+  { q: "自費診療の価格設定で注意すべき点は？", a: "原価率・地域相場・競合価格の3軸で分析し、松竹梅の3プランを用意するのが基本です。中間プランの選択率が60%以上になるよう設計すると、売上と患者満足度の両方を最大化できます。" },
+  { q: "自費診療のLINE訴求で医療広告ガイドラインに抵触しませんか？", a: "一斉配信で自費診療を訴求する場合は、費用・リスク・副作用の明示が必要です（限定解除要件）。個別の患者へのフォローアップとしての1対1メッセージは広告規制の対象外です。Lオペ for CLINICではガイドラインに配慮した配信テンプレートを用意しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "美容内服薬は毎月の継続処方が前提のため、サブスクリプション型の収益モデルと極めて相性が良い",
   "月額3,000〜15,000円の松竹梅プランを設計し、LINEフォローアップで継続率90%を達成できる",
@@ -42,12 +59,14 @@ const toc = [
   { id: "revenue-simulation", label: "収益シミュレーション" },
   { id: "online-combination", label: "オンライン処方との組み合わせ" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         美容内服薬は<strong>毎月の継続服用が前提</strong>であり、クリニック経営においてサブスクリプション型の安定収益を生み出す最有力カテゴリです。本記事では、月額制プランの具体的な設計方法、LINEを活用した継続率向上策、解約防止の実践ノウハウ、そして患者数ごとの収益シミュレーションまで、<strong>定期処方モデルで安定収益を作るための全戦略</strong>を解説します。
       </p>
@@ -271,6 +290,17 @@ export default function Page() {
         <p>定期処方モデルの成功は、<strong>プラン設計 × LINEフォローアップ × 解約防止の仕組み</strong>の3つが揃って初めて実現します。逆に言えば、この3つを着実に整備すれば、開業1年目からでも月商100万円超の安定収益基盤を構築できるのです。</p>
 
         <p>まずは既存の美容内服処方を定期化するところからスタートし、LINEのステップ配信で継続率を高め、収益が安定してきたらオンライン診療を追加して患者の母数を拡大する。このステップで進めれば、リスクを抑えながら確実に安定収益を積み上げることができます。<Link href="/lp/column/beauty-supplements-winning-strategy" className="text-emerald-700 underline">美容内服オンラインクリニックの処方戦略</Link>も併せてご覧ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

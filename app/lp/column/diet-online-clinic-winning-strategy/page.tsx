@@ -30,6 +30,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "メディカルダイエット（GLP-1）オンラインクリニックの勝ち方でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "GLP-1メディカルダイエットは高単価×高継続率で、オンラインクリニック最強の収益メニュー",
   "Dr1人＋Lオペで月間100件以上の処方管理が可能、固定費は月30〜40万円に抑えられる",
@@ -47,6 +64,7 @@ const toc = [
   { id: "dx-solo-operation", label: "DX活用でDr1人運営を実現" },
   { id: "revenue-model", label: "高単価×低固定費の高収益モデル" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
@@ -54,6 +72,7 @@ export default function Page() {
     <>
       <ArticleLayout slug={self.slug} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
         <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
           GLP-1受容体作動薬を活用した<strong>メディカルダイエット</strong>は、オンラインクリニックにおいて最も収益性の高い自費診療メニューの一つです。リベルサス・オゼンピック・マンジャロといった薬剤は配送で届けられ、経過フォローもLINEで完結するため、<strong>Dr1人でも月商500万円</strong>を現実的に目指せます。しかし、参入クリニックが急増する中で「勝てるクリニック」と「埋もれるクリニック」の差は広がる一方です。本記事では、薬剤選定から価格設定、副作用対応、差別化、集患、DX活用まで、<strong>メディカルダイエットオンラインクリニックで勝つための具体的な戦略</strong>を徹底解説します。
         </p>
@@ -403,7 +422,18 @@ export default function Page() {
 
           <p>市場が成長している今こそ、<strong>先行者優位を確保する最大のチャンス</strong>です。まずは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>で、あなたに最適な開業プランをご提案いたします。</p>
         </section>
-      </ArticleLayout>
+      
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
+      </section>
+    </ArticleLayout>
     </>
   );
 }

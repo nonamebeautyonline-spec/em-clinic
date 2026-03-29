@@ -14,6 +14,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニックのオンライン問診導入ガイドの導入にどのくらいの期間がかかりますか？", a: "基本的な設定は1〜2週間で完了します。LINE公式アカウントの開設からリッチメニュー設計・自動メッセージ設定まで、Lオペ for CLINICなら初期設定サポート付きで最短2週間で運用開始できます。" },
+  { q: "クリニックのオンライン問診導入ガイドでスタッフの負荷は増えませんか？", a: "むしろ減ります。電話対応・手動での予約管理・問診確認などの定型業務を自動化することで、スタッフの作業時間を月40時間以上削減できた事例もあります。導入初月はサポートを受けながら進めれば、2ヶ月目以降はスムーズに運用できます。" },
+  { q: "小規模クリニックでも導入効果はありますか？", a: "はい、むしろ小規模クリニックほど効果を実感しやすいです。スタッフ数が限られる分、業務自動化によるインパクトが大きく、受付1名分の工数を削減できた事例もあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "紙の問診票が抱える5つの課題とオンライン問診による解決方法",
   "LINE×オンライン問診で来院前に問診完了、待ち時間を大幅短縮",
@@ -28,12 +45,14 @@ const toc = [
   { id: "migration", label: "紙からオンラインへの移行手順" },
   { id: "effects", label: "導入効果（待ち時間短縮・データ活用）" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="オンライン問診" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">紙の問診票をLINE連携のオンライン問診に切り替えることで、来院前に問診が完了し待ち時間を<strong>10〜15分短縮</strong>できます。本記事では、紙問診が抱える<strong>5つの課題</strong>、LINE×オンライン問診の具体的フロー、フォーム設計のベストプラクティスと移行手順を解説します。</p>
 
       <section>
@@ -143,6 +162,17 @@ export default function Page() {
           { title: "経営データの活用", desc: "問診データの分析でマーケティング・経営判断を最適化" },
         ]} />
         <p className="mt-4">オンライン問診で得たデータを電子カルテと連携させることで、さらなる業務効率化が実現します。連携のポイントは<Link href="/lp/column/electronic-medical-record-guide" className="text-blue-600 underline">電子カルテ選び方ガイド</Link>をご覧ください。Lオペ for CLINICは、LINE友だち追加から問診送付、<Link href="/lp/features#予約・診察" className="text-sky-600 underline hover:text-sky-800">予約連携</Link>までをワンストップで実現するオンライン問診機能を提供しています。紙の問診票からの移行を検討されている方は、ぜひお気軽にご相談ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

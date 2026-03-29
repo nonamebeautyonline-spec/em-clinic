@@ -22,6 +22,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "高血圧のオンライン診療ガイドでLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "高血圧のオンライン診療における継続処方の運用設計と保険算定要件を整理",
   "家庭血圧モニタリングのデータ活用と遠隔での生活指導の方法を解説",
@@ -37,12 +54,14 @@ const toc = [
   { id: "line-adherence", label: "LINE活用による服薬アドヒアランス向上" },
   { id: "revenue-model", label: "保険算定と収益モデル" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         高血圧は日本の成人の約3人に1人が該当する最も患者数の多い生活習慣病であり、長期にわたる継続治療が必要です。しかし、通院負担による<strong>治療中断率は約50%</strong>とされ、血圧コントロール不良の大きな要因となっています。本記事では、オンライン診療を活用した<strong>継続処方・生活指導・モニタリング</strong>の運用設計と、LINEを活用した治療脱落防止策を解説します。
       </p>
@@ -176,6 +195,17 @@ export default function Page() {
         <p>成功の鍵は、<strong>対象患者の適切な選定</strong>、<strong>対面診療との計画的な組み合わせ</strong>、そして<strong>LINE活用による受診間のフォローアップ</strong>です。服薬リマインド・受診リマインド・血圧報告の仕組みを整えることで、治療脱落率を大幅に改善できます。</p>
 
         <p>Lオペ for CLINICでは、LINE上での予約管理・リマインド配信・患者フォロー機能を通じて、<Link href="/" className="text-blue-600 hover:underline">高血圧をはじめとする慢性疾患の継続管理</Link>を支援しています。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

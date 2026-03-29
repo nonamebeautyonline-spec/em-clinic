@@ -13,6 +13,22 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "美容クリニックでLINE活用が特に効果的な理由は？", a: "美容クリニックは自費診療が中心でリピート率が重要なため、LINE上でのセグメント配信やフォローアップが売上に直結します。施術後のダウンタイム確認や次回施術の提案をLINEで自動化でき、再来院率が向上します。" },
+  { q: "カウンセリング予約をLINEで受け付けるメリットは？", a: "電話予約と比較して患者の心理的ハードルが下がり、深夜や休日の予約取得が可能になります。実際にLINE予約を導入した美容クリニックでは、予約数が30〜50%増加した事例があります。" },
+  { q: "施術写真のビフォーアフターをLINEで送っても問題ありませんか？", a: "医療広告ガイドラインでは、ビフォーアフター写真の広告利用に制限があります。ただし、当該患者本人への施術経過報告としての個別送信は広告に該当しないため、フォローアップ目的での利用は問題ありません。一斉配信での使用は注意が必要です。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "美容クリニック特有のLINE活用ニーズとカウンセリング予約のデジタル化手法",
@@ -29,14 +45,17 @@ const toc = [
   { id: "repeat-segment", label: "リピート施術のセグメント配信" },
   { id: "review-promotion", label: "口コミ促進" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
+    <>
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
     <ArticleLayout slug={self.slug} breadcrumbLabel="美容クリニック" keyPoints={keyPoints} toc={toc}>
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
-        美容クリニックのLINE活用では、カウンセリング予約のデジタル化・施術前リマインド自動送信・アフターフォロー・ビフォーアフター写真管理・リピート施術のセグメント配信・口コミ促進の<strong>6施策</strong>が売上向上に直結します。本記事では、美容クリニック特有のニーズに合わせた具体的な運用方法を解説します。
+        LINEの月間利用者数は<strong>9,700万人以上</strong>（2024年時点）で日本人口の<strong>約86%</strong>をカバーし、開封率は<strong>約90%</strong>とメールの3〜7倍。美容クリニックのように「リピート率」が経営を左右する業態では、この到達力を活かさない手はありません。カウンセリング予約のデジタル化・施術前リマインド自動送信・アフターフォロー・ビフォーアフター写真管理・リピート施術のセグメント配信・口コミ促進の<strong>6施策</strong>が売上向上に直結します。本記事では、美容クリニック特有のニーズに合わせた具体的な運用方法を解説します。
       </p>
 
       <section>
@@ -200,6 +219,17 @@ export default function Page() {
 
         <p className="mt-4">Lオペ for CLINICは、美容クリニックに必要なこれらの機能をオールインワンで提供します。<Link href="/lp/features#患者CRM" className="text-sky-600 underline hover:text-sky-800">患者CRM</Link>から<Link href="/lp/features#メッセージ配信" className="text-sky-600 underline hover:text-sky-800">セグメント配信</Link>まで、LINE一つで患者体験を最大化しませんか。オンライン診療との連携に興味がある方は<Link href="/lp/column/online-medical-line" className="text-sky-600 underline hover:text-sky-800">オンライン診療×LINE</Link>の記事もご覧ください。美容皮膚科の対面×オンラインのハイブリッドモデルは<Link href="/lp/column/beauty-derma-online-hybrid" className="text-sky-600 underline hover:text-sky-800">美容皮膚科のオンライン診療戦略</Link>で解説しています。</p>
       </section>
+
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
+      </section>
     </ArticleLayout>
+    </>
   );
 }

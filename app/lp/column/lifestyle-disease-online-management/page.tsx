@@ -29,6 +29,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "生活習慣病のオンライン管理ビジネスでLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "生活習慣病の継続処方はストック型収益の典型であり、患者1人あたりの年間LTVは6〜15万円に達する",
   "高血圧・糖尿病・脂質異常症はオンライン診療との相性が良く、定期処方の2回目以降はオンラインで完結可能",
@@ -44,12 +61,14 @@ const toc = [
   { id: "revenue-model", label: "収益モデルシミュレーション" },
   { id: "compliance", label: "保険診療とオンラインの制度設計" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         生活習慣病（高血圧・糖尿病・脂質異常症）の継続処方は、<strong>最もストック性の高い診療モデル</strong>のひとつです。患者は数年〜数十年にわたって処方を継続するため、一度構築した患者基盤が安定的な収益を生み続けます。本記事では、オンライン診療を活用した生活習慣病管理の市場機会、疾患別の運用設計、検査値モニタリング、服薬アドヒアランス向上策、そして具体的な収益モデルまでを解説します。
       </p>
@@ -224,6 +243,17 @@ export default function Page() {
         <p>成功の鍵は、①対面とオンラインの適切な使い分け設計、②LINEを活用した服薬リマインドと検査値フィードバック、③処方切れを防ぐ自動リマインド体制の3点です。患者基盤が積み上がるほどストック収益が増加する構造を早期に構築し、新規獲得と離脱防止の両輪でクリニックの持続的成長を実現しましょう。リピート処方による収益基盤の構築方法は<Link href="/lp/column/self-pay-clinic-repeat-prescription-revenue" className="text-sky-600 underline hover:text-sky-800">リピート処方で安定収益を構築する方法</Link>で詳しく解説しています。</p>
 
         <InlineCTA />
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

@@ -13,6 +13,23 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "LINE友だちを増やすための初期施策は？", a: "最も効果的なのは受付での声かけと院内QRコード掲示です。受付時に『次回の予約確認をLINEでお送りできます』と案内するだけで、友だち追加率が大幅に上がります。POPやリーフレットも併用すると効果的です。" },
+  { q: "友だち追加のインセンティブは必要ですか？", a: "必須ではありませんが、初回限定クーポンや待ち時間なし予約特典を用意すると追加率が2〜3倍になります。医療広告ガイドラインに抵触しない範囲で、利便性をアピールするのがポイントです。" },
+  { q: "友だち数の目標はどう設定すればいいですか？", a: "まずは月間来院患者数の50%を目標にしましょう。例えば月500人来院なら250人が第一目標です。達成後は月100人ずつ積み上げ、1,000人を超えるとセグメント配信の効果が顕著になります。" },
+  { q: "ブロックされにくい友だち集めのコツは？", a: "友だち追加時のあいさつメッセージで『配信頻度は月2回程度』『予約リマインドに使います』と明示することが重要です。目的を伝えずに追加を促すと、後から一斉配信を受けた際にブロックされやすくなります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "友だち数がクリニック売上に直結する理由",
@@ -31,14 +48,16 @@ const toc = [
   { id: "strategy-7", label: "施策7: SMS・メール案内" },
   { id: "kpi-design", label: "月100人のKPI設計" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="友だち集め" keyPoints={keyPoints} toc={toc}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
-        LINE公式アカウントの友だち数を<strong>月100人ペース</strong>で増やすには、院内POP・受付声かけ・友だち追加特典・Web導線・SNS連携・チラシ・SMS案内の<strong>7施策</strong>を組み合わせるのが効果的です。本記事では、各施策の具体的なやり方とKPI設計の方法を解説します。
+        LINEの月間利用者数は<strong>9,700万人以上</strong>（2024年時点）で日本人口の<strong>約86%</strong>をカバー。メッセージ開封率も<strong>約90%</strong>とメールの3〜7倍に達するため、友だち数を増やすほど集患・再来院効果は高まります。LINE公式アカウントの友だち数を<strong>月100人ペース</strong>で増やすには、院内POP・受付声かけ・友だち追加特典・Web導線・SNS連携・チラシ・SMS案内の<strong>7施策</strong>を組み合わせるのが効果的です。本記事では、各施策の具体的なやり方とKPI設計の方法を解説します。
       </p>
 
       {/* SEO用セマンティックリスト — Featured Snippet対策 */}
@@ -252,6 +271,16 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICでは、友だち追加の経路分析・QRコード生成・自動応答メッセージの設定まで、友だち集めに必要な機能をワンストップで提供しています。詳しくは<Link href="/lp/features#分析・レポート" className="text-sky-600 underline hover:text-sky-800">分析・レポート機能</Link>をご覧ください。</p>
+      </section>
+
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

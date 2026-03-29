@@ -19,6 +19,22 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "LINE導入のROI（投資対効果）はどう計算しますか？", a: "（月間削減工数 × 時給 + 再診増加による売上増 + キャンセル減少による機会損失回復）÷ 月額費用で計算します。一般的にクリニックでは3〜6ヶ月でROIがプラスに転じるケースが多いです。" },
+  { q: "LINE導入の初期費用はどのくらいかかりますか？", a: "LINE公式アカウント自体は無料で開設できます。クリニック専用ツールの初期費用は0〜30万円程度、月額は数万円からが相場です。Lオペ for CLINICでは初期設定サポートを含めた導入プランを用意しています。" },
+  { q: "効果測定に必要なデータは何ですか？", a: "最低限必要なのは①友だち追加数 ②メッセージ開封率 ③予約件数 ④再診率の4指標です。これらをLINE導入前後で比較することで、定量的な効果を把握できます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "LINE導入にかかるコストの内訳と相場を解説",
@@ -34,13 +50,15 @@ const toc = [
   { id: "revenue-increase", label: "売上増加効果の試算" },
   { id: "roi-calculation", label: "ROI計算のフレームワーク" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニックにLINE公式アカウントを導入する際、「費用対効果は本当にあるのか？」と悩む院長は少なくありません。本記事では、導入コスト・削減される業務時間・増加する売上を<strong>定量的に算出する方法</strong>を解説し、<strong>ROI（投資対効果）を数値で判断</strong>できるフレームワークを提供します。</p>
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">LINEの月間利用者数は<strong>9,700万人以上</strong>（2024年時点）、日本人口の<strong>約86%</strong>をカバーし、メッセージ開封率は<strong>約90%</strong>とメールの3〜7倍です。しかし、クリニックにLINE公式アカウントを導入する際、「費用対効果は本当にあるのか？」と悩む院長は少なくありません。本記事では、導入コスト・削減される業務時間・増加する売上を<strong>定量的に算出する方法</strong>を解説し、<strong>ROI（投資対効果）を数値で判断</strong>できるフレームワークを提供します。</p>
 
       {/* ── なぜROI ── */}
       <section>
@@ -170,6 +188,16 @@ export default function Page() {
         </Callout>
 
         <p>LINE導入のROIは、クリニックの規模や診療科によって異なりますが、多くの場合3か月以内に初期投資を回収できます。Lオペ for CLINICでは、導入前の無料相談で貴院に合わせたROI試算をお出ししています。まずは<Link href="/lp/column/busy-doctor-efficiency" className="text-sky-600 underline hover:text-sky-800">業務効率化の全体像</Link>を把握した上で、具体的な投資判断を進めてみてはいかがでしょうか。ツール統合によるコスト削減の具体シミュレーションは<Link href="/lp/column/clinic-line-integration-cost-half" className="text-sky-600 underline hover:text-sky-800">LINE統合でコスト半減</Link>、売上向上の全体戦略は<Link href="/lp/column/clinic-line-revenue-growth" className="text-sky-600 underline hover:text-sky-800">クリニックの売上を上げるLINE活用術</Link>もご参照ください。</p>
+      </section>
+
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

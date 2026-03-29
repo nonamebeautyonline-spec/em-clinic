@@ -23,6 +23,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "自費クリニック集患マーケティング完全ガイドで売上を伸ばす最も効果的な方法は？", a: "既存患者へのセグメント配信が最も即効性があります。来院履歴・診療内容に基づいて、関連する自費メニューをLINEで個別提案することで、押し売り感なく自費転換率を高められます。導入クリニックでは自費率が15%→35%に向上した事例もあります。" },
+  { q: "自費診療の価格設定で注意すべき点は？", a: "原価率・地域相場・競合価格の3軸で分析し、松竹梅の3プランを用意するのが基本です。中間プランの選択率が60%以上になるよう設計すると、売上と患者満足度の両方を最大化できます。" },
+  { q: "自費診療のLINE訴求で医療広告ガイドラインに抵触しませんか？", a: "一斉配信で自費診療を訴求する場合は、費用・リスク・副作用の明示が必要です（限定解除要件）。個別の患者へのフォローアップとしての1対1メッセージは広告規制の対象外です。Lオペ for CLINICではガイドラインに配慮した配信テンプレートを用意しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "自費クリニックの集患は保険診療と異なり、患者の比較検討期間が長いためファネル設計が不可欠",
   "SEO・MEO・広告・SNS・LINE・紹介の6チャネルを費用対効果で使い分け、短期と中長期を両立",
@@ -38,12 +55,14 @@ const toc = [
   { id: "cost-comparison", label: "チャネル別費用対効果比較" },
   { id: "lope-automation", label: "Lオペで集患を自動化する" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="マーケティング" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         自費クリニックの院長先生から最も多い相談が「広告費を増やしているのに新患が増えない」というものです。自費診療は保険診療と異なり、患者の意思決定プロセスが長く、<strong>適切なチャネル戦略</strong>なしに広告費を投下しても成果につながりません。本記事では、SEO・MEO・リスティング広告・SNS・LINE・紹介の<strong>6つの集患チャネル</strong>を費用対効果の観点から徹底比較し、優先順位のつけ方から具体的な実行方法までを解説します。
       </p>
@@ -268,6 +287,17 @@ export default function Page() {
         <p>特に重要なのは、各チャネルの費用対効果を継続的にモニタリングし、投資配分を最適化し続けることです。チャネル別のKPI管理については<Link href="/lp/column/clinic-kpi-dashboard" className="text-sky-600 underline hover:text-sky-800">クリニックのKPIダッシュボード設計</Link>もあわせてご覧ください。</p>
 
         <p>LTV（顧客生涯価値）を踏まえた集患投資の考え方については、<Link href="/lp/column/self-pay-clinic-ltv-maximize" className="text-sky-600 underline hover:text-sky-800">自費クリニックのLTV最大化戦略</Link>で詳しく解説しています。新患獲得だけでなく、既存患者のリピート率向上も含めた包括的な経営戦略を立てることが、持続的な成長の鍵です。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

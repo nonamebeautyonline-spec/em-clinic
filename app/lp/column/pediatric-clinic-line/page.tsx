@@ -20,6 +20,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "小児科クリニックのLINE活用術でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "予防接種スケジュールをLINEで自動リマインドして接種漏れを防止",
   "成長記録・発達チェックリストをLINEで保護者と共有",
@@ -34,12 +51,14 @@ const toc = [
   { id: "infection-season", label: "感染症シーズンの配信戦略" },
   { id: "parenting-info", label: "保護者向け育児情報配信" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">小児科クリニックでは、予防接種のスケジュール管理や感染症シーズンの対応など、保護者への<strong>きめ細かいコミュニケーション</strong>が求められます。LINE公式アカウントを活用すれば、予防接種リマインド・成長記録の共有・育児情報の配信を自動化でき、<strong>保護者の安心感と来院率の向上</strong>を同時に実現できます。</p>
 
       {/* ── 課題 ── */}
@@ -158,6 +177,17 @@ export default function Page() {
         </Callout>
 
         <p>小児科クリニックは、保護者とのコミュニケーションが経営の鍵を握ります。Lオペ for CLINICは、予防接種管理から育児情報配信まで、小児科特有のニーズに対応したLINE運用を実現します。他の診療科での活用事例は<Link href="/lp/column/clinic-line-case-studies" className="text-sky-600 underline hover:text-sky-800">LINE活用事例5選</Link>をご覧ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

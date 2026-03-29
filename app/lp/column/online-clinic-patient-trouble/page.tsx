@@ -22,6 +22,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "オンライン診療の患者トラブル対応マニュアルを始めるために必要な準備は何ですか？", a: "厚生労働省のオンライン診療ガイドラインに基づく届出、ビデオ通話システムの導入、オンライン決済の設定が必要です。Lオペ for CLINICならLINEビデオ通話・電話音声通話でのオンライン診療に対応しており、別途システム導入が不要です。" },
+  { q: "オンライン診療で処方できる薬に制限はありますか？", a: "初診のオンライン診療では処方日数に制限があります（原則7日分まで）。再診では対面診療と同等の処方が可能です。向精神薬・麻薬等の一部薬剤はオンライン診療での処方が制限されています。" },
+  { q: "オンライン診療の診療報酬はどのくらいですか？", a: "保険診療では対面診療より低い点数設定ですが、自費診療であれば自由に価格設定が可能です。通院負担の軽減による患者満足度向上と、遠方からの新患獲得を考慮すると、十分な収益性が見込めます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "オンライン診療で発生しやすいトラブル5類型と発生頻度",
   "副作用発生時の対応フローと報告体制の構築方法",
@@ -38,12 +55,14 @@ const toc = [
   { id: "line-standardization", label: "トラブル対応をLINEで標準化" },
   { id: "prevention", label: "再発防止の仕組みづくり" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="運営ノウハウ" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         オンライン診療では対面と異なるトラブルが発生します。配送遅延、副作用、期待と異なる効果、返金要求、ネガティブ口コミ — これらに対する<strong>事前の備えと標準化された対応フロー</strong>が、クリニックの信頼を守る鍵です。本記事ではトラブル類型ごとの対応策と、LINE上での対応標準化の方法を解説します。
       </p>
@@ -243,6 +262,17 @@ export default function Page() {
         <p>
           配送トラブルの詳細な予防策は<Link href="/lp/column/online-clinic-prescription-delivery" className="text-sky-600 underline hover:text-sky-800">医薬品配送ガイド</Link>、オンライン診療の法規制は<Link href="/lp/column/online-clinic-regulations" className="text-sky-600 underline hover:text-sky-800">法規制ガイド</Link>、オンライン診療の全体像は<Link href="/lp/column/online-clinic-complete-guide" className="text-sky-600 underline hover:text-sky-800">オンライン診療完全ガイド</Link>もあわせてご確認ください。お問い合わせは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">こちら</Link>から。
         </p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

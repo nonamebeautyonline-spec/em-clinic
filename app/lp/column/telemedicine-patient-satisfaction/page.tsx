@@ -22,6 +22,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "オンライン診療の患者満足度を上げる方法を始めるために必要な準備は何ですか？", a: "厚生労働省のオンライン診療ガイドラインに基づく届出、ビデオ通話システムの導入、オンライン決済の設定が必要です。Lオペ for CLINICならLINEビデオ通話・電話音声通話でのオンライン診療に対応しており、別途システム導入が不要です。" },
+  { q: "オンライン診療で処方できる薬に制限はありますか？", a: "初診のオンライン診療では処方日数に制限があります（原則7日分まで）。再診では対面診療と同等の処方が可能です。向精神薬・麻薬等の一部薬剤はオンライン診療での処方が制限されています。" },
+  { q: "オンライン診療の診療報酬はどのくらいですか？", a: "保険診療では対面診療より低い点数設定ですが、自費診療であれば自由に価格設定が可能です。通院負担の軽減による患者満足度向上と、遠方からの新患獲得を考慮すると、十分な収益性が見込めます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "予約から配送・フォローアップまで各タッチポイントでの患者体験設計を網羅",
   "オンラインでも対面と遜色ない信頼関係を構築するコミュニケーション手法",
@@ -37,12 +54,14 @@ const toc = [
   { id: "nps-measurement", label: "NPS調査で満足度を可視化" },
   { id: "satisfaction-cycle", label: "満足度向上→口コミ→集患のサイクル" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         オンライン診療の普及が進む中、<strong>患者満足度</strong>がクリニックの競争力を左右する時代が到来しています。対面と異なり、オンライン診療では「予約→問診→診察→処方→配送→フォローアップ」の<strong>すべてのタッチポイントがデジタル上で完結</strong>するため、各段階での体験設計が満足度を決定づけます。本記事では、初診からリピートまでの患者体験を最大化する実践的な方法を解説します。
       </p>
@@ -200,6 +219,17 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICは、オンライン診療の予約・問診・配送通知・フォローアップ・NPS調査までをLINE上でワンストップ管理できるクリニック専用プラットフォームです。患者体験の設計から満足度の可視化、口コミ獲得までの一連の仕組みを、手間なく構築できます。オンライン診療の問診設計については<Link href="/lp/column/online-clinic-questionnaire-design" className="text-sky-600 underline hover:text-sky-800">オンライン問診設計ガイド</Link>、配送フローの最適化については<Link href="/lp/column/online-clinic-prescription-delivery" className="text-sky-600 underline hover:text-sky-800">医薬品配送ガイド</Link>もあわせてご確認ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

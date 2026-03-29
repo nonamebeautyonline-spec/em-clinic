@@ -22,6 +22,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "自費クリニックの広告費ROI最適化で売上を伸ばす最も効果的な方法は？", a: "既存患者へのセグメント配信が最も即効性があります。来院履歴・診療内容に基づいて、関連する自費メニューをLINEで個別提案することで、押し売り感なく自費転換率を高められます。導入クリニックでは自費率が15%→35%に向上した事例もあります。" },
+  { q: "自費診療の価格設定で注意すべき点は？", a: "原価率・地域相場・競合価格の3軸で分析し、松竹梅の3プランを用意するのが基本です。中間プランの選択率が60%以上になるよう設計すると、売上と患者満足度の両方を最大化できます。" },
+  { q: "自費診療のLINE訴求で医療広告ガイドラインに抵触しませんか？", a: "一斉配信で自費診療を訴求する場合は、費用・リスク・副作用の明示が必要です（限定解除要件）。個別の患者へのフォローアップとしての1対1メッセージは広告規制の対象外です。Lオペ for CLINICではガイドラインに配慮した配信テンプレートを用意しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "CPA（顧客獲得単価）だけでなくLTVとの比率で広告投資を判断すべき理由",
   "Google広告・Instagram・LINE広告・アフィリエイトの媒体別ROIを数値で比較",
@@ -38,12 +55,14 @@ const toc = [
   { id: "media-mix", label: "媒体ミックスと予算配分" },
   { id: "measurement", label: "効果測定とPDCA" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="マーケティング" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「広告費をかけているのに利益が残らない」——自費クリニック経営者の多くが直面するこの課題の根本原因は、<strong>CPA（顧客獲得単価）だけを見てLTV（顧客生涯価値）を考慮していない</strong>ことにあります。本記事では、Google広告・Instagram・LINE広告・アフィリエイトの媒体別ROIを具体的な数値で比較し、月間広告予算50〜200万円の自費クリニックに最適な<strong>予算配分と効果測定の方法</strong>を解説します。
       </p>
@@ -294,6 +313,17 @@ export default function Page() {
         </Callout>
 
         <p>広告ROIの最適化と並行して、LTVの最大化にも取り組むことで、広告投資の回収スピードと総リターンを飛躍的に改善できます。LTV向上の具体的な施策については<Link href="/lp/column/self-pay-clinic-ltv-maximize" className="text-sky-600 underline hover:text-sky-800">自費クリニックのLTV最大化ガイド</Link>をご覧ください。広告費は「使い方次第」で最高の投資にもなれば、最大の無駄にもなります。データに基づいた意思決定で、広告費を確実に収益に変換しましょう。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

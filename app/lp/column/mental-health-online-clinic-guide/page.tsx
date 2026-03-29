@@ -36,6 +36,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "メンタルヘルスのオンライン診療でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "抗うつ薬（SSRI・SNRI等）のオンライン初診処方は30日分が上限、BZ系睡眠薬・抗不安薬は初診処方不可",
   "不眠症はオレキシン受容体拮抗薬（スボレキサント・レンボレキサント）やメラトニン受容体作動薬（ラメルテオン）がオンライン処方に適する",
@@ -50,12 +67,14 @@ const toc = [
   { id: "lope-mental", label: "Lオペ for CLINICでメンタルヘルス診療を運用" },
   { id: "revenue", label: "収益モデル" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         日本のメンタルヘルス疾患の患者数は<strong>約614万人</strong>（令和2年患者調査）に達し、その中でも不眠症と気分障害（うつ病等）は最も一般的な疾患群です。精神科・心療内科の初診予約は<strong>数週間〜数か月待ち</strong>が常態化しており、「受診したくても受診できない」患者が多数存在します。オンライン診療はこの受診障壁を大幅に下げる手段ですが、<strong>向精神薬には特有のオンライン処方制限</strong>があるため、制度を正確に理解した上での運用設計が不可欠です。本記事では、向精神薬の処方制限、不眠症・軽度うつ病の薬剤選択、オンラインでの初診対応のポイント、そして<strong>Lオペ for CLINICによるLINE問診・評価スケール自動収集・フォロー自動化</strong>まで解説します。
       </p>
@@ -320,6 +339,17 @@ export default function Page() {
             <Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談・お問い合わせ</Link> — メンタルヘルスオンライン外来の運用設計をご相談いただけます
           </li>
         </ul>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

@@ -36,19 +36,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: `${baseUrl}/lp/column`,
       lastModified: today,
       changeFrequency: "weekly",
-      priority: 0.7,
+      priority: 0.85,
     },
     ...categories.map((c) => ({
       url: `${baseUrl}/lp/column/category/${c.slug}`,
       lastModified: today,
       changeFrequency: "weekly" as const,
-      priority: 0.6,
+      priority: 0.7,
     })),
     ...articles.map((a) => ({
       url: `${baseUrl}/lp/column/${a.slug}`,
       lastModified: new Date(a.updatedDate || a.date),
       changeFrequency: "monthly" as const,
-      priority: 0.7,
+      priority: 0.8,
     })),
     {
       url: `${baseUrl}/lp/terms`,

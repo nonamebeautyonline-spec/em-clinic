@@ -31,6 +31,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "自費オンライン診療の診療科別収益モデルで売上を伸ばす最も効果的な方法は？", a: "既存患者へのセグメント配信が最も即効性があります。来院履歴・診療内容に基づいて、関連する自費メニューをLINEで個別提案することで、押し売り感なく自費転換率を高められます。導入クリニックでは自費率が15%→35%に向上した事例もあります。" },
+  { q: "自費診療の価格設定で注意すべき点は？", a: "原価率・地域相場・競合価格の3軸で分析し、松竹梅の3プランを用意するのが基本です。中間プランの選択率が60%以上になるよう設計すると、売上と患者満足度の両方を最大化できます。" },
+  { q: "自費診療のLINE訴求で医療広告ガイドラインに抵触しませんか？", a: "一斉配信で自費診療を訴求する場合は、費用・リスク・副作用の明示が必要です（限定解除要件）。個別の患者へのフォローアップとしての1対1メッセージは広告規制の対象外です。Lオペ for CLINICではガイドラインに配慮した配信テンプレートを用意しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "AGA・ED・ピル・美容内服・GLP-1・花粉症・不眠症・性感染症の8分野を初期投資・患者単価・LTV・難易度・競合度で比較",
   "メディカルダイエット（GLP-1）は月単価3〜8万円の高収益、低用量ピルは継続率90%超の安定収益と、分野ごとに収益特性が異なる",
@@ -51,12 +68,14 @@ const toc = [
   { id: "combination", label: "組み合わせ戦略で安定収益を構築" },
   { id: "lope", label: "Lオペで実現するDr1人運営" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={SLUG} breadcrumbLabel="収益モデル" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         自費オンライン診療に参入する際、最も重要な意思決定は<strong>「どの診療分野を選ぶか」</strong>です。分野によって患者単価、LTV（生涯顧客価値）、継続率、競合環境は大きく異なります。本記事では、AGA・ED・低用量ピル・美容内服・メディカルダイエット（GLP-1）・花粉症・不眠症・性感染症の<strong>8分野の収益モデル</strong>を具体的な数値で比較し、自院に最適な組み合わせ戦略を解説します。
       </p>
@@ -422,6 +441,17 @@ export default function Page() {
         <p>各分野の詳しい開業・運営ガイドは個別記事をご参照ください。<Link href="/lp/column/aga-online-clinic-lope" className="text-emerald-700 underline">AGA専門オンラインクリニック開業ガイド</Link>、<Link href="/lp/column/ed-online-clinic-lope" className="text-emerald-700 underline">ED治療オンラインクリニック運営戦略</Link>、<Link href="/lp/column/pill-online-clinic-lope" className="text-emerald-700 underline">低用量ピルオンラインクリニック開業ガイド</Link>で分野別の具体的な手順を解説しています。</p>
 
         <p>自費オンライン診療の収益モデルについてご相談がある方は、<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>からお気軽にお問い合わせください。クリニックの状況に合わせた最適な分野選択と収益シミュレーションをご提案いたします。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

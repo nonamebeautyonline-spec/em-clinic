@@ -22,6 +22,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "自費クリニックのGoogle口コミ・MEO対策の効果はどのくらいで実感できますか？", a: "施策にもよりますが、LINE配信やSEO対策は1〜3ヶ月で効果が出始めるケースが多いです。特にセグメント配信は導入直後から開封率・クリック率の改善が見られます。継続的な改善サイクルを回すことで、半年後には大きな成果に繋がります。" },
+  { q: "集患施策にかかるコストはどのくらいですか？", a: "LINE公式アカウント自体は無料で開設でき、月額5,000〜15,000円程度で配信が可能です。Web広告と比較してCPA（獲得単価）が低く、既存患者のリピート促進にも効果的なため、費用対効果は非常に高いです。" },
+  { q: "Web広告とLINE配信はどちらが効果的ですか？", a: "新規集患にはWeb広告、リピート促進にはLINE配信が効果的です。LINE配信はメッセージ開封率90%と圧倒的なリーチ力を持ち、既存患者への再来院促進・自費診療の訴求に適しています。両方を組み合わせるのが最も効率的です。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "自費クリニックのMEO対策が集患に不可欠な理由と具体的な数値データ",
   "Googleビジネスプロフィールの最適化チェックリスト",
@@ -37,12 +54,14 @@ const toc = [
   { id: "meo-line", label: "MEOとLINE活用の連携" },
   { id: "measurement", label: "効果測定と改善サイクル" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="マーケティング" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">自費クリニックの新患獲得において、Googleマップの検索結果（MEO）は最も費用対効果の高いチャネルの1つです。「地域名＋施術名」で検索する患者の<strong>78%がGoogleマップの上位3件</strong>から来院先を選んでいるというデータがあります。本記事では、自費クリニックに特化したMEO対策の全体像を解説します。</p>
 
       {/* ── 自費クリニックにMEOが不可欠な理由 ── */}
@@ -237,6 +256,17 @@ export default function Page() {
         </Callout>
 
         <p>自費クリニックにとって、MEO対策は「やるかやらないか」ではなく「どこまで徹底するか」の勝負です。Lオペ for CLINICを活用すれば、診察完了からNPS調査・口コミ依頼・フォローアップまでの一連のフローをLINEで自動化できます。SEO対策も並行して進めたい方は<Link href="/lp/column/clinic-seo-complete-guide" className="text-sky-600 underline hover:text-sky-800">クリニックSEO対策完全ガイド</Link>を、広告費のROI最適化については<Link href="/lp/column/self-pay-clinic-ad-roi" className="text-sky-600 underline hover:text-sky-800">広告費ROI最適化ガイド</Link>もあわせてご確認ください。まずはGBPの基本情報の整備から始め、口コミの好循環を作り上げましょう。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

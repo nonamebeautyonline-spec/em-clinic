@@ -20,6 +20,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニックのNPS調査導入ガイドの導入にどのくらいの期間がかかりますか？", a: "基本的な設定は1〜2週間で完了します。LINE公式アカウントの開設からリッチメニュー設計・自動メッセージ設定まで、Lオペ for CLINICなら初期設定サポート付きで最短2週間で運用開始できます。" },
+  { q: "クリニックのNPS調査導入ガイドでスタッフの負荷は増えませんか？", a: "むしろ減ります。電話対応・手動での予約管理・問診確認などの定型業務を自動化することで、スタッフの作業時間を月40時間以上削減できた事例もあります。導入初月はサポートを受けながら進めれば、2ヶ月目以降はスムーズに運用できます。" },
+  { q: "小規模クリニックでも導入効果はありますか？", a: "はい、むしろ小規模クリニックほど効果を実感しやすいです。スタッフ数が限られる分、業務自動化によるインパクトが大きく、受付1名分の工数を削減できた事例もあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "NPS（Net Promoter Score）の基本概念とクリニックでの活用意義",
   "LINEを使ったNPS調査の自動配信と回収率向上のコツ",
@@ -34,12 +51,14 @@ const toc = [
   { id: "improvement", label: "改善アクションの立て方" },
   { id: "case-study", label: "NPS導入クリニックの成果" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">患者満足度を「なんとなく」ではなく<strong>数値で把握</strong>できていますか？ NPS（Net Promoter Score）は、たった1つの質問で患者のロイヤルティを計測できる指標です。LINE公式アカウントを活用すれば、<strong>回収率60%以上</strong>の高精度な調査を自動で実施できます。本記事ではNPSの基本から実践的な活用方法まで解説します。</p>
 
       {/* ── NPSとは ── */}
@@ -148,6 +167,17 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICは、NPS調査の自動配信・スコア集計・改善アクションの管理まで<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">ワンストップで対応</Link>するクリニック専用プラットフォームです。患者満足度を可視化し、データに基づいたクリニック経営を実現します。NPSの結果を口コミ対策に活かす方法は<Link href="/lp/column/clinic-google-review" className="text-sky-600 underline hover:text-sky-800">Google口コミ対策ガイド</Link>、患者離脱を防ぐフォロー戦略は<Link href="/lp/column/clinic-patient-retention" className="text-sky-600 underline hover:text-sky-800">患者離脱防止ガイド</Link>もあわせてご覧ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

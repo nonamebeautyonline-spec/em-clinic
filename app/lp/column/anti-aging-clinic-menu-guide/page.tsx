@@ -22,6 +22,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "アンチエイジング内服メニューの導入ガイドでLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "内服アンチエイジングは設備投資ゼロで導入可能、オンライン診療との相性が抜群",
   "松竹梅の月額プラン設計（5,000〜40,000円）でLTVを最大化",
@@ -38,12 +55,14 @@ const toc = [
   { id: "online-expansion", label: "オンライン診療での展開" },
   { id: "line-retention", label: "定期処方の継続率を上げるLINE活用" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="開業・経営" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {/* ── イントロ ── */}
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「対面施術は設備投資が大きい」「オンライン診療で全国から患者を獲得したい」「安定したストック収益がほしい」——そんな悩みを抱えるクリニック院長に向けて、本記事では<strong>アンチエイジング内服メニューの導入</strong>を体系的に解説します。
@@ -353,6 +372,17 @@ export default function Page() {
         <p>「設備投資のリスクを取らずに自費収益を増やしたい」「オンライン診療で全国の患者にリーチしたい」「安定したストック収益が欲しい」——そのすべてを実現するのが、内服アンチエイジングメニューの導入です。まずはエントリープラン（ビタミンC＋グルタチオン）から最小限でスタートしてみてください。</p>
 
         <p><Link href="/lp/column/anti-aging-beauty-medicine-trends" className="text-sky-600 hover:underline">アンチエイジング内服薬の最新トレンド</Link>や<Link href="/lp/column/beauty-oral-subscription-revenue" className="text-sky-600 hover:underline">美容内服の定期処方で安定収益を作る方法</Link>もあわせてご覧ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

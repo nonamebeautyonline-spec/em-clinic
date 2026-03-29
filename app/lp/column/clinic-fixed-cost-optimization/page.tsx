@@ -29,6 +29,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニックの家賃・固定費最適化ガイドで最も重要なポイントは何ですか？", a: "資金計画と集患戦略の両立です。開業資金だけでなく、運転資金（最低6ヶ月分）の確保と、開業前からのLINE公式アカウントやWebサイトによる認知獲得が成功の鍵です。" },
+  { q: "開業前から準備すべきことは何ですか？", a: "開業3ヶ月前からLINE公式アカウントの開設、Webサイトの公開、Googleビジネスプロフィールの登録を始めましょう。内覧会の案内や開業日のお知らせをLINEで配信することで、開業初月から安定した来院数を確保できます。" },
+  { q: "クリニック経営で失敗しやすいポイントは？", a: "集患に過度に広告費をかけてしまうこと、リピート率を軽視すること、DX化を後回しにすることが代表的な失敗パターンです。既存患者のLTV（生涯価値）を最大化する仕組みを早期に構築することが重要です。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "クリニック固定費の構造（家賃15-25%、人件費40-50%、設備5-10%）を可視化",
   "立地選び・テナント交渉・オンライン診療活用で家賃を最大50%削減",
@@ -45,12 +62,14 @@ const toc = [
   { id: "online-hybrid", label: "オンライン×対面のハイブリッドモデル" },
   { id: "simulation", label: "固定費削減シミュレーション" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="業務改善" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         クリニック経営において、<strong>家賃・人件費・設備費などの固定費は売上の70〜80%</strong>を占めるとも言われます。特に開業初期は患者数が安定しない中で毎月の固定費が重くのしかかり、資金繰りを圧迫します。本記事では、クリニックの固定費構造を分解し、<strong>立地選びの戦略からテナント交渉術、DXによる人件費削減、ツール統合によるコスト圧縮</strong>まで、固定費を最適化して経営を安定させる具体的な方法を解説します。コスト削減の基本は<Link href="/lp/column/clinic-cost-reduction-30man" className="text-sky-600 underline hover:text-sky-800">固定費を月30万円削減する方法</Link>でも紹介していますが、本記事ではより広範な固定費全体に焦点を当てます。
       </p>
@@ -371,6 +390,17 @@ export default function Page() {
             <Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談・お問い合わせ</Link> — 固定費削減シミュレーションのご相談はこちら
           </li>
         </ul>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

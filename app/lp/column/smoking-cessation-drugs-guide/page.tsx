@@ -20,6 +20,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "禁煙治療薬ガイドはオンライン診療で処方できますか？", a: "多くの場合、オンライン診療での処方が可能です。ただし初診では処方日数に制限がある場合があります。再診であれば対面診療と同等の処方が可能です。詳しくは各薬剤の処方ルールをご確認ください。" },
+  { q: "副作用が出た場合はどうすればいいですか？", a: "軽度の副作用であれば経過観察で改善することが多いですが、症状が強い場合は速やかに処方医に相談してください。LINEでの個別相談に対応しているクリニックであれば、気軽に症状を報告できます。" },
+  { q: "オンラインクリニックでの処方薬の配送はどうなりますか？", a: "多くのオンラインクリニックでは決済後、最短翌日〜数日で発送されます。温度管理が必要な薬剤はクール便での配送に対応しているクリニックを選びましょう。Lオペ for CLINICでは配送管理・追跡番号の自動配信機能も搭載しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "チャンピックス（バレニクリン）は禁煙成功率約50%で最も高い",
   "保険適用の禁煙外来は12週間・計5回の通院プログラム",
@@ -30,6 +47,7 @@ export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={[]}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「タバコをやめたいけど、意志の力だけじゃ無理だった」——その感覚、正しいです。ニコチン依存症は<strong>脳の報酬系に作用する立派な薬物依存</strong>であり、「気合い」で治るものではありません。幸い、日本には<strong>保険適用の禁煙治療薬が3種類</strong>あります。この記事では、それぞれの仕組み・効果・選び方と、12週間の禁煙外来プログラムの流れを解説します。
       </p>
@@ -180,6 +198,17 @@ export default function Page() {
         <p>ニコチン依存症は脳の病気であり、薬物療法は科学的に有効な治療法です。チャンピックスの供給再開により、最も成功率の高い治療選択肢が再び使えるようになりました。保険適用の12週間プログラムはタバコ代より安く、オンライン対応で通院の負担も軽くなっています。</p>
 
         <p>クリニックとしては、禁煙外来は<strong>初期投資が少なく、定期受診が組み込まれた収益安定型の診療メニュー</strong>です。LINEでの服薬リマインドと禁煙応援メッセージを組み合わせれば、脱落率の改善と患者満足度の向上を同時に実現できます。禁煙と並行して取り組むべき生活習慣病管理のオンライン化については<Link href="/lp/column/lifestyle-disease-online-management" className="text-sky-600 underline hover:text-sky-800">生活習慣病オンライン管理ガイド</Link>も参考にしてください。また、オンライン診療での処方ルールについては<Link href="/lp/column/online-clinic-prescription-rules" className="text-sky-600 underline hover:text-sky-800">オンライン処方ルール解説</Link>をご覧ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

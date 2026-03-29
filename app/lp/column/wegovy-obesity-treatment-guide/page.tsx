@@ -21,6 +21,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "ウゴービ完全ガイドはオンライン診療で処方できますか？", a: "多くの場合、オンライン診療での処方が可能です。ただし初診では処方日数に制限がある場合があります。再診であれば対面診療と同等の処方が可能です。詳しくは各薬剤の処方ルールをご確認ください。" },
+  { q: "副作用が出た場合はどうすればいいですか？", a: "軽度の副作用であれば経過観察で改善することが多いですが、症状が強い場合は速やかに処方医に相談してください。LINEでの個別相談に対応しているクリニックであれば、気軽に症状を報告できます。" },
+  { q: "オンラインクリニックでの処方薬の配送はどうなりますか？", a: "多くのオンラインクリニックでは決済後、最短翌日〜数日で発送されます。温度管理が必要な薬剤はクール便での配送に対応しているクリニックを選びましょう。Lオペ for CLINICでは配送管理・追跡番号の自動配信機能も搭載しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "ウゴービはBMI 35以上、またはBMI 27以上+2つ以上の肥満関連健康障害が処方条件",
   "STEP 1試験で-14.9%の体重減少を達成 — プラセボとの差は歴然",
@@ -31,6 +48,7 @@ export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={[]}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「ウゴービって聞いたことあるけど、普通のGLP-1ダイエットと何が違うの？」——2024年2月、日本で初めて<strong>保険が使える肥満症治療薬</strong>としてウゴービが登場しました。ただし処方のハードルはかなり高い。この記事では、処方条件・用量スケジュール・臨床エビデンス・費用・オゼンピックとの違いまで、<strong>ウゴービのすべてをわかりやすく</strong>解説します。
       </p>
@@ -206,6 +224,17 @@ export default function Page() {
         <Callout type="point" title="関連記事もあわせてどうぞ">
           GLP-1受容体作動薬の<strong>基本的な仕組み</strong>については<Link href="/lp/column/glp1-medication-guide" className="text-emerald-700 underline">「GLP-1受容体作動薬とは」</Link>、<strong>安全性エビデンス</strong>については<Link href="/lp/column/glp1-diet-safety-evidence" className="text-emerald-700 underline">「GLP-1ダイエットは危険？」</Link>、肥満症治療の<strong>最新動向</strong>については<Link href="/lp/column/obesity-treatment-trends-2026" className="text-emerald-700 underline">「肥満症治療の最新動向」</Link>をご覧ください。また、同じGIP/GLP-1デュアル作動薬の肥満症適応である<strong>ゼップバウンド</strong>については<Link href="/lp/column/zepbound-obesity-treatment-guide" className="text-emerald-700 underline">ゼップバウンド完全ガイド</Link>で詳しく解説しています。
         </Callout>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

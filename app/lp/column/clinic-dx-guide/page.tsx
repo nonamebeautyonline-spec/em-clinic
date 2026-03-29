@@ -20,6 +20,23 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "クリニックDXとは具体的に何ですか？", a: "クリニックDX（デジタルトランスフォーメーション）とは、紙の問診票や電話予約といったアナログ業務をデジタル化し、業務効率と患者体験を同時に向上させることです。LINE公式アカウントは最も手軽に始められるDXの入り口です。" },
+  { q: "DXを始めるのに最適な順番は？", a: "①LINE公式アカウント開設 → ②オンライン予約導入 → ③Web問診導入 → ④セグメント配信開始の順がおすすめです。一度に全てを導入するより、段階的に進める方がスタッフの負荷も少なく定着しやすいです。" },
+  { q: "DX化に反対するスタッフへの対応は？", a: "まずは一番業務負荷の高い作業（例：電話予約対応）を自動化し、効果を実感してもらうのが効果的です。トップダウンで強制するより、現場の課題解決からスタートする方がスムーズに浸透します。" },
+  { q: "電子カルテとLINEの連携は可能ですか？", a: "Lオペ for CLINICでは主要な電子カルテとの連携に対応しています。患者情報の自動連携により、二重入力を防ぎ、カルテ情報に基づいたセグメント配信も可能になります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "クリニックDXをLINE公式アカウントから始める段階的なロードマップ",
@@ -33,11 +50,13 @@ const toc = [
   { id: "five-steps", label: "5つのステップ" },
   { id: "avoid-failure", label: "DXで失敗しないために" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="DXガイド" keyPoints={keyPoints} toc={toc}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         クリニックDXはLINE公式アカウントを起点に、予約・問診・会計・配送を<strong>5ステップ</strong>で段階的にデジタル化するのが最も成功率の高い進め方です。本記事では、何から始めればいいか分からないクリニック向けに、具体的なロードマップと失敗しないためのポイントを解説します。
@@ -132,6 +151,16 @@ export default function Page() {
         <DonutChart percentage={80} label="LINE開封率" sublabel="メール(20%)の4倍の到達力" />
 
         <p>Lオペ for CLINICは、この5ステップをすべてワンストップで実現できるクリニック専用プラットフォームです。各ステップで活用できる具体的な機能は<Link href="/lp/features" className="text-sky-600 underline hover:text-sky-800">機能一覧ページ</Link>でご確認いただけます。電子カルテ・予約・問診・決済を含むDXの全体設計については<Link href="/lp/column/clinic-dx-complete-guide" className="text-emerald-700 underline">クリニックDX完全ガイド</Link>もぜひご覧ください。DX導入のビフォーアフターを数値で見たい方は<Link href="/lp/column/clinic-dx-before-after" className="text-sky-600 underline hover:text-sky-800">DX導入ビフォーアフター事例</Link>を、日常業務の具体的な変化は<Link href="/lp/column/clinic-dx-daily-transformation" className="text-sky-600 underline hover:text-sky-800">DXで1日の業務がここまで変わる</Link>も参考になります。</p>
+      </section>
+
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

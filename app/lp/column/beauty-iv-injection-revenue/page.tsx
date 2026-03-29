@@ -29,6 +29,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "美容点滴・注射メニューの収益設計で売上を伸ばす最も効果的な方法は？", a: "既存患者へのセグメント配信が最も即効性があります。来院履歴・診療内容に基づいて、関連する自費メニューをLINEで個別提案することで、押し売り感なく自費転換率を高められます。導入クリニックでは自費率が15%→35%に向上した事例もあります。" },
+  { q: "自費診療の価格設定で注意すべき点は？", a: "原価率・地域相場・競合価格の3軸で分析し、松竹梅の3プランを用意するのが基本です。中間プランの選択率が60%以上になるよう設計すると、売上と患者満足度の両方を最大化できます。" },
+  { q: "自費診療のLINE訴求で医療広告ガイドラインに抵触しませんか？", a: "一斉配信で自費診療を訴求する場合は、費用・リスク・副作用の明示が必要です（限定解除要件）。個別の患者へのフォローアップとしての1対1メッセージは広告規制の対象外です。Lオペ for CLINICではガイドラインに配慮した配信テンプレートを用意しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "美容点滴・注射は原価率15〜30%で利益率が高く、施術時間20〜40分で回転率も確保しやすい",
   "白玉点滴・プラセンタ・高濃度ビタミンCの3本柱で患者ニーズの大半をカバーできる",
@@ -44,12 +61,14 @@ const toc = [
   { id: "repeat-strategy", label: "リピート率向上の施策" },
   { id: "revenue-simulation", label: "月間収益シミュレーション" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         美容点滴・注射メニューは、<strong>高い利益率</strong>と<strong>短い施術時間</strong>を両立できる自費診療の代表格です。白玉点滴（グルタチオン）、プラセンタ注射、高濃度ビタミンC点滴を中心に、原価構造の分析から価格設定、リピート戦略、収益シミュレーションまで、<strong>収益設計の全体像</strong>を解説します。
       </p>
@@ -215,6 +234,17 @@ export default function Page() {
         <p>LINEを活用したリマインド配信やコース管理の自動化は、スタッフの負担を増やさずにリピート率を向上させる実践的な手段です。まずは白玉点滴・プラセンタ・高濃度ビタミンCの3メニューでスタートし、患者の反応を見ながらメニューの拡充とコース設計を最適化していきましょう。</p>
 
         <InlineCTA />
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

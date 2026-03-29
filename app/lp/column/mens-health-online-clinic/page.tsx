@@ -28,6 +28,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "メンズヘルスオンラインクリニックの作り方でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "AGA・ED・男性更年期（LOH症候群）の3本柱でメンズヘルスオンラインクリニックを設計する方法を解説",
   "クロスセル戦略（AGA患者にED薬を提案等）で患者単価を最大化し、Dr1人で月商300万円を狙う運営モデル",
@@ -43,12 +60,14 @@ const toc = [
   { id: "marketing", label: "集患チャネルと広告戦略" },
   { id: "solo-doctor-dx", label: "Dr1人+DXの運営モデル" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         メンズヘルス市場は急速に拡大しています。AGA（男性型脱毛症）・ED（勃起不全）・男性更年期（LOH症候群）——この3領域は、いずれも<strong>自費・処方中心・オンライン完結</strong>という共通特性を持ちます。本記事では、この3本柱をワンストップで提供するメンズヘルスオンラインクリニックの作り方を、集患から運用まで網羅的に解説します。すべての処方は必ず医師の診察・判断に基づいて行ってください。
       </p>
@@ -216,6 +235,17 @@ export default function Page() {
         <p>AGA治療の詳しい戦略は<Link href="/lp/column/aga-online-clinic-winning-strategy" className="text-emerald-700 underline">AGAオンラインクリニックの勝ち方</Link>を、ED治療の詳細は<Link href="/lp/column/ed-online-clinic-winning-strategy" className="text-emerald-700 underline">EDオンラインクリニックの勝ち方</Link>を併せてご参照ください。</p>
 
         <p>メンズヘルスオンラインクリニックの運営には、予約・問診・処方配送・LINE配信を一元管理できるプラットフォームが不可欠です。Lオペ for CLINICでは、これらの機能をワンストップで提供し、Dr1人+DXの効率的な運営をサポートしています。導入をご検討の方はお気軽にお問い合わせください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

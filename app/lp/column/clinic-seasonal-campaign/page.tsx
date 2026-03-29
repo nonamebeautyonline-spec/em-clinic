@@ -20,6 +20,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニックの季節別LINE配信戦略の効果はどのくらいで実感できますか？", a: "施策にもよりますが、LINE配信やSEO対策は1〜3ヶ月で効果が出始めるケースが多いです。特にセグメント配信は導入直後から開封率・クリック率の改善が見られます。継続的な改善サイクルを回すことで、半年後には大きな成果に繋がります。" },
+  { q: "集患施策にかかるコストはどのくらいですか？", a: "LINE公式アカウント自体は無料で開設でき、月額5,000〜15,000円程度で配信が可能です。Web広告と比較してCPA（獲得単価）が低く、既存患者のリピート促進にも効果的なため、費用対効果は非常に高いです。" },
+  { q: "Web広告とLINE配信はどちらが効果的ですか？", a: "新規集患にはWeb広告、リピート促進にはLINE配信が効果的です。LINE配信はメッセージ開封率90%と圧倒的なリーチ力を持ち、既存患者への再来院促進・自費診療の訴求に適しています。両方を組み合わせるのが最も効率的です。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "季節ごとの疾患トレンドに合わせたLINE配信が集患に直結",
   "春（花粉症）・夏（紫外線）・秋（インフルワクチン）・冬（風邪・乾燥）の配信テンプレート",
@@ -34,12 +51,14 @@ const toc = [
   { id: "autumn-winter", label: "秋冬の配信戦略 — インフルエンザ・風邪" },
   { id: "calendar", label: "年間配信カレンダーの作り方" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="マーケティング" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニックのLINE配信は、季節の疾患トレンドに合わせることで<strong>開封率・予約CV率が大幅に向上</strong>します。「今まさに困っている」患者に適切なタイミングでメッセージを届けることが、効果的な集患の鍵です。本記事では春夏秋冬の配信テンプレートと年間カレンダーの作り方を解説します。</p>
 
       {/* ── なぜ季節別配信が効果的か ── */}
@@ -130,6 +149,17 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICは、セグメント配信・配信予約・テンプレート管理・効果測定をオールインワンで提供します。季節ごとの配信戦略を簡単に実行し、年間を通じた安定的な集患を実現しましょう。リピート率向上のための全体戦略は<Link href="/lp/column/clinic-repeat-rate-improvement" className="text-sky-600 underline hover:text-sky-800">リピート率改善ガイド</Link>、紹介制度と組み合わせた集患強化は<Link href="/lp/column/clinic-referral-program" className="text-sky-600 underline hover:text-sky-800">紹介制度のLINE化</Link>もあわせてご覧ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

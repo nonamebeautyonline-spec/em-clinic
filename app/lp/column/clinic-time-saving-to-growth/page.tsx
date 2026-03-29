@@ -22,6 +22,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "業務時間を削減して新規患者を獲得するの導入にどのくらいの期間がかかりますか？", a: "基本的な設定は1〜2週間で完了します。LINE公式アカウントの開設からリッチメニュー設計・自動メッセージ設定まで、Lオペ for CLINICなら初期設定サポート付きで最短2週間で運用開始できます。" },
+  { q: "業務時間を削減して新規患者を獲得するでスタッフの負荷は増えませんか？", a: "むしろ減ります。電話対応・手動での予約管理・問診確認などの定型業務を自動化することで、スタッフの作業時間を月40時間以上削減できた事例もあります。導入初月はサポートを受けながら進めれば、2ヶ月目以降はスムーズに運用できます。" },
+  { q: "小規模クリニックでも導入効果はありますか？", a: "はい、むしろ小規模クリニックほど効果を実感しやすいです。スタッフ数が限られる分、業務自動化によるインパクトが大きく、受付1名分の工数を削減できた事例もあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "DXで月60時間の事務作業を削減し、その時間的価値（月36万円相当）を可視化",
   "削減した時間を集患に変える5つの具体的施策とロードマップ",
@@ -36,6 +53,7 @@ const toc = [
   { id: "roi", label: "投資対効果 — DXコストは数ヶ月で回収" },
   { id: "lope-growth", label: "Lオペで成長サイクルを回す" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
@@ -43,6 +61,7 @@ export default function Page() {
     <>
       <ArticleLayout slug={self.slug} breadcrumbLabel="マーケティング" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
         <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
           「毎日忙しく働いているのに、なぜか売上が伸びない」。多くのクリニック経営者が抱えるこの悩みの原因は、<strong>業務時間の使い方</strong>にあります。受付対応・電話応対・予約管理・問診の転記——こうしたルーティン作業に追われ、集患や患者フォローに時間を割けていないのが実態です。本記事では、<strong>Lオペ for CLINIC</strong>によるDXで月60時間の事務作業を自動化し、その時間を新規患者獲得に投資して売上を伸ばす「成長サイクル」の構築方法を、実例データとともに解説します。
         </p>
@@ -260,7 +279,18 @@ export default function Page() {
             <li><Link href="/lp/column/clinic-referral-program" className="text-sky-600 underline hover:text-sky-800">クリニックの紹介制度をLINEで仕組み化する方法</Link></li>
           </ul>
         </section>
-      </ArticleLayout>
+      
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
+      </section>
+    </ArticleLayout>
     </>
   );
 }

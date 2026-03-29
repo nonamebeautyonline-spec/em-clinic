@@ -158,6 +158,34 @@ const jsonLd = [
       },
     ],
   },
+  /* MedicalBusiness — 医療機関向けサービスであることを明示 */
+  {
+    "@context": "https://schema.org",
+    "@type": "MedicalBusiness",
+    name: "Lオペ for CLINIC",
+    description:
+      "クリニック・医療機関向けLINE公式アカウント運用プラットフォーム。予約管理・問診・CRM・AI自動返信・決済を一元化。",
+    url: SITE_URL,
+    logo: `${SITE_URL}/icon.png`,
+    medicalSpecialty: [
+      "美容皮膚科",
+      "一般内科",
+      "歯科",
+      "眼科",
+      "整形外科",
+      "小児科",
+      "皮膚科",
+      "AGAクリニック",
+    ],
+    availableService: {
+      "@type": "MedicalTherapy",
+      name: "LINE公式アカウント業務DXプラットフォーム",
+      description:
+        "LINE公式アカウントを活用した患者CRM・予約管理・セグメント配信・オンライン問診・AI自動返信・決済・配送管理",
+    },
+    areaServed: { "@type": "Country", name: "JP" },
+    isAcceptingNewPatients: true,
+  },
   /* SiteNavigationElement — Googleサイトリンク表示を促進 */
   ...[
     { name: "Lオペとは", url: `${SITE_URL}/lp/about` },

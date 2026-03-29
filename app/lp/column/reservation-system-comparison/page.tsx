@@ -14,6 +14,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニック予約システム比較10選で選ぶ際の最も重要な基準は何ですか？", a: "クリニック業務への適合性が最も重要です。汎用ツールは安価ですが医療ワークフローへの対応に大量のカスタマイズが必要です。クリニック専用ツールなら予約管理・問診・カルテ・決済が標準搭載されており、導入直後から運用できます。" },
+  { q: "ツール移行時にデータは引き継げますか？", a: "LINE公式アカウントはそのまま維持し、連携ツールだけを切り替える形になります。友だちリストやトーク履歴はLINE公式側に残るため、患者への影響はありません。Lオペ for CLINICでは移行サポートも提供しています。" },
+  { q: "無料で使えるツールではダメですか？", a: "無料ツールは基本的な配信機能のみで、予約管理・問診・カルテ連携・セグメント配信などクリニックに必要な機能が不足しています。月額費用をかけてでも専用ツールを導入した方が、業務効率化による人件費削減で十分に元が取れます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "クリニック予約システムに必要な機能と選定基準の整理",
   "LINE連携対応を含む10種類の予約システムの特徴・費用比較",
@@ -27,12 +44,14 @@ const toc = [
   { id: "line-integration-impact", label: "LINE連携で変わるポイント" },
   { id: "recommendation-by-scale", label: "クリニック規模別おすすめ" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="予約システム比較" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニック向け予約システムは、LINE連携・電子カルテ連携・リマインド自動送信の<strong>3機能</strong>を軸に選ぶのが正解です。本記事では主要<strong>10システム</strong>の費用・機能を比較し、クリニック規模別のおすすめと、LINE連携で予約率・来院率が向上する理由を解説します。</p>
 
       <section>
@@ -169,6 +188,17 @@ export default function Page() {
           <li><strong>拡張性を見据える</strong> — <Link href="/lp/column/electronic-medical-record-guide" className="text-blue-600 underline">電子カルテ</Link>連携・決済連携・分院管理など、将来の拡張に対応できるか</li>
         </ol>
         <p className="mt-4">Lオペ for CLINICは、<Link href="/lp/features#予約・診察" className="text-sky-600 underline hover:text-sky-800">予約管理</Link>・LINE連携・問診・決済・配信をオールインワンで提供するクリニック専用プラットフォームです。予約システムの乗り換えや新規導入をご検討の方は、お気軽にご相談ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

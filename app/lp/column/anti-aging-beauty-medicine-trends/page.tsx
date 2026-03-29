@@ -28,6 +28,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "アンチエイジング内服薬の最新トレンドはオンライン診療で処方できますか？", a: "多くの場合、オンライン診療での処方が可能です。ただし初診では処方日数に制限がある場合があります。再診であれば対面診療と同等の処方が可能です。詳しくは各薬剤の処方ルールをご確認ください。" },
+  { q: "副作用が出た場合はどうすればいいですか？", a: "軽度の副作用であれば経過観察で改善することが多いですが、症状が強い場合は速やかに処方医に相談してください。LINEでの個別相談に対応しているクリニックであれば、気軽に症状を報告できます。" },
+  { q: "オンラインクリニックでの処方薬の配送はどうなりますか？", a: "多くのオンラインクリニックでは決済後、最短翌日〜数日で発送されます。温度管理が必要な薬剤はクール便での配送に対応しているクリニックを選びましょう。Lオペ for CLINICでは配送管理・追跡番号の自動配信機能も搭載しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "アンチエイジング内服・サプリメント市場は年率15%成長、2025年で約3,800億円規模に拡大",
   "NMN・グルタチオン・高濃度ビタミンC・プラセンタ・CoQ10の5大成分をエビデンス・価格・処方メリットで徹底比較",
@@ -44,12 +61,14 @@ const toc = [
   { id: "set-prescription", label: "内服アンチエイジングのセット処方戦略" },
   { id: "online-line", label: "オンライン処方×LINEで定期収益化" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         アンチエイジング医療は「注射・施術」から「飲んで若返る」時代へとシフトしつつあります。NMN、グルタチオン、高濃度ビタミンC、プラセンタ、コエンザイムQ10——エビデンスが蓄積され、クリニック処方ならではの高純度・高用量製剤が注目を集めています。本記事では<strong>5大アンチエイジング内服成分の作用機序・エビデンス・推奨用量・価格帯を徹底比較</strong>し、クリニックがどの成分を処方メニューに取り入れるべきか、そしてオンライン処方×LINEを活用した定期収益化戦略まで包括的に解説します。
       </p>
@@ -337,6 +356,17 @@ export default function Page() {
         <p>内服アンチエイジングの基本戦略は、<strong>松竹梅のプラン設計でボリュームゾーンを獲得</strong>し、オンライン診療で全国の患者にリーチ、LINEの自動フォロー配信で定期継続率を最大化する、というサイクルです。対面施術のような「1回あたりの高額売上」ではなく、<strong>毎月の定期処方による安定したストック収益</strong>を積み上げるモデルであり、患者数が増えるほどベースの売上が底上げされる構造です。</p>
 
         <p>「注射・施術に依存しない、スケーラブルなアンチエイジング収益」を構築したいクリニックにとって、内服処方×オンライン×LINEの組み合わせは最適解です。まずは梅プラン（ビタミンC＋グルタチオン）から最小限でスタートし、患者の反応を見ながら竹→松へとメニューを拡充していきましょう。<Link href="/lp/column/anti-aging-clinic-menu-guide" className="text-sky-600 hover:underline">アンチエイジング内服メニューの導入ガイド</Link>もあわせてご覧ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

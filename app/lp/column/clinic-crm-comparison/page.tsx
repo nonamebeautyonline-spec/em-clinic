@@ -21,6 +21,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニック向けCRM比較6選で選ぶ際の最も重要な基準は何ですか？", a: "クリニック業務への適合性が最も重要です。汎用ツールは安価ですが医療ワークフローへの対応に大量のカスタマイズが必要です。クリニック専用ツールなら予約管理・問診・カルテ・決済が標準搭載されており、導入直後から運用できます。" },
+  { q: "ツール移行時にデータは引き継げますか？", a: "LINE公式アカウントはそのまま維持し、連携ツールだけを切り替える形になります。友だちリストやトーク履歴はLINE公式側に残るため、患者への影響はありません。Lオペ for CLINICでは移行サポートも提供しています。" },
+  { q: "無料で使えるツールではダメですか？", a: "無料ツールは基本的な配信機能のみで、予約管理・問診・カルテ連携・セグメント配信などクリニックに必要な機能が不足しています。月額費用をかけてでも専用ツールを導入した方が、業務効率化による人件費削減で十分に元が取れます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "クリニック向けCRM 6製品を多機能型・実績重視型に分けて比較",
   "CRM選定で重視すべき3つの基準",
@@ -36,12 +53,14 @@ const toc = [
   { id: "selection-criteria", label: "CRM選定の3つの基準" },
   { id: "benefits", label: "CRM導入のメリット" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="比較" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニック向けCRMは、LINE連携・電子カルテ連携・セグメント配信の<strong>3機能</strong>を基準に選ぶべきです。本記事では多機能型・実績重視型の<strong>6製品</strong>を比較し、CRM選定の判断基準と、LINE連携CRMが再診率・患者LTV向上に最も効果的な理由を解説します。</p>
 
       {/* ── なぜCRM ── */}
@@ -178,6 +197,17 @@ export default function Page() {
         />
 
         <p>LINE公式アカウントを中心にクリニック業務を一元管理したい場合は、Lオペ for CLINICが<Link href="/lp/features#患者CRM" className="text-sky-600 underline hover:text-sky-800">クリニック専用CRM</Link>として最もフィットします。予約管理機能をさらに比較したい方は<Link href="/lp/column/reservation-system-comparison" className="text-sky-600 underline hover:text-sky-800">予約システム比較10選</Link>も参考にしてください。患者データの分析・活用については<Link href="/lp/column/clinic-patient-ltv" className="text-sky-600 underline hover:text-sky-800">患者LTV向上戦略</Link>を、既存システムからのデータ移行については<Link href="/lp/column/clinic-data-migration" className="text-sky-600 underline hover:text-sky-800">データ移行ガイド</Link>も併せてご覧ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

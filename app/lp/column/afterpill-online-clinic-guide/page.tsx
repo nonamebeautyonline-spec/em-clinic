@@ -26,6 +26,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "アフターピルのオンライン処方ガイドでLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "アフターピルは72時間以内の服用が必須 — オンライン診療のスピード対応が最大の強み",
   "OTC化後も24時間対応・プライバシー保護・医師カウンセリングでオンライン処方が選ばれ続ける",
@@ -43,12 +60,14 @@ const toc = [
   { id: "lope-afterpill", label: "Lオペでアフターピル処方を運用" },
   { id: "ad-guidelines", label: "医療広告ガイドラインの注意点" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         アフターピル（緊急避妊薬）のオンライン処方は、<strong>72時間という時間制限</strong>との闘いです。夜間・休日でも即座に対応できるオンライン診療は、緊急避妊において最も合理的な選択肢となっています。一方で、2024年以降のOTC化議論の進展により、薬局での購入が可能になりつつあるいま、オンラインクリニックには<strong>新たな差別化戦略</strong>が求められています。本記事では、処方フローの最適化からOTC時代の競争戦略、低用量ピルへの転換による収益安定化まで、アフターピル処方クリニックの全体像を解説します。
       </p>
@@ -362,6 +381,17 @@ export default function Page() {
         </ul>
 
         <p className="mt-4">まずは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800 font-semibold">無料相談</Link>で、貴院のアフターピル処方オンライン診療の収益シミュレーションをお試しください。24時間対応体制の構築から低用量ピルへの転換戦略まで、専任コンサルタントがご提案いたします。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

@@ -20,6 +20,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "オンライン診療の料金相場と費用内訳を始めるために必要な準備は何ですか？", a: "厚生労働省のオンライン診療ガイドラインに基づく届出、ビデオ通話システムの導入、オンライン決済の設定が必要です。Lオペ for CLINICならLINEビデオ通話・電話音声通話でのオンライン診療に対応しており、別途システム導入が不要です。" },
+  { q: "オンライン診療で処方できる薬に制限はありますか？", a: "初診のオンライン診療では処方日数に制限があります（原則7日分まで）。再診では対面診療と同等の処方が可能です。向精神薬・麻薬等の一部薬剤はオンライン診療での処方が制限されています。" },
+  { q: "オンライン診療の診療報酬はどのくらいですか？", a: "保険診療では対面診療より低い点数設定ですが、自費診療であれば自由に価格設定が可能です。通院負担の軽減による患者満足度向上と、遠方からの新患獲得を考慮すると、十分な収益性が見込めます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "保険診療のオンライン診療料は対面の約87%で、情報通信機器の運用コストは別途考慮が必要",
   "自費診療は診察料・システム利用料・配送料の3層構造で料金を設計する",
@@ -34,12 +51,14 @@ const toc = [
   { id: "design", label: "患者が納得する料金設計の考え方" },
   { id: "comparison", label: "対面診療との費用比較" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         オンライン診療の導入を検討するクリニックにとって、「料金をどう設定するか」は最初の大きな壁です。保険診療と自費診療では算定の仕組みが根本的に異なり、さらにシステム利用料や配送料など<strong>対面診療にはなかった費用項目</strong>が加わります。本記事では、保険・自費それぞれの料金相場を具体的な数字で示しながら、患者にとって分かりやすく、クリニックの採算も取れる<strong>費用設計の考え方</strong>を解説します。
       </p>
@@ -182,6 +201,17 @@ export default function Page() {
           <strong>3.</strong> 隠れコスト（決済手数料・配送費・人件費）を考慮した損益シミュレーションを行う<br />
           <strong>4.</strong> 定期プランやまとめ買い割引で継続率とLTVを最大化する
         </Callout>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

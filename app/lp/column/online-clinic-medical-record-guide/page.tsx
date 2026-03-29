@@ -20,6 +20,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "オンライン診療のカルテ記載と診療録管理を始めるために必要な準備は何ですか？", a: "厚生労働省のオンライン診療ガイドラインに基づく届出、ビデオ通話システムの導入、オンライン決済の設定が必要です。Lオペ for CLINICならLINEビデオ通話・電話音声通話でのオンライン診療に対応しており、別途システム導入が不要です。" },
+  { q: "オンライン診療で処方できる薬に制限はありますか？", a: "初診のオンライン診療では処方日数に制限があります（原則7日分まで）。再診では対面診療と同等の処方が可能です。向精神薬・麻薬等の一部薬剤はオンライン診療での処方が制限されています。" },
+  { q: "オンライン診療の診療報酬はどのくらいですか？", a: "保険診療では対面診療より低い点数設定ですが、自費診療であれば自由に価格設定が可能です。通院負担の軽減による患者満足度向上と、遠方からの新患獲得を考慮すると、十分な収益性が見込めます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "厚労省指針が求めるオンライン診療特有のカルテ追加記載事項を網羅",
   "対面診療との記載要件の違いと、記載漏れを防ぐテンプレート運用を解説",
@@ -34,12 +51,14 @@ const toc = [
   { id: "electronic-record", label: "電子カルテの運用ノウハウ" },
   { id: "line-integration", label: "LINE問診データとの連携" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         オンライン診療のカルテ記載には、対面診療にはない<strong>追加記載事項</strong>が求められます。通信手段、患者の所在地、対面診療への切り替え判断など、オンライン診療特有の情報を適切に記録しなければ、医療安全上の問題や法的リスクにつながります。本記事では、厚労省指針に基づく記載要件の整理と、<strong>効率的な運用ノウハウ</strong>を解説します。
       </p>
@@ -152,6 +171,17 @@ export default function Page() {
         <p>テンプレートの活用により記載の効率化と標準化を図り、LINE問診データとの連携で診察前の情報収集を自動化することで、オンライン診療の運用品質を大幅に向上させることが可能です。</p>
 
         <p>Lオペ for CLINICでは、LINEを活用した<Link href="/" className="text-blue-600 hover:underline">事前問診の自動収集と管理画面でのデータ一元管理</Link>を通じて、オンライン診療のカルテ記載業務の効率化を支援しています。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

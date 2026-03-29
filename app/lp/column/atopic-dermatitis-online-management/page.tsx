@@ -37,6 +37,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "アトピー性皮膚炎のオンライン管理でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "日本のアトピー性皮膚炎患者は推定約50万人（重症度を問わず全年齢で10〜15%が経験） — 慢性疾患のため継続管理が不可欠",
   "ステロイド外用薬のランク選択・プロアクティブ療法・保湿指導の3本柱をオンラインで継続フォロー",
@@ -50,12 +67,14 @@ const toc = [
   { id: "lope-ad", label: "Lオペ for CLINICでアトピー診療を運用" },
   { id: "revenue", label: "収益モデル" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         アトピー性皮膚炎は<strong>慢性・再発性の炎症性皮膚疾患</strong>であり、治療の中心は「寛解を維持すること」にあります。ステロイド外用薬による急性期治療だけでなく、<strong>プロアクティブ療法（寛解後も定期的に外用薬を塗布する維持療法）</strong>と適切な保湿指導が長期管理の鍵です。しかし、通院のたびに待合室で長時間待たされる負担から、<strong>治療中断率が高い</strong>ことが大きな課題でした。オンライン診療により「定期的な皮膚状態の確認と処方の継続」が自宅から可能になり、<strong>治療継続率の大幅な改善</strong>が期待できます。本記事では、ステロイド外用薬のランク選択・非ステロイド外用薬の使い分け・保湿指導のポイント、そして<strong>Lオペ for CLINICによるLINE画像共有・フォローアップ自動化</strong>まで解説します。
       </p>
@@ -275,6 +294,17 @@ export default function Page() {
             <Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談・お問い合わせ</Link> — アトピー性皮膚炎のオンライン管理体制をご相談いただけます
           </li>
         </ul>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

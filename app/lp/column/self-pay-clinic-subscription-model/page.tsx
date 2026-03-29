@@ -22,6 +22,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "自費クリニックのサブスクリプションモデル設計で売上を伸ばす最も効果的な方法は？", a: "既存患者へのセグメント配信が最も即効性があります。来院履歴・診療内容に基づいて、関連する自費メニューをLINEで個別提案することで、押し売り感なく自費転換率を高められます。導入クリニックでは自費率が15%→35%に向上した事例もあります。" },
+  { q: "自費診療の価格設定で注意すべき点は？", a: "原価率・地域相場・競合価格の3軸で分析し、松竹梅の3プランを用意するのが基本です。中間プランの選択率が60%以上になるよう設計すると、売上と患者満足度の両方を最大化できます。" },
+  { q: "自費診療のLINE訴求で医療広告ガイドラインに抵触しませんか？", a: "一斉配信で自費診療を訴求する場合は、費用・リスク・副作用の明示が必要です（限定解除要件）。個別の患者へのフォローアップとしての1対1メッセージは広告規制の対象外です。Lオペ for CLINICではガイドラインに配慮した配信テンプレートを用意しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "定期処方型・施術回数券型・メンバーシップ型の3つのサブスクモデルを診療科別に設計",
   "サブスク導入で月間売上の60〜70%を安定的なストック収益に転換可能",
@@ -37,12 +54,14 @@ const toc = [
   { id: "churn-management", label: "解約防止（チャーン管理）の施策" },
   { id: "line-payment", label: "LINE決済×自動配信の仕組み" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         自費クリニックの収益を安定させる最も効果的な方法——それが<strong>サブスクリプションモデル（月額課金）</strong>の導入です。AGA・ピル・美容内服の定期処方、施術回数券、メンバーシッププランなど、自費診療にはサブスク化しやすいメニューが数多くあります。本記事では、3つのサブスクモデルの設計方法から、解約率（チャーン）の抑制策、LINE決済と自動配信を組み合わせた<strong>運用の仕組み化</strong>まで実践的に解説します。
       </p>
@@ -265,6 +284,17 @@ export default function Page() {
         </Callout>
 
         <p>サブスクリプションモデルは、自費クリニックの収益構造を「不安定なフロー型」から「安定したストック型」に転換する最も確実な方法です。美容内服のサブスク設計は<Link href="/lp/column/beauty-oral-subscription-revenue" className="text-sky-600 underline hover:text-sky-800">美容内服サブスクの収益設計</Link>で、LTV向上の全体戦略は<Link href="/lp/column/self-pay-clinic-ltv-maximize" className="text-sky-600 underline hover:text-sky-800">自費クリニックのLTV最大化ガイド</Link>でさらに深掘りしています。ストック収益基盤を構築し、安定成長のクリニック経営を実現しましょう。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

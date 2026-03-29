@@ -22,6 +22,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "AGA治療オンラインクリニックの勝ち方でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "AGA市場は大手寡占ではない — 個人クリニックが差別化で勝てる余地は大きい",
   "フィナステリド仕入れ200〜400円に対し月額6,000〜8,000円で処方、利益率70%超",
@@ -38,12 +55,14 @@ const toc = [
   { id: "dx-solo", label: "DX活用でDr1人運営" },
   { id: "revenue-model", label: "月間収益モデル" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         AGA（男性型脱毛症）オンライン診療は参入障壁が低い一方で、大手クリニックとの競合が激化しています。本記事では<strong>個人・小規模クリニックが大手に勝つための具体的な差別化戦略</strong>を、薬剤の仕入れ・販売価格の実数値、診療フローの設計、患者LTV最大化の施策、広告戦略、そして<strong>Lオペ for CLINICを活用したDr1人ミニマム運営モデル</strong>に至るまで徹底的に解説します。
       </p>
@@ -430,6 +449,17 @@ export default function Page() {
         <p>AGA治療のオンラインクリニック開業を検討されている方、すでに運営中で差別化に悩んでいる方は、まずは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>からお気軽にお問い合わせください。</p>
 
         <p>関連コラムもあわせてご覧ください。<Link href="/lp/column/aga-online-clinic-lope" className="text-emerald-700 underline">AGA治療のオンライン診療ガイド</Link>、<Link href="/lp/column/online-clinic-complete-guide" className="text-emerald-700 underline">オンライン診療の完全ガイド</Link>、<Link href="/lp/column/self-pay-pricing-guide" className="text-emerald-700 underline">自費診療の価格設定ガイド</Link>、<Link href="/lp/column/clinic-self-pay-revenue" className="text-emerald-700 underline">自費診療の売上アップ戦略</Link>では、より幅広い視点からクリニック経営の成長戦略を解説しています。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

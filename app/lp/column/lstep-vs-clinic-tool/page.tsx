@@ -20,6 +20,22 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "Lステップとクリニック専用ツールの最大の違いは？", a: "Lステップは業種を問わない汎用LINE拡張ツールで、クリニック専用ツールは予約管理・問診・カルテ・決済など医療特有の機能を一体化しています。汎用ツールでは医療ワークフローの構築に大量のカスタマイズが必要ですが、専用ツールなら初期設定だけで運用開始できます。" },
+  { q: "LステップからLオペ for CLINICに移行できますか？", a: "はい、移行可能です。LINE公式アカウントはそのまま維持し、連携ツールだけを切り替える形になります。友だちリストやトーク履歴はLINE公式側に残るため、患者への影響はありません。" },
+  { q: "Linyとの違いは何ですか？", a: "LinyもLステップと同様に汎用LINE配信ツールです。クリニック専用ツールとの違いは、予約管理・問診・カルテ・決済など医療特有の機能の有無です。配信機能だけでなく業務全体を効率化したい場合は専用ツールが適しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "Lステップ・Linyとクリニック専用ツールの機能比較",
@@ -34,11 +50,13 @@ const toc = [
   { id: "why-clinic-tool", label: "クリニック専用ツールが必要な理由" },
   { id: "cost", label: "費用比較" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ツール比較" keyPoints={keyPoints} toc={toc}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         Lステップ・Linyなどの汎用LINE配信ツールは配信・タグ管理に強い一方、問診・カルテ・決済・配送といったクリニック特有の業務には対応できません。複数SaaSを組み合わせるとコストが膨らむため、クリニックには<strong>オールインワンの専用ツール</strong>が費用対効果で優れます。本記事では機能・費用の両面から徹底比較します。
@@ -143,6 +161,16 @@ export default function Page() {
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: クリニックには専用ツールを選ぶべき</h2>
         <p>Lステップ・Linyは優れたLINE配信ツールですが、クリニックの業務フロー全体をカバーするには力不足です。<strong>LINE配信だけでなく、予約・問診・カルテ・決済・配送まで統合管理</strong>したいクリニックには、専用設計のツールが最適解です。LINE起点でDXを進める全体像については<Link href="/lp/column/clinic-dx-guide" className="text-emerald-700 underline">クリニックDX完全ガイド</Link>も併せてご覧ください。</p>
+      </section>
+
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

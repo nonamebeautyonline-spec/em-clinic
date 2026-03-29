@@ -22,6 +22,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニックのTikTok・YouTube活用ガイドの効果はどのくらいで実感できますか？", a: "施策にもよりますが、LINE配信やSEO対策は1〜3ヶ月で効果が出始めるケースが多いです。特にセグメント配信は導入直後から開封率・クリック率の改善が見られます。継続的な改善サイクルを回すことで、半年後には大きな成果に繋がります。" },
+  { q: "集患施策にかかるコストはどのくらいですか？", a: "LINE公式アカウント自体は無料で開設でき、月額5,000〜15,000円程度で配信が可能です。Web広告と比較してCPA（獲得単価）が低く、既存患者のリピート促進にも効果的なため、費用対効果は非常に高いです。" },
+  { q: "Web広告とLINE配信はどちらが効果的ですか？", a: "新規集患にはWeb広告、リピート促進にはLINE配信が効果的です。LINE配信はメッセージ開封率90%と圧倒的なリーチ力を持ち、既存患者への再来院促進・自費診療の訴求に適しています。両方を組み合わせるのが最も効率的です。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "TikTok（ショート動画）で認知拡大、YouTube（長尺動画）で信頼構築の使い分け戦略",
   "医師が出演するコンテンツで専門性と親近感を両立させる方法",
@@ -37,12 +54,14 @@ const toc = [
   { id: "ad-guideline", label: "医療広告ガイドラインの注意点" },
   { id: "video-to-line", label: "動画→LINE→来院の導線設計" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="マーケティング" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         クリニックのマーケティングにおいて、<strong>動画</strong>は今や無視できないチャネルです。TikTokのショート動画で<strong>圧倒的なリーチ</strong>を獲得し、YouTubeの長尺動画で<strong>専門性と信頼</strong>を訴求する。この2つを組み合わせることで、テキストや画像だけでは伝わらない「医師の人柄」「施術の安心感」を効果的に届けることができます。本記事では、クリニックの動画マーケティング戦略を体系的に解説します。
       </p>
@@ -202,6 +221,17 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICは、動画マーケティングで獲得したLINE友だちを自動的にセグメント管理し、問診・予約・フォローアップまでをワンストップで運用できるクリニック専用プラットフォームです。動画で認知を獲得し、LINEで関係を深め、来院につなげる一気通貫のマーケティングを実現します。LINE友だちを効率的に増やす施策は<Link href="/lp/column/clinic-line-friends-growth" className="text-sky-600 underline hover:text-sky-800">LINE友だち集め 月100人増やす7つの施策</Link>、SEO対策との連携は<Link href="/lp/column/clinic-seo-complete-guide" className="text-sky-600 underline hover:text-sky-800">クリニックSEO対策完全ガイド</Link>もご覧ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

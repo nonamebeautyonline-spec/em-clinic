@@ -26,6 +26,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "ピル処方オンラインクリニックの勝ち方でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "日本のピル服用率は先進国最低の約3% — 巨大な成長余地がありオンライン処方の需要が急拡大中",
   "28日サイクルの定期処方モデルで月額サブスク収益を安定化し、継続率90%超を実現可能",
@@ -43,12 +60,14 @@ const toc = [
   { id: "dx-one-doctor", label: "DX活用でDr1人運営を実現" },
   { id: "revenue-model", label: "月間収益モデル" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         低用量ピルのオンライン処方は、<strong>28日周期で確実にリピートが発生する最強のサブスクリプション型診療</strong>です。日本のピル服用率はわずか3%と先進国最低水準ですが、それは裏を返せば巨大な成長余地を意味しています。本記事では、ピル処方オンラインクリニックで「勝つ」ための戦略を、市場分析・仕入れ相場・診療フロー・継続率向上策・差別化・広告戦略・Dr1人運営の収益モデルまで、実践レベルで徹底解説します。
       </p>
@@ -453,6 +472,17 @@ export default function Page() {
         </ul>
 
         <p className="mt-4">まずは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800 font-semibold">無料相談</Link>で、貴院のピル処方オンライン診療の収益シミュレーションをお試しください。患者数・プラン設計・配送フローの最適化まで、専任コンサルタントがご提案いたします。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

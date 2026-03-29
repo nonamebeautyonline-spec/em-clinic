@@ -14,6 +14,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニックのLINEリッチメニュー設計の導入にどのくらいの期間がかかりますか？", a: "基本的な設定は1〜2週間で完了します。LINE公式アカウントの開設からリッチメニュー設計・自動メッセージ設定まで、Lオペ for CLINICなら初期設定サポート付きで最短2週間で運用開始できます。" },
+  { q: "クリニックのLINEリッチメニュー設計でスタッフの負荷は増えませんか？", a: "むしろ減ります。電話対応・手動での予約管理・問診確認などの定型業務を自動化することで、スタッフの作業時間を月40時間以上削減できた事例もあります。導入初月はサポートを受けながら進めれば、2ヶ月目以降はスムーズに運用できます。" },
+  { q: "小規模クリニックでも導入効果はありますか？", a: "はい、むしろ小規模クリニックほど効果を実感しやすいです。スタッフ数が限られる分、業務自動化によるインパクトが大きく、受付1名分の工数を削減できた事例もあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "クリニックのリッチメニューでよくある失敗パターン",
   "患者の行動に合わせた5つの設計ポイント",
@@ -30,12 +47,14 @@ const toc = [
   { id: "point-5", label: "ポイント5: A/Bテストと改善" },
   { id: "checklist", label: "設計チェックリスト" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="リッチメニュー" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         クリニックのLINEリッチメニューは、患者の行動パターンに合わせた配置・状態連動切替・デザイン統一・タップ数最小化・A/Bテストの<strong>5つのポイント</strong>を押さえて設計すると、予約率・問診完了率が<strong>大幅に向上</strong>します。本記事では、よくある失敗パターンと改善策を具体的に解説します。
       </p>
@@ -205,6 +224,17 @@ export default function Page() {
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: リッチメニューはクリニックLINEの「顔」</h2>
         <p>リッチメニューは患者がLINE公式アカウントを開いたときに最初に目にするUIであり、<strong>クリニックのデジタル上の「顔」</strong>とも言えます。ボタン配置・状態連動切替・デザイン・導線設計・継続改善の5つのポイントを押さえることで、患者の利便性と満足度を大きく向上させられます。美容クリニックでのリッチメニュー活用例は<Link href="/lp/column/beauty-clinic-line" className="text-sky-600 underline hover:text-sky-800">美容クリニックのLINE活用術</Link>でも紹介しています。友だちのブロックを防ぎ定着率を高めるコツは<Link href="/lp/column/line-block-rate-reduction" className="text-sky-600 underline hover:text-sky-800">ブロック率を下げる5つの鉄則</Link>をご覧ください。</p>
         <p>Lオペ for CLINICでは、クリニック専用に設計されたリッチメニューテンプレートと、予約・来院状態に連動した自動切替機能を標準搭載。デザインの知識がなくても、<strong>プロ品質のリッチメニュー</strong>をすぐに導入できます。<Link href="/lp/features#ノーコード構築" className="text-sky-600 underline hover:text-sky-800">リッチメニュービルダー</Link>の詳細はこちらからご確認いただけます。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

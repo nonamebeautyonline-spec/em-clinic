@@ -21,6 +21,23 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "LINE予約リマインドで無断キャンセルはどのくらい減りますか？", a: "導入クリニックの実績では、無断キャンセル率が平均60〜80%減少しています。特に前日18時のリマインド送信が最も効果的で、キャンセルする場合も事前連絡率が大幅に向上します。" },
+  { q: "予約リマインドのメッセージ内容はどう書くべきですか？", a: "『明日の予約確認』と『キャンセル・変更の連絡先』を簡潔に記載するのがベストです。長文は逆効果で、3〜4行程度に収めましょう。日時・場所・持ち物を箇条書きにすると見やすくなります。" },
+  { q: "キャンセル待ちの自動通知はできますか？", a: "Lオペ for CLINICではキャンセルが発生した際に、待ちリストの患者にLINEで自動通知する機能があります。これにより空き枠を迅速に埋められ、機会損失を最小化できます。" },
+  { q: "無断キャンセル常習者への対策はありますか？", a: "タグ管理機能でキャンセル回数を記録し、一定回数を超えた患者には予約時にデポジット（事前決済）を求めるフローを設定できます。キャンセルポリシーを友だち追加時に配信しておくことも有効です。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "無断キャンセルがクリニック経営に与える影響と損失額",
@@ -34,10 +51,13 @@ const toc = [
   { id: "five-measures", label: "5つの施策" },
   { id: "results", label: "導入効果" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
+    <>
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
     <ArticleLayout slug={self.slug} breadcrumbLabel="予約管理" keyPoints={keyPoints} toc={toc}>
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
@@ -116,6 +136,17 @@ export default function Page() {
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ</h2>
         <p>無断キャンセル対策の本質は、<strong>患者が「面倒くさい」と感じるハードルを徹底的に下げる</strong>ことです。LINEという日常的に使うツール上で、予約確認・変更・キャンセルをワンタップで完結させることが最も効果的です。Lオペ for CLINICの<Link href="/lp/features#予約・診察" className="text-sky-600 underline hover:text-sky-800">予約・スケジュール管理機能</Link>では、これらの機能が標準搭載されています。予約システムの選び方については<Link href="/lp/column/reservation-system-comparison" className="text-emerald-700 underline">予約システム比較10選</Link>も参考にしてください。また、キャンセル対策と合わせて<Link href="/lp/column/line-block-rate-reduction" className="text-emerald-700 underline">ブロック率を下げる5つの鉄則</Link>も押さえておくと、患者との接点を維持しやすくなります。</p>
       </section>
+
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
+      </section>
     </ArticleLayout>
+    </>
   );
 }

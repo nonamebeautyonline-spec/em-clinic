@@ -30,6 +30,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "性感染症オンライン診療の勝ち方でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "梅毒急増・未受診率62%が示す膨大な潜在需要を、検査キット郵送モデルで取り込む具体戦略",
   "プライバシー最優先の設計（匿名予約・品名偽装配送・LINE通知）が最強の差別化要因になる",
@@ -47,12 +64,14 @@ const toc = [
   { id: "dx-solo-operation", label: "DX活用でDr1人運営" },
   { id: "revenue-model", label: "月間収益モデル" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         梅毒の報告数は過去最多を更新し続け、クラミジア・淋菌を含めた性感染症（STD）患者は年間100万人超と推定されています。しかし<strong>未受診率は62%</strong>。この膨大な潜在需要に対して、検査キット郵送モデルとプライバシー最優先の診療設計で参入すれば、<strong>Dr1人・固定費30万円台で月商200万円超</strong>を狙えます。本記事では、STDオンライン診療の市場構造から検査キットの仕入れ・価格設計、プライバシー戦略、集患、そして<strong>Lオペ for CLINIC</strong>を活用したDX運営まで、「勝ち方」を具体的に解説します。
       </p>
@@ -390,6 +409,17 @@ export default function Page() {
           <Link href="/lp/column/self-pay-clinic-revenue-triple" className="text-emerald-700 underline ml-2">自費クリニックの売上3倍化</Link>、
           <Link href="/lp/column/one-room-clinic-simulation" className="text-emerald-700 underline ml-2">ワンルーム開業シミュレーション</Link>
         </p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

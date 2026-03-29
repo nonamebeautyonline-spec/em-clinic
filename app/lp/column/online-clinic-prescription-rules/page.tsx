@@ -20,6 +20,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "オンライン診療で処方できる薬・できない薬を始めるために必要な準備は何ですか？", a: "厚生労働省のオンライン診療ガイドラインに基づく届出、ビデオ通話システムの導入、オンライン決済の設定が必要です。Lオペ for CLINICならLINEビデオ通話・電話音声通話でのオンライン診療に対応しており、別途システム導入が不要です。" },
+  { q: "オンライン診療で処方できる薬に制限はありますか？", a: "初診のオンライン診療では処方日数に制限があります（原則7日分まで）。再診では対面診療と同等の処方が可能です。向精神薬・麻薬等の一部薬剤はオンライン診療での処方が制限されています。" },
+  { q: "オンライン診療の診療報酬はどのくらいですか？", a: "保険診療では対面診療より低い点数設定ですが、自費診療であれば自由に価格設定が可能です。通院負担の軽減による患者満足度向上と、遠方からの新患獲得を考慮すると、十分な収益性が見込めます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "オンライン初診で処方できない薬（向精神薬・麻薬等）と処方可能な薬の範囲",
   "AGA・ED・ピル・GLP-1など自費診療で人気の薬剤別オンライン処方ルール",
@@ -38,12 +55,14 @@ const toc = [
   { id: "e-prescription", label: "電子処方箋の動向" },
   { id: "lope-support", label: "Lオペの処方管理サポート" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         オンライン診療で処方できる薬・できない薬の境界は、初診か再診か、保険診療か自費診療かによって大きく変わります。本記事では厚労省「オンライン診療の適切な実施に関する指針」に基づき、<strong>薬剤カテゴリごとの処方制限</strong>を網羅的に整理します。AGA・ED・ピルなど自費診療で人気の薬剤についても個別にルールを解説。法規制の全体像は<Link href="/lp/column/online-clinic-regulations" className="text-sky-600 underline hover:text-sky-800">オンライン診療の法規制ガイド</Link>、開業準備からの情報は<Link href="/lp/column/online-clinic-complete-guide" className="text-sky-600 underline hover:text-sky-800">オンライン診療完全ガイド</Link>もあわせてご覧ください。
       </p>
@@ -331,6 +350,17 @@ export default function Page() {
         <p>
           処方ルールを正しく理解することは、患者の安全を守るだけでなく、クリニックを法的リスクから防衛し、効率的な診療フローを構築する基盤となります。法規制の全体像は<Link href="/lp/column/online-clinic-regulations" className="text-sky-600 underline hover:text-sky-800">オンライン診療の法規制ガイド</Link>、プラットフォーム選びは<Link href="/lp/column/online-clinic-platform-comparison" className="text-sky-600 underline hover:text-sky-800">オンライン診療プラットフォーム比較</Link>もあわせてご確認ください。お問い合わせは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">こちら</Link>から。
         </p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

@@ -31,6 +31,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "保険診療の点数削減時代に備える自費診療シフト戦略で売上を伸ばす最も効果的な方法は？", a: "既存患者へのセグメント配信が最も即効性があります。来院履歴・診療内容に基づいて、関連する自費メニューをLINEで個別提案することで、押し売り感なく自費転換率を高められます。導入クリニックでは自費率が15%→35%に向上した事例もあります。" },
+  { q: "自費診療の価格設定で注意すべき点は？", a: "原価率・地域相場・競合価格の3軸で分析し、松竹梅の3プランを用意するのが基本です。中間プランの選択率が60%以上になるよう設計すると、売上と患者満足度の両方を最大化できます。" },
+  { q: "自費診療のLINE訴求で医療広告ガイドラインに抵触しませんか？", a: "一斉配信で自費診療を訴求する場合は、費用・リスク・副作用の明示が必要です（限定解除要件）。個別の患者へのフォローアップとしての1対1メッセージは広告規制の対象外です。Lオペ for CLINICではガイドラインに配慮した配信テンプレートを用意しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "過去10年の診療報酬改定で本体改定率は実質マイナス傾向 — 保険診療単独の収益モデルは限界に近づいている",
   "AGA・ED・ピル・美容内服・メディカルダイエット（GLP-1）の自費市場は年平均8〜15%で成長中",
@@ -47,12 +64,14 @@ const toc = [
   { id: "revenue-comparison", label: "保険メインvs自費メインの収支比較" },
   { id: "dx-efficiency", label: "DX活用で自費診療を効率化（Lオペ for CLINIC）" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={SLUG} breadcrumbLabel="経営戦略" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         2024年度、2026年度と続く診療報酬改定で、保険診療の点数は実質的な引き下げ傾向が続いています。「患者数は維持しているのに収益が伸びない」——そう感じている院長先生は少なくないはずです。本記事では、<strong>診療報酬改定の推移データ</strong>を踏まえ、保険診療中心の経営がなぜ限界に近づいているのか、そして<strong>自費診療へのシフトがなぜ経済合理性の高い戦略なのか</strong>を、市場データ・収支シミュレーション・段階的な移行プランとともに徹底解説します。
       </p>
@@ -370,6 +389,17 @@ export default function Page() {
         <p>関連コラムもぜひご覧ください。<Link href="/lp/column/online-clinic-complete-guide" className="text-emerald-700 underline">オンラインクリニック開業完全ガイド</Link>ではオンライン診療の始め方を、<Link href="/lp/column/self-pay-pricing-guide" className="text-emerald-700 underline">自費診療の価格設定ガイド</Link>では料金設計の考え方を、<Link href="/lp/column/clinic-line-revenue-growth" className="text-emerald-700 underline">クリニックの売上を上げるLINE活用術</Link>ではLINEを使った収益改善の全体像を詳しく解説しています。</p>
 
         <p>自費診療シフトについて具体的なご相談をされたい院長先生は、<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>からお気軽にお問い合わせください。現在の収益構造を分析し、最適な移行プランをご提案いたします。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

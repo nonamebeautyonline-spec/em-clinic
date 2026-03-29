@@ -28,6 +28,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "美容内服セット処方の組み方はオンライン診療で処方できますか？", a: "多くの場合、オンライン診療での処方が可能です。ただし初診では処方日数に制限がある場合があります。再診であれば対面診療と同等の処方が可能です。詳しくは各薬剤の処方ルールをご確認ください。" },
+  { q: "副作用が出た場合はどうすればいいですか？", a: "軽度の副作用であれば経過観察で改善することが多いですが、症状が強い場合は速やかに処方医に相談してください。LINEでの個別相談に対応しているクリニックであれば、気軽に症状を報告できます。" },
+  { q: "オンラインクリニックでの処方薬の配送はどうなりますか？", a: "多くのオンラインクリニックでは決済後、最短翌日〜数日で発送されます。温度管理が必要な薬剤はクール便での配送に対応しているクリニックを選びましょう。Lオペ for CLINICでは配送管理・追跡番号の自動配信機能も搭載しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "目的別セット処方（美白・ニキビ・エイジングケア）で単剤処方より処方単価と患者満足度を同時に向上",
   "松竹梅の3プラン設計で患者のニーズと予算に応じた選択肢を提供し、アップセル率を最大化",
@@ -43,12 +60,14 @@ const toc = [
   { id: "patient-communication", label: "患者説明と同意取得のポイント" },
   { id: "subscription", label: "定期処方で継続率を上げる仕組み" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         美容内服薬の処方で収益と患者満足度を最大化するカギは、<strong>目的別のセット処方</strong>にあります。単剤で処方するよりも、作用機序の異なる薬剤を組み合わせることで相乗効果が生まれ、患者の期待に応える結果を出しやすくなります。本記事では、<strong>美白セット・ニキビセット・エイジングケアセット</strong>の具体的な組み合わせから、松竹梅プランの価格設計、患者説明のテンプレート、定期処方で継続率を高める仕組みまでを体系的に解説します。各薬剤の詳しい効果・副作用については<Link href="/lp/column/beauty-oral-medicine-guide" className="text-emerald-700 underline">美容内服薬の種類と効果ガイド</Link>をご覧ください。
       </p>
@@ -325,6 +344,17 @@ export default function Page() {
         <p>各薬剤の詳しいエビデンス・用量・副作用については<Link href="/lp/column/beauty-oral-medicine-guide" className="text-emerald-700 underline">美容内服薬の種類と効果ガイド</Link>を、美容内服オンラインクリニックの経営戦略全体については<Link href="/lp/column/beauty-supplements-winning-strategy" className="text-emerald-700 underline">美容内服オンラインクリニックの勝ち方</Link>を併せてご覧ください。</p>
 
         <p>Lオペ for CLINICでは、セグメント配信による肌悩み別のセット提案、処方日起点のステップ配信による自動フォロー、定期処方リマインドなど、美容内服ビジネスの継続率最大化に必要な機能をすべて備えています。美容内服セット処方のDX化をお考えの方は、ぜひお気軽にご相談ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

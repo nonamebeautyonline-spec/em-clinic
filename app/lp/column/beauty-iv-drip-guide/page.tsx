@@ -28,6 +28,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "美容点滴・美容注射の種類と効果ガイドはオンライン診療で処方できますか？", a: "多くの場合、オンライン診療での処方が可能です。ただし初診では処方日数に制限がある場合があります。再診であれば対面診療と同等の処方が可能です。詳しくは各薬剤の処方ルールをご確認ください。" },
+  { q: "副作用が出た場合はどうすればいいですか？", a: "軽度の副作用であれば経過観察で改善することが多いですが、症状が強い場合は速やかに処方医に相談してください。LINEでの個別相談に対応しているクリニックであれば、気軽に症状を報告できます。" },
+  { q: "オンラインクリニックでの処方薬の配送はどうなりますか？", a: "多くのオンラインクリニックでは決済後、最短翌日〜数日で発送されます。温度管理が必要な薬剤はクール便での配送に対応しているクリニックを選びましょう。Lオペ for CLINICでは配送管理・追跡番号の自動配信機能も搭載しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "クリニックで提供される主要な美容点滴・注射4種類（白玉点滴・高濃度ビタミンC点滴・プラセンタ注射・にんにく注射）の効果・施術時間・価格帯を徹底比較",
   "各施術のエビデンスレベルと副作用を正確に整理し、患者説明と施術選択の判断基準を明確化",
@@ -44,12 +61,14 @@ const toc = [
   { id: "oral-combination", label: "内服薬との組み合わせ戦略" },
   { id: "line-repeat", label: "リピート促進のLINE活用" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         美容点滴・美容注射は、レーザーや注入系施術に次ぐクリニックの自費メニューとして確立されつつあります。白玉点滴、高濃度ビタミンC点滴、プラセンタ注射、にんにく注射——それぞれの<strong>作用機序・エビデンス・施術時間・価格帯・副作用</strong>を正確に理解し、患者に適切な情報提供を行うことが重要です。本記事では、主要4施術を徹底比較し、リピート促進の運用戦略まで解説します。すべての施術は必ず医師の診察・判断に基づいて実施してください。
       </p>
@@ -212,6 +231,17 @@ export default function Page() {
         <p>各施術のエビデンスレベルは施術ごとに異なります。患者への説明では、エビデンスの限界を誠実に伝えた上で、期待される効果と副作用のバランスを正確に説明することが、信頼される医療提供と長期的なリピートの基盤となります。</p>
 
         <p>美容点滴・注射のリピート促進には、予約管理とLINE配信の連携が不可欠です。Lオペ for CLINICでは、施術履歴に基づいたステップ配信、コース管理、セグメント配信をワンストップで提供しています。導入をご検討の方はお気軽にお問い合わせください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

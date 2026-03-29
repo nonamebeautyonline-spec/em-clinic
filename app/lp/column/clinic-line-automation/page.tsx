@@ -19,6 +19,23 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "LINE自動化の設定にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICではノーコードで予約リマインド・フォローアップ配信・AI返信の設定が可能です。管理画面上でテンプレートを選んで条件を設定するだけで自動化を始められます。" },
+  { q: "自動メッセージで患者に冷たい印象を与えませんか？", a: "テンプレートをクリニックのトーンに合わせてカスタマイズすれば、手動返信と遜色ない温かみを持たせられます。AI自動返信はスタッフの返信パターンを学習するため、使うほど自然な文面になります。" },
+  { q: "予約リマインドはどのタイミングで送るのが効果的ですか？", a: "前日の夕方（17〜18時）に送信するのが最も効果的です。当日朝だとキャンセル連絡が間に合わず、2日前だと忘れてしまうため、前日送信が無断キャンセル削減に最も効果があります。" },
+  { q: "自動化と手動対応のバランスはどう取ればいいですか？", a: "定型業務（予約リマインド・問診送付・受付案内）は完全自動化し、医療相談・クレーム対応・複雑な質問はスタッフが対応する、という線引きがおすすめです。AIが判断に迷う質問は自動でスタッフに引き継ぐ設定も可能です。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "予約リマインド自動化で無断キャンセルを80%削減",
@@ -34,13 +51,15 @@ const toc = [
   { id: "ai-reply", label: "AI返信の設定と運用" },
   { id: "segment", label: "セグメント配信の自動化" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニックのLINE公式アカウント運用において、手動で行っている業務を自動化することで<strong>スタッフの作業時間を月40時間以上削減</strong>できます。本記事では、予約リマインド・フォローアップ・AI返信・セグメント配信の4つの自動化を段階的に導入する方法を解説します。</p>
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">LINEの月間利用者数は<strong>9,700万人以上</strong>（2024年時点）、日本人口の<strong>約86%</strong>をカバーし、メッセージ開封率は<strong>約90%</strong>とメールの3〜7倍に達します。この圧倒的なリーチを持つLINE公式アカウントの運用において、手動で行っている業務を自動化することで<strong>スタッフの作業時間を月40時間以上削減</strong>できます。本記事では、予約リマインド・フォローアップ・AI返信・セグメント配信の4つの自動化を段階的に導入する方法を解説します。</p>
 
       {/* ── LINE自動化が必要な理由 ── */}
       <section>
@@ -146,6 +165,16 @@ export default function Page() {
         </Callout>
 
         <p>LINE自動化は、一度設定すれば継続的に効果を発揮する「仕組み」です。Lオペ for CLINICなら、これらの自動化をノーコードで設定でき、クリニックの規模やスタッフのITスキルに関係なく導入可能です。まずは予約リマインドの自動化から始めて、段階的に自動化の範囲を広げていくことをおすすめします。導入のROI計算方法は<Link href="/lp/column/clinic-line-roi" className="text-sky-600 underline hover:text-sky-800">LINE導入ROIの計算方法</Link>で解説しています。スタッフへの研修・定着方法は<Link href="/lp/column/clinic-staff-training" className="text-sky-600 underline hover:text-sky-800">スタッフ研修ガイド</Link>もご覧ください。</p>
+      </section>
+
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

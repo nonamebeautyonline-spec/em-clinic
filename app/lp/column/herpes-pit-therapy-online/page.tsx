@@ -37,6 +37,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "ヘルペス再発治療のオンライン診療でLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "PIT療法は再発の前兆時に患者自身が服薬を開始する治療法 — 2019年にバラシクロビルのPIT適応が承認",
   "バラシクロビル500mg×2回/日・5日間（口唇ヘルペス再発のPIT）、ファムシクロビルも同様にPIT適応あり",
@@ -50,12 +67,14 @@ const toc = [
   { id: "lope-herpes", label: "Lオペ for CLINICでヘルペス診療を運用" },
   { id: "revenue", label: "収益モデル" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         口唇ヘルペスや性器ヘルペスは<strong>再発を繰り返す疾患</strong>であり、患者にとっては「また症状が出るかもしれない」という不安が日常的な負担となります。2019年にバラシクロビルの<strong>PIT療法（Patient Initiated Therapy: 患者自身による前兆時の服薬開始）</strong>が承認されたことで、再発の前兆を感じたらすぐに手元の薬で治療を開始できるようになりました。PIT療法はオンライン診療との親和性が極めて高く、<strong>初回のPIT説明と処方をオンラインで行い、以後は患者が自律的に治療を開始する</strong>モデルが構築できます。本記事では、PIT療法の用法用量・適応・オンライン診療での導入フロー、そして<strong>Lオペ for CLINICを活用したLINE問診・フォロー・再発相談の自動化</strong>まで解説します。
       </p>
@@ -261,6 +280,17 @@ export default function Page() {
             <Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談・お問い合わせ</Link> — ヘルペスPIT療法のオンライン外来を始めたい方はご相談ください
           </li>
         </ul>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

@@ -21,6 +21,22 @@ export const metadata: Metadata = {
   openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
+const faqItems = [
+  { q: "LINE導入でクリニックの売上はどのくらい上がりますか？", a: "導入クリニックの平均では、再診率向上で年間+200〜300万円、自費診療のセグメント配信で年間+500〜700万円の売上増が報告されています。規模や診療科によりますが、月額費用の10〜30倍のリターンが目安です。" },
+  { q: "売上向上に最も効果的なLINE施策は何ですか？", a: "最も即効性があるのは『休眠患者への再来院促進配信』です。3ヶ月以上来院がない患者にセグメント配信を行うと、配信の10〜15%が再来院に繋がるケースがあります。次に効果的なのは自費診療のターゲット配信です。" },
+  { q: "LINEで自費診療を訴求する際の注意点は？", a: "医療広告ガイドラインに準拠することが必須です。ビフォーアフター写真の掲載制限、誇大表現の禁止、リスク・副作用の明示などを守った上で、患者のニーズに合ったセグメント配信を行いましょう。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 
 const keyPoints = [
   "売上 = 患者数 × 来院頻度 × 診療単価の構造から、3つの改善軸を解説",
@@ -35,11 +51,13 @@ const toc = [
   { id: "new-patients", label: "新患獲得コストを下げるLINE友だち経由の集患" },
   { id: "lope-solution", label: "Lオペで3つの施策を同時に実現する方法" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <ArticleLayout slug={self.slug} breadcrumbLabel="クリニックの売上を上げるLINE活用術" keyPoints={keyPoints} toc={toc}>
 
         <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
@@ -281,6 +299,16 @@ export default function Page() {
             <li><Link href="/lp/column/clinic-patient-retention" className="text-emerald-700 underline">クリニックの患者離脱を防ぐLINEフォローアップ戦略</Link></li>
             <li><Link href="/lp/column/clinic-line-roi" className="text-emerald-700 underline">クリニックのLINE公式アカウント導入ROI — 費用対効果の計算方法と事例</Link></li>
           </ul>
+        </section>
+
+        <section id="faq">
+          <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+          {faqItems.map((item, i) => (
+            <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+              <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+              <p className="text-gray-700 leading-relaxed">{item.a}</p>
+            </div>
+          ))}
         </section>
       </ArticleLayout>
     </>

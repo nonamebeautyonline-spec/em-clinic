@@ -21,6 +21,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "自費診療のオンライン診療ルールを始めるために必要な準備は何ですか？", a: "厚生労働省のオンライン診療ガイドラインに基づく届出、ビデオ通話システムの導入、オンライン決済の設定が必要です。Lオペ for CLINICならLINEビデオ通話・電話音声通話でのオンライン診療に対応しており、別途システム導入が不要です。" },
+  { q: "オンライン診療で処方できる薬に制限はありますか？", a: "初診のオンライン診療では処方日数に制限があります（原則7日分まで）。再診では対面診療と同等の処方が可能です。向精神薬・麻薬等の一部薬剤はオンライン診療での処方が制限されています。" },
+  { q: "オンライン診療の診療報酬はどのくらいですか？", a: "保険診療では対面診療より低い点数設定ですが、自費診療であれば自由に価格設定が可能です。通院負担の軽減による患者満足度向上と、遠方からの新患獲得を考慮すると、十分な収益性が見込めます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "自費診療特有のオンライン診療ルールと保険診療との違い",
   "医療広告ガイドライン・薬機法で禁止される表現と罰則の要点",
@@ -40,12 +57,14 @@ const toc = [
   { id: "privacy-law", label: "個人情報保護法の遵守" },
   { id: "compliance-checklist", label: "コンプライアンスチェックリスト" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         自費診療でオンライン診療を始める際、保険診療とは異なるルール・規制が多数存在します。厚労省の指針に加え、<strong>薬機法・医療広告ガイドライン・特定商取引法・個人情報保護法</strong>など、関連する法規制は多岐にわたります。本記事では2026年3月時点の最新情報に基づき、自費クリニックが遵守すべきルールの要点を網羅的に整理します。オンライン診療の法規制全般については<Link href="/lp/column/online-clinic-regulations" className="text-sky-600 underline hover:text-sky-800">オンライン診療の法規制と薬機法ガイド</Link>、広告規制の詳細は<Link href="/lp/column/clinic-ad-yakki-ho-guide" className="text-sky-600 underline hover:text-sky-800">クリニック広告の薬機法ガイド</Link>もあわせてご覧ください。
       </p>
@@ -445,6 +464,17 @@ export default function Page() {
         <p>
           法規制を正しく理解し遵守することは、クリニックを法的リスクから守るだけでなく、患者からの信頼を築く基盤となります。自費オンライン診療のコンプライアンス体制を整え、安全で持続的なクリニック経営を実現しましょう。関連記事として、開業準備の全体像は<Link href="/lp/column/online-clinic-complete-guide" className="text-sky-600 underline hover:text-sky-800">オンライン診療完全ガイド</Link>、法人設立から届出までの手続きは<Link href="/lp/column/online-clinic-legal-setup-guide" className="text-sky-600 underline hover:text-sky-800">オンライン診療の開業法務ガイド</Link>、収益モデルの詳細は<Link href="/lp/column/self-pay-clinic-revenue-triple" className="text-sky-600 underline hover:text-sky-800">自費クリニック売上3倍戦略</Link>もあわせてご覧ください。お問い合わせは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">こちら</Link>から。
         </p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

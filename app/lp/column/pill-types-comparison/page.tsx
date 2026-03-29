@@ -21,6 +21,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "低用量ピルの種類と選び方はオンライン診療で処方できますか？", a: "多くの場合、オンライン診療での処方が可能です。ただし初診では処方日数に制限がある場合があります。再診であれば対面診療と同等の処方が可能です。詳しくは各薬剤の処方ルールをご確認ください。" },
+  { q: "副作用が出た場合はどうすればいいですか？", a: "軽度の副作用であれば経過観察で改善することが多いですが、症状が強い場合は速やかに処方医に相談してください。LINEでの個別相談に対応しているクリニックであれば、気軽に症状を報告できます。" },
+  { q: "オンラインクリニックでの処方薬の配送はどうなりますか？", a: "多くのオンラインクリニックでは決済後、最短翌日〜数日で発送されます。温度管理が必要な薬剤はクール便での配送に対応しているクリニックを選びましょう。Lオペ for CLINICでは配送管理・追跡番号の自動配信機能も搭載しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "低用量ピルを第1〜4世代まで体系的に分類し各製品を比較",
   "LEP（保険適用）とOC（自費）の違い・使い分けを整理",
@@ -38,12 +55,14 @@ const toc = [
   { id: "online-caution", label: "オンライン処方の注意点" },
   { id: "subscription", label: "定期処方の仕組み化" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="医薬品解説" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         低用量ピルは含有するプロゲスチン（黄体ホルモン）の種類によって<strong>第1世代〜第4世代</strong>に分類され、それぞれ特徴が異なります。避妊目的の<strong>OC（経口避妊薬）</strong>は自費、月経困難症治療の<strong>LEP（低用量エストロゲン・プロゲスチン配合薬）</strong>は保険適用と、処方の枠組みも異なるため正確な理解が必要です。本記事では、主要なピル製品を世代別に整理し、副作用・価格・オンライン処方の注意点まで解説します。処方は必ず医師の判断のもとで行ってください。
       </p>
@@ -257,6 +276,17 @@ export default function Page() {
         <Callout type="point" title="処方は必ず医師の判断で">
           本記事は低用量ピルの一般的な薬剤情報を整理したものであり、個別の処方を推奨するものではありません。ピルには血栓症などの重大な副作用リスクがあり、禁忌事項の確認が不可欠です。処方・薬剤変更は、必ず医師の診察と判断のもとで行ってください。
         </Callout>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

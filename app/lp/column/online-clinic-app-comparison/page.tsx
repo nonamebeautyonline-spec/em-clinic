@@ -21,6 +21,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "オンライン診療システムの選び方で選ぶ際の最も重要な基準は何ですか？", a: "クリニック業務への適合性が最も重要です。汎用ツールは安価ですが医療ワークフローへの対応に大量のカスタマイズが必要です。クリニック専用ツールなら予約管理・問診・カルテ・決済が標準搭載されており、導入直後から運用できます。" },
+  { q: "ツール移行時にデータは引き継げますか？", a: "LINE公式アカウントはそのまま維持し、連携ツールだけを切り替える形になります。友だちリストやトーク履歴はLINE公式側に残るため、患者への影響はありません。Lオペ for CLINICでは移行サポートも提供しています。" },
+  { q: "無料で使えるツールではダメですか？", a: "無料ツールは基本的な配信機能のみで、予約管理・問診・カルテ連携・セグメント配信などクリニックに必要な機能が不足しています。月額費用をかけてでも専用ツールを導入した方が、業務効率化による人件費削減で十分に元が取れます。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "オンライン診療システムは「専用プラットフォーム型」と「汎用ビデオ通話+周辺ツール型」の2種類に大別される",
   "比較すべき軸は「導入コスト」「機能の網羅性」「患者側の操作体験」の3つ",
@@ -35,12 +52,14 @@ const toc = [
   { id: "integration", label: "電子カルテ・レセコン連携" },
   { id: "selection-criteria", label: "自院に合うシステムの選定基準" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ツール比較" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         オンライン診療を始めるにあたり、「どのシステムを導入すべきか」は最も重要な意思決定の一つです。市場には専用プラットフォームから汎用ビデオ通話ツールの活用まで多様な選択肢がありますが、<strong>導入コスト・機能の網羅性・患者側の使いやすさ</strong>を総合的に評価しないと、導入後に「使いにくい」「結局アナログ作業が残る」といった事態に陥ります。本記事では、オンライン診療システムを選ぶ際に比較すべきポイントを体系的に整理します。
       </p>
@@ -186,6 +205,17 @@ export default function Page() {
           <strong>3.</strong> 無料トライアルで患者側の操作体験を必ず検証する<br />
           <strong>4.</strong> 電子カルテ連携（保険）またはCRM連携（自費）の互換性を確認する
         </Callout>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

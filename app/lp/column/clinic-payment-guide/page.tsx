@@ -21,6 +21,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニックのオンライン決済導入ガイドの導入にどのくらいの期間がかかりますか？", a: "基本的な設定は1〜2週間で完了します。LINE公式アカウントの開設からリッチメニュー設計・自動メッセージ設定まで、Lオペ for CLINICなら初期設定サポート付きで最短2週間で運用開始できます。" },
+  { q: "クリニックのオンライン決済導入ガイドでスタッフの負荷は増えませんか？", a: "むしろ減ります。電話対応・手動での予約管理・問診確認などの定型業務を自動化することで、スタッフの作業時間を月40時間以上削減できた事例もあります。導入初月はサポートを受けながら進めれば、2ヶ月目以降はスムーズに運用できます。" },
+  { q: "小規模クリニックでも導入効果はありますか？", a: "はい、むしろ小規模クリニックほど効果を実感しやすいです。スタッフ数が限られる分、業務自動化によるインパクトが大きく、受付1名分の工数を削減できた事例もあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "クリニック向け主要決済手段（Square・GMO・銀行振込）の特徴比較",
   "LINE連携で決済〜領収書発行まで患者側の操作を完結",
@@ -35,12 +52,14 @@ const toc = [
   { id: "cost-reduction", label: "会計業務の削減効果" },
   { id: "introduction-steps", label: "オンライン決済導入の3ステップ" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">クリニックの会計業務は、窓口精算・銀行振込確認・未収金管理など、スタッフの大きな負担になっています。オンライン決済をLINEと連携することで、<strong>患者はLINE上で決済を完結</strong>でき、クリニック側は<strong>会計業務を月40時間以上削減</strong>できます。本記事では決済手段の比較から導入手順まで解説します。</p>
 
       {/* ── 現状と課題 ── */}
@@ -144,6 +163,17 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICは、Square・GMO・銀行振込との連携をオールインワンで提供します。LINE上で決済を完結させることで、患者の利便性向上とクリニックの会計業務効率化を同時に実現しましょう。自費診療の売上を伸ばす方法は<Link href="/lp/column/clinic-self-pay-revenue" className="text-sky-600 underline hover:text-sky-800">自費診療売上向上ガイド</Link>、ツール統合によるコスト削減は<Link href="/lp/column/clinic-line-integration-cost-half" className="text-sky-600 underline hover:text-sky-800">LINE統合でコスト半減</Link>もご覧ください。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

@@ -39,6 +39,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "いびきのレーザー治療の実際のエビデンスとCPAPとの比較はオンライン診療で処方できますか？", a: "多くの場合、オンライン診療での処方が可能です。ただし初診では処方日数に制限がある場合があります。再診であれば対面診療と同等の処方が可能です。詳しくは各薬剤の処方ルールをご確認ください。" },
+  { q: "副作用が出た場合はどうすればいいですか？", a: "軽度の副作用であれば経過観察で改善することが多いですが、症状が強い場合は速やかに処方医に相談してください。LINEでの個別相談に対応しているクリニックであれば、気軽に症状を報告できます。" },
+  { q: "オンラインクリニックでの処方薬の配送はどうなりますか？", a: "多くのオンラインクリニックでは決済後、最短翌日〜数日で発送されます。温度管理が必要な薬剤はクール便での配送に対応しているクリニックを選びましょう。Lオペ for CLINICでは配送管理・追跡番号の自動配信機能も搭載しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "レーザー治療（LAUP・NightLase）は短期的ないびき軽減に留まり、6ヶ月〜1年で効果が減弱するエビデンスが多い",
   "AASM（米国睡眠医学会）はLAUPをSAS治療として推奨しておらず、NightLaseもRCTが不足している",
@@ -55,12 +72,14 @@ const toc = [
   { id: "cost-comparison", label: "費用比較" },
   { id: "evidence-based-choice", label: "エビデンスに基づく治療選択" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="エビデンス解説" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         「いびきがレーザーで治る」「切らずに治療できる」——こうした広告を目にする機会が増えています。しかし、<strong>レーザー治療のエビデンスは本当に十分なのでしょうか</strong>。いびき・SAS（睡眠時無呼吸症候群）の治療選択において、科学的根拠を正しく理解することは患者の長期予後を左右する重大な問題です。本記事では、LAUP（レーザー口蓋垂口蓋形成術）やNightLase等のレーザー治療のエビデンスを検証し、<strong>AASM（米国睡眠医学会）がゴールドスタンダードとして推奨するCPAP療法との比較</strong>を通じて、エビデンスに基づくSAS治療の選び方を解説します。
       </p>
@@ -440,6 +459,17 @@ export default function Page() {
             <Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談・お問い合わせ</Link> — SASオンライン診療の運用設計をご相談いただけます
           </li>
         </ul>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

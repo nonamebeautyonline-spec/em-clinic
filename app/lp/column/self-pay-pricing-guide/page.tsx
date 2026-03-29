@@ -37,6 +37,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "自費診療の価格設定ガイドで売上を伸ばす最も効果的な方法は？", a: "既存患者へのセグメント配信が最も即効性があります。来院履歴・診療内容に基づいて、関連する自費メニューをLINEで個別提案することで、押し売り感なく自費転換率を高められます。導入クリニックでは自費率が15%→35%に向上した事例もあります。" },
+  { q: "自費診療の価格設定で注意すべき点は？", a: "原価率・地域相場・競合価格の3軸で分析し、松竹梅の3プランを用意するのが基本です。中間プランの選択率が60%以上になるよう設計すると、売上と患者満足度の両方を最大化できます。" },
+  { q: "自費診療のLINE訴求で医療広告ガイドラインに抵触しませんか？", a: "一斉配信で自費診療を訴求する場合は、費用・リスク・副作用の明示が必要です（限定解除要件）。個別の患者へのフォローアップとしての1対1メッセージは広告規制の対象外です。Lオペ for CLINICではガイドラインに配慮した配信テンプレートを用意しています。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "原価計算・競合分析・患者の支払い意思額を踏まえた3軸の価格設定法",
   "コース型・サブスク型・セット割引など価格モデル別のメリットと適する施術",
@@ -52,12 +69,14 @@ const toc = [
   { id: "ltv", label: "LTV最大化の価格設計" },
   { id: "lope-pricing", label: "Lオペで価格戦略を実行" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="マーケティング" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         自費診療の価格設定は、クリニック経営における最も重要な意思決定の一つです。高すぎれば患者は離れ、安すぎれば利益を圧迫する。<strong>「いくらに設定すべきか」</strong>という問いに明確な答えを持てないまま、なんとなく相場に合わせている院長も少なくありません。本記事では、原価計算・競合分析・患者心理の3つの軸から<strong>科学的に価格を決定する方法</strong>と、コース型・サブスク型などの<strong>具体的な料金モデルの設計手法</strong>を解説します。
       </p>
@@ -327,6 +346,17 @@ export default function Page() {
         <p>本記事で紹介した価格戦略は、<Link href="/lp/column/clinic-self-pay-revenue" className="text-emerald-700 underline">自費診療の売上向上</Link>や<Link href="/lp/column/self-pay-clinic-revenue-triple" className="text-emerald-700 underline">売上3倍化の成功事例</Link>とも密接に関連しています。また、<Link href="/lp/column/clinic-patient-ltv" className="text-emerald-700 underline">患者LTVの向上戦略</Link>や<Link href="/lp/column/clinic-line-roi" className="text-emerald-700 underline">LINE施策のROI計算</Link>も合わせてご覧いただくと、価格設定をクリニック経営全体の中で位置づけて実行できるようになります。</p>
 
         <p>自費診療の価格設定にお悩みの方は、<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>からお気軽にご相談ください。現在の料金体系を分析し、利益率と患者満足を両立する価格戦略をご提案いたします。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

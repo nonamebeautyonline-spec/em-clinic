@@ -22,6 +22,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "クリニックの広告と薬機法の効果はどのくらいで実感できますか？", a: "施策にもよりますが、LINE配信やSEO対策は1〜3ヶ月で効果が出始めるケースが多いです。特にセグメント配信は導入直後から開封率・クリック率の改善が見られます。継続的な改善サイクルを回すことで、半年後には大きな成果に繋がります。" },
+  { q: "集患施策にかかるコストはどのくらいですか？", a: "LINE公式アカウント自体は無料で開設でき、月額5,000〜15,000円程度で配信が可能です。Web広告と比較してCPA（獲得単価）が低く、既存患者のリピート促進にも効果的なため、費用対効果は非常に高いです。" },
+  { q: "Web広告とLINE配信はどちらが効果的ですか？", a: "新規集患にはWeb広告、リピート促進にはLINE配信が効果的です。LINE配信はメッセージ開封率90%と圧倒的なリーチ力を持ち、既存患者への再来院促進・自費診療の訴求に適しています。両方を組み合わせるのが最も効率的です。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "薬機法と医療広告ガイドラインは適用範囲が異なり、両方の遵守が必須",
   "NG表現とOK表現の具体例10パターンで広告作成時の判断基準を提示",
@@ -38,12 +55,14 @@ const toc = [
   { id: "penalty", label: "違反した場合のリスク" },
   { id: "lope-compliance", label: "Lオペの広告コンプライアンス支援" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
   return (
     <ArticleLayout slug={slug} breadcrumbLabel="ガイド" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         クリニックがWeb広告やLINE配信を行う際、<strong>薬機法（旧薬事法）</strong>と<strong>医療広告ガイドライン</strong>への対応は避けて通れません。「知らなかった」では済まされず、違反すれば行政指導や課徴金、最悪の場合は刑事罰に至るケースもあります。本記事では、クリニックの広告担当者が<strong>実務で使える具体的な判断基準</strong>をNG表現・OK表現の対比とともに解説します。<Link href="/lp/column/online-clinic-regulations" className="text-sky-600 underline hover:text-sky-800">オンライン診療の法規制</Link>と合わせてご確認ください。
       </p>
@@ -331,6 +350,17 @@ export default function Page() {
         <p>クリニックの広告運用は、集患と法令遵守のバランスが求められる高度な業務です。<Link href="/lp/column/online-clinic-regulations" className="text-sky-600 underline hover:text-sky-800">オンライン診療の法規制</Link>、<Link href="/lp/column/clinic-self-pay-revenue" className="text-sky-600 underline hover:text-sky-800">自費診療の売上向上戦略</Link>、<Link href="/lp/column/clinic-line-security" className="text-sky-600 underline hover:text-sky-800">LINE配信のセキュリティ</Link>もあわせてご確認ください。医療広告ガイドラインのより詳しい解説は<Link href="/lp/column/medical-ad-guideline-compliance" className="text-sky-600 underline hover:text-sky-800">医療広告ガイドライン完全ガイド</Link>を、SNS広告の注意点は<Link href="/lp/column/clinic-listing-sns-ad-compliance" className="text-sky-600 underline hover:text-sky-800">リスティング広告・SNSの医療広告ガイドライン</Link>もご参照ください。</p>
 
         <p>広告コンプライアンスの体制構築にお悩みのクリニックは、まずは<Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>からお気軽にお問い合わせください。Lオペ for CLINICの導入により、法令遵守と効果的な配信を両立できる運用体制をご提案いたします。</p>
+      </section>
+    
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
       </section>
     </ArticleLayout>
   );

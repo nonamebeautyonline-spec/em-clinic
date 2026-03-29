@@ -31,6 +31,23 @@ export const metadata: Metadata = {
 };
 
 
+const faqItems = [
+  { q: "ED治療のオンライン診療ガイドでLINE導入の効果はどのくらいですか？", a: "導入クリニックの実績では、予約リマインドによる無断キャンセル60〜80%削減、セグメント配信によるリピート率20〜30%向上、AI自動返信による電話対応70%削減など、多面的な効果が報告されています。" },
+  { q: "LINE導入にプログラミング知識は必要ですか？", a: "必要ありません。Lオペ for CLINICのようなクリニック専用ツールを使えば、ノーコードで予約管理・自動配信・リッチメニューの設定が可能です。管理画面上の操作だけで運用開始できます。" },
+  { q: "患者の年齢層が高い診療科でもLINE活用は効果的ですか？", a: "はい、LINEは60代以上でも利用率が70%を超えており、幅広い年齢層にリーチできます。文字サイズの配慮や操作案内の工夫をすれば、高齢患者にも好評です。むしろ電話予約の負担が減り、患者・スタッフ双方にメリットがあります。" },
+];
+
+/* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 const keyPoints = [
   "ED推定患者1,100万人に対し受診率は10%以下 — オンライン診療が受診ハードルを劇的に下げる",
   "シルデナフィル・タダラフィル・バルデナフィルの薬剤比較と処方フロー",
@@ -46,6 +63,7 @@ const toc = [
   { id: "marketing", label: "ED診療の集患戦略" },
   { id: "lope-ed", label: "Lオペで実現するED診療の運用" },
   { id: "summary", label: "まとめ" },
+  { id: "faq", label: "よくある質問" },
 ];
 
 export default function Page() {
@@ -53,6 +71,7 @@ export default function Page() {
     <>
       <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
         <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
           ED（勃起不全）は、日本人男性の推定1,100万人が該当するとされながら、実際に医療機関を受診しているのは<strong>わずか10%以下</strong>。その最大の理由は「対面で相談するのが恥ずかしい」という心理的ハードルです。オンライン診療の規制緩和が進んだ今、<strong>匿名性の高いLINE予約とプライバシーに配慮した処方フロー</strong>を構築することで、この巨大な潜在市場を取り込むことが可能になりました。本記事では、ED治療のオンライン診療を開設・運用するための具体的な方法と、<strong>Lオペ for CLINIC</strong>を活用した処方リピートの自動化・安定収益化のモデルを詳しく解説します。
         </p>
@@ -262,7 +281,18 @@ export default function Page() {
             <li><Link href="/lp/contact" className="text-sky-600 underline hover:text-sky-800">お問い合わせ・無料相談</Link></li>
           </ul>
         </section>
-      </ArticleLayout>
+      
+      {/* ── FAQ ── */}
+      <section id="faq">
+        <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
+        {faqItems.map((item, i) => (
+          <div key={i} className="mb-6 rounded-lg border border-gray-200 p-5">
+            <h3 className="font-bold text-lg mb-2">Q. {item.q}</h3>
+            <p className="text-gray-700 leading-relaxed">{item.a}</p>
+          </div>
+        ))}
+      </section>
+    </ArticleLayout>
     </>
   );
 }
