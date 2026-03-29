@@ -166,7 +166,13 @@ export async function GET(req: NextRequest) {
     }, {});
 
     const mergeableGroups = Object.entries(groupedByPatient)
-      .filter(([, orders]) => orders.length > 1)
+      .filter(([, orders]) => {
+        if (orders.length < 2) return false;
+        // ★ まだラベル未発行の注文が2件以上あるグループのみ表示
+        // （全員発行済みなら再度統合モーダルに出す必要なし）
+        const unprocessed = orders.filter(o => !o.shipping_list_created_at);
+        return unprocessed.length >= 2;
+      })
       .map(([patientId, orders]) => ({
         patient_id: patientId,
         patient_name: orders[0].patient_name,
@@ -188,7 +194,10 @@ export async function GET(req: NextRequest) {
     const sameAddressGroups = Object.entries(groupedByPostal)
       .filter(([, orders]) => {
         const uniquePatients = new Set(orders.map(o => o.patient_id));
-        return uniquePatients.size > 1; // 異なる患者が同一郵便番号
+        if (uniquePatients.size <= 1) return false;
+        // ★ ラベル未発行の注文が2件以上あるグループのみ
+        const unprocessed = orders.filter(o => !o.shipping_list_created_at);
+        return unprocessed.length >= 2;
       })
       .map(([postalCode, orders]) => ({
         postal_code: postalCode,
@@ -209,9 +218,12 @@ export async function GET(req: NextRequest) {
     const sameNameDiffAddress = Object.entries(groupedByName)
       .filter(([, orders]) => {
         if (orders.length < 2) return false;
-        const uniquePatients = new Set(orders.map(o => o.patient_id));
+        // ★ ラベル未発行の注文が2件以上なければスキップ
+        const unprocessed = orders.filter(o => !o.shipping_list_created_at);
+        if (unprocessed.length < 2) return false;
+        const uniquePatients = new Set(unprocessed.map(o => o.patient_id));
         if (uniquePatients.size < 2) return false; // 同一患者は除外
-        const postals = new Set(orders.map(o => (o.postal_code || "").replace(/[-\s\u3000]/g, "")));
+        const postals = new Set(unprocessed.map(o => (o.postal_code || "").replace(/[-\s\u3000]/g, "")));
         return postals.size > 1; // 同姓同名だが郵便番号が異なる
       })
       .map(([name, orders]) => ({
