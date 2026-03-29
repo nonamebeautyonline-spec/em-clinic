@@ -165,6 +165,11 @@ export default async function CategoryPage({ params }: Props) {
             <p className="mt-2 text-[14px] text-gray-400">
               {articleList.length}件の記事
             </p>
+            {cat.seoIntro && (
+              <p className="mt-4 max-w-3xl text-[15px] leading-[1.8] text-gray-600">
+                {cat.seoIntro}
+              </p>
+            )}
           </div>
         </div>
 
