@@ -4,20 +4,19 @@ import { memo } from "react";
 import type { Friend } from "./types";
 import { isImageUrl, isStickerContent } from "./constants";
 
-const FriendItem = memo(function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkColor, getMarkLabel, formatDateShort, canPin, readTimestamp }: {
+const FriendItem = memo(function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkColor, getMarkLabel, formatDateShort, canPin }: {
   f: Friend; isPinned: boolean; isSelected: boolean;
   onSelect: (f: Friend) => void; onTogglePin: (id: string) => void;
   getMarkColor: (mark: string) => string; getMarkLabel: (mark: string) => string; formatDateShort: (s: string) => string;
   canPin: boolean;
-  readTimestamp?: string;
 }) {
   // patient_idがないレコードは描画しない
   if (!f.patient_id) return null;
   const markColor = getMarkColor(f.mark);
   const markLabel = getMarkLabel(f.mark);
   const showMark = !!f.mark;
-  // テキスト未読判定: last_text_at が readTimestamp より新しければ未読
-  const hasUnreadText = !!(f.last_text_at && (!readTimestamp || f.last_text_at > readTimestamp));
+  // 未読判定: サーバー側SQL JOINで算出済み
+  const hasUnreadText = !!f.is_unread;
   // メッセージ表示テキスト
   const displayMessage = f.last_message
     ? isStickerContent(f.last_message) ? "[スタンプ]"

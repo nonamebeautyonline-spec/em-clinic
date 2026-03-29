@@ -87,7 +87,6 @@ export function useMessageHandlers(
     allRichMenus, setAllRichMenus,
     changingMenu, setChangingMenu,
     isBlocked, setIsBlocked,
-    readTimestamps,
     mobileView, setMobileView,
     initialPid,
     selectedPatientRef,

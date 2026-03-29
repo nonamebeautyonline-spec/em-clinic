@@ -183,32 +183,18 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // 未読患者IDセットを事前取得（SQL JOIN版RPC — PostgREST 5000行制限を回避）
+  let unreadIdSet: Set<string> | null = null;
+  if (unreadOnly) {
+    const { data: unreadData } = await supabaseAdmin.rpc("get_unread_patient_ids", { p_tenant_id: effectiveTenantId });
+    unreadIdSet = new Set((unreadData || []).map((r: { patient_id: string }) => r.patient_id));
+  }
+
   // 未読フィルタ専用高速パス（全件ループ不要）
-  if (unreadOnly && !tagFilter && !markFilter && !lineStatus) {
+  if (unreadOnly && !tagFilter && !markFilter && !lineStatus && unreadIdSet) {
     const tUnreadStart = Date.now();
-    // 1. 未読patient_idをDBから直接取得（friend_summaries と chat_reads を比較）
-    const [fsRes, crRes] = await Promise.all([
-      supabaseAdmin
-        .from("friend_summaries")
-        .select("patient_id, last_msg_at, last_msg_content, last_incoming_at, last_template_content, last_event_content, last_event_type, last_event_at, last_outgoing_content, last_outgoing_at")
-        .eq("tenant_id", effectiveTenantId)
-        .not("last_msg_at", "is", null),
-      supabaseAdmin
-        .from("chat_reads")
-        .select("patient_id, read_at")
-        .eq("tenant_id", effectiveTenantId)
-        .limit(100000),
-    ]);
-    const reads: Record<string, string> = {};
-    for (const row of crRes.data || []) reads[row.patient_id] = row.read_at;
 
-    // 未読のみ抽出
-    const unreadRows = (fsRes.data || []).filter(row => {
-      const readAt = reads[row.patient_id];
-      return !readAt || row.last_msg_at! > readAt;
-    });
-
-    if (unreadRows.length === 0) {
+    if (unreadIdSet.size === 0) {
       const tEnd = Date.now();
       return NextResponse.json({
         patients: [], hasMore: false, total: 0,
@@ -216,9 +202,15 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 2. 未読患者の詳細情報を取得
-    const unreadIds = unreadRows.map(r => r.patient_id);
-    const [ptRes, pmRes] = await Promise.all([
+    const unreadIds = Array.from(unreadIdSet);
+
+    // 未読患者の詳細情報を並列取得
+    const [fsRes, ptRes, pmRes] = await Promise.all([
+      supabaseAdmin
+        .from("friend_summaries")
+        .select("patient_id, last_msg_at, last_msg_content, last_incoming_at, last_template_content, last_event_content, last_event_type, last_event_at, last_outgoing_content, last_outgoing_at")
+        .in("patient_id", unreadIds)
+        .eq("tenant_id", effectiveTenantId),
       supabaseAdmin
         .from("patients")
         .select("patient_id, name, line_id, line_display_name, line_picture_url")
@@ -233,8 +225,8 @@ export async function GET(req: NextRequest) {
     const ptMap = new Map((ptRes.data || []).map(r => [r.patient_id, r]));
     const pmMap = new Map((pmRes.data || []).map(r => [r.patient_id, r.mark]));
 
-    // 3. transformRow で統一フォーマットに変換（last_msg_at降順ソート）
-    const sorted = [...unreadRows].sort((a, b) => (a.last_msg_at! > b.last_msg_at! ? -1 : 1));
+    // transformRow で統一フォーマットに変換（last_msg_at降順ソート）
+    const sorted = [...(fsRes.data || [])].sort((a, b) => (a.last_msg_at! > b.last_msg_at! ? -1 : 1));
     const patients = sorted.map(fs => {
       const pt = ptMap.get(fs.patient_id);
       return transformRow({
@@ -253,6 +245,7 @@ export async function GET(req: NextRequest) {
         last_event_at: fs.last_event_at,
         last_outgoing_content: fs.last_outgoing_content,
         last_outgoing_at: fs.last_outgoing_at,
+        is_unread: true,
       });
     });
 
@@ -268,22 +261,8 @@ export async function GET(req: NextRequest) {
     const hasMoreUnread = offset + limit < total;
     const tRpc = Date.now();
 
-    console.log("[friends-list] unread fast path:", { unread: total, ms: tRpc - tUnreadStart });
+    console.log("[friends-list] unread fast path (RPC):", { unread: total, ms: tRpc - tUnreadStart });
     return await buildResponse(req, paged, hasMoreUnread, total, effectiveTenantId, tenantId, pinIdsRaw, searchId, searchName, offset, t0, tAuth, tRpc, false, true);
-  }
-
-  // 未読フィルタ用: chat_reads を事前取得（他フィルタとの組み合わせ時）
-  let unreadReadMap: Record<string, string> | null = null;
-  if (unreadOnly) {
-    const { data: crData } = await supabaseAdmin
-      .from("chat_reads")
-      .select("patient_id, read_at")
-      .eq("tenant_id", effectiveTenantId)
-      .limit(100000);
-    unreadReadMap = {};
-    for (const row of crData || []) {
-      unreadReadMap[row.patient_id] = row.read_at;
-    }
   }
 
   // RPC でベースデータ取得
@@ -321,10 +300,8 @@ export async function GET(req: NextRequest) {
       }
       if (lineStatus === "yes" && !p.line_id) return false;
       if (lineStatus === "no" && p.line_id) return false;
-      if (unreadOnly && unreadReadMap) {
-        if (!p.last_text_at) return false;
-        const readAt = unreadReadMap[p.patient_id];
-        if (readAt && p.last_text_at <= readAt) return false;
+      if (unreadOnly && unreadIdSet) {
+        if (!unreadIdSet.has(p.patient_id)) return false;
       }
       return true;
     });
@@ -473,10 +450,15 @@ async function buildResponse(
     }
   }
 
+  // 未読状態を付与（SQL JOIN版RPC — PostgREST行制限を回避）
+  const { data: unreadData } = await supabaseAdmin.rpc("get_unread_patient_ids", { p_tenant_id: effectiveTenantId });
+  const unreadSet = new Set((unreadData || []).map((r: { patient_id: string }) => r.patient_id));
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const patientsWithTracking = patients.map((p: any) => ({
     ...p,
     tracking_source_name: trackingMap[p.patient_id] || null,
+    is_unread: unreadSet.has(p.patient_id),
   }));
 
   const tEnd = Date.now();

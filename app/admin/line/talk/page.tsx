@@ -241,10 +241,10 @@ async function TalkPageContent() {
   const effectiveTenantId = tenantId || DEFAULT_TENANT_ID;
 
   try {
-    // ピン・既読・カラム設定・友達リストを並列取得
-    const [pins, reads, columnSettings] = await Promise.all([
+    // ピン・カラム設定・友達リストを並列取得
+    // 未読状態はfriends-listレスポンスのis_unreadで完結（chat_reads一括取得不要）
+    const [pins, columnSettings] = await Promise.all([
       fetchPins(effectiveTenantId),
-      fetchChatReads(effectiveTenantId),
       fetchColumnSettings(effectiveTenantId),
     ]);
 
@@ -256,7 +256,6 @@ async function TalkPageContent() {
         initialFriends={friends}
         initialHasMore={hasMore}
         initialPinnedIds={pins}
-        initialReadTimestamps={reads}
         initialVisibleSections={columnSettings}
       />
     );

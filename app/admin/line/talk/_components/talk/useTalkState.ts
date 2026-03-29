@@ -13,7 +13,7 @@ import {
 } from "./constants";
 
 export function useTalkState(props: TalkClientProps) {
-  const { initialFriends, initialHasMore, initialPinnedIds, initialReadTimestamps, initialVisibleSections } = props;
+  const { initialFriends, initialHasMore, initialPinnedIds, initialVisibleSections } = props;
   const searchParams = useSearchParams();
   const initialPid = searchParams.get("pid");
 
@@ -152,8 +152,6 @@ export function useTalkState(props: TalkClientProps) {
   // モバイルビュー切り替え
   const [mobileView, setMobileView] = useState<"list" | "message" | "info">("list");
 
-  // 既読タイムスタンプ管理（DB共有）
-  const [readTimestamps, setReadTimestamps] = useState<Record<string, string>>(initialReadTimestamps ?? {});
   // 未読のみ表示フィルタ
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
 
@@ -180,7 +178,7 @@ export function useTalkState(props: TalkClientProps) {
 
   return {
     // props
-    initialFriends, initialHasMore, initialPinnedIds, initialReadTimestamps, initialVisibleSections,
+    initialFriends, initialHasMore, initialPinnedIds, initialVisibleSections,
     initialPid,
 
     // 左カラム
@@ -306,7 +304,6 @@ export function useTalkState(props: TalkClientProps) {
     mobileView, setMobileView,
 
     // 既読
-    readTimestamps, setReadTimestamps,
     showUnreadOnly, setShowUnreadOnly,
 
     // refs

@@ -43,7 +43,6 @@ export default function TalkClient(props: TalkClientProps) {
     pullDistance: state.pullDistance,
     showUnreadOnly: state.showUnreadOnly,
     setShowUnreadOnly: state.setShowUnreadOnly,
-    readTimestamps: state.readTimestamps,
 
     // 中央カラム state
     selectedPatient: state.selectedPatient,

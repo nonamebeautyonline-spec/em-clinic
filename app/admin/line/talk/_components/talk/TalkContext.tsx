@@ -29,7 +29,6 @@ export interface TalkContextValue {
   pullDistance: number;
   showUnreadOnly: boolean;
   setShowUnreadOnly: (v: boolean) => void;
-  readTimestamps: Record<string, string>;
 
   // 中央カラム state
   selectedPatient: Friend | null;

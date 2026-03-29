@@ -27,7 +27,6 @@ export function useFriendsList(state: TalkState) {
     pullDistance, setPullDistance,
     touchStartY,
     isPulling,
-    readTimestamps, setReadTimestamps,
     visibleSections, setVisibleSections,
     scrollTimerRef,
     showUnreadOnly,
@@ -48,17 +47,16 @@ export function useFriendsList(state: TalkState) {
     }).catch(() => {});
   }, [setPinnedIds, pinnedIdsRef]);
 
-  // 既読マーク
+  // 既読マーク（楽観的更新: 即座にis_unread=false + DB書き込み）
   const markAsRead = useCallback((patientId: string) => {
-    const now = new Date().toISOString();
-    setReadTimestamps(prev => ({ ...prev, [patientId]: now }));
+    setFriends(prev => prev.map(f => f.patient_id === patientId ? { ...f, is_unread: false } : f));
     fetch("/api/admin/chat-reads", {
       method: "PUT",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ patient_id: patientId }),
     }).catch(() => {});
-  }, [setReadTimestamps]);
+  }, [setFriends]);
 
   // ピン切替
   const togglePin = useCallback((patientId: string) => {
@@ -133,9 +131,8 @@ export function useFriendsList(state: TalkState) {
   // ピン初期化（DB）& 既読タイムスタンプ初期化（DB）& 右カラム表示設定
   const initPinsAndReads = useCallback(async () => {
     try {
-      const [pinsRes, readsRes, colRes] = await Promise.all([
+      const [pinsRes, colRes] = await Promise.all([
         fetch("/api/admin/pins", { credentials: "include" }),
-        fetch("/api/admin/chat-reads", { credentials: "include" }),
         fetch("/api/admin/line/column-settings", { credentials: "include" }),
       ]);
       const pinsData = await pinsRes.json();
@@ -161,15 +158,14 @@ export function useFriendsList(state: TalkState) {
         setPinnedIds(resolvedPins);
         pinnedIdsRef.current = resolvedPins;
       }
-      const readsData = await readsRes.json();
-      if (readsData.reads) setReadTimestamps(readsData.reads);
       const colData = await colRes.json();
       if (colData.sections) setVisibleSections(colData.sections);
     } catch { /* ignore */ }
     // ピン取得完了 → fetchFriends経由で友達一覧を取得（初期化時は検索/フィルタなし）
+    // 未読状態はfriends-listレスポンスのis_unreadで完結（chat-reads GET不要）
     pinsReadyRef.current = true;
     await fetchFriendsRef.current({ id: "", name: "", unreadOnly: false });
-  }, [setPinnedIds, pinnedIdsRef, setReadTimestamps, setVisibleSections, pinsReadyRef]);
+  }, [setPinnedIds, pinnedIdsRef, setVisibleSections, pinsReadyRef]);
 
   useEffect(() => {
     if (initialPinnedIds !== undefined) {

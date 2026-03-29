@@ -10,6 +10,7 @@ export interface Friend {
   tags: { id: number; name: string; color: string }[];
   fields: Record<string, string>;
   is_blocked?: boolean;
+  is_unread?: boolean;
   last_message?: string | null;
   last_sent_at?: string | null;
   last_text_at?: string | null;
@@ -150,6 +151,5 @@ export interface TalkClientProps {
   initialFriends?: Friend[];
   initialHasMore?: boolean;
   initialPinnedIds?: string[];
-  initialReadTimestamps?: Record<string, string>;
   initialVisibleSections?: Record<string, boolean>;
 }

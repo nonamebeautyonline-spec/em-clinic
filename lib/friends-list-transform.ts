@@ -36,6 +36,7 @@ export function transformFriendsRow(row: any) {
     last_sent_at: (row.last_incoming_at || null) as string | null,
     last_text_at: (row.last_msg_at || null) as string | null,
     last_activity_at: (row.last_incoming_at || null) as string | null,
+    is_unread: !!row.is_unread,
   };
 }
 

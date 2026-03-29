@@ -156,7 +156,6 @@ export default function FriendListColumn() {
                 onSelect={ctx.selectPatient} onTogglePin={ctx.togglePin}
                 getMarkColor={ctx.getMarkColor} getMarkLabel={ctx.getMarkLabel} formatDateShort={ctx.formatDateShort}
                 canPin={ctx.pinnedIds.length < MAX_PINS}
-                readTimestamp={ctx.readTimestamps[f.patient_id]}
               />
             ))}
             {ctx.unpinnedFriends.map(f => (
@@ -165,7 +164,6 @@ export default function FriendListColumn() {
                 onSelect={ctx.selectPatient} onTogglePin={ctx.togglePin}
                 getMarkColor={ctx.getMarkColor} getMarkLabel={ctx.getMarkLabel} formatDateShort={ctx.formatDateShort}
                 canPin={ctx.pinnedIds.length < MAX_PINS}
-                readTimestamp={ctx.readTimestamps[f.patient_id]}
               />
             ))}
             {ctx.hasMore && (
