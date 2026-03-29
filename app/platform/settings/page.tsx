@@ -21,20 +21,17 @@ export default function PlatformSettingsPage() {
   const [success, setSuccess] = useState("");
   const [showDisable, setShowDisable] = useState(false);
 
-  // 初回: 2FA有効状態をチェック（SWR）
-  const { data: sessionData, isLoading: checkingStatus } = useSWR(
-    "/api/admin/session",
+  // 初回: 2FA有効状態をサーバーから取得
+  const { data: totpStatus, isLoading: checkingStatus } = useSWR(
+    "/api/platform/totp/status",
     { revalidateOnFocus: false }
   );
 
   useEffect(() => {
-    if (!sessionData) return;
-    // localStorage から totp_enabled を復元
-    const stored = typeof window !== "undefined" ? localStorage.getItem("platform-totp-enabled") : null;
-    if (stored === "true") {
-      setTotpEnabled(true);
+    if (totpStatus?.ok) {
+      setTotpEnabled(totpStatus.totpEnabled);
     }
-  }, [sessionData]);
+  }, [totpStatus]);
 
   // 2FA設定開始
   const handleSetupTotp = async () => {
@@ -99,7 +96,6 @@ export default function PlatformSettingsPage() {
       setTotpEnabled(true);
       setTotpStep("done");
       setSuccess("2要素認証が有効になりました");
-      localStorage.setItem("platform-totp-enabled", "true");
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -137,7 +133,6 @@ export default function PlatformSettingsPage() {
       setShowDisable(false);
       setDisableCode("");
       setSuccess("2要素認証が無効になりました");
-      localStorage.setItem("platform-totp-enabled", "false");
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {

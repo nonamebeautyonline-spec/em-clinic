@@ -20,6 +20,11 @@ interface HealthData {
     activeTenants: number;
     auditLogs24h: number;
     errors24h: number;
+    webhookEvents24h: number;
+    webhookErrors24h: number;
+    cronRuns24h: number;
+    cronErrors24h: number;
+    activeIncidents: number;
   };
   timestamp: string;
 }
@@ -58,6 +63,8 @@ function statusLabel(status: string): string {
 const SERVICE_LABELS: Record<string, string> = {
   database: "データベース (Supabase)",
   redis: "キャッシュ (Redis)",
+  line: "LINE Messaging API",
+  openai: "OpenAI API (Embedding)",
 };
 
 export default function HealthDashboardPage() {
@@ -122,7 +129,7 @@ export default function HealthDashboardPage() {
       {/* サービスステータスカード */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         {loading
-          ? Array.from({ length: 2 }).map((_, i) => (
+          ? Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="bg-white rounded-lg shadow p-6 animate-pulse">
                 <div className="h-4 bg-zinc-200 rounded w-1/2 mb-3" />
                 <div className="h-6 bg-zinc-200 rounded w-1/3 mb-2" />
@@ -222,6 +229,39 @@ export default function HealthDashboardPage() {
                     </svg>
                   }
                   color={data.stats.errors24h > 0 ? "red" : "green"}
+                />
+                <StatCard
+                  label="Webhook"
+                  value={`${data.stats.webhookEvents24h - data.stats.webhookErrors24h} / ${data.stats.webhookEvents24h}`}
+                  subtitle={data.stats.webhookErrors24h > 0 ? `${data.stats.webhookErrors24h}件失敗` : "失敗なし"}
+                  icon={
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  }
+                  color={data.stats.webhookErrors24h > 0 ? "red" : "green"}
+                />
+                <StatCard
+                  label="Cron実行"
+                  value={`${data.stats.cronRuns24h - data.stats.cronErrors24h} / ${data.stats.cronRuns24h}`}
+                  subtitle={data.stats.cronErrors24h > 0 ? `${data.stats.cronErrors24h}件失敗` : "失敗なし"}
+                  icon={
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  }
+                  color={data.stats.cronErrors24h > 0 ? "red" : "green"}
+                />
+                <StatCard
+                  label="未解決インシデント"
+                  value={data.stats.activeIncidents}
+                  subtitle={data.stats.activeIncidents > 0 ? "対応中" : "なし"}
+                  icon={
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  }
+                  color={data.stats.activeIncidents > 0 ? "red" : "green"}
                 />
               </>
             )}

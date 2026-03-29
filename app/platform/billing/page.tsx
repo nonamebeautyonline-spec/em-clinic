@@ -151,7 +151,7 @@ const formatDateTime = (isoString: string | null) => {
 // ===== メインコンポーネント =====
 export default function BillingPage() {
   const [activeTab, setActiveTab] = useState<
-    "plans" | "invoices" | "usage"
+    "plans" | "invoices" | "usage" | "actions"
   >("plans");
   const [toast, setToast] = useState<{
     message: string;
@@ -259,6 +259,16 @@ export default function BillingPage() {
         >
           請求書
         </button>
+        <button
+          onClick={() => setActiveTab("actions")}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "actions"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+          }`}
+        >
+          例外操作
+        </button>
       </div>
 
       {/* タブコンテンツ */}
@@ -270,6 +280,10 @@ export default function BillingPage() {
         />
       ) : activeTab === "usage" ? (
         <UsageTab />
+      ) : activeTab === "actions" ? (
+        <BillingActionsTab
+          showToast={(msg, type) => setToast({ message: msg, type })}
+        />
       ) : (
         <InvoicesTab
           showToast={(msg, type) => setToast({ message: msg, type })}
@@ -1983,5 +1997,279 @@ function InvoicesTab({
         </div>
       )}
     </>
+  );
+}
+
+// ===== 請求例外操作タブ =====
+function BillingActionsTab({
+  showToast,
+}: {
+  showToast: (msg: string, type: "success" | "error") => void;
+}) {
+  const [tenants, setTenants] = useState<TenantInfo[]>([]);
+  const [selectedTenant, setSelectedTenant] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [tenantsLoading, setTenantsLoading] = useState(true);
+
+  // 各アクションのフォーム
+  const [creditAmount, setCreditAmount] = useState("");
+  const [creditReason, setCreditReason] = useState("");
+  const [holdReason, setHoldReason] = useState("");
+  const [memo, setMemo] = useState("");
+  const [suspendReason, setSuspendReason] = useState("");
+  const [discountPercent, setDiscountPercent] = useState("");
+  const [discountMonths, setDiscountMonths] = useState("1");
+  const [discountReason, setDiscountReason] = useState("");
+
+  // テナント一覧取得
+  useEffect(() => {
+    fetch("/api/platform/billing/plans", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ok && data.plans) {
+          // テナント情報を抽出
+          const tenantMap = new Map<string, TenantInfo>();
+          for (const plan of data.plans) {
+            if (plan.tenant && !tenantMap.has(plan.tenant.id)) {
+              tenantMap.set(plan.tenant.id, plan.tenant);
+            }
+          }
+          setTenants(Array.from(tenantMap.values()));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setTenantsLoading(false));
+  }, []);
+
+  const executeAction = async (action: string, extra: Record<string, unknown> = {}) => {
+    if (!selectedTenant) {
+      showToast("テナントを選択してください", "error");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/platform/billing/actions", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, tenantId: selectedTenant, ...extra }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        showToast(data.error || "操作に失敗しました", "error");
+        return;
+      }
+      showToast(data.message || "操作が完了しました", "success");
+    } catch {
+      showToast("エラーが発生しました", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectedName = tenants.find((t) => t.id === selectedTenant)?.name || "";
+
+  return (
+    <div className="space-y-6">
+      {/* テナント選択 */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+        <h3 className="text-sm font-semibold text-slate-900 mb-3">操作対象テナント</h3>
+        {tenantsLoading ? (
+          <div className="h-10 bg-slate-100 rounded animate-pulse" />
+        ) : (
+          <select
+            value={selectedTenant}
+            onChange={(e) => setSelectedTenant(e.target.value)}
+            className="w-full max-w-md px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">テナントを選択...</option>
+            {tenants.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name} ({t.slug})
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {selectedTenant && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* クレジット付与 */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+            <h3 className="text-sm font-semibold text-slate-900 mb-1">クレジット付与</h3>
+            <p className="text-xs text-slate-500 mb-3">次回請求に適用される値引き額を付与</p>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">¥</span>
+                  <input
+                    type="number"
+                    value={creditAmount}
+                    onChange={(e) => setCreditAmount(e.target.value)}
+                    placeholder="10000"
+                    className="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <input
+                type="text"
+                value={creditReason}
+                onChange={(e) => setCreditReason(e.target.value)}
+                placeholder="理由（任意）"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                onClick={() => executeAction("apply_credit", { amount: Number(creditAmount), reason: creditReason })}
+                disabled={loading || !creditAmount}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {loading ? "処理中..." : "付与する"}
+              </button>
+            </div>
+          </div>
+
+          {/* 請求保留/再開 */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+            <h3 className="text-sm font-semibold text-slate-900 mb-1">請求保留 / 再開</h3>
+            <p className="text-xs text-slate-500 mb-3">次回以降の請求をスキップまたは再開</p>
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={holdReason}
+                onChange={(e) => setHoldReason(e.target.value)}
+                placeholder="保留理由（任意）"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => executeAction("hold_billing", { reason: holdReason })}
+                  disabled={loading}
+                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  請求保留
+                </button>
+                <button
+                  onClick={() => executeAction("resume_billing")}
+                  disabled={loading}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  請求再開
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* 期間限定値引き */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+            <h3 className="text-sm font-semibold text-slate-900 mb-1">期間限定値引き</h3>
+            <p className="text-xs text-slate-500 mb-3">月額料金に対する割引率を期間限定で適用</p>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="number"
+                    value={discountPercent}
+                    onChange={(e) => setDiscountPercent(e.target.value)}
+                    placeholder="20"
+                    min="1"
+                    max="100"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">%</span>
+                </div>
+                <div className="relative w-28">
+                  <input
+                    type="number"
+                    value={discountMonths}
+                    onChange={(e) => setDiscountMonths(e.target.value)}
+                    min="1"
+                    max="24"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">ヶ月</span>
+                </div>
+              </div>
+              <input
+                type="text"
+                value={discountReason}
+                onChange={(e) => setDiscountReason(e.target.value)}
+                placeholder="理由（任意）"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                onClick={() => executeAction("apply_discount", {
+                  discountPercent: Number(discountPercent),
+                  discountMonths: Number(discountMonths),
+                  reason: discountReason,
+                })}
+                disabled={loading || !discountPercent}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {loading ? "処理中..." : "値引き適用"}
+              </button>
+            </div>
+          </div>
+
+          {/* 回収メモ */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+            <h3 className="text-sm font-semibold text-slate-900 mb-1">回収メモ</h3>
+            <p className="text-xs text-slate-500 mb-3">請求に関する社内メモを記録（tenant_plans.notesに追記）</p>
+            <div className="space-y-2">
+              <textarea
+                value={memo}
+                onChange={(e) => setMemo(e.target.value)}
+                placeholder="例: 3月分請求は月末に電話確認予定"
+                rows={3}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              />
+              <button
+                onClick={() => { executeAction("add_memo", { memo }); setMemo(""); }}
+                disabled={loading || !memo.trim()}
+                className="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {loading ? "処理中..." : "メモを追加"}
+              </button>
+            </div>
+          </div>
+
+          {/* テナント停止/再開 */}
+          <div className="bg-white rounded-xl shadow-sm border border-red-200 p-5 lg:col-span-2">
+            <h3 className="text-sm font-semibold text-red-700 mb-1">テナント停止 / 再開</h3>
+            <p className="text-xs text-slate-500 mb-3">
+              テナント「{selectedName}」のサービスを手動で停止/再開します。停止するとテナントの全機能が利用不可になります。
+            </p>
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={suspendReason}
+                onChange={(e) => setSuspendReason(e.target.value)}
+                placeholder="停止理由（任意）"
+                className="w-full max-w-md px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    if (confirm(`「${selectedName}」を停止しますか？`)) {
+                      executeAction("suspend_tenant", { reason: suspendReason });
+                    }
+                  }}
+                  disabled={loading}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  テナント停止
+                </button>
+                <button
+                  onClick={() => executeAction("resume_tenant")}
+                  disabled={loading}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  テナント再開
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

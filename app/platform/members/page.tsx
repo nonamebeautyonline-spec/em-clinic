@@ -3,8 +3,8 @@
 // app/platform/members/page.tsx
 // プラットフォーム管理: メンバー管理ページ
 
-import { useState, useEffect } from "react";
-import useSWR from "swr";
+import { useState, useEffect, useRef } from "react";
+import useSWR, { mutate } from "swr";
 
 // ---- 型定義 ----
 
@@ -50,6 +50,13 @@ interface MembersResponse {
 
 export default function PlatformMembersPage() {
   const [tenantsCache, setTenantsCache] = useState<TenantOption[]>([]);
+  // 操作モーダル
+  const [actionTarget, setActionTarget] = useState<Member | null>(null);
+  const [actionType, setActionType] = useState<string>("");
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [actionSuccess, setActionSuccess] = useState("");
+  const [newRole, setNewRole] = useState("");
 
   // フィルター
   const [search, setSearch] = useState("");
@@ -105,6 +112,64 @@ export default function PlatformMembersPage() {
     setPage(1);
   };
 
+  // メンバー操作実行
+  const handleAction = async () => {
+    if (!actionTarget) return;
+    setActionLoading(true);
+    setActionError("");
+
+    try {
+      const body: Record<string, string> = { action: actionType };
+      if (actionType === "change_role") body.role = newRole;
+
+      const res = await fetch(`/api/platform/members/${actionTarget.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setActionError(data.error || "操作に失敗しました");
+        setActionLoading(false);
+        return;
+      }
+
+      const labels: Record<string, string> = {
+        toggle_active: actionTarget.isActive ? "無効化しました" : "有効化しました",
+        change_role: "ロールを変更しました",
+        force_logout: "強制ログアウトしました",
+        reset_2fa: "2FAをリセットしました",
+      };
+      setActionSuccess(labels[actionType] || "操作が完了しました");
+      setActionTarget(null);
+      setActionType("");
+      // 一覧を再取得
+      mutate((key: string) => typeof key === "string" && key.startsWith("/api/platform/members"));
+      setTimeout(() => setActionSuccess(""), 3000);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const openAction = (member: Member, type: string) => {
+    setActionTarget(member);
+    setActionType(type);
+    setActionError("");
+    if (type === "change_role") {
+      setNewRole(member.platformRole === "platform_admin" ? "tenant_admin" : "platform_admin");
+    }
+  };
+
+  const closeAction = () => {
+    setActionTarget(null);
+    setActionType("");
+    setActionError("");
+  };
+
   // 日時フォーマット
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "-";
@@ -130,6 +195,13 @@ export default function PlatformMembersPage() {
           </div>
         </div>
       </div>
+
+      {/* 操作成功メッセージ */}
+      {actionSuccess && (
+        <div className="mb-6 p-4 bg-green-50 border-l-4 border-green-500 rounded-r-lg text-green-700 text-sm">
+          {actionSuccess}
+        </div>
+      )}
 
       {/* エラー表示 */}
       {error && (
@@ -236,6 +308,9 @@ export default function PlatformMembersPage() {
           </span>
           <span className="w-20 text-xs font-semibold text-slate-500 uppercase tracking-wider text-center">
             状態
+          </span>
+          <span className="w-24 text-xs font-semibold text-slate-500 uppercase tracking-wider text-center">
+            操作
           </span>
         </div>
 
@@ -366,6 +441,11 @@ export default function PlatformMembersPage() {
                 <div className="md:w-20 md:text-center">
                   <StatusBadge isActive={member.isActive} />
                 </div>
+
+                {/* 操作メニュー */}
+                <div className="md:w-24 md:text-center">
+                  <MemberActionMenu member={member} onAction={openAction} />
+                </div>
               </div>
             ))}
           </div>
@@ -413,6 +493,72 @@ export default function PlatformMembersPage() {
           </div>
         )}
       </div>
+
+      {/* 操作確認モーダル */}
+      {actionTarget && actionType && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">
+              {actionType === "toggle_active" && (actionTarget.isActive ? "メンバーを無効化" : "メンバーを有効化")}
+              {actionType === "change_role" && "ロールを変更"}
+              {actionType === "force_logout" && "強制ログアウト"}
+              {actionType === "reset_2fa" && "2FAをリセット"}
+            </h3>
+            <p className="text-sm text-slate-600 mb-1">
+              対象: <span className="font-medium">{actionTarget.name || actionTarget.email}</span>
+            </p>
+            <p className="text-sm text-slate-500 mb-4">
+              {actionType === "toggle_active" && (actionTarget.isActive
+                ? "このメンバーを無効化し、全セッションを終了します。"
+                : "このメンバーを再度有効化します。")}
+              {actionType === "change_role" && "プラットフォームロールを変更します。"}
+              {actionType === "force_logout" && "全てのアクティブセッションを強制終了します。"}
+              {actionType === "reset_2fa" && "2要素認証の設定をリセットします。次回ログイン時に再設定が必要になります。"}
+            </p>
+
+            {actionType === "change_role" && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-700 mb-1">新しいロール</label>
+                <select
+                  value={newRole}
+                  onChange={(e) => setNewRole(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                >
+                  <option value="platform_admin">Platform Admin</option>
+                  <option value="tenant_admin">Tenant Admin</option>
+                </select>
+              </div>
+            )}
+
+            {actionError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                {actionError}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={closeAction}
+                disabled={actionLoading}
+                className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleAction}
+                disabled={actionLoading}
+                className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 ${
+                  actionType === "toggle_active" && actionTarget.isActive
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-violet-600 hover:bg-violet-700"
+                }`}
+              >
+                {actionLoading ? "処理中..." : "実行"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -468,5 +614,68 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
     <span className="inline-flex items-center px-2 py-1 text-xs rounded-full font-medium bg-red-100 text-red-700 border border-red-200">
       無効
     </span>
+  );
+}
+
+function MemberActionMenu({
+  member,
+  onAction,
+}: {
+  member: Member;
+  onAction: (member: Member, action: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-500 hover:text-slate-700"
+        title="操作"
+      >
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-40">
+          <button
+            onClick={() => { onAction(member, "toggle_active"); setOpen(false); }}
+            className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 text-slate-700"
+          >
+            {member.isActive ? "無効化" : "有効化"}
+          </button>
+          <button
+            onClick={() => { onAction(member, "change_role"); setOpen(false); }}
+            className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 text-slate-700"
+          >
+            ロール変更
+          </button>
+          <button
+            onClick={() => { onAction(member, "force_logout"); setOpen(false); }}
+            className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 text-slate-700"
+          >
+            強制ログアウト
+          </button>
+          <button
+            onClick={() => { onAction(member, "reset_2fa"); setOpen(false); }}
+            className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 text-slate-700"
+          >
+            2FAリセット
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

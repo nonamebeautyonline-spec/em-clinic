@@ -7,6 +7,10 @@ import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import useSWR, { mutate } from "swr";
 import dynamic from "next/dynamic";
+import {
+  getLifecycleInfo,
+  type LifecycleStatus,
+} from "@/lib/tenant-lifecycle";
 
 // Rechartsコンポーネントを動的インポート（SSR回避）
 const AnalyticsChart = dynamic(() => import("./analytics-chart"), {
@@ -78,7 +82,7 @@ interface MonthlyAnalytics {
   lineFriends: number;
 }
 
-type TabKey = "overview" | "members" | "settings" | "analytics";
+type TabKey = "overview" | "members" | "settings" | "analytics" | "backups";
 
 export default function TenantDetailPage() {
   const router = useRouter();
@@ -436,6 +440,7 @@ export default function TenantDetailPage() {
     { key: "members", label: "メンバー" },
     { key: "settings", label: "設定" },
     { key: "analytics", label: "分析" },
+    { key: "backups", label: "バックアップ" },
   ];
 
   // --- ローディング ---
@@ -569,6 +574,9 @@ export default function TenantDetailPage() {
         {/* ===== 概要タブ ===== */}
         {activeTab === "overview" && (
           <div>
+            {/* ライフサイクルバッジ */}
+            <LifecycleBanner tenantId={tenantId} />
+
             {/* KPIカード（4列） */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               <KPICard
@@ -1298,6 +1306,347 @@ export default function TenantDetailPage() {
                 <p className="text-sm text-zinc-400">分析データがありません</p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* バックアップタブ */}
+        {activeTab === "backups" && (
+          <BackupTab tenantId={tenantId} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- ライフサイクルバナーコンポーネント ---
+function LifecycleBanner({ tenantId }: { tenantId: string }) {
+  interface LifecycleData {
+    ok: boolean;
+    lifecycle: {
+      current: LifecycleStatus;
+      allowedTransitions: LifecycleStatus[];
+      suspendedAt: string | null;
+      suspendReason: string | null;
+      paymentFailedAt: string | null;
+    };
+  }
+
+  const { data, isLoading, mutate: revalidate } = useSWR<LifecycleData>(
+    `/api/platform/tenants/${tenantId}/status`
+  );
+
+  const [transitioning, setTransitioning] = useState(false);
+  const [transitionError, setTransitionError] = useState("");
+
+  if (isLoading || !data?.lifecycle) return null;
+
+  const info = getLifecycleInfo(data.lifecycle.current);
+  const allowed = data.lifecycle.allowedTransitions;
+
+  const handleTransition = async (target: LifecycleStatus) => {
+    const targetInfo = getLifecycleInfo(target);
+    const reason = target === "suspended" || target === "churned"
+      ? prompt(`${targetInfo.label}に遷移する理由を入力してください（任意）`) ?? undefined
+      : undefined;
+
+    if (target === "churned" && !confirm("本当に解約済みに変更しますか？")) return;
+
+    setTransitioning(true);
+    setTransitionError("");
+
+    try {
+      const res = await fetch(`/api/platform/tenants/${tenantId}/status`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetStatus: target, reason }),
+      });
+      const d = await res.json();
+      if (!res.ok || !d.ok) {
+        setTransitionError(d.error || "遷移に失敗しました");
+        return;
+      }
+      revalidate();
+    } catch (err) {
+      setTransitionError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setTransitioning(false);
+    }
+  };
+
+  return (
+    <div className={`mb-6 p-4 rounded-lg border ${info.bgColor} ${info.borderColor}`}>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${info.bgColor} ${info.color} border ${info.borderColor}`}>
+            {info.label}
+          </span>
+          <span className={`text-sm ${info.color}`}>{info.description}</span>
+        </div>
+        {allowed.length > 0 && (
+          <div className="flex items-center gap-2">
+            {allowed.map((target) => {
+              const t = getLifecycleInfo(target);
+              return (
+                <button
+                  key={target}
+                  onClick={() => handleTransition(target)}
+                  disabled={transitioning}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 ${
+                    target === "churned"
+                      ? "bg-slate-600 hover:bg-slate-700 text-white"
+                      : target === "suspended"
+                        ? "bg-red-600 hover:bg-red-700 text-white"
+                        : "bg-white hover:bg-slate-50 text-slate-700 border border-slate-300"
+                  }`}
+                >
+                  {t.label}に変更
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      {data.lifecycle.suspendReason && (
+        <p className="mt-2 text-xs text-slate-600">停止理由: {data.lifecycle.suspendReason}</p>
+      )}
+      {transitionError && (
+        <p className="mt-2 text-xs text-red-600">{transitionError}</p>
+      )}
+    </div>
+  );
+}
+
+// --- バックアップタブコンポーネント ---
+function BackupTab({ tenantId }: { tenantId: string }) {
+  interface Backup {
+    id: string;
+    name: string;
+    description: string | null;
+    status: string;
+    created_by: string | null;
+    created_at: string;
+  }
+
+  const { data, isLoading, mutate: revalidate } = useSWR<{ ok: boolean; backups: Backup[] }>(
+    `/api/platform/tenants/${tenantId}/backups`
+  );
+
+  const [creating, setCreating] = useState(false);
+  const [restoring, setRestoring] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const [backupName, setBackupName] = useState("");
+  const [backupDesc, setBackupDesc] = useState("");
+
+  const backups = data?.backups || [];
+
+  const handleCreate = async () => {
+    setCreating(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/platform/tenants/${tenantId}/backups`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          name: backupName || undefined,
+          description: backupDesc || undefined,
+        }),
+      });
+      const d = await res.json();
+      if (!res.ok || !d.ok) {
+        setError(d.error || "バックアップの作成に失敗しました");
+        return;
+      }
+      setSuccess("バックアップを作成しました");
+      setShowCreate(false);
+      setBackupName("");
+      setBackupDesc("");
+      revalidate();
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleRestore = async (backupId: string) => {
+    if (!confirm("このバックアップからリストアしますか？現在のデータが上書きされます。")) return;
+    setRestoring(backupId);
+    setError("");
+    try {
+      const res = await fetch(`/api/platform/tenants/${tenantId}/backups`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "restore", backupId }),
+      });
+      const d = await res.json();
+      if (!res.ok || !d.ok) {
+        setError(d.error || "リストアに失敗しました");
+        return;
+      }
+      setSuccess("リストアが完了しました");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setRestoring(null);
+    }
+  };
+
+  const handleDelete = async (backupId: string) => {
+    if (!confirm("このバックアップを削除しますか？")) return;
+    setDeleting(backupId);
+    setError("");
+    try {
+      const res = await fetch(`/api/platform/tenants/${tenantId}/backups?backupId=${backupId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const d = await res.json();
+      if (!res.ok || !d.ok) {
+        setError(d.error || "削除に失敗しました");
+        return;
+      }
+      setSuccess("バックアップを削除しました");
+      revalidate();
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "-";
+    const d = new Date(dateStr);
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* ヘッダー */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-slate-900">バックアップ管理</h2>
+        <button
+          onClick={() => setShowCreate(true)}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+        >
+          バックアップを作成
+        </button>
+      </div>
+
+      {success && (
+        <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">{success}</div>
+      )}
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>
+      )}
+
+      {/* 作成フォーム */}
+      {showCreate && (
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-3">新しいバックアップ</h3>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">名前（任意）</label>
+              <input
+                type="text"
+                value={backupName}
+                onChange={(e) => setBackupName(e.target.value)}
+                placeholder="例: デプロイ前バックアップ"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">メモ（任意）</label>
+              <input
+                type="text"
+                value={backupDesc}
+                onChange={(e) => setBackupDesc(e.target.value)}
+                placeholder="バックアップの目的など"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleCreate}
+                disabled={creating}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {creating ? "作成中..." : "作成"}
+              </button>
+              <button
+                onClick={() => { setShowCreate(false); setBackupName(""); setBackupDesc(""); }}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm font-medium transition-colors"
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* バックアップ一覧 */}
+      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+        {isLoading ? (
+          <div className="p-6 animate-pulse space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-12 bg-slate-100 rounded" />
+            ))}
+          </div>
+        ) : backups.length === 0 ? (
+          <div className="py-12 text-center">
+            <p className="text-sm text-slate-500">バックアップはまだありません</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {backups.map((b) => (
+              <div key={b.id} className="px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-medium text-slate-900">{b.name}</span>
+                    <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                      b.status === "completed" ? "bg-green-100 text-green-700" :
+                      b.status === "processing" ? "bg-blue-100 text-blue-700" :
+                      "bg-red-100 text-red-700"
+                    }`}>
+                      {b.status === "completed" ? "完了" : b.status === "processing" ? "処理中" : "失敗"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-slate-400">
+                    <span>{formatDate(b.created_at)}</span>
+                    {b.created_by && <span>作成者: {b.created_by}</span>}
+                    {b.description && <span>{b.description}</span>}
+                  </div>
+                </div>
+                {b.status === "completed" && (
+                  <div className="flex items-center gap-2 ml-4">
+                    <button
+                      onClick={() => handleRestore(b.id)}
+                      disabled={restoring === b.id}
+                      className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {restoring === b.id ? "リストア中..." : "リストア"}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(b.id)}
+                      disabled={deleting === b.id}
+                      className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {deleting === b.id ? "削除中..." : "削除"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
