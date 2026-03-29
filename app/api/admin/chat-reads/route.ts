@@ -16,7 +16,8 @@ export async function GET(req: NextRequest) {
   const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("chat_reads")
-      .select("patient_id, read_at"),
+      .select("patient_id, read_at")
+      .limit(100000),
     tenantId
   );
 

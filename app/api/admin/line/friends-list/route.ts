@@ -278,7 +278,8 @@ export async function GET(req: NextRequest) {
     const { data: crData } = await supabaseAdmin
       .from("chat_reads")
       .select("patient_id, read_at")
-      .eq("tenant_id", effectiveTenantId);
+      .eq("tenant_id", effectiveTenantId)
+      .limit(100000);
     unreadReadMap = {};
     for (const row of crData || []) {
       unreadReadMap[row.patient_id] = row.read_at;
