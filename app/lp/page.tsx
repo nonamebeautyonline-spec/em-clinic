@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 import Nav from "./components/Nav";
 import Hero from "./components/Hero";
@@ -15,6 +16,16 @@ const Pricing = dynamic(() => import("./components/Pricing").then((m) => ({ defa
 const FAQ = dynamic(() => import("./components/FAQ").then((m) => ({ default: m.FAQ })));
 const FinalCTA = dynamic(() => import("./components/FinalCTA").then((m) => ({ default: m.FinalCTA })));
 const Footer = dynamic(() => import("./components/Footer").then((m) => ({ default: m.Footer })));
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "https://l-ope.jp",
+  },
+  robots: {
+    index: false,
+    follow: true,
+  },
+};
 
 export default function LPPage() {
   return (

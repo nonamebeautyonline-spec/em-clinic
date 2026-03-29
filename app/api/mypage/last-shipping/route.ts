@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyPatientSession } from "@/lib/patient-session";
-import { withTenant, resolveTenantId } from "@/lib/tenant";
+import { strictWithTenant, resolveTenantId } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const tenantId = resolveTenantId(req);
 
   // 直近の決済済み注文から配送先情報を取得
-  const { data } = await withTenant(
+  const { data } = await strictWithTenant(
     supabaseAdmin
       .from("orders")
       .select("shipping_name, postal_code, address, phone, email, account_name, payment_method")

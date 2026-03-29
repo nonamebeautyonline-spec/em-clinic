@@ -9,8 +9,8 @@ export function transformFriendsRow(row: any) {
     : row.last_event_content?.includes("友だち追加") ? "【友達追加】"
     : row.last_event_content || null;
 
-  // incoming内で最新のものを見出しに表示（outgoingは除外）
-  // 候補: 患者メッセージ(last_msg_at), イベント(last_event_at), テンプレ送信は除外
+  // incoming優先で最新のものを見出しに表示、なければoutgoingをフォールバック
+  // 候補: 患者メッセージ(last_msg_at), イベント(last_event_at)
   const candidates: { content: string; at: string }[] = [];
   if (row.last_msg_content && row.last_msg_at) {
     candidates.push({ content: row.last_msg_content, at: row.last_msg_at });
@@ -19,8 +19,11 @@ export function transformFriendsRow(row: any) {
     candidates.push({ content: eventDisplay, at: row.last_event_at });
   }
   candidates.sort((a, b) => (a.at > b.at ? -1 : 1));
-  const latestIncoming = candidates[0]?.content || null;
-  const latestIncomingAt = candidates[0]?.at || null;
+  // incomingがなければoutgoingをフォールバック表示（送信のみの患者でもnullにしない）
+  const latestIncoming = candidates[0]?.content
+    || (row.last_outgoing_content && row.last_outgoing_at ? row.last_outgoing_content : null);
+  const latestIncomingAt = candidates[0]?.at
+    || (row.last_outgoing_content && row.last_outgoing_at ? row.last_outgoing_at : null);
 
   return {
     patient_id: row.patient_id as string,

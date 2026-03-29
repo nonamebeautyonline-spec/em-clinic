@@ -342,22 +342,8 @@ describe("admin/unread-count", () => {
   });
 
   it("GET: 未読カウントを返す", async () => {
-    // friend_summaries: 患者ごとの最新テキスト時刻
-    const fsChain = getOrCreateChain("friend_summaries");
-    fsChain.then = vi.fn((resolve: (val: unknown) => void) =>
-      resolve({
-        data: [
-          { patient_id: "p1", last_msg_at: "2026-01-02T00:00:00Z" }, // 未読（read_atより後）
-          { patient_id: "p2", last_msg_at: "2026-01-01T00:00:00Z" }, // 未読（既読情報なし）
-        ],
-        error: null,
-      }),
-    );
-    // chat_reads: 既読情報
-    const chatReadsChain = getOrCreateChain("chat_reads");
-    chatReadsChain.then = vi.fn((resolve: (val: unknown) => void) =>
-      resolve({ data: [{ patient_id: "p1", read_at: "2026-01-01T00:00:00Z" }], error: null }),
-    );
+    // RPC count_unread_patients が未読数を返す
+    mockRpc.mockResolvedValue({ data: 2, error: null });
 
     const req = createRequest("GET", "http://localhost/api/admin/unread-count");
     const res = await unreadCountGET(req);

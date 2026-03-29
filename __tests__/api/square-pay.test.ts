@@ -173,24 +173,24 @@ describe("POST /api/square/pay", () => {
     expect(body.paymentId).toBe("PAY_001");
   });
 
-  it("初回決済成功後にpayment_idでカード保存される", async () => {
+  it("初回決済時にnonceでカード保存 → card_idで決済される", async () => {
     const res = await POST(createRequest());
     const body = await res.json();
 
     expect(body.success).toBe(true);
-    // nonceで決済
-    expect(createSquarePayment).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      expect.objectContaining({ sourceId: "cnon:CARD_NONCE" }),
-    );
-    // 決済成功後にpayment_idでカード保存
+    // nonceでカード保存が先に実行される
     expect(saveCardOnFile).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(String),
       "PID_001",
-      "PAY_001",
+      "cnon:CARD_NONCE",
       "test-tenant",
+    );
+    // 保存されたcard_idで決済（nonceではなくccof:を使用）
+    expect(createSquarePayment).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({ sourceId: "ccof:SAVED_CARD" }),
     );
   });
 
@@ -204,8 +204,8 @@ describe("POST /api/square/pay", () => {
     expect(body.paymentId).toBe("PAY_001");
   });
 
-  it("既存の保存済みカードがあってもnonceが来たらnonceで決済する", async () => {
-    // 患者に既存のsquare_card_idがある状態でもnonceを優先
+  it("既存の保存済みカードがあってもnonceが来たらカード再保存 → 新card_idで決済", async () => {
+    // 患者に既存のsquare_card_idがある状態でもnonceからカード再保存
     const pChain = createChain({
       data: { square_customer_id: "CUST_001", square_card_id: "ccof:EXISTING_SAVED" },
       error: null,
@@ -216,11 +216,18 @@ describe("POST /api/square/pay", () => {
     const body = await res.json();
 
     expect(body.success).toBe(true);
-    // nonceで決済（保存済みカードを勝手に使わない）
+    // nonceでカード保存 → 新card_idで決済
+    expect(saveCardOnFile).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      "PID_001",
+      "cnon:CARD_NONCE",
+      "test-tenant",
+    );
     expect(createSquarePayment).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(String),
-      expect.objectContaining({ sourceId: "cnon:CARD_NONCE" }),
+      expect.objectContaining({ sourceId: "ccof:SAVED_CARD" }),
     );
   });
 

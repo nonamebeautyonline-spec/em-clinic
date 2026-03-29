@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantId, strictWithTenant } from "@/lib/tenant";
 import Anthropic from "@anthropic-ai/sdk";
 import { sendAiReply, buildSystemPrompt, buildUserMessage, fetchPatientFlowStatus, type RejectedDraftEntry } from "@/lib/ai-reply";
 import { saveAiReplyExample, boostExampleQuality, penalizeExampleQuality, executeRAGPipeline } from "@/lib/embedding";
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   const patientId = req.nextUrl.searchParams.get("patient_id");
   if (!patientId) return badRequest("patient_id が必要です");
 
-  const { data, error } = await withTenant(
+  const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("ai_reply_drafts")
       .select("id, patient_id, line_uid, original_message, draft_reply, status, ai_category, confidence, model_used, created_at, expires_at")
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
   // 単一操作用ドラフト取得（batch操作時はスキップ）
   let draft: Record<string, unknown> | null = null;
   if (draft_id && action !== "batch_approve" && action !== "batch_reject") {
-    const { data, error } = await withTenant(
+    const { data, error } = await strictWithTenant(
       supabaseAdmin
         .from("ai_reply_drafts")
         .select("*")
@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
     const apiKey = (await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY", tid)) || "";
     if (!apiKey) return serverError("APIキー未設定");
 
-    const { data: settings } = await withTenant(
+    const { data: settings } = await strictWithTenant(
       supabaseAdmin.from("ai_reply_settings").select("knowledge_base, custom_instructions, medical_reply_mode, model_id, greeting_reply_enabled").maybeSingle(),
       draft.tenant_id as string | null
     );
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
     // 患者ステータスと会話履歴を取得（webhook側と同等のコンテキストを提供）
     const patientId = draft.patient_id as string;
     const [{ data: recentMsgs }, patientStatus] = await Promise.all([
-      withTenant(
+      strictWithTenant(
         supabaseAdmin
           .from("message_log")
           .select("direction, content, event_type, sent_at")
@@ -191,7 +191,7 @@ export async function POST(req: NextRequest) {
     });
 
     // 却下パターン
-    const { data: rejectedDrafts } = await withTenant(
+    const { data: rejectedDrafts } = await strictWithTenant(
       supabaseAdmin.from("ai_reply_drafts")
         .select("original_message, draft_reply, reject_category, reject_reason")
         .eq("status", "rejected")
@@ -260,7 +260,7 @@ ${instruction}
     const ids = parsed.data.draft_ids;
     let sentCount = 0;
     for (const id of ids) {
-      const { data: d } = await withTenant(
+      const { data: d } = await strictWithTenant(
         supabaseAdmin.from("ai_reply_drafts").select("*").eq("id", id).eq("status", "pending").single(),
         tenantId
       );

@@ -104,14 +104,25 @@ describe("transformFriendsRow", () => {
     expect(result.last_message).toBe("友だち再登録");
   });
 
-  it("outgoing系はlast_messageに影響しない", () => {
+  it("incomingがない場合 → outgoingがフォールバック表示される", () => {
     const result = transformFriendsRow({
       ...baseRow,
       last_template_content: "【予約確認】本日の予約は10時です",
       last_outgoing_content: "承認通知です",
       last_outgoing_at: "2026-03-03T10:00:00Z",
     });
-    expect(result.last_message).toBeNull();
+    expect(result.last_message).toBe("承認通知です");
+  });
+
+  it("incomingがある場合 → outgoingよりincomingが優先される", () => {
+    const result = transformFriendsRow({
+      ...baseRow,
+      last_msg_content: "こんにちは",
+      last_msg_at: "2026-03-01T10:00:00Z",
+      last_outgoing_content: "承認通知です",
+      last_outgoing_at: "2026-03-03T10:00:00Z",
+    });
+    expect(result.last_message).toBe("こんにちは");
   });
 
   it("全てnull → last_message=null", () => {

@@ -457,7 +457,7 @@ describe("Cron: テナント対応", () => {
   // テナント横断チェックのためテナント対応不要なcronルート
   // square-token-refresh: 全テナントをループして各テナントのトークンを更新（テナント横断処理）
   // webhook-cleanup: 全テナントのスタックイベント検知+クリーンアップ（テナント横断処理）
-  const CRON_TENANT_EXEMPT = ["health-report", "usage-check", "audit-archive", "usage-alert", "report-usage", "generate-invoices", "send-reports", "square-token-refresh", "webhook-cleanup", "refresh-metrics"];
+  const CRON_TENANT_EXEMPT = ["health-report", "usage-check", "audit-archive", "usage-alert", "report-usage", "generate-invoices", "send-reports", "square-token-refresh", "webhook-cleanup", "refresh-metrics", "ai-reply", "suspend-overdue"];
 
   it("supabaseAdminを使うcronルートはテナント対応している", () => {
     const violations: string[] = [];

@@ -47,6 +47,14 @@ vi.mock("@/lib/settings", () => ({ getSettingOrEnv: vi.fn() }));
 vi.mock("@/lib/embedding", () => ({
   saveAiReplyExample: vi.fn().mockResolvedValue(undefined),
   searchSimilarExamples: vi.fn().mockResolvedValue([]),
+  boostExampleQuality: vi.fn().mockResolvedValue(undefined),
+  penalizeExampleQuality: vi.fn().mockResolvedValue(undefined),
+  saveKnowledgeChunks: vi.fn().mockResolvedValue(undefined),
+  executeRAGPipeline: vi.fn().mockResolvedValue({
+    examples: [],
+    knowledgeChunks: [],
+    rewrittenQuery: "",
+  }),
 }));
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),

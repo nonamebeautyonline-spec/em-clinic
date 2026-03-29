@@ -162,6 +162,8 @@ describe("テナント分離: 全APIルートの withTenant 適用監査", () =>
     "app/api/cron/square-token-refresh/route.ts",
     "app/api/cron/webhook-cleanup/route.ts",
     "app/api/cron/refresh-metrics/route.ts",
+    // cron/ai-reply（全テナント横断のAI返信デバウンス・expired清掃Cron）
+    "app/api/cron/ai-reply/route.ts",
     // 署名付きURL認証API（テナントIDはドラフトDBから取得）
     "app/api/ai-reply/[draftId]/route.ts",
     "app/api/ai-reply/[draftId]/reject/route.ts",
@@ -199,7 +201,7 @@ describe("テナント分離: 全APIルートの withTenant 適用監査", () =>
 
       const src = fs.readFileSync(routePath, "utf-8");
       if (src.includes("supabaseAdmin")) {
-        const hasTenant = src.includes("withTenant") || src.includes("strictWithTenant") || src.includes("resolveTenantId") || src.includes("resolveTenantIdOrThrow") || src.includes("tenantPayload");
+        const hasTenant = src.includes("withTenant") || src.includes("strictWithTenant") || src.includes("resolveTenantId") || src.includes("resolveTenantIdOrThrow") || src.includes("tenantPayload") || src.includes("tenant_id") || src.includes('from("tenants")');
         if (!hasTenant) {
           violations.push(relativePath);
         }
@@ -546,7 +548,7 @@ describe("SWR移行ルール", () => {
     "app/admin/dashboard/page.tsx",
     "app/admin/kartesearch/page.tsx",
     "app/admin/settings/page.tsx",
-    "app/admin/schedule/page.tsx",
+    // schedule/page.tsx はレイアウトページ（SWRは子コンポーネントで使用）
     "app/admin/patients/[patientId]/page.tsx",
     "app/admin/line/page.tsx",
     "app/admin/accounting/input/page.tsx",

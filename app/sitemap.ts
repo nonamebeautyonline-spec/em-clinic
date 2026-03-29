@@ -4,43 +4,58 @@ import { categories } from "./lp/column/categories";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = "https://l-ope.jp";
+  const pageLastModified = {
+    home: new Date("2026-03-30"),
+    about: new Date("2026-03-30"),
+    features: new Date("2026-03-30"),
+    contact: new Date("2026-03-30"),
+    column: new Date("2026-03-30"),
+    legal: new Date("2026-03-30"),
+  };
 
-  const today = new Date();
+  const categoryLastModified = (categorySlug: string) => {
+    const latest = articles
+      .filter((article) => categories.find((category) => category.slug === categorySlug)?.matchValues.includes(article.category))
+      .map((article) => new Date(article.updatedDate || article.date).getTime())
+      .sort((a, b) => b - a)[0];
+
+    return latest ? new Date(latest) : pageLastModified.column;
+  };
 
   return [
     {
       url: baseUrl,
-      lastModified: today,
+      lastModified: pageLastModified.home,
       changeFrequency: "weekly",
       priority: 1.0,
     },
     {
       url: `${baseUrl}/lp/about`,
-      lastModified: today,
+      lastModified: pageLastModified.about,
       changeFrequency: "weekly",
       priority: 0.9,
     },
     {
       url: `${baseUrl}/lp/features`,
-      lastModified: today,
+      lastModified: pageLastModified.features,
       changeFrequency: "weekly",
       priority: 0.8,
     },
     {
       url: `${baseUrl}/lp/contact`,
-      lastModified: today,
+      lastModified: pageLastModified.contact,
       changeFrequency: "monthly",
       priority: 0.8,
     },
     {
       url: `${baseUrl}/lp/column`,
-      lastModified: today,
+      lastModified: pageLastModified.column,
       changeFrequency: "weekly",
       priority: 0.85,
     },
     ...categories.map((c) => ({
       url: `${baseUrl}/lp/column/category/${c.slug}`,
-      lastModified: today,
+      lastModified: categoryLastModified(c.slug),
       changeFrequency: "weekly" as const,
       priority: 0.7,
     })),
@@ -52,19 +67,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
     })),
     {
       url: `${baseUrl}/lp/terms`,
-      lastModified: today,
+      lastModified: pageLastModified.legal,
       changeFrequency: "monthly",
       priority: 0.3,
     },
     {
       url: `${baseUrl}/lp/privacy`,
-      lastModified: today,
+      lastModified: pageLastModified.legal,
       changeFrequency: "monthly",
       priority: 0.3,
     },
     {
       url: `${baseUrl}/lp/cancel`,
-      lastModified: today,
+      lastModified: pageLastModified.legal,
       changeFrequency: "monthly",
       priority: 0.3,
     },

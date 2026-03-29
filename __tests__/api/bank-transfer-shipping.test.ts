@@ -159,8 +159,19 @@ describe("銀行振込配送API (bank-transfer/shipping/route.ts)", () => {
 
     // intake: OK ステータス（NG ではない）
     tableChains["intake"] = createChain({ data: { status: "OK" }, error: null });
-    // orders: 挿入成功
-    tableChains["orders"] = createChain({ data: [{ id: "bt_pending_123" }], error: null });
+    // orders: 1回目のawait（二重注文チェック）→ 空配列、2回目（insert）→ 成功
+    const ordersChain = createChain({ data: [], error: null });
+    let ordersCallCount = 0;
+    ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => {
+      ordersCallCount++;
+      if (ordersCallCount === 1) {
+        // 二重注文チェック: pending_confirmation 無し
+        return resolve({ data: [], error: null });
+      }
+      // insert成功
+      return resolve({ data: [{ id: "bt_pending_123" }], error: null });
+    });
+    tableChains["orders"] = ordersChain;
 
     const req = createMockRequest("POST", "http://localhost/api/bank-transfer/shipping");
     const res = await POST(req);
@@ -180,8 +191,15 @@ describe("銀行振込配送API (bank-transfer/shipping/route.ts)", () => {
 
     // intake: NG ではない
     tableChains["intake"] = createChain({ data: { status: "OK" }, error: null });
-    // orders: 挿入成功
-    tableChains["orders"] = createChain({ data: [{ id: "bt_pending_123" }], error: null });
+    // orders: 1回目（二重注文チェック）→ 空、2回目（insert）→ 成功
+    const ordersChain = createChain({ data: [], error: null });
+    let ordersCallCount = 0;
+    ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => {
+      ordersCallCount++;
+      if (ordersCallCount === 1) return resolve({ data: [], error: null });
+      return resolve({ data: [{ id: "bt_pending_123" }], error: null });
+    });
+    tableChains["orders"] = ordersChain;
     // reorders: reorder_number でヒット
     tableChains["reorders"] = createChain({
       data: [{ id: 5 }],
@@ -204,7 +222,15 @@ describe("銀行振込配送API (bank-transfer/shipping/route.ts)", () => {
     });
 
     tableChains["intake"] = createChain({ data: { status: "OK" }, error: null });
-    tableChains["orders"] = createChain({ data: [{ id: "bt_pending_123" }], error: null });
+    // orders: 1回目（二重注文チェック）→ 空、2回目（insert）→ 成功
+    const ordersChain2 = createChain({ data: [], error: null });
+    let ordersCallCount2 = 0;
+    ordersChain2.then = vi.fn((resolve: (val: unknown) => unknown) => {
+      ordersCallCount2++;
+      if (ordersCallCount2 === 1) return resolve({ data: [], error: null });
+      return resolve({ data: [{ id: "bt_pending_123" }], error: null });
+    });
+    tableChains["orders"] = ordersChain2;
     // reorder_number で 0件 → 最初のselect呼び出しで空、次のselect呼び出しでヒット
     // チェーンは同じオブジェクトなので、最初は空で返るようにする
     const reorderChain = createChain({ data: [], error: null });
@@ -223,7 +249,15 @@ describe("銀行振込配送API (bank-transfer/shipping/route.ts)", () => {
     vi.mocked(parseBody).mockResolvedValue({ data: { ...baseData } });
 
     tableChains["intake"] = createChain({ data: { status: "OK" }, error: null });
-    tableChains["orders"] = createChain({ data: null, error: { message: "insert error" } });
+    // orders: 1回目（二重注文チェック）→ 空、2回目（insert）→ エラー
+    const ordersChainErr = createChain({ data: [], error: null });
+    let ordersCallCountErr = 0;
+    ordersChainErr.then = vi.fn((resolve: (val: unknown) => unknown) => {
+      ordersCallCountErr++;
+      if (ordersCallCountErr === 1) return resolve({ data: [], error: null });
+      return resolve({ data: null, error: { message: "insert error" } });
+    });
+    tableChains["orders"] = ordersChainErr;
 
     const req = createMockRequest("POST", "http://localhost/api/bank-transfer/shipping");
     const res = await POST(req);
@@ -237,7 +271,15 @@ describe("銀行振込配送API (bank-transfer/shipping/route.ts)", () => {
 
     // intake: null（レコードなし）→ NG ではないので通過
     tableChains["intake"] = createChain({ data: null, error: null });
-    tableChains["orders"] = createChain({ data: [{ id: "bt_pending_123" }], error: null });
+    // orders: 1回目（二重注文チェック）→ 空、2回目（insert）→ 成功
+    const ordersChainNull = createChain({ data: [], error: null });
+    let ordersCallCountNull = 0;
+    ordersChainNull.then = vi.fn((resolve: (val: unknown) => unknown) => {
+      ordersCallCountNull++;
+      if (ordersCallCountNull === 1) return resolve({ data: [], error: null });
+      return resolve({ data: [{ id: "bt_pending_123" }], error: null });
+    });
+    tableChains["orders"] = ordersChainNull;
 
     const req = createMockRequest("POST", "http://localhost/api/bank-transfer/shipping");
     const res = await POST(req);

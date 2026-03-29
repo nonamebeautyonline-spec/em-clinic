@@ -53,6 +53,8 @@ const TENANT_EXEMPT_ROUTES = new Set([
   "app/api/cron/audit-archive/route.ts",
   // cron/webhook-cleanup（全テナント横断のWebhookスタック検知・クリーンアップCron）
   "app/api/cron/webhook-cleanup/route.ts",
+  // cron/ai-reply（全テナント横断のAI返信デバウンス処理・expired一括清掃Cron）
+  "app/api/cron/ai-reply/route.ts",
   // Google Calendar OAuthコールバック（stateパラメータからtenantIdを取得し直接.eq()で使用）
   "app/api/admin/google-calendar/callback/route.ts",
   // ジャンクションテーブル操作（tenant_idカラムなし、親テーブル経由でテナント分離）
@@ -128,6 +130,7 @@ describe("テナント分離: 患者向けAPIルート", () => {
       (src.includes("resolveTenantId") || src.includes("resolveTenantIdOrThrow")) ||
       (src.includes("withTenant") || src.includes("strictWithTenant")) ||
       src.includes("tenantPayload") ||
+      src.includes("tenant_id") || // slugからテナント解決→直接.eq("tenant_id")パターン
       src.includes("getSettingOrEnv"); // テナント別設定取得
     expect(hasTenantSupport).toBe(true);
   });

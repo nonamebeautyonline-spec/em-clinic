@@ -27,6 +27,39 @@ const featuredSlugs = [
   "clinic-dx-complete-guide",
 ];
 
+const intentSections = [
+  {
+    title: "比較・選定で探す",
+    description: "導入検討の初期段階で読まれやすい比較系の記事です。",
+    slugs: [
+      "lstep-vs-clinic-tool",
+      "reservation-system-comparison",
+      "clinic-crm-comparison",
+      "line-operation-outsource-vs-inhouse",
+    ],
+  },
+  {
+    title: "導入・DXで探す",
+    description: "何から着手すべきかを整理したい院長・運用責任者向けです。",
+    slugs: [
+      "clinic-dx-complete-guide",
+      "clinic-dx-guide",
+      "line-operation-guide",
+      "online-questionnaire-guide",
+    ],
+  },
+  {
+    title: "課題解決で探す",
+    description: "無断キャンセル、再診率、返信対応など個別課題の改善記事です。",
+    slugs: [
+      "line-reservation-no-show",
+      "segment-delivery-repeat",
+      "ai-auto-reply-guide",
+      "line-block-rate-reduction",
+    ],
+  },
+];
+
 /* ─── 人気記事 ─── */
 const popularSlugs = [
   "clinic-line-case-studies",
@@ -60,12 +93,12 @@ export default function ColumnIndex() {
             <Link href="/lp/about" className="hidden text-[14px] text-gray-500 hover:text-blue-600 transition md:block">Lオペとは</Link>
             <Link href="/lp/features" className="hidden text-[14px] text-gray-500 hover:text-blue-600 transition md:block">機能一覧</Link>
             <Link href="/lp/column" className="hidden text-[14px] font-medium text-blue-600 md:block">コラム</Link>
-            <a
+            <Link
               href="/#contact"
               className="rounded-full bg-blue-600 px-6 py-2.5 text-[13px] font-semibold text-white transition hover:bg-blue-700 hover:shadow-md"
             >
               無料で資料請求
-            </a>
+            </Link>
           </div>
         </div>
       </header>
@@ -142,6 +175,49 @@ export default function ColumnIndex() {
                     <p className="text-[13px] leading-relaxed text-gray-500 line-clamp-3">{a.description}</p>
                   </div>
                 </Link>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* 検索意図別の導線 */}
+      <div className="border-b border-gray-200 bg-white px-6 py-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-5">
+            <h2 className="text-[20px] font-bold tracking-tight text-gray-900">目的別に読む</h2>
+            <p className="mt-2 text-[14px] leading-relaxed text-gray-500">
+              近いテーマの記事が多いため、検索意図ごとに入口を整理しています。
+            </p>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            {intentSections.map((section) => {
+              const sectionArticles = section.slugs
+                .map((slug) => articles.find((article) => article.slug === slug))
+                .filter(Boolean);
+
+              return (
+                <section
+                  key={section.title}
+                  className="rounded-2xl border border-gray-200 bg-gray-50 p-5"
+                >
+                  <h3 className="text-[16px] font-bold text-gray-900">{section.title}</h3>
+                  <p className="mt-2 text-[13px] leading-relaxed text-gray-500">{section.description}</p>
+                  <div className="mt-4 space-y-3">
+                    {sectionArticles.map((article) => (
+                      <Link
+                        key={article!.slug}
+                        href={`/lp/column/${article!.slug}`}
+                        className="block rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200 transition hover:ring-blue-200"
+                      >
+                        <p className="text-[13px] font-semibold leading-snug text-gray-900">
+                          {article!.title}
+                        </p>
+                        <p className="mt-1 text-[12px] text-gray-400">{article!.readTime}</p>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
               );
             })}
           </div>
@@ -228,12 +304,12 @@ export default function ColumnIndex() {
                 予約・問診・配信・決済・配送管理をオールインワンで。<br className="hidden sm:block" />まずは無料で資料をご覧ください。
               </p>
               <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-                <a
+                <Link
                   href="/#contact"
                   className="rounded-full bg-blue-600 px-8 py-3.5 text-[14px] font-bold text-white transition hover:bg-blue-700 hover:shadow-lg"
                 >
                   無料で資料請求
-                </a>
+                </Link>
                 <Link
                   href="/lp/features"
                   className="rounded-full bg-white px-8 py-3.5 text-[14px] font-bold text-gray-600 ring-1 ring-gray-200 transition hover:bg-gray-50 hover:text-blue-600"
@@ -312,12 +388,12 @@ export default function ColumnIndex() {
               <div className="rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 p-6 text-center ring-1 ring-blue-100">
                 <p className="text-[14px] font-bold text-gray-800">まずは資料請求から</p>
                 <p className="mt-1.5 text-[12px] text-gray-500">機能・料金・事例をまとめた資料を<br />無料でお送りします</p>
-                <a
+                <Link
                   href="/#contact"
                   className="mt-4 inline-block w-full rounded-full bg-blue-600 py-3 text-[13px] font-bold text-white transition hover:bg-blue-700 hover:shadow-md"
                 >
                   無料で資料請求
-                </a>
+                </Link>
               </div>
             </div>
           </aside>
