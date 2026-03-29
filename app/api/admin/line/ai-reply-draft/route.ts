@@ -8,7 +8,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import Anthropic from "@anthropic-ai/sdk";
-import { sendAiReply, buildSystemPrompt, type RejectedDraftEntry } from "@/lib/ai-reply";
+import { sendAiReply, buildSystemPrompt, buildUserMessage, fetchPatientFlowStatus, type RejectedDraftEntry } from "@/lib/ai-reply";
 import { saveAiReplyExample, boostExampleQuality, penalizeExampleQuality, executeRAGPipeline } from "@/lib/embedding";
 import { getSettingOrEnv } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
     if (!apiKey) return serverError("APIキー未設定");
 
     const { data: settings } = await withTenant(
-      supabaseAdmin.from("ai_reply_settings").select("knowledge_base, custom_instructions, medical_reply_mode, model_id").maybeSingle(),
+      supabaseAdmin.from("ai_reply_settings").select("knowledge_base, custom_instructions, medical_reply_mode, model_id, greeting_reply_enabled").maybeSingle(),
       draft.tenant_id as string | null
     );
     const modelId = settings?.model_id || "claude-sonnet-4-6";
@@ -159,10 +159,33 @@ export async function POST(req: NextRequest) {
     const draftReply = draft.draft_reply as string;
     const draftTenantId = draft.tenant_id as string | null;
 
-    // RAGパイプライン
+    // 患者ステータスと会話履歴を取得（webhook側と同等のコンテキストを提供）
+    const patientId = draft.patient_id as string;
+    const [{ data: recentMsgs }, patientStatus] = await Promise.all([
+      withTenant(
+        supabaseAdmin
+          .from("message_log")
+          .select("direction, content, event_type, sent_at")
+          .eq("patient_id", patientId)
+          .in("event_type", ["message", "auto_reply", "ai_reply"])
+          .order("sent_at", { ascending: false })
+          .limit(15),
+        draftTenantId
+      ),
+      fetchPatientFlowStatus(patientId, draftTenantId),
+    ]);
+    const sorted = (recentMsgs || []).reverse();
+    // 最後のoutgoing以降を除いた会話コンテキスト
+    let lastOutgoingIdx = -1;
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      if (sorted[i].direction === "outgoing") { lastOutgoingIdx = i; break; }
+    }
+    const contextMessages = lastOutgoingIdx >= 0 ? sorted.slice(0, lastOutgoingIdx + 1) : [];
+
+    // RAGパイプライン（会話コンテキスト付き）
     const ragResult = await executeRAGPipeline({
       pendingMessages: [origMessage],
-      contextMessages: [],
+      contextMessages,
       tenantId: draftTenantId,
       knowledgeBase: settings?.knowledge_base || "",
     });
@@ -184,9 +207,12 @@ export async function POST(req: NextRequest) {
       (rejectedDrafts as RejectedDraftEntry[] | null) ?? undefined,
       ragResult.examples,
       settings?.medical_reply_mode || "confirm",
-      false,
+      !!settings?.greeting_reply_enabled,
       ragResult.knowledgeChunks
     );
+
+    // 患者コンテキストをbuildUserMessageで構築
+    const patientContext = buildUserMessage([origMessage], contextMessages, patientStatus);
 
     // 過去の指示を全て含めたプロンプト
     const pastSection = pastInstructions.length > 0
@@ -195,8 +221,7 @@ export async function POST(req: NextRequest) {
 
     const userMessage = `以下のAI返信案をスタッフの修正指示に従って改善してください。
 
-## 患者からの元メッセージ
-${origMessage}
+${patientContext}
 
 ## 現在のAI返信案
 ${draftReply}${pastSection}
