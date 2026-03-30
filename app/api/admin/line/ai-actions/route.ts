@@ -8,8 +8,8 @@ import { approveAndExecuteAction, rejectAction } from "@/lib/ai-safe-actions";
 
 // GET: ドラフトに紐づくproposed actionsを取得
 export async function GET(req: NextRequest) {
-  const auth = verifyAdminAuth(req);
-  if (!auth) return unauthorized();
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) return unauthorized();
   const tenantId = resolveTenantIdOrThrow(req);
 
   const url = new URL(req.url);
@@ -31,8 +31,8 @@ export async function GET(req: NextRequest) {
 
 // POST: アクション承認/却下
 export async function POST(req: NextRequest) {
-  const auth = verifyAdminAuth(req);
-  if (!auth) return unauthorized();
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) return unauthorized();
   const tenantId = resolveTenantIdOrThrow(req);
 
   const body = await req.json();
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
   try {
     if (decision === "approve") {
-      const result = await approveAndExecuteAction(action_id, auth.name || "admin", tenantId);
+      const result = await approveAndExecuteAction(action_id, "admin", tenantId);
       return NextResponse.json({ ok: true, result });
     } else {
       await rejectAction(action_id);
