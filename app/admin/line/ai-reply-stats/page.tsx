@@ -55,8 +55,28 @@ interface RecentDraft {
   draftReply: string;
   confidence: number | null;
   modelUsed: string | null;
+  routingReason: string | null;
   createdAt: string;
   sentAt: string | null;
+}
+
+interface ModelStat {
+  model: string;
+  total: number;
+  sent: number;
+  rejected: number;
+  approvalRate: number;
+}
+
+interface ModelUsageRatio {
+  haiku: number;
+  sonnet: number;
+  haikuPercent: number;
+}
+
+interface RoutingReasonStat {
+  reason: string;
+  count: number;
 }
 
 interface RejectCategoryStat {
@@ -74,10 +94,21 @@ interface StatsData {
   categoryStats: CategoryStat[];
   rejectCategoryStats: RejectCategoryStat[];
   editRate: number;
+  modificationRate: number;
+  retrievalUsageRate: number;
+  hallucinationRate: number;
+  avgGenerationTimeSec: number;
   qualityDistribution: QualityBucket[];
   examplesCount: number;
   dailyTrend: DailyTrend[];
   recentDrafts: RecentDraft[];
+  modelStats: ModelStat[];
+  modelUsageRatio: ModelUsageRatio;
+  routingReasonStats: RoutingReasonStat[];
+  reuseRate: number;
+  humanInterventionRate: number;
+  resolutionRate: number;
+  evalEligibleCount: number;
   period: number;
 }
 
@@ -101,6 +132,26 @@ const CATEGORY_COLORS: Record<string, string> = {
   shipping: "#3b82f6",
   payment: "#8b5cf6",
   other: "#9ca3af",
+};
+
+// モデルラベル
+const MODEL_LABELS: Record<string, string> = {
+  "claude-sonnet-4-6": "Sonnet 4.6",
+  "claude-haiku-4-5-20251001": "Haiku 4.5",
+  "claude-opus-4-6": "Opus 4.6",
+};
+
+// ルーティング理由ラベル
+const ROUTING_REASON_LABELS: Record<string, string> = {
+  greeting_any: "挨拶",
+  operational_high_confidence: "運用系・高信頼度",
+  operational_low_confidence: "運用系・低信頼度",
+  medical_always_sonnet: "医療系",
+  other_escalate: "エスカレーション",
+  other_high_confidence: "その他・高信頼度",
+  other_low_confidence: "その他・低信頼度",
+  classification_failed: "分類失敗",
+  routing_disabled: "ルーティング無効",
 };
 
 // 却下理由ラベル
@@ -208,7 +259,7 @@ export function AIReplyStatsContent() {
     );
   }
 
-  const { kpi, categoryStats, rejectCategoryStats, editRate, qualityDistribution, examplesCount, dailyTrend, recentDrafts } = data;
+  const { kpi, categoryStats, rejectCategoryStats, editRate, qualityDistribution, examplesCount, dailyTrend, recentDrafts, modelStats, modelUsageRatio, routingReasonStats, reuseRate, humanInterventionRate, resolutionRate, evalEligibleCount } = data;
 
   return (
     <div className="space-y-6">
@@ -336,7 +387,102 @@ export function AIReplyStatsContent() {
           iconBg="bg-teal-100"
           iconColor="text-teal-600"
         />
+        {modelUsageRatio && modelUsageRatio.haiku + modelUsageRatio.sonnet > 0 && (
+          <KPICard
+            label="Haiku利用率"
+            value={`${modelUsageRatio.haikuPercent}%`}
+            sub={`Haiku ${modelUsageRatio.haiku}件 / 全${modelUsageRatio.haiku + modelUsageRatio.sonnet}件`}
+            icon={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            }
+            gradient="from-emerald-50 to-green-50"
+            border="border-emerald-100/50"
+            valueColor="text-emerald-700"
+            subColor="text-emerald-500"
+            iconBg="bg-emerald-100"
+            iconColor="text-emerald-600"
+          />
+        )}
       </div>
+
+      {/* Outcome Evals */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <KPICard
+          label="再利用率"
+          value={`${reuseRate ?? 0}%`}
+          sub="Semantic Reuse"
+          icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>}
+          gradient="from-cyan-50 to-sky-50"
+          border="border-cyan-100/50"
+          valueColor="text-cyan-700"
+          subColor="text-cyan-500"
+          iconBg="bg-cyan-100"
+          iconColor="text-cyan-600"
+        />
+        <KPICard
+          label="解決率"
+          value={`${resolutionRate ?? 0}%`}
+          sub={`${evalEligibleCount ?? 0}件対象`}
+          icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+          gradient="from-green-50 to-emerald-50"
+          border="border-green-100/50"
+          valueColor="text-green-700"
+          subColor="text-green-500"
+          iconBg="bg-green-100"
+          iconColor="text-green-600"
+        />
+        <KPICard
+          label="人手介入率"
+          value={`${humanInterventionRate ?? 0}%`}
+          sub="却下+修正 / 全体"
+          icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
+          gradient="from-rose-50 to-pink-50"
+          border="border-rose-100/50"
+          valueColor="text-rose-700"
+          subColor="text-rose-500"
+          iconBg="bg-rose-100"
+          iconColor="text-rose-600"
+        />
+      </div>
+
+      {/* モデル別承認率（Case Routing有効時のみ表示） */}
+      {modelStats && modelStats.length > 1 && (
+        <div className="bg-white rounded-lg border p-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">モデル別統計</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-gray-500">
+                  <th className="py-2 font-normal">モデル</th>
+                  <th className="py-2 font-normal text-right">件数</th>
+                  <th className="py-2 font-normal text-right">送信</th>
+                  <th className="py-2 font-normal text-right">却下</th>
+                  <th className="py-2 font-normal text-right">承認率</th>
+                </tr>
+              </thead>
+              <tbody>
+                {modelStats.map((m) => (
+                  <tr key={m.model} className="border-b border-gray-50">
+                    <td className="py-2">
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                        m.model.includes("haiku") ? "bg-green-100 text-green-700" : "bg-purple-100 text-purple-700"
+                      }`}>
+                        {MODEL_LABELS[m.model] || m.model}
+                      </span>
+                    </td>
+                    <td className="py-2 text-right">{m.total}</td>
+                    <td className="py-2 text-right">{m.sent}</td>
+                    <td className="py-2 text-right">{m.rejected}</td>
+                    <td className="py-2 text-right font-medium">{m.approvalRate}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* グラフ・テーブル */}
         {/* 日次件数推移（AreaChart） */}
@@ -610,6 +756,30 @@ export function AIReplyStatsContent() {
           />
         </div>
 
+        {/* AI品質メトリクス */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <MiniKPI
+            label="修正送信率"
+            value={`${data.modificationRate}%`}
+            color="text-amber-600"
+          />
+          <MiniKPI
+            label="RAG活用率"
+            value={`${data.retrievalUsageRate}%`}
+            color="text-green-600"
+          />
+          <MiniKPI
+            label="誤情報率"
+            value={`${data.hallucinationRate}%`}
+            color={data.hallucinationRate > 20 ? "text-red-600" : "text-gray-600"}
+          />
+          <MiniKPI
+            label="平均生成時間"
+            value={data.avgGenerationTimeSec > 0 ? `${data.avgGenerationTimeSec}秒` : "-"}
+            color="text-cyan-600"
+          />
+        </div>
+
         {/* 直近のドラフト一覧テーブル */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2">
@@ -637,6 +807,7 @@ export function AIReplyStatsContent() {
                     <th className="px-4 py-2.5 text-left">元メッセージ</th>
                     <th className="px-4 py-2.5 text-left">返信案</th>
                     <th className="px-4 py-2.5 text-right">信頼度</th>
+                    <th className="px-4 py-2.5 text-center">モデル</th>
                     <th className="px-4 py-2.5 text-right">日時</th>
                   </tr>
                 </thead>
@@ -661,6 +832,15 @@ export function AIReplyStatsContent() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <ConfidenceBar value={d.confidence} />
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {d.modelUsed && (
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                            d.modelUsed.includes("haiku") ? "bg-green-100 text-green-700" : "bg-purple-100 text-purple-700"
+                          }`}>
+                            {MODEL_LABELS[d.modelUsed] || d.modelUsed.split("-").slice(1, 3).join(" ")}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <span className="text-[11px] text-gray-400 whitespace-nowrap">

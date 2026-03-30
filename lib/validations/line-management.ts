@@ -99,6 +99,14 @@ export const updateAiReplySettingsSchema = z
     rag_similarity_threshold: z.number().min(0).max(1).optional(),
     rag_max_examples: z.number().int().min(1).max(20).optional(),
     rag_max_kb_chunks: z.number().int().min(1).max(20).optional(),
+    // Cost Guard設定
+    debounce_sec: z.number().int().min(5).max(120).optional(),
+    daily_cost_limit_usd: z.number().min(0).max(10000).optional(),
+    rate_limit_30s: z.number().int().min(1).max(100).optional(),
+    rate_limit_1h: z.number().int().min(1).max(1000).optional(),
+    spam_filter_enabled: z.boolean().optional(),
+    // Case Routing設定
+    case_routing_enabled: z.boolean().optional(),
   })
   .passthrough();
 

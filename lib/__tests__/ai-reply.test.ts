@@ -41,6 +41,15 @@ vi.mock("@/lib/redis", () => ({
   },
 }));
 vi.mock("@/lib/line-push", () => ({ pushMessage: vi.fn() }));
+vi.mock("@/lib/ai-cost-guard", () => ({
+  checkAiRateLimit: vi.fn().mockResolvedValue({ blocked: false }),
+  checkRepeatMessage: vi.fn().mockResolvedValue({ blocked: false }),
+  checkDailyCostLimit: vi.fn().mockResolvedValue({ blocked: false }),
+  isInCooldown: vi.fn().mockResolvedValue(false),
+  setCooldown: vi.fn().mockResolvedValue(undefined),
+  incrementBlockCount: vi.fn().mockResolvedValue(undefined),
+  getBlockCounts: vi.fn().mockResolvedValue({ rate_limit: 0, repeat_message: 0, cost_limit: 0 }),
+}));
 vi.mock("@/lib/ai-reply-filter", () => ({ shouldProcessWithAI: vi.fn() }));
 vi.mock("@/lib/ai-reply-approval", () => ({ sendApprovalFlexMessage: vi.fn() }));
 vi.mock("@/lib/settings", () => ({ getSettingOrEnv: vi.fn() }));
@@ -50,11 +59,18 @@ vi.mock("@/lib/embedding", () => ({
   boostExampleQuality: vi.fn().mockResolvedValue(undefined),
   penalizeExampleQuality: vi.fn().mockResolvedValue(undefined),
   saveKnowledgeChunks: vi.fn().mockResolvedValue(undefined),
+  generateEmbedding: vi.fn().mockResolvedValue([0.1, 0.2, 0.3]),
   executeRAGPipeline: vi.fn().mockResolvedValue({
     examples: [],
     knowledgeChunks: [],
     rewrittenQuery: "",
   }),
+}));
+vi.mock("@/lib/ai-semantic-reuse", () => ({
+  searchReuseCandidate: vi.fn().mockResolvedValue({ found: false, candidate: null, reason: "no_match" }),
+}));
+vi.mock("@/lib/ai-escalation", () => ({
+  generateEscalationDetail: vi.fn().mockResolvedValue(null),
 }));
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
@@ -299,6 +315,47 @@ describe("scheduleAiReply", () => {
     expect(redis.sadd).toHaveBeenCalledWith("ai_debounce_keys", "p1");
   });
 
+  it("レート制限ブロック → Redis保存されない", async () => {
+    tableChains.ai_reply_settings.then.mockImplementation((r: (val: unknown) => unknown) =>
+      r({ data: { is_enabled: true, spam_filter_enabled: true }, error: null })
+    );
+    vi.mocked(shouldProcessWithAI).mockReturnValue({ process: true });
+    const { checkAiRateLimit } = await import("@/lib/ai-cost-guard");
+    vi.mocked(checkAiRateLimit).mockResolvedValueOnce({ blocked: true, reason: "rate_limit" });
+
+    await scheduleAiReply("uid1", "p1", "田中", "予約を変更したいです", null);
+    expect(redis.set).not.toHaveBeenCalled();
+    expect(redis.sadd).not.toHaveBeenCalled();
+  });
+
+  it("同一文連投ブロック → Redis保存されない", async () => {
+    tableChains.ai_reply_settings.then.mockImplementation((r: (val: unknown) => unknown) =>
+      r({ data: { is_enabled: true, spam_filter_enabled: true }, error: null })
+    );
+    vi.mocked(shouldProcessWithAI).mockReturnValue({ process: true });
+    const { checkAiRateLimit, checkRepeatMessage } = await import("@/lib/ai-cost-guard");
+    vi.mocked(checkAiRateLimit).mockResolvedValueOnce({ blocked: false });
+    vi.mocked(checkRepeatMessage).mockResolvedValueOnce({ blocked: true, reason: "repeat_message" });
+
+    await scheduleAiReply("uid1", "p1", "田中", "同じ文章です", null);
+    expect(redis.set).not.toHaveBeenCalled();
+    expect(redis.sadd).not.toHaveBeenCalled();
+  });
+
+  it("spam_filter_enabled=false → レート制限チェックをスキップしてRedis保存される", async () => {
+    tableChains.ai_reply_settings.then.mockImplementation((r: (val: unknown) => unknown) =>
+      r({ data: { is_enabled: true, spam_filter_enabled: false }, error: null })
+    );
+    vi.mocked(shouldProcessWithAI).mockReturnValue({ process: true });
+    const { checkAiRateLimit } = await import("@/lib/ai-cost-guard");
+
+    await scheduleAiReply("uid1", "p1", "田中", "予約を変更したいです", null);
+    // レート制限は呼ばれない
+    expect(checkAiRateLimit).not.toHaveBeenCalled();
+    // Redis保存される
+    expect(redis.set).toHaveBeenCalledTimes(1);
+  });
+
   it("Redis set失敗 → エラーをキャッチしてリターン", async () => {
     tableChains.ai_reply_settings.then.mockImplementation((r: (val: unknown) => unknown) =>
       r({ data: { is_enabled: true }, error: null })
@@ -511,6 +568,41 @@ describe("processAiReply（間接テスト）", () => {
 
     const result = await processPendingAiReplies();
     expect(result).toBe(1);
+  });
+
+  it("cooldown中 → 早期リターン（設定取得前にスキップ）", async () => {
+    setupForProcessAiReply();
+    const { isInCooldown } = await import("@/lib/ai-cost-guard");
+    vi.mocked(isInCooldown).mockResolvedValueOnce(true);
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+    // cooldownで早期リターンするのでsettingsクエリは呼ばれない
+    // （processAiReply内でcooldownチェックはsettings取得前）
+  });
+
+  it("日次コスト上限到達 → 早期リターン", async () => {
+    setupForProcessAiReply();
+    const settings = { is_enabled: true, daily_limit: 100 };
+
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") {
+        return createChain({ data: settings, error: null });
+      }
+      if (table === "ai_reply_drafts") {
+        return createChain({ data: null, error: null, count: 0 });
+      }
+      return createChain();
+    });
+
+    const { checkDailyCostLimit } = await import("@/lib/ai-cost-guard");
+    vi.mocked(checkDailyCostLimit).mockResolvedValueOnce({ blocked: true, reason: "cost_limit" });
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+    // APIキー取得まで到達しない
+    expect(getSettingOrEnv).not.toHaveBeenCalled();
   });
 
   it("APIキー未設定 → 早期リターン", async () => {
@@ -1856,3 +1948,4 @@ describe("fetchPatientFlowStatus", () => {
     expect(result.hasCompletedQuestionnaire).toBe(false);
   });
 });
+

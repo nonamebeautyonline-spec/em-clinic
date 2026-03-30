@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
     daily_limit: 100,
     approval_timeout_hours: 24,
     model_id: "claude-sonnet-4-6",
+    case_routing_enabled: false,
   };
   // model_id が未設定（既存レコード）の場合はデフォルト値を補完
   if (!settings.model_id) {
@@ -100,6 +101,12 @@ export async function PUT(req: NextRequest) {
     rag_similarity_threshold,
     rag_max_examples,
     rag_max_kb_chunks,
+    debounce_sec,
+    daily_cost_limit_usd,
+    rate_limit_30s,
+    rate_limit_1h,
+    spam_filter_enabled,
+    case_routing_enabled,
   } = parsed.data;
 
   // 既存設定を確認
@@ -122,6 +129,14 @@ export async function PUT(req: NextRequest) {
     rag_similarity_threshold: rag_similarity_threshold ?? 0.35,
     rag_max_examples: rag_max_examples ?? 5,
     rag_max_kb_chunks: rag_max_kb_chunks ?? 5,
+    // Cost Guard設定
+    debounce_sec: debounce_sec ?? 15,
+    daily_cost_limit_usd: daily_cost_limit_usd ?? 10.0,
+    rate_limit_30s: rate_limit_30s ?? 3,
+    rate_limit_1h: rate_limit_1h ?? 30,
+    spam_filter_enabled: spam_filter_enabled ?? true,
+    // Case Routing設定
+    case_routing_enabled: case_routing_enabled ?? false,
     updated_at: new Date().toISOString(),
   };
 

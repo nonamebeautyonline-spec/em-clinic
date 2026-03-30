@@ -19,6 +19,14 @@ interface AiReplySettings {
   rag_similarity_threshold: number;
   rag_max_examples: number;
   rag_max_kb_chunks: number;
+  // Cost Guard設定
+  debounce_sec: number;
+  daily_cost_limit_usd: number;
+  rate_limit_30s: number;
+  rate_limit_1h: number;
+  spam_filter_enabled: boolean;
+  // Case Routing設定
+  case_routing_enabled: boolean;
 }
 
 type DayOfWeek = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
@@ -63,6 +71,12 @@ const DEFAULT_SETTINGS: AiReplySettings = {
   rag_similarity_threshold: 0.35,
   rag_max_examples: 5,
   rag_max_kb_chunks: 5,
+  debounce_sec: 15,
+  daily_cost_limit_usd: 10.0,
+  rate_limit_30s: 3,
+  rate_limit_1h: 30,
+  spam_filter_enabled: true,
+  case_routing_enabled: false,
 };
 
 const DEFAULT_BUSINESS_HOURS: BusinessHoursConfig = {
@@ -363,6 +377,89 @@ export default function AiReplySettingsPage() {
         </div>
       </div>
 
+      {/* Case Routing（自動モデル振り分け） */}
+      <div className="bg-white rounded-lg border p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold text-gray-700">Case Routing（自動モデル振り分け）</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              分類結果に応じてHaiku（高速・低コスト）とSonnet（高精度）を自動選択
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSettings(s => ({ ...s, case_routing_enabled: !s.case_routing_enabled }))}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              settings.case_routing_enabled ? "bg-purple-600" : "bg-gray-300"
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                settings.case_routing_enabled ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
+        {settings.case_routing_enabled && (
+          <div className="space-y-2">
+            <p className="text-xs text-gray-500">
+              上の「AIモデル」の選択はSonnet側モデルとして使用されます
+            </p>
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-1 text-gray-500 font-normal">分類</th>
+                  <th className="text-left py-1 text-gray-500 font-normal">条件</th>
+                  <th className="text-left py-1 text-gray-500 font-normal">モデル</th>
+                </tr>
+              </thead>
+              <tbody className="text-gray-600">
+                <tr className="border-b border-gray-100">
+                  <td className="py-1">挨拶</td>
+                  <td className="py-1">-</td>
+                  <td className="py-1"><span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700">Haiku</span></td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="py-1">運用系</td>
+                  <td className="py-1">信頼度 &ge; 0.8</td>
+                  <td className="py-1"><span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700">Haiku</span></td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="py-1">運用系</td>
+                  <td className="py-1">信頼度 &lt; 0.8</td>
+                  <td className="py-1"><span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">Sonnet</span></td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="py-1">医療系</td>
+                  <td className="py-1">常に</td>
+                  <td className="py-1"><span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">Sonnet</span></td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="py-1">その他</td>
+                  <td className="py-1">エスカレーション</td>
+                  <td className="py-1"><span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">Sonnet</span></td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="py-1">その他</td>
+                  <td className="py-1">信頼度 &ge; 0.8</td>
+                  <td className="py-1"><span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700">Haiku</span></td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="py-1">その他</td>
+                  <td className="py-1">信頼度 &lt; 0.8</td>
+                  <td className="py-1"><span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">Sonnet</span></td>
+                </tr>
+                <tr>
+                  <td className="py-1">分類失敗</td>
+                  <td className="py-1">-</td>
+                  <td className="py-1"><span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">Sonnet</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* 営業時間設定 */}
       <div className="bg-white rounded-lg border p-4 space-y-4">
         <div className="flex items-center justify-between">
@@ -631,6 +728,75 @@ export default function AiReplySettingsPage() {
         </div>
       </div>
 
+      {/* コスト防御設定 */}
+      <div className="bg-white rounded-lg border p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-gray-700">コスト防御（Anti-Spam）</h2>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <span className="text-xs text-gray-500">{settings.spam_filter_enabled ? "有効" : "無効"}</span>
+            <input
+              type="checkbox"
+              checked={settings.spam_filter_enabled}
+              onChange={e => setSettings(s => ({ ...s, spam_filter_enabled: e.target.checked }))}
+              className="sr-only peer"
+            />
+            <div className="relative w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5" />
+          </label>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">デバウンス（秒）</label>
+            <input
+              type="number"
+              min={5}
+              max={120}
+              value={settings.debounce_sec}
+              onChange={e => setSettings(s => ({ ...s, debounce_sec: Number(e.target.value) || 15 }))}
+              className="w-full border rounded px-2 py-1.5 text-sm"
+            />
+            <p className="text-[10px] text-gray-400 mt-0.5">メッセージ待機時間</p>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">30秒レート上限</label>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={settings.rate_limit_30s}
+              onChange={e => setSettings(s => ({ ...s, rate_limit_30s: Number(e.target.value) || 3 }))}
+              className="w-full border rounded px-2 py-1.5 text-sm"
+            />
+            <p className="text-[10px] text-gray-400 mt-0.5">30秒あたりの最大メッセージ数</p>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">1時間レート上限</label>
+            <input
+              type="number"
+              min={1}
+              max={1000}
+              value={settings.rate_limit_1h}
+              onChange={e => setSettings(s => ({ ...s, rate_limit_1h: Number(e.target.value) || 30 }))}
+              className="w-full border rounded px-2 py-1.5 text-sm"
+            />
+            <p className="text-[10px] text-gray-400 mt-0.5">1時間あたりの最大メッセージ数</p>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">日次コスト上限（USD）</label>
+            <input
+              type="number"
+              min={0}
+              max={10000}
+              step={0.5}
+              value={settings.daily_cost_limit_usd}
+              onChange={e => setSettings(s => ({ ...s, daily_cost_limit_usd: Number(e.target.value) || 10 }))}
+              className="w-full border rounded px-2 py-1.5 text-sm"
+            />
+            <p className="text-[10px] text-gray-400 mt-0.5">テナント全体の1日コスト上限</p>
+          </div>
+        </div>
+      </div>
+
       {/* メッセージ表示 */}
       {message && (
         <div className={`p-3 rounded text-sm ${
@@ -661,6 +827,7 @@ interface AiReplyExample {
   question: string;
   answer: string;
   source: "staff_edit" | "manual_reply";
+  category: string;
   used_count: number;
   quality_score: number | null;
   approved_count: number | null;
@@ -668,13 +835,24 @@ interface AiReplyExample {
   created_at: string;
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  staff_reply: "スタッフ返信",
+  rule: "ルール",
+  faq: "FAQ",
+};
+
 function AiReplyExamplesTab() {
   const { confirm, ConfirmDialog } = useConfirmModal();
   const examplesKey = "/api/admin/line/ai-reply-examples";
   const { data: exData, isLoading: loading } = useSWR(examplesKey);
-  const examples: AiReplyExample[] = exData?.examples || [];
+  const allExamples: AiReplyExample[] = exData?.examples || [];
   const total: number = exData?.total || 0;
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+
+  const examples = categoryFilter === "all"
+    ? allExamples
+    : allExamples.filter(ex => (ex.category || "staff_reply") === categoryFilter);
 
   const handleDelete = async (id: number) => {
     const ok = await confirm({ title: "学習例削除", message: "この学習例を削除しますか？", variant: "danger", confirmLabel: "削除する" });
@@ -707,7 +885,19 @@ function AiReplyExamplesTab() {
             スタッフの修正・手動返信から自動学習された Q&A です。AIは患者メッセージに類似する学習例を参考にして返信します。
           </p>
         </div>
-        <span className="text-sm text-gray-500">{total}件</span>
+        <div className="flex items-center gap-2">
+          <select
+            value={categoryFilter}
+            onChange={e => setCategoryFilter(e.target.value)}
+            className="text-xs border rounded px-2 py-1 text-gray-600"
+          >
+            <option value="all">すべて ({total})</option>
+            <option value="staff_reply">スタッフ返信</option>
+            <option value="rule">ルール</option>
+            <option value="faq">FAQ</option>
+          </select>
+          <span className="text-sm text-gray-500">{examples.length}件</span>
+        </div>
       </div>
 
       {examples.length === 0 ? (
@@ -733,6 +923,13 @@ function AiReplyExamplesTab() {
                       ex.source === "staff_edit" ? "bg-blue-50 text-blue-600" : "bg-green-50 text-green-600"
                     }`}>
                       {ex.source === "staff_edit" ? "修正送信" : "手動返信"}
+                    </span>
+                    <span className={`px-1.5 py-0.5 rounded ${
+                      (ex.category || "staff_reply") === "rule" ? "bg-orange-50 text-orange-600" :
+                      (ex.category || "staff_reply") === "faq" ? "bg-cyan-50 text-cyan-600" :
+                      "bg-gray-50 text-gray-500"
+                    }`}>
+                      {CATEGORY_LABELS[ex.category || "staff_reply"] || ex.category}
                     </span>
                     {(ex.quality_score != null) && (
                       <span className={`px-1.5 py-0.5 rounded ${

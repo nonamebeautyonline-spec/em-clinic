@@ -96,4 +96,39 @@ describe("shouldProcessWithAI", () => {
     const result = shouldProcessWithAI("明日の14時に予約したいです", "text", {});
     expect(result).toEqual({ process: true });
   });
+
+  // --- Phase 0 追加パターン ---
+
+  it("記号のみ「！？！？！？」→ skip_pattern", () => {
+    const result = shouldProcessWithAI("！？！？！？", "text", { min_message_length: 1 });
+    expect(result).toEqual({ process: false, reason: "skip_pattern" });
+  });
+
+  it("句読点のみ「。。。。。」→ skip_pattern", () => {
+    const result = shouldProcessWithAI("。。。。。", "text", { min_message_length: 1 });
+    expect(result).toEqual({ process: false, reason: "skip_pattern" });
+  });
+
+  it("同一文字繰り返し「あああああああああああ」→ skip_pattern", () => {
+    const result = shouldProcessWithAI("あああああああああああ", "text", { min_message_length: 1 });
+    expect(result).toEqual({ process: false, reason: "skip_pattern" });
+  });
+
+  it("URL3個以上 → skip_pattern", () => {
+    const msg = "https://example.com https://test.com https://spam.com";
+    const result = shouldProcessWithAI(msg, "text", { min_message_length: 1 });
+    expect(result).toEqual({ process: false, reason: "skip_pattern" });
+  });
+
+  it("URL1個含む質問文 → process: true", () => {
+    const msg = "https://example.com のページが見れないのですが確認お願いします";
+    const result = shouldProcessWithAI(msg, "text", {});
+    expect(result).toEqual({ process: true });
+  });
+
+  it("記号含む通常文 → process: true", () => {
+    const msg = "予約変更お願いします！明日の10時は空いてますか？";
+    const result = shouldProcessWithAI(msg, "text", {});
+    expect(result).toEqual({ process: true });
+  });
 });

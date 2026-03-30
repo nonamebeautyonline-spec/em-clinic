@@ -5,9 +5,11 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
-// トークンあたりの推定コスト（USD）— GPT-4o-mini 相当
-const COST_PER_INPUT_TOKEN = 0.00000015;
-const COST_PER_OUTPUT_TOKEN = 0.0000006;
+import {
+  ESTIMATED_COST_PER_INPUT_TOKEN,
+  ESTIMATED_COST_PER_OUTPUT_TOKEN,
+} from "@/lib/ai-cost-constants";
+import { getBlockCounts } from "@/lib/ai-cost-guard";
 
 export async function GET(req: NextRequest) {
   // 認証チェック
@@ -29,7 +31,7 @@ export async function GET(req: NextRequest) {
   const { data: drafts, error: draftsError } = await strictWithTenant(
     supabaseAdmin
       .from("ai_reply_drafts")
-      .select("id, status, ai_category, confidence, input_tokens, output_tokens, created_at, sent_at, original_message, draft_reply, model_used, reject_category")
+      .select("id, status, ai_category, confidence, input_tokens, output_tokens, created_at, sent_at, original_message, draft_reply, model_used, reject_category, modified_reply, retrieved_example_ids, message_received_at, routing_reason, reuse_source_example_id, patient_id")
       .gte("created_at", `${periodStartStr}T00:00:00Z`)
       .order("created_at", { ascending: false }),
     tenantId
@@ -60,7 +62,7 @@ export async function GET(req: NextRequest) {
   const totalOutputTokens = rows.reduce((sum, r) => sum + (r.output_tokens || 0), 0);
   const totalTokens = totalInputTokens + totalOutputTokens;
   const estimatedCost = Number(
-    (totalInputTokens * COST_PER_INPUT_TOKEN + totalOutputTokens * COST_PER_OUTPUT_TOKEN).toFixed(4)
+    (totalInputTokens * ESTIMATED_COST_PER_INPUT_TOKEN + totalOutputTokens * ESTIMATED_COST_PER_OUTPUT_TOKEN).toFixed(4)
   );
 
   // 平均応答時間（sent_at - created_at、sentのみ）
@@ -197,7 +199,31 @@ export async function GET(req: NextRequest) {
   }
   const qualityDistribution = qualityBuckets.map(({ range, count }) => ({ range, count }));
 
-  // --- 8. 直近ドラフト一覧（最新20件） ---
+  // --- 8. 新メトリクス（Phase 1-2 Evals基盤） ---
+  // スタッフ修正率（modified_replyが存在するsentドラフトの割合）
+  const modifiedSentCount = rows.filter((r) => r.status === "sent" && r.modified_reply).length;
+  const modificationRate = sentCount > 0 ? Number(((modifiedSentCount / sentCount) * 100).toFixed(1)) : 0;
+
+  // retrieval活用率（retrieved_example_idsが空でないドラフトの割合）
+  const retrievalUsedCount = rows.filter((r) => r.retrieved_example_ids && r.retrieved_example_ids.length > 0).length;
+  const retrievalUsageRate = total > 0 ? Number(((retrievalUsedCount / total) * 100).toFixed(1)) : 0;
+
+  // hallucination率（却下理由がwrong_infoの割合）
+  const wrongInfoCount = rows.filter((r) => r.status === "rejected" && r.reject_category === "wrong_info").length;
+  const hallucinationRate = rejectedCount > 0 ? Number(((wrongInfoCount / rejectedCount) * 100).toFixed(1)) : 0;
+
+  // 平均生成時間（message_received_at → created_at）
+  const genTimeRows = rows.filter((r) => r.message_received_at && r.created_at);
+  const avgGenerationTimeSec = genTimeRows.length > 0
+    ? Math.round(
+        genTimeRows.reduce((sum, r) => {
+          const diff = new Date(r.created_at).getTime() - new Date(r.message_received_at).getTime();
+          return sum + Math.max(0, diff);
+        }, 0) / genTimeRows.length / 1000
+      )
+    : 0;
+
+  // --- 9. 直近ドラフト一覧（最新20件） ---
   const recentDrafts = rows.slice(0, 20).map((r) => ({
     id: r.id,
     status: r.status,
@@ -206,9 +232,114 @@ export async function GET(req: NextRequest) {
     draftReply: r.draft_reply?.slice(0, 80) || "",
     confidence: r.confidence,
     modelUsed: r.model_used,
+    routingReason: r.routing_reason || null,
     createdAt: r.created_at,
     sentAt: r.sent_at,
   }));
+
+  // --- 10. モデル別統計（Case Routing） ---
+  const modelUsageMap = new Map<string, { total: number; sent: number; rejected: number }>();
+  for (const r of rows) {
+    const model = r.model_used || "unknown";
+    if (!modelUsageMap.has(model)) {
+      modelUsageMap.set(model, { total: 0, sent: 0, rejected: 0 });
+    }
+    const entry = modelUsageMap.get(model)!;
+    entry.total++;
+    if (r.status === "sent") entry.sent++;
+    if (r.status === "rejected") entry.rejected++;
+  }
+  const modelStats = Array.from(modelUsageMap.entries()).map(([model, stats]) => ({
+    model,
+    total: stats.total,
+    sent: stats.sent,
+    rejected: stats.rejected,
+    approvalRate: stats.total > 0 ? Number(((stats.sent / stats.total) * 100).toFixed(1)) : 0,
+  }));
+
+  // Haiku/Sonnet使用比率
+  const haikuCount = rows.filter(r => r.model_used?.includes("haiku")).length;
+  const modelUsageRatio = {
+    haiku: haikuCount,
+    sonnet: total - haikuCount,
+    haikuPercent: total > 0 ? Number(((haikuCount / total) * 100).toFixed(1)) : 0,
+  };
+
+  // ルーティング理由分布
+  const routingReasonMap = new Map<string, number>();
+  for (const r of rows) {
+    if (r.routing_reason) {
+      routingReasonMap.set(r.routing_reason, (routingReasonMap.get(r.routing_reason) || 0) + 1);
+    }
+  }
+  const routingReasonStats = Array.from(routingReasonMap.entries())
+    .map(([reason, count]) => ({ reason, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // --- 12. Outcome Evals ---
+  // 再利用率
+  const reuseCount = rows.filter(r => r.reuse_source_example_id != null).length;
+  const reuseRate = total > 0 ? Number(((reuseCount / total) * 100).toFixed(1)) : 0;
+
+  // 人手介入率
+  const humanInterventionCount = rows.filter(r =>
+    r.status === "rejected" || (r.status === "sent" && r.modified_reply)
+  ).length;
+  const humanInterventionRate = total > 0 ? Number(((humanInterventionCount / total) * 100).toFixed(1)) : 0;
+
+  // 解決率（sent後24h経過したドラフトのみ対象）
+  // パフォーマンス考慮: patient_idを50件バッチで確認
+  const evalCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const evalEligible = rows.filter(r => r.status === "sent" && r.sent_at && r.sent_at < evalCutoff);
+
+  let resolvedCount = 0;
+  if (evalEligible.length > 0) {
+    // patient_id + sent_at のペアを収集
+    const patientSentPairs = evalEligible.map(r => ({ patientId: r.patient_id, sentAt: r.sent_at }));
+
+    // バッチで message_log を確認
+    const uniquePatientIds = Array.from(new Set(patientSentPairs.map(p => p.patientId)));
+    const batchSize = 50;
+    const followUpMap = new Map<string, string[]>(); // patient_id → incoming sent_at[]
+
+    for (let i = 0; i < uniquePatientIds.length; i += batchSize) {
+      const batch = uniquePatientIds.slice(i, i + batchSize);
+      const { data: msgs } = await strictWithTenant(
+        supabaseAdmin
+          .from("message_log")
+          .select("patient_id, sent_at")
+          .in("patient_id", batch)
+          .eq("direction", "incoming")
+          .gte("sent_at", evalCutoff),
+        tenantId
+      );
+      if (msgs) {
+        for (const m of msgs) {
+          if (!followUpMap.has(m.patient_id)) followUpMap.set(m.patient_id, []);
+          followUpMap.get(m.patient_id)!.push(m.sent_at);
+        }
+      }
+    }
+
+    // 各evalEligibleドラフトについて解決判定
+    for (const draft of evalEligible) {
+      const incomings = followUpMap.get(draft.patient_id) || [];
+      const draftSentAt = new Date(draft.sent_at).getTime();
+      const cutoff24h = draftSentAt + 24 * 60 * 60 * 1000;
+      const hasFollowUp = incomings.some(t => {
+        const inTime = new Date(t).getTime();
+        return inTime > draftSentAt && inTime <= cutoff24h;
+      });
+      if (!hasFollowUp) resolvedCount++;
+    }
+  }
+
+  const resolutionRate = evalEligible.length > 0
+    ? Number(((resolvedCount / evalEligible.length) * 100).toFixed(1))
+    : 0;
+
+  // ブロック件数（Redis、本日分）
+  const blockCounts = await getBlockCounts(tenantId);
 
   return NextResponse.json({
     kpi: {
@@ -225,10 +356,22 @@ export async function GET(req: NextRequest) {
     categoryStats,
     rejectCategoryStats,
     editRate,
+    modificationRate,
+    retrievalUsageRate,
+    hallucinationRate,
+    avgGenerationTimeSec,
     qualityDistribution,
     examplesCount,
     dailyTrend,
     recentDrafts,
+    blockCounts,
+    modelStats,
+    modelUsageRatio,
+    routingReasonStats,
+    reuseRate,
+    humanInterventionRate,
+    resolutionRate,
+    evalEligibleCount: evalEligible.length,
     period: validPeriod,
   });
 }

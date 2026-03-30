@@ -10,6 +10,7 @@ import { resolveTenantId, strictWithTenant } from "@/lib/tenant";
 import Anthropic from "@anthropic-ai/sdk";
 import { sendAiReply, buildSystemPrompt, buildUserMessage, fetchPatientFlowStatus, type RejectedDraftEntry } from "@/lib/ai-reply";
 import { saveAiReplyExample, boostExampleQuality, penalizeExampleQuality, executeRAGPipeline } from "@/lib/embedding";
+import { normalizedEditDistance } from "@/lib/edit-distance";
 import { getSettingOrEnv } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
 import { z } from "zod";
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
   const { data, error } = await strictWithTenant(
     supabaseAdmin
       .from("ai_reply_drafts")
-      .select("id, patient_id, line_uid, original_message, draft_reply, status, ai_category, confidence, model_used, created_at, expires_at")
+      .select("id, patient_id, line_uid, original_message, draft_reply, status, ai_category, confidence, model_used, created_at, expires_at, retrieved_example_ids, retrieved_chunks, rewritten_query")
       .eq("patient_id", patientId)
       .eq("status", "pending")
       .order("created_at", { ascending: false })
@@ -102,6 +103,16 @@ export async function POST(req: NextRequest) {
 
     await sendAiReply(id, draft.line_uid as string, replyText, draft.patient_id as string, draft.tenant_id as string);
 
+    // 承認時間の計算（秒）
+    const approvalTimeSec = draft.created_at
+      ? (Date.now() - new Date(draft.created_at as string).getTime()) / 1000
+      : undefined;
+
+    // edit_distance計算（修正がある場合）
+    const editDist = (modified_reply && draft.draft_reply)
+      ? normalizedEditDistance(draft.draft_reply as string, modified_reply)
+      : 0;
+
     // 学習例として保存 + 品質スコア向上
     try {
       await saveAiReplyExample({
@@ -111,7 +122,7 @@ export async function POST(req: NextRequest) {
         source: modified_reply ? "staff_edit" : "staff_edit",
         draftId: draft.id as number,
       });
-      await boostExampleQuality(draft.id as number);
+      await boostExampleQuality(draft.id as number, approvalTimeSec);
     } catch (err) {
       console.error("[AI Reply Admin] 学習例保存エラー:", err);
     }

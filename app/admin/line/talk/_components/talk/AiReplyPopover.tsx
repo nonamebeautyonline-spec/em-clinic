@@ -2,6 +2,12 @@
 
 import { useState, useCallback } from "react";
 
+interface RetrievedChunk {
+  title: string;
+  content: string;
+  similarity: number;
+}
+
 interface AiDraft {
   id: number;
   patient_id: string;
@@ -14,6 +20,9 @@ interface AiDraft {
   model_used: string;
   created_at: string;
   expires_at?: string;
+  retrieved_example_ids?: number[];
+  retrieved_chunks?: RetrievedChunk[];
+  rewritten_query?: string;
 }
 
 interface AiReplyButtonProps {
@@ -193,6 +202,9 @@ export function AiReplyCard({
               <div className="mt-1.5 text-[11px] text-red-500 bg-red-50 px-2 py-1 rounded">{error}</div>
             )}
 
+            {/* 根拠セクション（折りたたみ式） */}
+            <EvidenceSection draft={draft} />
+
             {/* アクションボタン */}
             <RejectWithConfirm
               sending={sending}
@@ -205,6 +217,75 @@ export function AiReplyCard({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/** 根拠表示セクション */
+function EvidenceSection({ draft }: { draft: AiDraft }) {
+  const [open, setOpen] = useState(false);
+  const hasEvidence = (draft.retrieved_example_ids && draft.retrieved_example_ids.length > 0)
+    || (draft.retrieved_chunks && draft.retrieved_chunks.length > 0)
+    || draft.rewritten_query;
+
+  if (!hasEvidence) return null;
+
+  return (
+    <div className="mt-1.5">
+      <button
+        onClick={() => setOpen(!open)}
+        className="text-[10px] text-gray-400 hover:text-purple-500 flex items-center gap-1 transition-colors"
+      >
+        <svg className={`w-3 h-3 transition-transform ${open ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        根拠を表示
+        {draft.retrieved_example_ids && draft.retrieved_example_ids.length > 0 && (
+          <span className="bg-gray-100 text-gray-500 px-1 rounded text-[9px]">
+            例{draft.retrieved_example_ids.length}件
+          </span>
+        )}
+        {draft.retrieved_chunks && draft.retrieved_chunks.length > 0 && (
+          <span className="bg-gray-100 text-gray-500 px-1 rounded text-[9px]">
+            KB{draft.retrieved_chunks.length}件
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="mt-1 space-y-1.5 text-[10px] bg-gray-50 rounded-lg p-2 border border-gray-100">
+          {/* リライトクエリ */}
+          {draft.rewritten_query && (
+            <div>
+              <span className="text-gray-400 font-medium">検索クエリ:</span>
+              <span className="ml-1 text-gray-600">{draft.rewritten_query}</span>
+            </div>
+          )}
+          {/* 学習例ID */}
+          {draft.retrieved_example_ids && draft.retrieved_example_ids.length > 0 && (
+            <div>
+              <span className="text-gray-400 font-medium">使用学習例:</span>
+              <span className="ml-1 text-gray-600">
+                {draft.retrieved_example_ids.map(id => `#${id}`).join(", ")}
+              </span>
+            </div>
+          )}
+          {/* KBチャンク */}
+          {draft.retrieved_chunks && draft.retrieved_chunks.length > 0 && (
+            <div>
+              <span className="text-gray-400 font-medium block mb-0.5">KBチャンク:</span>
+              {draft.retrieved_chunks.map((chunk, i) => (
+                <div key={i} className="ml-2 flex items-start gap-1 text-gray-600">
+                  <span className="text-purple-400 flex-shrink-0">•</span>
+                  <span className="flex-1">
+                    <span className="font-medium">{chunk.title}</span>
+                    <span className="text-gray-400 ml-1">({Math.round(chunk.similarity * 100)}%)</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

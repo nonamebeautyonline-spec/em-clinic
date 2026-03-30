@@ -146,11 +146,19 @@ export interface SearchResult {
   question: string;
   answer: string;
   source: string;
+  category: string;
   similarity: number;
   keyword_similarity: number;
   rrf_score: number;
   quality_score: number;
 }
+
+// Source別Retrieval: category別重み付け
+const CATEGORY_WEIGHTS: Record<string, number> = {
+  rule: 1.5,
+  faq: 1.3,
+  staff_reply: 1.0,
+};
 
 /** Hybrid Searchで類似学習例を検索（ベクトル + キーワード + 品質重み付け） */
 export async function searchSimilarExamplesHybrid(
@@ -181,16 +189,21 @@ export async function searchSimilarExamplesHybrid(
       return fallbackVectorSearch(embedding, tenantId, limit, similarityThreshold);
     }
 
-    return (data || []).map((row: Record<string, unknown>) => ({
-      id: row.id as number,
-      question: row.question as string,
-      answer: row.answer as string,
-      source: row.source as string,
-      similarity: row.similarity as number,
-      keyword_similarity: row.keyword_similarity as number,
-      rrf_score: row.rrf_score as number,
-      quality_score: row.quality_score as number,
-    }));
+    return (data || []).map((row: Record<string, unknown>) => {
+      const cat = (row.category as string) || "staff_reply";
+      const weight = CATEGORY_WEIGHTS[cat] || 1.0;
+      return {
+        id: row.id as number,
+        question: row.question as string,
+        answer: row.answer as string,
+        source: row.source as string,
+        category: cat,
+        similarity: row.similarity as number,
+        keyword_similarity: row.keyword_similarity as number,
+        rrf_score: (row.rrf_score as number) * weight,
+        quality_score: row.quality_score as number,
+      };
+    });
   } catch (err) {
     console.error("[RAG] Hybrid Search 例外:", err);
     notifyCronFailure("rag-hybrid-search", err).catch(() => {});
@@ -219,6 +232,7 @@ async function fallbackVectorSearch(
       question: row.question as string,
       answer: row.answer as string,
       source: row.source as string,
+      category: (row.category as string) || "staff_reply",
       similarity: row.similarity as number,
       keyword_similarity: 0,
       rrf_score: row.similarity as number,
@@ -238,7 +252,7 @@ async function fallbackKeywordSearch(
   try {
     let query = supabaseAdmin
       .from("ai_reply_examples")
-      .select("id, question, answer, source, quality_score")
+      .select("id, question, answer, source, category, quality_score")
       .order("created_at", { ascending: false })
       .limit(limit);
 
@@ -255,6 +269,7 @@ async function fallbackKeywordSearch(
       question: row.question as string,
       answer: row.answer as string,
       source: row.source as string,
+      category: (row.category as string) || "staff_reply",
       similarity: 0.5,
       keyword_similarity: 0.5,
       rrf_score: 0.5,
@@ -583,8 +598,9 @@ export async function saveAiReplyExample(params: {
   answer: string;
   source: "staff_edit" | "manual_reply";
   draftId?: number;
+  category?: string;
 }): Promise<boolean> {
-  const { tenantId, question, answer, source, draftId } = params;
+  const { tenantId, question, answer, source, draftId, category = "staff_reply" } = params;
 
   // question の embedding 生成
   const embedding = await generateEmbedding(question, tenantId ?? undefined);
@@ -623,6 +639,7 @@ export async function saveAiReplyExample(params: {
             source,
             quality_score: Math.max(existingScore, qualityScore),
             answer_embedding: answerEmbedding ? JSON.stringify(answerEmbedding) : null,
+            category,
             updated_at: new Date().toISOString(),
           })
           .eq("id", dup.id);
@@ -648,6 +665,7 @@ export async function saveAiReplyExample(params: {
       question,
       answer,
       source,
+      category,
       draft_id: draftId ?? null,
       embedding: embedding ? JSON.stringify(embedding) : null,
       answer_embedding: answerEmbedding ? JSON.stringify(answerEmbedding) : null,
@@ -671,7 +689,13 @@ export async function saveAiReplyExample(params: {
  * - 使用回数が少ない → 控えめなスコア（信頼度が低い）
  * - 承認率が低い → ペナルティ
  */
-function calculateQualityScore(approved: number, rejected: number, usedCount: number): number {
+function calculateQualityScore(
+  approved: number,
+  rejected: number,
+  usedCount: number,
+  avgApprovalTimeSec?: number | null,
+  modificationRate?: number | null
+): number {
   const total = approved + rejected;
   if (total === 0) return 1.0; // フィードバックなし → 初期値
   const approvalRate = approved / total;
@@ -679,16 +703,27 @@ function calculateQualityScore(approved: number, rejected: number, usedCount: nu
   const confidence = Math.min(1.0, usedCount / 10);
   // ベーススコア: 承認率0%=0.5, 100%=2.0
   const baseScore = 0.5 + approvalRate * 1.5;
+
+  // 承認速度ボーナス（10秒以内: +10%, 60秒以上: 0%）
+  let speedBonus = 0;
+  if (avgApprovalTimeSec != null && avgApprovalTimeSec > 0) {
+    speedBonus = Math.max(0, 0.1 * (1 - Math.min(1, avgApprovalTimeSec / 60)));
+  }
+
+  // 修正率ペナルティ（修正なし: 0%, 100%修正: -15%）
+  const modPenalty = (modificationRate != null) ? modificationRate * 0.15 : 0;
+
   // 信頼度で調整: 使用回数少ない場合は1.0寄りに
-  return 0.1 + (baseScore * (0.5 + confidence * 0.5)) * (2.0 / 2.25);
+  const raw = 0.1 + (baseScore * (0.5 + confidence * 0.5)) * (2.0 / 2.25);
+  return Math.min(2.0, Math.max(0.1, raw + speedBonus - modPenalty));
 }
 
 /** ドラフト承認時に学習例の品質スコアを向上 */
-export async function boostExampleQuality(draftId: number): Promise<void> {
+export async function boostExampleQuality(draftId: number, approvalTimeSec?: number): Promise<void> {
   try {
     const { data } = await supabaseAdmin
       .from("ai_reply_examples")
-      .select("id, quality_score, approved_count, rejected_count, used_count")
+      .select("id, quality_score, approved_count, rejected_count, used_count, avg_approval_time_sec, modification_rate")
       .eq("draft_id", draftId)
       .maybeSingle();
 
@@ -696,12 +731,24 @@ export async function boostExampleQuality(draftId: number): Promise<void> {
       const newApproved = (data.approved_count || 0) + 1;
       const newUsedCount = (data.used_count || 0) + 1;
       const rejected = data.rejected_count || 0;
+
+      // 承認時間の移動平均を更新
+      let newAvgApprovalTime = data.avg_approval_time_sec;
+      if (approvalTimeSec != null) {
+        const prevAvg = data.avg_approval_time_sec || approvalTimeSec;
+        const prevApproved = data.approved_count || 0;
+        newAvgApprovalTime = prevApproved > 0
+          ? (prevAvg * prevApproved + approvalTimeSec) / (prevApproved + 1)
+          : approvalTimeSec;
+      }
+
       await supabaseAdmin
         .from("ai_reply_examples")
         .update({
-          quality_score: calculateQualityScore(newApproved, rejected, newUsedCount),
+          quality_score: calculateQualityScore(newApproved, rejected, newUsedCount, newAvgApprovalTime, data.modification_rate),
           approved_count: newApproved,
           used_count: newUsedCount,
+          avg_approval_time_sec: newAvgApprovalTime,
         })
         .eq("id", data.id);
     }
