@@ -4,7 +4,7 @@ import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
-import { approveAndExecuteAction, rejectAction } from "@/lib/ai-safe-actions";
+import { approveAction, rejectAction } from "@/lib/ai-safe-actions";
 
 // GET: ドラフトに紐づくproposed actionsを取得
 export async function GET(req: NextRequest) {
@@ -47,8 +47,8 @@ export async function POST(req: NextRequest) {
 
   try {
     if (decision === "approve") {
-      const result = await approveAndExecuteAction(action_id, "admin", tenantId);
-      return NextResponse.json({ ok: true, result });
+      const ok = await approveAction(action_id, "admin");
+      return NextResponse.json({ ok });
     } else {
       await rejectAction(action_id);
       return NextResponse.json({ ok: true });
