@@ -13,6 +13,7 @@ import { sendPaymentThankNotification } from "@/lib/payment-thank-flex";
 import { pushMessage } from "@/lib/line-push";
 import { parseBody } from "@/lib/validations/helpers";
 import { bankTransferShippingSchema } from "@/lib/validations/payment";
+import { hasAddressDuplication } from "@/lib/address-utils";
 
 
 export async function POST(req: NextRequest) {
@@ -27,6 +28,14 @@ export async function POST(req: NextRequest) {
     const parsed = await parseBody(req, bankTransferShippingSchema);
     if ("error" in parsed) return parsed.error;
     const { productCode, mode, reorderId, accountName, shippingName, phoneNumber, email, postalCode: rawPostal, address } = parsed.data;
+
+    // 住所の都道府県重複チェック（最終防衛）
+    if (address && hasAddressDuplication(address)) {
+      return NextResponse.json(
+        { ok: false, error: "住所に都道府県が重複しています。丁目・番地から入力してください。" },
+        { status: 400 }
+      );
+    }
 
     // 郵便番号を XXX-XXXX 形式に正規化
     const postalDigits = rawPostal.replace(/[^0-9]/g, "");

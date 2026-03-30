@@ -24,6 +24,7 @@ import {
 import { getBusinessRules } from "@/lib/business-rules";
 import { sendPaymentThankNotification } from "@/lib/payment-thank-flex";
 import { evaluateTagAutoRules } from "@/lib/tag-auto-rules";
+import { hasAddressDuplication } from "@/lib/address-utils";
 
 export const runtime = "nodejs";
 
@@ -40,6 +41,11 @@ export async function POST(req: NextRequest) {
     const parsed = await parseBody(req, inlinePaySchema);
     if ("error" in parsed) return parsed.error;
     const { sourceId, productCode, mode, patientId, reorderId, saveCard, shipping } = parsed.data;
+
+    // 住所の都道府県重複チェック（最終防衛）
+    if (shipping?.address && hasAddressDuplication(shipping.address)) {
+      return badRequest("住所に都道府県が重複しています。丁目・番地から入力してください。");
+    }
 
     // body の patientId とJWTの patientId の一致を検証（多重防御）
     if (patientId && cookiePatientId !== patientId) {

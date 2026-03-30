@@ -5,6 +5,7 @@ import React, { useMemo, useState, useEffect, useCallback, useRef, Suspense } fr
 import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
 import SquareCardForm from "@/components/SquareCardForm";
+import { hasAddressDuplication, addressDetailStartsWithPrefecture } from "@/lib/address-utils";
 
 // SWRProviderのスコープ外（患者向けページ）なのでfetcherを明示指定
 const swrFetcher = (url: string) =>
@@ -193,6 +194,10 @@ function PurchaseConfirmContent() {
   // autoAddress + addressDetail を統合して shipping.address に反映
   const fullAddress = `${autoAddress}${addressDetail}`.trim();
 
+  // 住所の都道府県重複チェック（autoAddressに気づかずフル入力 or 前回住所再利用の表記差異）
+  const addressDuplicated = hasAddressDuplication(fullAddress);
+  const detailStartsWithPref = addressDetailStartsWithPrefecture(addressDetail);
+
   // 前回情報使用中に郵便番号が変更された場合、丁目以降の変更を促す
   const postalChanged = usePrevShipping && prevPostalCode !== null
     && shipping.postalCode.replace(/[^0-9]/g, "") !== prevPostalCode.replace(/[^0-9]/g, "")
@@ -278,7 +283,8 @@ function PurchaseConfirmContent() {
     autoAddress !== "" &&
     fullAddress !== "" &&
     shipping.phone.trim() !== "" &&
-    shipping.email.trim() !== "";
+    shipping.email.trim() !== "" &&
+    !addressDuplicated;
 
   // 保存済みカード情報はカードフォーム表示時に遅延取得（初期表示をブロックしない）
   const savedCardKey = showCardForm && savedCard === null ? "/api/square/saved-card" : null;
@@ -797,10 +803,15 @@ function PurchaseConfirmContent() {
                         onChange={(e) => setAddressDetail(e.target.value)}
                         disabled={submitting}
                         placeholder="丁目以降を入力"
-                        className={`w-1/2 rounded-lg border px-3 py-2 text-[12px] text-slate-900 placeholder:text-slate-300 disabled:opacity-60 ${postalChanged ? "border-red-400" : "border-slate-200"}`}
+                        className={`w-1/2 rounded-lg border px-3 py-2 text-[12px] text-slate-900 placeholder:text-slate-300 disabled:opacity-60 ${postalChanged || detailStartsWithPref ? "border-red-400" : "border-slate-200"}`}
                       />
                     </div>
-                    {postalChanged && (
+                    {detailStartsWithPref && (
+                      <p className="mt-0.5 text-[10px] text-red-500 font-semibold">
+                        ※ 都道府県から入力されています。左側に自動入力済みのため、丁目・番地から入力してください。
+                      </p>
+                    )}
+                    {postalChanged && !detailStartsWithPref && (
                       <p className="mt-0.5 text-[10px] text-red-500 font-semibold">
                         ※ 郵便番号が変更されました。丁目以降の住所も確認・修正してください。
                       </p>

@@ -4,6 +4,7 @@
 import React, { useState, useCallback, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
+import { hasAddressDuplication, addressDetailStartsWithPrefecture } from "@/lib/address-utils";
 
 const swrFetcher = (url: string) =>
   fetch(url, { credentials: "include" }).then((r) => {
@@ -138,6 +139,10 @@ function ShippingFormContent() {
 
   const fullAddress = `${autoAddress}${addressDetail}`.trim();
 
+  // 住所の都道府県重複チェック
+  const addressDuplicated = hasAddressDuplication(fullAddress);
+  const detailStartsWithPref = addressDetailStartsWithPrefecture(addressDetail);
+
   // 前回情報使用中に郵便番号が変更された場合、丁目以降の変更を促す
   const postalChanged = usePrevShipping && prevPostalCode !== null
     && postalCode.replace(/[^0-9]/g, "") !== prevPostalCode.replace(/[^0-9]/g, "")
@@ -153,6 +158,11 @@ function ShippingFormContent() {
 
     if (!autoAddress) {
       setError("郵便番号から住所が自動入力されていません。正しい郵便番号を入力してください。");
+      return;
+    }
+
+    if (addressDuplicated) {
+      setError("住所に都道府県が重複しています。「丁目以降」欄には丁目・番地から入力してください。");
       return;
     }
 
@@ -372,11 +382,15 @@ function ShippingFormContent() {
                 value={addressDetail}
                 onChange={(e) => setAddressDetail(e.target.value)}
                 placeholder="丁目以降を入力"
-                className={`w-1/2 rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 ${postalChanged ? "border-red-400 focus:ring-red-400" : "border-slate-200 focus:ring-pink-500"}`}
+                className={`w-1/2 rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 ${postalChanged || detailStartsWithPref ? "border-red-400 focus:ring-red-400" : "border-slate-200 focus:ring-pink-500"}`}
                 disabled={submitting}
               />
             </div>
-            {postalChanged ? (
+            {detailStartsWithPref ? (
+              <p className="mt-1 text-[10px] text-red-500 font-semibold">
+                ※ 都道府県から入力されています。左側に自動入力済みのため、丁目・番地から入力してください。
+              </p>
+            ) : postalChanged ? (
               <p className="mt-1 text-[10px] text-red-500 font-semibold">
                 ※ 郵便番号が変更されました。丁目以降の住所も確認・修正してください。
               </p>
