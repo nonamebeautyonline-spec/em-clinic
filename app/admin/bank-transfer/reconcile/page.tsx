@@ -304,6 +304,12 @@ export default function BankTransferReconcilePage() {
   // --- 商品変更 ---
   const handleChangeProduct = async () => {
     if (!changeProductOrder || !newProductCode) return;
+    const orderId = changeProductOrder.id;
+    if (!orderId) {
+      console.error("changeProductOrder has no id:", changeProductOrder);
+      setError("注文IDが取得できません。ページを再読み込みしてください。");
+      return;
+    }
     setChangingProduct(true);
     setError("");
     try {
@@ -312,7 +318,7 @@ export default function BankTransferReconcilePage() {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          order_id: changeProductOrder.id,
+          order_id: orderId,
           new_product_code: newProductCode,
           memo: changeProductMemo || undefined,
         }),
