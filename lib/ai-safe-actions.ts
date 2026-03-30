@@ -1,325 +1,368 @@
-/**
- * AI Safe Actions — AIが提案するwrite系アクションの管理モジュール
- *
- * AIが返信ドラフト生成時に「支払リンク再送」「問診再送」等のアクションを提案し、
- * スタッフが承認した場合のみ実行する仕組み。
- */
+// AI Safe Actions — write系操作を「提案→承認→実行」の3段階で処理
+// 外部API呼び出しは行わず、ログ記録+DB操作のみ（安全）
 
 import { supabaseAdmin } from "@/lib/supabase";
-import { withTenant, tenantPayload } from "@/lib/tenant";
-import { pushMessage } from "@/lib/line-push";
 
-// ---------------------------------------------------------------------------
-// 定数・型定義
-// ---------------------------------------------------------------------------
+// ============================================================
+// 型定義
+// ============================================================
 
-/** アクション定義 */
-export const SAFE_ACTIONS = {
+/** 安全アクション種別 */
+export type SafeActionType =
+  | "resend_payment_link"
+  | "resend_questionnaire"
+  | "create_staff_task"
+  | "suggest_reservation_slots";
+
+/** アクション提案 */
+export interface SafeActionProposal {
+  id: number;
+  taskId: string;
+  actionType: SafeActionType;
+  actionParams: Record<string, unknown>;
+  status: "proposed" | "approved" | "executed" | "rejected" | "failed";
+  proposedAt: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  executedAt?: string;
+  executionResult?: Record<string, unknown>;
+}
+
+/** 有効なアクション種別一覧 */
+const VALID_ACTION_TYPES: SafeActionType[] = [
+  "resend_payment_link",
+  "resend_questionnaire",
+  "create_staff_task",
+  "suggest_reservation_slots",
+];
+
+/** 各アクション種別の必須パラメータ定義 */
+const ACTION_PARAM_RULES: Record<SafeActionType, { required: string[]; optional: string[] }> = {
   resend_payment_link: {
-    label: "支払リンク再送",
-    description: "患者への支払いリンクを再送します",
+    required: ["patientId"],
+    optional: ["paymentAmount", "paymentNote"],
   },
   resend_questionnaire: {
-    label: "問診再送",
-    description: "患者への問診フォームリンクを再送します",
+    required: ["patientId"],
+    optional: ["questionnaireType"],
   },
-} as const;
+  create_staff_task: {
+    required: ["title", "assigneeId"],
+    optional: ["description", "priority", "dueDate"],
+  },
+  suggest_reservation_slots: {
+    required: ["patientId"],
+    optional: ["preferredDate", "preferredTime", "department"],
+  },
+};
 
-export type SafeActionType = keyof typeof SAFE_ACTIONS;
-
-export interface ProposedAction {
-  id: number;
-  draft_id: number;
-  action_type: SafeActionType;
-  action_params: Record<string, string>;
-  status: "pending" | "approved" | "rejected" | "executed" | "failed";
-  approved_by: string | null;
-  approved_at: string | null;
-  execution_result: Record<string, unknown> | null;
-  created_at: string;
-}
-
-// ---------------------------------------------------------------------------
-// 公開関数
-// ---------------------------------------------------------------------------
+// ============================================================
+// アクションパラメータバリデーション（純ロジック）
+// ============================================================
 
 /**
- * アクションを提案（pending状態でINSERT）
+ * アクション種別・パラメータのバリデーション
  */
-export async function proposeAction(params: {
-  tenantId: string | null;
-  draftId: number;
-  actionType: SafeActionType;
-  actionParams: Record<string, string>;
-}): Promise<ProposedAction | null> {
-  const { tenantId, draftId, actionType, actionParams } = params;
+export function validateActionParams(
+  actionType: SafeActionType,
+  params: Record<string, unknown>
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
 
-  const { data, error } = await withTenant(
-    supabaseAdmin.from("ai_proposed_actions").insert({
-      ...tenantPayload(tenantId),
-      draft_id: draftId,
+  // アクション種別チェック
+  if (!VALID_ACTION_TYPES.includes(actionType)) {
+    errors.push(`不明なアクション種別: ${actionType}`);
+    return { valid: false, errors };
+  }
+
+  const rules = ACTION_PARAM_RULES[actionType];
+
+  // 必須パラメータチェック
+  for (const key of rules.required) {
+    if (params[key] === undefined || params[key] === null || params[key] === "") {
+      errors.push(`必須パラメータが不足: ${key}`);
+    }
+  }
+
+  // 未知パラメータ警告（エラーにはしない）
+  const allKnown = new Set([...rules.required, ...rules.optional]);
+  for (const key of Object.keys(params)) {
+    if (!allKnown.has(key)) {
+      errors.push(`不明なパラメータ: ${key}`);
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+// ============================================================
+// アクション提案の作成
+// ============================================================
+
+/**
+ * アクション提案をDBに保存（実行はしない）
+ * @returns proposal_id
+ */
+export async function proposeAction(
+  tenantId: string,
+  taskId: string,
+  actionType: SafeActionType,
+  params: Record<string, unknown>
+): Promise<number> {
+  // バリデーション
+  const validation = validateActionParams(actionType, params);
+  if (!validation.valid) {
+    throw new Error(`パラメータ不正: ${validation.errors.join(", ")}`);
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("ai_safe_action_proposals")
+    .insert({
+      tenant_id: tenantId,
+      task_id: taskId,
       action_type: actionType,
-      action_params: actionParams,
-      status: "pending",
-    }).select().single(),
-    tenantId,
-  );
+      action_params: params,
+      status: "proposed",
+    })
+    .select("id")
+    .single();
 
-  if (error) {
-    console.error("[ai-safe-actions] proposeAction 失敗:", error.message);
-    return null;
+  if (error || !data) {
+    throw new Error(`提案保存失敗: ${error?.message || "データなし"}`);
   }
 
-  return data as ProposedAction;
+  return data.id;
 }
 
+// ============================================================
+// 提案の承認
+// ============================================================
+
 /**
- * アクションを承認して実行する
+ * 提案を承認（ステータスをapprovedに変更）
  */
-export async function approveAndExecuteAction(
-  actionId: number,
-  approvedBy: string,
-  tenantId: string | null,
-): Promise<{ success: boolean; result: Record<string, unknown> }> {
-  // 1. 対象アクションを取得し、pending であることを確認
-  const { data: action, error: fetchError } = await withTenant(
-    supabaseAdmin
-      .from("ai_proposed_actions")
-      .select("*")
-      .eq("id", actionId)
-      .single(),
-    tenantId,
-  );
-
-  if (fetchError || !action) {
-    return { success: false, result: { error: "アクションが見つかりません" } };
-  }
-
-  if (action.status !== "pending") {
-    return {
-      success: false,
-      result: { error: `アクションは既に ${action.status} 状態です` },
-    };
-  }
-
-  // 2. 承認に更新
-  await supabaseAdmin
-    .from("ai_proposed_actions")
+export async function approveAction(
+  proposalId: number,
+  approvedBy: string
+): Promise<boolean> {
+  const { error } = await supabaseAdmin
+    .from("ai_safe_action_proposals")
     .update({
       status: "approved",
       approved_by: approvedBy,
       approved_at: new Date().toISOString(),
     })
-    .eq("id", actionId);
+    .eq("id", proposalId)
+    .eq("status", "proposed");
 
-  // 3. アクションを実行
+  if (error) {
+    console.error("[SafeActions] 承認失敗:", error);
+    return false;
+  }
+  return true;
+}
+
+// ============================================================
+// 承認済み提案の実行
+// ============================================================
+
+/**
+ * 承認済み提案を実行
+ * 各アクションの実行ロジックはログ記録のみ（外部API呼び出しなし）
+ */
+export async function executeAction(
+  proposalId: number
+): Promise<{ success: boolean; result: unknown }> {
+  // 承認済み提案を取得
+  const { data: proposal, error: fetchErr } = await supabaseAdmin
+    .from("ai_safe_action_proposals")
+    .select("*")
+    .eq("id", proposalId)
+    .eq("status", "approved")
+    .single();
+
+  if (fetchErr || !proposal) {
+    return { success: false, result: { error: "承認済み提案が見つかりません" } };
+  }
+
+  let executionResult: Record<string, unknown>;
+
   try {
-    const result = await executeAction(
-      action.action_type as SafeActionType,
-      action.action_params as Record<string, string>,
-      tenantId,
-    );
+    // アクション種別ごとの処理（全てログ記録のみ）
+    switch (proposal.action_type as SafeActionType) {
+      case "resend_payment_link":
+        executionResult = {
+          action: "resend_payment_link",
+          patientId: proposal.action_params.patientId,
+          message: "決済リンク再送信をログに記録（実際のSquare連携は別途）",
+          loggedAt: new Date().toISOString(),
+        };
+        break;
 
-    // 4. 成功 → executed に更新
+      case "resend_questionnaire":
+        executionResult = {
+          action: "resend_questionnaire",
+          patientId: proposal.action_params.patientId,
+          message: "問診票再送信をログに記録",
+          loggedAt: new Date().toISOString(),
+        };
+        break;
+
+      case "create_staff_task": {
+        // ai_tasksにスタッフタスクを作成
+        const { data: task, error: taskErr } = await supabaseAdmin
+          .from("ai_tasks")
+          .insert({
+            tenant_id: proposal.tenant_id,
+            workflow_type: "staff-manual",
+            status: "pending",
+            input: {
+              title: proposal.action_params.title,
+              description: proposal.action_params.description || "",
+            },
+            handoff_summary: {
+              targetType: "human",
+              targetId: proposal.action_params.assigneeId,
+              summary: String(proposal.action_params.title),
+              urgency: proposal.action_params.priority || "medium",
+              actionItems: [],
+              context: {},
+            },
+            handoff_status: "pending",
+            output_evidence: [],
+            trace: {},
+            input_tokens: 0,
+            output_tokens: 0,
+            queue_name: "staff",
+            assignee_id: proposal.action_params.assigneeId,
+          })
+          .select("id")
+          .single();
+
+        if (taskErr) {
+          throw new Error(`スタッフタスク作成失敗: ${taskErr.message}`);
+        }
+
+        executionResult = {
+          action: "create_staff_task",
+          taskId: task?.id,
+          message: "スタッフタスクを作成しました",
+          loggedAt: new Date().toISOString(),
+        };
+        break;
+      }
+
+      case "suggest_reservation_slots":
+        executionResult = {
+          action: "suggest_reservation_slots",
+          patientId: proposal.action_params.patientId,
+          message: "予約枠提案をログに記録",
+          loggedAt: new Date().toISOString(),
+        };
+        break;
+
+      default:
+        executionResult = { error: `未対応アクション: ${proposal.action_type}` };
+    }
+
+    // 実行結果をDBに保存
     await supabaseAdmin
-      .from("ai_proposed_actions")
+      .from("ai_safe_action_proposals")
       .update({
         status: "executed",
-        execution_result: result,
+        executed_at: new Date().toISOString(),
+        execution_result: executionResult,
       })
-      .eq("id", actionId);
+      .eq("id", proposalId);
 
-    return { success: true, result };
+    return { success: true, result: executionResult };
   } catch (err) {
-    // 5. 失敗 → failed に更新
-    const errorResult = {
-      error: err instanceof Error ? err.message : "不明なエラー",
-    };
+    const errMsg = err instanceof Error ? err.message : "不明なエラー";
 
+    // 失敗ステータスに更新
     await supabaseAdmin
-      .from("ai_proposed_actions")
+      .from("ai_safe_action_proposals")
       .update({
         status: "failed",
-        execution_result: errorResult,
+        execution_result: { error: errMsg },
       })
-      .eq("id", actionId);
+      .eq("id", proposalId);
 
-    return { success: false, result: errorResult };
+    return { success: false, result: { error: errMsg } };
   }
 }
 
-/**
- * アクションを却下する
- */
-export async function rejectAction(actionId: number): Promise<void> {
-  await supabaseAdmin
-    .from("ai_proposed_actions")
-    .update({ status: "rejected" })
-    .eq("id", actionId);
-}
+// ============================================================
+// 提案の却下
+// ============================================================
 
 /**
- * 指定ドラフトに紐づく提案アクション一覧を取得
+ * 提案を却下
  */
-export async function getProposedActions(
-  draftId: number,
-  tenantId: string | null,
-): Promise<ProposedAction[]> {
-  const { data, error } = await withTenant(
-    supabaseAdmin
-      .from("ai_proposed_actions")
-      .select("*")
-      .eq("draft_id", draftId)
-      .order("created_at", { ascending: true }),
-    tenantId,
-  );
+export async function rejectAction(proposalId: number): Promise<boolean> {
+  const { error } = await supabaseAdmin
+    .from("ai_safe_action_proposals")
+    .update({ status: "rejected" })
+    .eq("id", proposalId)
+    .eq("status", "proposed");
 
   if (error) {
-    console.error("[ai-safe-actions] getProposedActions 失敗:", error.message);
+    console.error("[SafeActions] 却下失敗:", error);
+    return false;
+  }
+  return true;
+}
+
+// ============================================================
+// 提案一覧
+// ============================================================
+
+/**
+ * 提案一覧を取得
+ */
+export async function listActionProposals(
+  filters?: { taskId?: string; status?: string; limit?: number }
+): Promise<SafeActionProposal[]> {
+  let query = supabaseAdmin
+    .from("ai_safe_action_proposals")
+    .select("*")
+    .order("proposed_at", { ascending: false })
+    .limit(filters?.limit ?? 50);
+
+  if (filters?.taskId) {
+    query = query.eq("task_id", filters.taskId);
+  }
+  if (filters?.status) {
+    query = query.eq("status", filters.status);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("[SafeActions] 一覧取得エラー:", error);
     return [];
   }
 
-  return (data ?? []) as ProposedAction[];
+  return (data || []).map(mapRowToProposal);
 }
 
-// ---------------------------------------------------------------------------
-// 内部関数
-// ---------------------------------------------------------------------------
+// ============================================================
+// ヘルパー
+// ============================================================
 
-/**
- * アクションを実際に実行する（内部用）
- */
-async function executeAction(
-  actionType: SafeActionType,
-  actionParams: Record<string, string>,
-  tenantId: string | null,
-): Promise<Record<string, unknown>> {
-  switch (actionType) {
-    case "resend_payment_link":
-      return await executeResendPaymentLink(actionParams, tenantId);
-
-    case "resend_questionnaire":
-      return await executeResendQuestionnaire(actionParams, tenantId);
-
-    default:
-      throw new Error(`不明なアクション: ${actionType}`);
-  }
-}
-
-/**
- * 支払リンク再送の実行
- */
-async function executeResendPaymentLink(
-  actionParams: Record<string, string>,
-  tenantId: string | null,
-): Promise<Record<string, unknown>> {
-  const { patient_id, order_id } = actionParams;
-
-  if (!patient_id || !order_id) {
-    throw new Error("patient_id と order_id が必要です");
-  }
-
-  // 患者の line_uid を取得
-  const { data: patient, error: patientError } = await supabaseAdmin
-    .from("patients")
-    .select("line_uid")
-    .eq("id", patient_id)
-    .single();
-
-  if (patientError || !patient?.line_uid) {
-    throw new Error("患者のLINE UIDが取得できません");
-  }
-
-  // 注文の payment_link を取得
-  const { data: order, error: orderError } = await supabaseAdmin
-    .from("orders")
-    .select("payment_link")
-    .eq("id", order_id)
-    .single();
-
-  if (orderError || !order?.payment_link) {
-    throw new Error("支払いリンクが取得できません");
-  }
-
-  const lineUid = patient.line_uid;
-  const paymentLink = order.payment_link;
-  const messageText = `お支払いリンク: ${paymentLink}`;
-
-  // LINE送信
-  await pushMessage(
-    lineUid,
-    [{ type: "text", text: messageText }],
-    tenantId ?? undefined,
-  );
-
-  // メッセージログに記録
-  await supabaseAdmin.from("message_log").insert({
-    ...tenantPayload(tenantId),
-    patient_id,
-    line_uid: lineUid,
-    direction: "outgoing",
-    event_type: "message",
-    message_type: "text",
-    content: messageText,
-    status: "sent",
-  });
-
-  return { sent: true, patient_id, order_id };
-}
-
-/**
- * 問診再送の実行
- */
-async function executeResendQuestionnaire(
-  actionParams: Record<string, string>,
-  tenantId: string | null,
-): Promise<Record<string, unknown>> {
-  const { patient_id } = actionParams;
-
-  if (!patient_id) {
-    throw new Error("patient_id が必要です");
-  }
-
-  // 患者の line_uid を取得
-  const { data: patient, error: patientError } = await supabaseAdmin
-    .from("patients")
-    .select("line_uid")
-    .eq("id", patient_id)
-    .single();
-
-  if (patientError || !patient?.line_uid) {
-    throw new Error("患者のLINE UIDが取得できません");
-  }
-
-  const lineUid = patient.line_uid;
-
-  // 問診フォームURLを構築（LIFFまたはWeb URL）
-  const liffId = process.env.LIFF_ID_QUESTIONNAIRE;
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://l-ope.jp";
-  const url = liffId
-    ? `https://liff.line.me/${liffId}?patient_id=${patient_id}`
-    : `${baseUrl}/questionnaire?patient_id=${patient_id}`;
-
-  const messageText = `問診フォーム: ${url}`;
-
-  // LINE送信
-  await pushMessage(
-    lineUid,
-    [{ type: "text", text: messageText }],
-    tenantId ?? undefined,
-  );
-
-  // メッセージログに記録
-  await supabaseAdmin.from("message_log").insert({
-    ...tenantPayload(tenantId),
-    patient_id,
-    line_uid: lineUid,
-    direction: "outgoing",
-    event_type: "message",
-    message_type: "text",
-    content: messageText,
-    status: "sent",
-  });
-
-  return { sent: true, patient_id };
+/** DBレコード → SafeActionProposal マッピング */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapRowToProposal(row: any): SafeActionProposal {
+  return {
+    id: row.id,
+    taskId: row.task_id,
+    actionType: row.action_type,
+    actionParams: row.action_params || {},
+    status: row.status,
+    proposedAt: row.proposed_at,
+    approvedBy: row.approved_by || undefined,
+    approvedAt: row.approved_at || undefined,
+    executedAt: row.executed_at || undefined,
+    executionResult: row.execution_result || undefined,
+  };
 }
