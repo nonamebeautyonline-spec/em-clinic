@@ -155,31 +155,38 @@ function PurchaseConfirmContent() {
         phone: lastShipping.phone || "",
         email: lastShipping.email || "",
       });
+      const savedDetail = lastShipping.addressDetail || "";
       const addr = lastShipping.address || "";
-      // 郵便番号でzipcloud検索し、自動入力分を差し引いてaddressDetailに設定
       if (lastShipping.postalCode) {
         const digits = lastShipping.postalCode.replace(/[^0-9]/g, "");
         if (digits.length === 7) {
-          setAutoAddress("");
-          setAddressDetail(addr);
           setPrevPostalCode(lastShipping.postalCode);
           setPostalSearching(true);
-          searchZipcloud(digits).then((autoAddr) => {
-            setPostalSearching(false);
-            if (autoAddr && addr.startsWith(autoAddr)) {
-              setAddressDetail(addr.slice(autoAddr.length));
-            } else {
-              setAddressDetail(addr);
-            }
-          });
+          // address_detailがDBにある場合はそのまま使う（zipcloud再分割不要）
+          if (savedDetail) {
+            setAddressDetail(savedDetail);
+            searchZipcloud(digits).then(() => setPostalSearching(false));
+          } else {
+            // address_detail未保存（旧データ）: 従来のzipcloud差し引きロジック
+            setAutoAddress("");
+            setAddressDetail(addr);
+            searchZipcloud(digits).then((autoAddr) => {
+              setPostalSearching(false);
+              if (autoAddr && addr.startsWith(autoAddr)) {
+                setAddressDetail(addr.slice(autoAddr.length));
+              } else {
+                setAddressDetail(addr);
+              }
+            });
+          }
           setShipping((s) => ({ ...s, postalCode: lastShipping.postalCode }));
         } else {
           setAutoAddress("");
-          setAddressDetail(addr);
+          setAddressDetail(savedDetail || addr);
         }
       } else {
         setAutoAddress("");
-        setAddressDetail(addr);
+        setAddressDetail(savedDetail || addr);
       }
     } else if (!usePrevShipping) {
       setShipping({ name: "", postalCode: "", address: "", phone: "", email: "" });
@@ -426,7 +433,7 @@ function PurchaseConfirmContent() {
             patientId,
             reorderId: reorderIdParam ?? null,
             saveCard: true,
-            shipping: { ...shipping, address: fullAddress },
+            shipping: { ...shipping, address: fullAddress, addressDetail },
           }),
         });
 

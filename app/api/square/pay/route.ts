@@ -213,6 +213,7 @@ export async function POST(req: NextRequest) {
         shipping_name: shipping.name,
         postal_code: (() => { const d = shipping.postalCode.replace(/[^0-9]/g, ""); return d.length === 7 ? `${d.slice(0, 3)}-${d.slice(3)}` : shipping.postalCode; })(),
         address: shipping.address,
+        address_detail: shipping.addressDetail || "",
         phone: finalPhone,
         email: shipping.email,
         ...tenantPayload(tenantId),

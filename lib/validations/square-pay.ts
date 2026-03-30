@@ -12,6 +12,7 @@ export const inlinePaySchema = z.object({
     name: z.string().min(1),
     postalCode: z.string().regex(/^\d{3}-?\d{4}$/, "郵便番号の形式が正しくありません"),
     address: z.string().min(1),
+    addressDetail: z.string().optional().default(""),
     phone: z.string().min(1),
     email: z.string().email(),
   }),

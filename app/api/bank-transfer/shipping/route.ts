@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
     const parsed = await parseBody(req, bankTransferShippingSchema);
     if ("error" in parsed) return parsed.error;
-    const { productCode, mode, reorderId, accountName, shippingName, phoneNumber, email, postalCode: rawPostal, address } = parsed.data;
+    const { productCode, mode, reorderId, accountName, shippingName, phoneNumber, email, postalCode: rawPostal, address, addressDetail } = parsed.data;
 
     // 住所の都道府県重複チェック（最終防衛）
     if (address && hasAddressDuplication(address)) {
@@ -111,6 +111,7 @@ export async function POST(req: NextRequest) {
       shipping_name: shippingName,
       postal_code: postalCode,
       address: address,
+      address_detail: addressDetail || "",
       phone: normalizeJPPhone(phoneNumber),
       email: email,
       account_name: accountName, // 振込名義人

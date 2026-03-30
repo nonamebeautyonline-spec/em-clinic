@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const { data } = await strictWithTenant(
     supabaseAdmin
       .from("orders")
-      .select("shipping_name, postal_code, address, phone, email, account_name, payment_method")
+      .select("shipping_name, postal_code, address, address_detail, phone, email, account_name, payment_method")
       .eq("patient_id", session.patientId)
       .not("shipping_name", "is", null)
       .order("created_at", { ascending: false })
@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
       name: data.shipping_name || "",
       postalCode,
       address: data.address || "",
+      addressDetail: data.address_detail || "",
       phone: data.phone || "",
       email: data.email || "",
       accountName: data.account_name || "",
