@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
     const { data: pendingOrdersWithNames, error: fetchNamesError } = await strictWithTenant(
       supabase
         .from("orders")
-        .select("id, patient_id, product_code, amount, account_name, shipping_name, created_at")
+        .select("id, patient_id, product_code, product_name, amount, account_name, shipping_name, created_at")
         .eq("status", "pending_confirmation")
         .eq("payment_method", "bank_transfer"),
       tenantId
@@ -346,8 +346,10 @@ export async function POST(req: NextRequest) {
       amountMismatch: amountMismatchList.map((m) => ({
         transfer: m.transfer,
         order: {
+          id: m.order.id,
           patient_id: m.order.patient_id,
           product_code: m.order.product_code,
+          product_name: m.order.product_name,
           amount: m.order.amount,
         },
         difference: m.difference,
