@@ -7,7 +7,6 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { logAudit } from "@/lib/audit";
-import { parseBody } from "@/lib/validations/helpers";
 import { bankTransferChangeProductSchema } from "@/lib/validations/admin-operations";
 import { getProductByCode } from "@/lib/products";
 
@@ -38,8 +37,18 @@ export async function POST(req: NextRequest) {
       return unauthorized();
     }
 
-    const parsed = await parseBody(req, bankTransferChangeProductSchema);
-    if ("error" in parsed) return parsed.error;
+    let rawBody: unknown;
+    try {
+      rawBody = await req.json();
+    } catch {
+      return badRequest("リクエストの形式が不正です");
+    }
+    const result = bankTransferChangeProductSchema.safeParse(rawBody);
+    if (!result.success) {
+      console.error("[bank-transfer/change-product] Validation failed:", JSON.stringify(rawBody), result.error.issues);
+      return badRequest("入力値が不正です: " + result.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join(", "));
+    }
+    const { order_id, new_product_code, memo } = result.data;
     const { order_id, new_product_code, memo } = parsed.data;
 
     const tenantId = resolveTenantIdOrThrow(req);
