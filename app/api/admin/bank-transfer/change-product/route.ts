@@ -49,7 +49,6 @@ export async function POST(req: NextRequest) {
       return badRequest("入力値が不正です: " + result.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join(", "));
     }
     const { order_id, new_product_code, memo } = result.data;
-    const { order_id, new_product_code, memo } = parsed.data;
 
     const tenantId = resolveTenantIdOrThrow(req);
     const lineToken = await getSettingOrEnv("line", "channel_access_token", "LINE_NOTIFY_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
