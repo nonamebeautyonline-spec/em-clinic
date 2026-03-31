@@ -273,7 +273,7 @@ function ContactForm() {
           </button>
 
           <p className="text-center text-[11px] text-slate-400">
-            送信いただいた情報は<Link href="/line/privacy" className="underline hover:text-slate-600">プライバシーポリシー</Link>に基づき適切に管理いたします。
+            送信いただいた情報は<Link href="/clinic/privacy" className="underline hover:text-slate-600">プライバシーポリシー</Link>に基づき適切に管理いたします。
           </p>
         </form>
 

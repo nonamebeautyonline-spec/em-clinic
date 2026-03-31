@@ -30,8 +30,8 @@ export function Footer() {
       title: "会社情報",
       links: [
         { label: "運営会社", href: "https://ordix.co.jp", external: true },
-        { label: "利用規約", href: "/line/terms" },
-        { label: "プライバシーポリシー", href: "/line/privacy" },
+        { label: "利用規約", href: "/clinic/terms" },
+        { label: "プライバシーポリシー", href: "/clinic/privacy" },
       ],
     },
   ];
@@ -82,8 +82,8 @@ export function Footer() {
         {/* 下部: コピーライト */}
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-slate-800 pt-8 text-[11px] md:flex-row">
           <div className="flex gap-5">
-            <Link href="/line/terms" className="transition hover:text-[#06C755]">利用規約</Link>
-            <Link href="/line/privacy" className="transition hover:text-[#06C755]">プライバシーポリシー</Link>
+            <Link href="/clinic/terms" className="transition hover:text-[#06C755]">利用規約</Link>
+            <Link href="/clinic/privacy" className="transition hover:text-[#06C755]">プライバシーポリシー</Link>
           </div>
           <div className="text-center md:text-right">
             <p className="text-slate-500">
