@@ -11,16 +11,35 @@
  *   npx tsx scripts/generate-column-thumbnails.ts --test
  *   npx tsx scripts/generate-column-thumbnails.ts --test --start 5  # 5番目の記事でテスト
  *
- * 生成先: public/lp/column/thumbnails/{slug}.png
+ * 生成先: public/{service}/column/thumbnails/{slug}.png
+ *
+ * サービス指定:
+ *   npx tsx scripts/generate-column-thumbnails.ts --service clinic
+ *   npx tsx scripts/generate-column-thumbnails.ts --service line
+ *   npx tsx scripts/generate-column-thumbnails.ts --service salon
+ *   npx tsx scripts/generate-column-thumbnails.ts --service ec
  */
 
 import fs from "fs";
 import path from "path";
 import sharp from "sharp";
-import { articles } from "../app/lp/column/articles";
+
+/* ─── サービス別記事読み込み ─── */
+const serviceArg = process.argv.find((a) => a.startsWith("--service="))?.split("=")[1]
+  || (process.argv.includes("--service") ? process.argv[process.argv.indexOf("--service") + 1] : null)
+  || "clinic";
+
+async function loadArticles(service: string) {
+  switch (service) {
+    case "line": return (await import("../app/line/column/articles")).articles;
+    case "salon": return (await import("../app/salon/column/articles")).articles;
+    case "ec": return (await import("../app/ec/column/articles")).articles;
+    default: return (await import("../app/clinic/column/articles")).articles;
+  }
+}
 
 /* ─── 設定 ─── */
-const OUTPUT_DIR = path.join(process.cwd(), "public/lp/column/thumbnails");
+const OUTPUT_DIR = path.join(process.cwd(), `public/${serviceArg}/column/thumbnails`);
 const BG_DIR = path.join(OUTPUT_DIR, "_backgrounds");
 const W = 1200;
 const H = 630;
@@ -683,6 +702,7 @@ async function main() {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   fs.mkdirSync(BG_DIR, { recursive: true });
 
+  const articles = await loadArticles(serviceArg);
   const target = testMode ? [articles[startIdx]] : articles.slice(startIdx);
 
   console.log(`\n📸 コラムサムネイル一括生成`);
