@@ -116,10 +116,10 @@ export function Footer() {
           <div className="flex gap-5">
             <a href="/clinic/terms" className="hover:text-pink-500 transition">
               利用規約
-            </Link>
+            </a>
             <a href="/clinic/privacy" className="hover:text-pink-500 transition">
               プライバシーポリシー
-            </Link>
+            </a>
           </div>
           <div className="text-center md:text-right">
             <p className="text-slate-400">
