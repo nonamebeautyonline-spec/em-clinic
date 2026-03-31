@@ -11,7 +11,7 @@ const PRODUCTS = [
     name: "Lオペ for LINE",
     desc: "LINE公式アカウントの高度な運用・自動化プラットフォーム",
     color: "#06C755",
-    href: "/line/",
+    href: "https://l-ope.jp/line/",
     status: "production" as const,
     features: [
       { label: "セグメント配信", desc: "属性・行動データに基づくターゲット配信" },
@@ -24,7 +24,7 @@ const PRODUCTS = [
     name: "Lオペ for CLINIC",
     desc: "クリニック特化のLINE運用プラットフォーム。予約・問診・決済・CRMをLINEに統合",
     color: "#3b82f6",
-    href: "/clinic/",
+    href: "https://l-ope.jp/clinic/",
     status: "production" as const,
     features: [
       { label: "予約管理", desc: "LINE上で予約の受付・変更・リマインドを自動化" },
@@ -41,7 +41,7 @@ const PRODUCTS = [
     name: "Lオペ for SALON",
     desc: "美容サロン・エステ向けのLINE予約・顧客管理プラットフォーム",
     color: "#ec4899",
-    href: "/salon/",
+    href: "https://l-ope.jp/salon/",
     status: "coming" as const,
     features: [
       { label: "予約管理", desc: "スタイリスト別・メニュー別のLINE予約" },
@@ -54,7 +54,7 @@ const PRODUCTS = [
     name: "Lオペ for EC",
     desc: "EC・小売向けのLINE CRM・販促プラットフォーム",
     color: "#8B7355",
-    href: "/ec/",
+    href: "https://l-ope.jp/ec/",
     status: "coming" as const,
     features: [
       { label: "注文通知", desc: "購入・発送・配達をLINEでリアルタイム通知" },
