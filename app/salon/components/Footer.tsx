@@ -114,10 +114,10 @@ export function Footer() {
         {/* 下部 */}
         <div className="flex flex-col items-center justify-between gap-4 text-[11px] md:flex-row">
           <div className="flex gap-5">
-            <Link href="/clinic/terms" className="hover:text-pink-500 transition">
+            <a href="/clinic/terms" className="hover:text-pink-500 transition">
               利用規約
             </Link>
-            <Link href="/clinic/privacy" className="hover:text-pink-500 transition">
+            <a href="/clinic/privacy" className="hover:text-pink-500 transition">
               プライバシーポリシー
             </Link>
           </div>

@@ -82,8 +82,8 @@ export function Footer() {
         {/* 下部: コピーライト */}
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-slate-800 pt-8 text-[11px] md:flex-row">
           <div className="flex gap-5">
-            <Link href="/clinic/terms" className="transition hover:text-[#06C755]">利用規約</Link>
-            <Link href="/clinic/privacy" className="transition hover:text-[#06C755]">プライバシーポリシー</Link>
+            <a href="/clinic/terms" className="transition hover:text-[#06C755]">利用規約</a>
+            <a href="/clinic/privacy" className="transition hover:text-[#06C755]">プライバシーポリシー</a>
           </div>
           <div className="text-center md:text-right">
             <p className="text-slate-500">

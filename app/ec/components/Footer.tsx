@@ -26,8 +26,8 @@ export function Footer() {
         </div>
         <div className="mt-7 flex flex-col items-center justify-between gap-3 border-t border-slate-200 pt-7 text-[11px] md:flex-row">
           <div className="flex gap-5">
-            <Link href="/line/terms" className="hover:text-amber-600 transition">利用規約</Link>
-            <Link href="/line/privacy" className="hover:text-amber-600 transition">プライバシーポリシー</Link>
+            <a href="/clinic/terms" className="hover:text-amber-600 transition">利用規約</a>
+            <a href="/clinic/privacy" className="hover:text-amber-600 transition">プライバシーポリシー</a>
           </div>
           <div className="text-center md:text-right">
             <p className="text-slate-400">運営: <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="underline decoration-slate-300 underline-offset-2 transition hover:text-amber-600">株式会社ORDIX</a></p>
