@@ -81,7 +81,7 @@ export default function ColumnIndex() {
   const popular = popularSlugs.map((s) => articles.find((a) => a.slug === s)!).filter(Boolean);
 
   return (
-    <div className="min-h-screen bg-blue-50/30 text-gray-800">
+    <div className="min-h-screen bg-blue-100/60 text-gray-800">
       {/* ヘッダー */}
       <header className="sticky top-0 z-30 border-b border-gray-200/60 bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">

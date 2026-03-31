@@ -99,7 +99,7 @@ function AuthorCard() {
 
 function KeyPoints({ points }: { points: string[] }) {
   return (
-    <div className="rounded-lg border border-pink-200 bg-pink-50/50 p-5">
+    <div className="rounded-lg border border-pink-200 bg-pink-100/60 p-5">
       <p className="flex items-center gap-2 text-[13px] font-bold text-gray-800">
         <svg viewBox="0 0 20 20" className="h-4 w-4 text-pink-500" fill="currentColor">
           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -185,13 +185,13 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
   };
 
   return (
-    <div className="min-h-screen bg-pink-50/30 text-gray-800">
+    <div className="min-h-screen bg-pink-100/60 text-gray-800">
       <ReadingProgress />
       {/* Article JSON-LD（集約） */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }} />
 
       {/* ヘッダー */}
-      <header className="border-b border-gray-200/60 bg-pink-50/50 shadow-sm">
+      <header className="border-b border-gray-200/60 bg-pink-100/60 shadow-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <a href="/salon" className="flex items-center gap-1 text-[14px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition">
             Lオペ <span className="text-pink-500">for SALON</span>
@@ -211,7 +211,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
       </header>
 
       {/* パンくず（4階層: トップ > コラム > カテゴリ > 記事タイトル） */}
-      <div className="border-b border-gray-200/60 bg-pink-50/50">
+      <div className="border-b border-gray-200/60 bg-pink-100/60">
         <nav aria-label="パンくずリスト" className="mx-auto max-w-6xl px-6 py-3">
           <ol className="flex flex-wrap items-center gap-1.5 text-[12px] text-gray-400 list-none m-0 p-0">
             <li><a href="/salon" className="hover:text-pink-600 transition">トップ</a></li>
@@ -236,7 +236,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
       </div>
 
       {/* 記事ヒーロー */}
-      <div className="bg-gradient-to-b from-pink-50/50 to-gray-50 pb-8">
+      <div className="bg-pink-100/40 pb-8">
         <div className="mx-auto max-w-4xl px-6 pt-6">
           <div className="overflow-hidden rounded-xl shadow-sm">
             <ArticleThumbnail slug={slug} title={self.title} category={self.category} size="hero" />

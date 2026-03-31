@@ -185,13 +185,13 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
   };
 
   return (
-    <div className="min-h-screen bg-blue-50/30 text-gray-800">
+    <div className="min-h-screen bg-blue-100/60 text-gray-800">
       <ReadingProgress />
       {/* Article JSON-LD（集約） */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }} />
 
       {/* ヘッダー */}
-      <header className="border-b border-gray-200/60 bg-blue-50/50 shadow-sm">
+      <header className="border-b border-gray-200/60 bg-blue-100/60 shadow-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <a href="/" className="flex items-center gap-1 text-[14px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition">
             Lオペ <span className="text-blue-600">for CLINIC</span>
@@ -211,7 +211,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
       </header>
 
       {/* パンくず（4階層: トップ > コラム > カテゴリ > 記事タイトル） */}
-      <div className="border-b border-gray-200/60 bg-blue-50/50">
+      <div className="border-b border-gray-200/60 bg-blue-100/60">
         <nav aria-label="パンくずリスト" className="mx-auto max-w-6xl px-6 py-3">
           <ol className="flex flex-wrap items-center gap-1.5 text-[12px] text-gray-400 list-none m-0 p-0">
             <li><a href="/" className="hover:text-blue-600 transition">トップ</a></li>
@@ -236,7 +236,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
       </div>
 
       {/* 記事ヒーロー — グラデーション背景で視覚的に区切る */}
-      <div className="bg-gradient-to-b from-blue-50/50 to-gray-50 pb-8">
+      <div className="bg-blue-100/40 pb-8">
         <div className="mx-auto max-w-4xl px-6 pt-6">
           <div className="overflow-hidden rounded-xl shadow-sm">
             <ArticleThumbnail slug={slug} title={self.title} category={self.category} size="hero" />

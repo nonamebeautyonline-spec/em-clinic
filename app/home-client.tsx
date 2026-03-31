@@ -1,53 +1,523 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Image from "next/image";
-
-import {
-  motion,
-  useScroll,
-  useTransform,
-} from "motion/react";
+import { motion, useScroll, useTransform } from "motion/react";
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Lオペ 統合トップページ — リッチデザイン + ミニモック + モーション
+   Lオペ 統合トップページ — 白ベース + 高技術デザイン
+   WebGL パーティクル / カスタムカーソル / 3D チルト / スプリットテキスト
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ------------------------------------------------------------------ */
-/*  FadeIn ラッパー                                                     */
+/*  パーティクル Canvas                                                  */
 /* ------------------------------------------------------------------ */
-function FadeIn({
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  opacity: number;
+}
+
+function ParticleCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mouseRef = useRef({ x: -1000, y: -1000 });
+  const particlesRef = useRef<Particle[]>([]);
+  const rafRef = useRef<number>(0);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = canvas.offsetWidth * dpr;
+      canvas.height = canvas.offsetHeight * dpr;
+      ctx.scale(dpr, dpr);
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    const COUNT = 60;
+    const w = () => canvas.offsetWidth;
+    const h = () => canvas.offsetHeight;
+
+    if (particlesRef.current.length === 0) {
+      particlesRef.current = Array.from({ length: COUNT }, () => ({
+        x: Math.random() * w(),
+        y: Math.random() * h(),
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        radius: Math.random() * 1.5 + 0.5,
+        opacity: Math.random() * 0.3 + 0.05,
+      }));
+    }
+    const particles = particlesRef.current;
+
+    const onMouse = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      mouseRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    };
+    canvas.addEventListener("mousemove", onMouse);
+
+    const CONNECTION_DIST = 120;
+    const MOUSE_DIST = 160;
+
+    function draw() {
+      if (!ctx) return;
+      const cw = w();
+      const ch = h();
+      ctx.clearRect(0, 0, cw, ch);
+
+      const mx = mouseRef.current.x;
+      const my = mouseRef.current.y;
+
+      for (const p of particles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0 || p.x > cw) p.vx *= -1;
+        if (p.y < 0 || p.y > ch) p.vy *= -1;
+        p.x = Math.max(0, Math.min(cw, p.x));
+        p.y = Math.max(0, Math.min(ch, p.y));
+      }
+
+      /* ノード間接続線 */
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < CONNECTION_DIST) {
+            const alpha = (1 - dist / CONNECTION_DIST) * 0.06;
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = `rgba(100,116,139,${alpha})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+
+      /* マウス近傍ハイライト */
+      for (const p of particles) {
+        const dx = p.x - mx;
+        const dy = p.y - my;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < MOUSE_DIST) {
+          const alpha = (1 - dist / MOUSE_DIST) * 0.12;
+          ctx.beginPath();
+          ctx.moveTo(mx, my);
+          ctx.lineTo(p.x, p.y);
+          ctx.strokeStyle = `rgba(100,116,139,${alpha})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+
+        const isNear = dist < MOUSE_DIST;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, isNear ? p.radius * 2.5 : p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = isNear
+          ? `rgba(71,85,105,${0.4 - (dist / MOUSE_DIST) * 0.3})`
+          : `rgba(148,163,184,${p.opacity})`;
+        ctx.fill();
+      }
+
+      rafRef.current = requestAnimationFrame(draw);
+    }
+    rafRef.current = requestAnimationFrame(draw);
+
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      window.removeEventListener("resize", resize);
+      canvas.removeEventListener("mousemove", onMouse);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 h-full w-full"
+    />
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  カスタムカーソル（グロー効果）                                         */
+/* ------------------------------------------------------------------ */
+function GlowCursor() {
+  const outerRef = useRef<HTMLDivElement>(null);
+  const dotRef = useRef<HTMLDivElement>(null);
+  const pos = useRef({ x: -100, y: -100 });
+  const target = useRef({ x: -100, y: -100 });
+  const hovering = useRef(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "ontouchstart" in window) return;
+
+    const onMove = (e: MouseEvent) => {
+      target.current = { x: e.clientX, y: e.clientY };
+    };
+    const onOver = (e: MouseEvent) => {
+      const el = (e.target as HTMLElement).closest("a, button, [data-cursor-hover]");
+      hovering.current = !!el;
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseover", onOver);
+
+    let raf: number;
+    const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+    const tick = () => {
+      pos.current.x = lerp(pos.current.x, target.current.x, 0.1);
+      pos.current.y = lerp(pos.current.y, target.current.y, 0.1);
+
+      if (outerRef.current) {
+        const scale = hovering.current ? 2 : 1;
+        outerRef.current.style.transform = `translate(${pos.current.x - 24}px, ${pos.current.y - 24}px) scale(${scale})`;
+        outerRef.current.style.opacity = hovering.current ? "0.6" : "0.3";
+      }
+      if (dotRef.current) {
+        dotRef.current.style.transform = `translate(${target.current.x - 3}px, ${target.current.y - 3}px)`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+
+    document.documentElement.style.cursor = "none";
+
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseover", onOver);
+      cancelAnimationFrame(raf);
+      document.documentElement.style.cursor = "";
+    };
+  }, []);
+
+  return (
+    <>
+      <div
+        ref={outerRef}
+        className="pointer-events-none fixed left-0 top-0 z-[9999] hidden h-12 w-12 rounded-full md:block"
+        style={{
+          background: "radial-gradient(circle, rgba(100,116,139,0.15) 0%, transparent 70%)",
+          transition: "opacity 0.3s, transform 0.4s cubic-bezier(0.23,1,0.32,1)",
+        }}
+      />
+      <div
+        ref={dotRef}
+        className="pointer-events-none fixed left-0 top-0 z-[9999] hidden h-1.5 w-1.5 rounded-full bg-slate-500 md:block"
+      />
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  スプリットテキスト（1文字ずつフェードイン）                                */
+/* ------------------------------------------------------------------ */
+function SplitText({
+  children,
+  className = "",
+  as: Tag = "h1",
+  delay = 0,
+  stagger = 40,
+}: {
+  children: string;
+  className?: string;
+  as?: "h1" | "h2" | "h3" | "p" | "span";
+  delay?: number;
+  stagger?: number;
+}) {
+  const ref = useRef<HTMLElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          obs.disconnect();
+        }
+      },
+      { threshold: 0.3 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  const chars = children.split("");
+
+  return (
+    <Tag
+      ref={ref as React.RefObject<HTMLHeadingElement>}
+      className={className}
+      aria-label={children}
+    >
+      {chars.map((char, i) => (
+        <span
+          key={i}
+          className="inline-block transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
+          style={{
+            transitionDelay: visible ? `${delay + i * stagger}ms` : "0ms",
+            opacity: visible ? 1 : 0,
+            transform: visible ? "translateY(0)" : "translateY(30px)",
+            filter: visible ? "blur(0px)" : "blur(6px)",
+          }}
+          aria-hidden="true"
+        >
+          {char === " " ? "\u00A0" : char}
+        </span>
+      ))}
+    </Tag>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  スクロール連動リビール                                                */
+/* ------------------------------------------------------------------ */
+function ScrollReveal({
   children,
   delay = 0,
+  direction = "up",
   className = "",
-  y = 24,
 }: {
   children: React.ReactNode;
   delay?: number;
+  direction?: "up" | "left" | "right" | "scale";
   className?: string;
-  y?: number;
 }) {
+  const [visible, setVisible] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) setVisible(true);
+      },
+      { threshold: 0.12 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  const transforms: Record<string, string> = {
+    up: "translateY(50px)",
+    left: "translateX(-40px)",
+    right: "translateX(40px)",
+    scale: "scale(0.95)",
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-60px" }}
-      transition={{
-        duration: 0.7,
-        delay,
-        ease: [0.25, 0.46, 0.45, 0.94],
-      }}
+    <div
+      ref={ref}
       className={className}
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? "none" : transforms[direction],
+        transition: `opacity 0.8s cubic-bezier(0.16,1,0.3,1) ${delay}ms, transform 0.8s cubic-bezier(0.16,1,0.3,1) ${delay}ms`,
+      }}
     >
       {children}
-    </motion.div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  3D チルトカード                                                     */
+/* ------------------------------------------------------------------ */
+function TiltCard({
+  children,
+  className = "",
+  maxTilt = 8,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  maxTilt?: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const glareRef = useRef<HTMLDivElement>(null);
+
+  const handleMove = useCallback(
+    (e: React.MouseEvent) => {
+      const el = ref.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width;
+      const y = (e.clientY - rect.top) / rect.height;
+      const rotateX = (0.5 - y) * maxTilt * 2;
+      const rotateY = (x - 0.5) * maxTilt * 2;
+      el.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02,1.02,1.02)`;
+      if (glareRef.current) {
+        glareRef.current.style.opacity = "1";
+        glareRef.current.style.background = `radial-gradient(circle at ${x * 100}% ${y * 100}%, rgba(255,255,255,0.25) 0%, transparent 60%)`;
+      }
+    },
+    [maxTilt],
+  );
+
+  const handleLeave = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.transform = "perspective(800px) rotateX(0) rotateY(0) scale3d(1,1,1)";
+    if (glareRef.current) {
+      glareRef.current.style.opacity = "0";
+    }
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className={`relative transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${className}`}
+      onMouseMove={handleMove}
+      onMouseLeave={handleLeave}
+      style={{ transformStyle: "preserve-3d" }}
+    >
+      {children}
+      <div
+        ref={glareRef}
+        className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-0 transition-opacity duration-300"
+      />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  マウス追従グラデーション背景                                           */
+/* ------------------------------------------------------------------ */
+function MouseGradient({
+  color = "100,116,139",
+  size = 600,
+  opacity = 0.04,
+}: {
+  color?: string;
+  size?: number;
+  opacity?: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const pos = useRef({ x: 0.5, y: 0.5 });
+  const current = useRef({ x: 0.5, y: 0.5 });
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const onMove = (e: MouseEvent) => {
+      const rect = el.getBoundingClientRect();
+      pos.current = {
+        x: (e.clientX - rect.left) / rect.width,
+        y: (e.clientY - rect.top) / rect.height,
+      };
+    };
+
+    let raf: number;
+    const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+    const tick = () => {
+      current.current.x = lerp(current.current.x, pos.current.x, 0.05);
+      current.current.y = lerp(current.current.y, pos.current.y, 0.05);
+      if (el) {
+        const cx = current.current.x * 100;
+        const cy = current.current.y * 100;
+        el.style.background = `radial-gradient(${size}px circle at ${cx}% ${cy}%, rgba(${color},${opacity}) 0%, transparent 70%)`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+
+    el.addEventListener("mousemove", onMove);
+    raf = requestAnimationFrame(tick);
+
+    return () => {
+      el.removeEventListener("mousemove", onMove);
+      cancelAnimationFrame(raf);
+    };
+  }, [color, size, opacity]);
+
+  return <div ref={ref} className="pointer-events-none absolute inset-0" />;
+}
+
+/* ------------------------------------------------------------------ */
+/*  テキストスクランブル                                                  */
+/* ------------------------------------------------------------------ */
+const SCRAMBLE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+function TextScramble({
+  children,
+  className = "",
+  delay = 0,
+}: {
+  children: string;
+  className?: string;
+  delay?: number;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [display, setDisplay] = useState(children);
+  const triggered = useRef(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !triggered.current) {
+          triggered.current = true;
+          obs.disconnect();
+          setTimeout(() => scramble(), delay);
+        }
+      },
+      { threshold: 0.5 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function scramble() {
+    const target = children;
+    const len = target.length;
+    const resolved = new Array(len).fill(false);
+    let frame = 0;
+
+    const tick = () => {
+      const arr = target.split("").map((ch, i) => {
+        if (resolved[i]) return ch;
+        if (ch === " " || ch === "\u3000") return ch;
+        return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
+      });
+      setDisplay(arr.join(""));
+
+      for (let i = 0; i < len; i++) {
+        if (!resolved[i] && frame > i * 2 + 4) resolved[i] = true;
+      }
+      frame++;
+      if (resolved.every(Boolean)) {
+        setDisplay(target);
+      } else {
+        setTimeout(tick, 50);
+      }
+    };
+    tick();
+  }
+
+  return (
+    <span ref={ref} className={`font-mono ${className}`}>
+      {display}
+    </span>
   );
 }
 
 /* ------------------------------------------------------------------ */
 /*  SVGアイコン                                                         */
 /* ------------------------------------------------------------------ */
-
 function LineIcon({ className = "", style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className} style={style}>
@@ -115,13 +585,10 @@ type Service = {
   subtitle: string;
   href: string;
   color: string;
-  colorLight: string;
   description: string;
   features: string[];
-  catchphrase: string;
   comingSoon?: boolean;
   Icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
-  cta: string;
 };
 
 const services: Service[] = [
@@ -131,17 +598,9 @@ const services: Service[] = [
     subtitle: "LINE運用プラットフォーム",
     href: "/line/",
     color: "#06C755",
-    colorLight: "rgba(6,199,85,0.08)",
-    description:
-      "あらゆる業種のLINE公式アカウント運用を、ひとつの管理画面で。",
-    features: [
-      "届けたい人だけに配信",
-      "タップで予約完了",
-      "AIが自動で返信",
-    ],
-    catchphrase: "届けたい人に、届くLINE。",
+    description: "あらゆる業種のLINE公式アカウント運用を、ひとつの管理画面で。",
+    features: ["届けたい人だけに配信", "タップで予約完了", "返信を自動で下書き"],
     Icon: LineIcon,
-    cta: "LINE運用を見る",
   },
   {
     key: "clinic",
@@ -149,17 +608,9 @@ const services: Service[] = [
     subtitle: "クリニック特化",
     href: "/clinic/",
     color: "#3b82f6",
-    colorLight: "rgba(59,130,246,0.08)",
-    description:
-      "予約・問診・カルテ・決済をLINEに集約。月60時間の事務作業を削減。",
-    features: [
-      "LINEで問診を完結",
-      "AIが返信を下書き",
-      "処方・配送まで一気通貫",
-    ],
-    catchphrase: "患者対応を、LINEで完結。",
+    description: "予約・問診・カルテ・決済をLINEに集約。月60時間の事務作業を削減。",
+    features: ["LINEで問診を完結", "返信を自動で下書き", "処方・配送まで一気通貫"],
     Icon: ClinicIcon,
-    cta: "クリニック向けを見る",
   },
   {
     key: "salon",
@@ -167,18 +618,10 @@ const services: Service[] = [
     subtitle: "サロン特化",
     href: "/salon/",
     color: "#ec4899",
-    colorLight: "rgba(236,72,153,0.08)",
-    description:
-      "施術者ごとの予約管理とリマインドで、リピート率を最大化。",
-    features: [
-      "LINEからそのまま予約",
-      "施術履歴を自動で記録",
-      "来店後にクーポン配信",
-    ],
-    catchphrase: "予約もリピートも、LINEで。",
+    description: "施術者ごとの予約管理とリマインドで、リピート率を最大化。",
+    features: ["LINEからそのまま予約", "施術履歴を自動で記録", "来店後にクーポン配信"],
     comingSoon: true,
     Icon: SalonIcon,
-    cta: "準備中",
   },
   {
     key: "ec",
@@ -186,17 +629,10 @@ const services: Service[] = [
     subtitle: "EC・小売特化",
     href: "/ec/",
     color: "#8B7355",
-    colorLight: "rgba(139,115,85,0.08)",
     description: "購買データと連動した配信で、LTVを引き上げる。",
-    features: [
-      "購入後に自動フォロー",
-      "カゴ落ちをリマインド",
-      "売上レポートを自動生成",
-    ],
-    catchphrase: "購入後もつながる、LINE。",
+    features: ["購入後に自動フォロー", "カゴ落ちをリマインド", "売上レポートを自動生成"],
     comingSoon: true,
     Icon: EcIcon,
-    cta: "準備中",
   },
 ];
 
@@ -209,162 +645,95 @@ const features = [
     title: "業種別に最適化",
     description:
       "汎用ツールでは対応しきれない業種固有の業務フローに合わせて設計。導入初日から成果につながる。",
+    number: "01",
   },
   {
     Icon: BrainIcon,
-    title: "AIが学習し続ける",
+    title: "運用するほど賢くなる",
     description:
       "スタッフの修正内容から自動で学習し、返信精度が日々向上。運用するほど業務負荷が下がる。",
+    number: "02",
   },
   {
     Icon: ShieldIcon,
     title: "医療レベルのセキュリティ",
     description:
       "暗号化・監査ログ・アクセス制御を標準搭載。個人情報を扱う業種でも安心して運用できる。",
+    number: "03",
   },
 ];
 
 /* ------------------------------------------------------------------ */
-/*  ヒーローアイコンナビ                                                  */
+/*  サービスカード（3D チルト付き）                                       */
 /* ------------------------------------------------------------------ */
-const heroIcons = [
-  { label: "for LINE", color: "#06C755", bg: "rgba(6,199,85,0.10)", Icon: LineIcon },
-  { label: "for CLINIC", color: "#3b82f6", bg: "rgba(59,130,246,0.10)", Icon: ClinicIcon },
-  { label: "for SALON", color: "#ec4899", bg: "rgba(236,72,153,0.10)", Icon: SalonIcon },
-  { label: "for EC", color: "#8B7355", bg: "rgba(139,115,85,0.10)", Icon: EcIcon },
-];
-
-/* ------------------------------------------------------------------ */
-/*  サービスカード                                                      */
-/* ------------------------------------------------------------------ */
-function ServiceCard({
-  service,
-  index,
-}: {
-  service: Service;
-  index: number;
-}) {
+function ServiceCard({ service, index }: { service: Service; index: number }) {
   const { Icon } = service;
   return (
-    <FadeIn delay={index * 0.12}>
-      <a
-        href={service.href}
-        className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition-all duration-400 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-slate-200/60"
-      >
-        {/* 上端テーマカラーグラデーションライン */}
-        <div
-          className="h-[3px]"
-          style={{
-            background: `linear-gradient(90deg, ${service.color}, ${service.color}88)`,
-          }}
-        />
+    <ScrollReveal delay={index * 120}>
+      <TiltCard className="h-full rounded-2xl" maxTilt={6}>
+        <a
+          href={service.href}
+          className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-shadow duration-500 hover:shadow-xl hover:shadow-slate-200/50"
+          data-cursor-hover
+        >
+          {/* 上端テーマカラーライン */}
+          <div className="h-[2px]" style={{ backgroundColor: service.color }} />
 
-        {/* Coming Soonバッジ */}
-        {service.comingSoon && (
-          <span className="absolute top-5 right-5 z-10 rounded-full border border-slate-200 bg-slate-50/90 px-3 py-0.5 text-[10px] font-medium text-slate-400 backdrop-blur-sm">
-            Coming Soon
-          </span>
-        )}
+          {/* Coming Soonバッジ */}
+          {service.comingSoon && (
+            <span className="absolute top-5 right-5 z-10 rounded-full border border-slate-200 bg-white/90 px-3 py-0.5 text-[10px] font-medium tracking-wide text-slate-400 backdrop-blur-sm">
+              Coming Soon
+            </span>
+          )}
 
-        <div className="flex flex-1 flex-col p-7 md:p-8">
-          {/* カード上部のビジュアル */}
-          <div
-            className="mb-6 rounded-xl p-6 text-center"
-            style={{
-              background: `linear-gradient(135deg, ${service.color}15, ${service.color}08)`,
-            }}
-          >
-            <Icon
-              className="mx-auto h-10 w-10"
-              style={{ color: service.color }}
-            />
-            <p
-              className="mt-3 text-[15px] font-bold"
-              style={{ color: service.color }}
-            >
-              {service.catchphrase}
-            </p>
-          </div>
-
-          {/* アイコン + サービス名 */}
-          <div className="mb-4 flex items-center gap-3">
-            <div
-              className="flex h-9 w-9 items-center justify-center rounded-xl"
-              style={{ backgroundColor: service.colorLight }}
-            >
-              <Icon
-                className="h-5 w-5"
-                style={{ color: service.color }}
-              />
-            </div>
-            <div>
-              <h3 className="text-[16px] font-bold text-slate-900">
-                {service.name}
-              </h3>
-              <p className="text-[11px] font-medium text-slate-400">
-                {service.subtitle}
-              </p>
-            </div>
-          </div>
-
-          {/* 説明 */}
-          <p className="mb-5 text-[13px] leading-relaxed text-slate-500">
-            {service.description}
-          </p>
-
-          {/* 機能リスト */}
-          <ul className="flex-1 space-y-2">
-            {service.features.map((f) => (
-              <li
-                key={f}
-                className="flex items-center gap-2.5 text-[13px] text-slate-600"
+          <div className="flex flex-1 flex-col p-7 md:p-8">
+            {/* アイコン + サービス名 */}
+            <div className="mb-5 flex items-center gap-3">
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-xl"
+                style={{ backgroundColor: `${service.color}10` }}
               >
-                <svg
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  className="h-3.5 w-3.5 shrink-0"
-                  style={{ color: service.color }}
-                >
-                  <circle
-                    cx="8"
-                    cy="8"
-                    r="8"
-                    fill="currentColor"
-                    opacity="0.15"
-                  />
-                  <path
-                    d="M5 8l2 2 4-4"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                {f}
-              </li>
-            ))}
-          </ul>
+                <Icon className="h-5 w-5" style={{ color: service.color }} />
+              </div>
+              <div>
+                <h3 className="text-[15px] font-bold text-slate-900">{service.name}</h3>
+                <p className="text-[11px] font-medium text-slate-400">{service.subtitle}</p>
+              </div>
+            </div>
 
-          {/* CTA */}
-          <div className="mt-6 flex items-center gap-1.5 text-[13px] font-medium text-slate-400 transition-all duration-300 group-hover:gap-3 group-hover:text-slate-700">
-            {service.cta}
-            <svg
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1"
-            >
-              <path
-                d="M3 8h10m-4-4 4 4-4 4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            {/* 説明 */}
+            <p className="mb-5 text-[13px] leading-relaxed text-slate-500">
+              {service.description}
+            </p>
+
+            {/* 機能リスト */}
+            <ul className="flex-1 space-y-2.5">
+              {service.features.map((f) => (
+                <li key={f} className="flex items-center gap-2.5 text-[13px] text-slate-600">
+                  <span
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
+                    style={{ backgroundColor: `${service.color}15` }}
+                  >
+                    <svg viewBox="0 0 12 12" fill="none" className="h-2.5 w-2.5" style={{ color: service.color }}>
+                      <path d="M3 6l2.5 2.5L9 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+
+            {/* CTA */}
+            <div className="mt-6 flex items-center gap-1.5 text-[13px] font-medium text-slate-400 transition-all duration-300 group-hover:gap-3 group-hover:text-slate-700">
+              {service.comingSoon ? "準備中" : "詳しく見る"}
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-1">
+                <path d="M3 8h10m-4-4 4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
           </div>
-        </div>
-      </a>
-    </FadeIn>
+        </a>
+      </TiltCard>
+    </ScrollReveal>
   );
 }
 
@@ -372,19 +741,34 @@ function ServiceCard({
 /*  メインコンポーネント                                                */
 /* ================================================================== */
 export default function HomeClient() {
-  const [visible, setVisible] = useState(false);
+  const [phase, setPhase] = useState(0);
 
-  /* ヒーローアイコン浮遊用のスクロール値 */
+  /* パララックス用スクロール */
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ["start start", "end start"],
   });
-  const iconY = useTransform(scrollYProgress, [0, 1], [0, -30]);
+  const heroParallax = useTransform(scrollYProgress, [0, 1], [0, -80]);
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
+
+  /* 特徴セクションのパララックス */
+  const featuresRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress: featuresProgress } = useScroll({
+    target: featuresRef,
+    offset: ["start end", "end start"],
+  });
+  const featuresParallax = useTransform(featuresProgress, [0, 1], [40, -40]);
 
   useEffect(() => {
-    const t = setTimeout(() => setVisible(true), 100);
-    return () => clearTimeout(t);
+    const t1 = setTimeout(() => setPhase(1), 100);
+    const t2 = setTimeout(() => setPhase(2), 600);
+    const t3 = setTimeout(() => setPhase(3), 2500);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
   }, []);
 
   return (
@@ -392,153 +776,159 @@ export default function HomeClient() {
       className="min-h-screen bg-white text-slate-900"
       style={{ fontFeatureSettings: "'palt'" }}
     >
+      {/* カスタムカーソル */}
+      <GlowCursor />
+
+      {/* ローディングバー */}
+      <div
+        className="fixed inset-x-0 top-0 z-[60] h-[1px] origin-left bg-slate-400"
+        style={{
+          transform: phase >= 1 ? "scaleX(1)" : "scaleX(0)",
+          opacity: phase >= 2 ? 0 : 0.6,
+          transition: phase >= 2 ? "opacity 600ms" : "transform 500ms cubic-bezier(0.16,1,0.3,1)",
+        }}
+      />
+
       {/* ═══════════ ヒーロー ═══════════ */}
-      <section
-        ref={heroRef}
-        className="relative flex min-h-[100dvh] items-center overflow-hidden"
-      >
-        {/* 背景装飾 */}
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-32 -right-32 h-[500px] w-[500px] rounded-full bg-blue-100/40 blur-[120px]" />
-          <div className="absolute -bottom-32 -left-32 h-[400px] w-[400px] rounded-full bg-slate-100/60 blur-[100px]" />
-          <div className="absolute top-1/3 left-1/2 h-[300px] w-[300px] -translate-x-1/2 rounded-full bg-green-50/40 blur-[100px]" />
+      <section ref={heroRef} className="relative flex min-h-[100dvh] items-center overflow-hidden">
+        {/* パーティクル Canvas */}
+        <div
+          className="absolute inset-0 transition-opacity duration-[2000ms]"
+          style={{ opacity: phase >= 2 ? 0.7 : 0 }}
+        >
+          <ParticleCanvas />
         </div>
 
-        {/* グラデーション */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white via-white to-slate-50" />
+        {/* ビネット（白ベース） */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: "radial-gradient(ellipse 70% 60% at 50% 50%, transparent 30%, rgba(255,255,255,0.95) 100%)",
+          }}
+        />
 
-        {/* コンテンツ */}
-        <div className="relative z-10 mx-auto w-full max-w-4xl px-6 py-32 text-center md:py-0">
-          {/* ロゴ */}
+        {/* パララックスコンテンツ */}
+        <motion.div
+          className="relative z-10 mx-auto w-full max-w-4xl px-6 py-32 text-center md:py-0"
+          style={{ y: heroParallax, opacity: heroOpacity }}
+        >
+          {/* ロゴ + サービス名（同じ行） */}
           <div
-            className="mx-auto mb-4 transition-all duration-700"
+            className="mb-10 flex items-center justify-center gap-4 transition-all duration-700"
             style={{
-              opacity: visible ? 1 : 0,
-              transform: visible ? "translateY(0)" : "translateY(12px)",
+              opacity: phase >= 2 ? 1 : 0,
+              transform: phase >= 2 ? "translateY(0)" : "translateY(16px)",
             }}
           >
             <Image
               src="/icon.png"
               alt="Lオペ"
-              width={64}
-              height={64}
-              className="mx-auto rounded-2xl"
+              width={56}
+              height={56}
+              className="rounded-2xl"
               priority
             />
+            <h1 className="text-5xl font-extrabold tracking-tight text-slate-900 md:text-6xl">
+              Lオペ
+            </h1>
           </div>
 
-          {/* サービス名 */}
-          <div
-            className="mb-8 transition-all duration-700"
-            style={{
-              opacity: visible ? 1 : 0,
-              transform: visible ? "translateY(0)" : "translateY(12px)",
-              transitionDelay: "200ms",
-            }}
-          >
-            <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 md:text-5xl">Lオペ</h1>
-          </div>
-
-          {/* メインキャッチコピー */}
-          <div
-            className="transition-all duration-1000"
-            style={{
-              opacity: visible ? 1 : 0,
-              transform: visible ? "translateY(0)" : "translateY(20px)",
-              transitionDelay: "400ms",
-            }}
-          >
-            <h2 className="text-[clamp(2rem,5vw,3.5rem)] font-bold leading-[1.3] tracking-tight text-slate-900">
+          {/* キャッチコピー（1文字ずつ） */}
+          <div style={{ opacity: phase >= 2 ? 1 : 0, transition: "opacity 0.1s", transitionDelay: "400ms" }}>
+            <SplitText
+              as="h2"
+              delay={0}
+              stagger={50}
+              className="text-[clamp(1.6rem,4.5vw,3rem)] font-bold leading-[1.4] tracking-tight text-slate-800"
+            >
               業種に最適化された
-              <br />
+            </SplitText>
+            <SplitText
+              as="h2"
+              delay={500}
+              stagger={50}
+              className="text-[clamp(1.6rem,4.5vw,3rem)] font-bold leading-[1.4] tracking-tight text-slate-800"
+            >
               LINE運用プラットフォーム
-            </h2>
+            </SplitText>
           </div>
 
-          {/* サブテキスト */}
+          {/* サブテキスト（スクランブル） */}
           <div
-            className="mt-6 transition-all duration-1000"
+            className="mt-8 transition-all duration-1000"
             style={{
-              opacity: visible ? 1 : 0,
-              transform: visible ? "translateY(0)" : "translateY(16px)",
-              transitionDelay: "650ms",
+              opacity: phase >= 2 ? 1 : 0,
+              transitionDelay: "1200ms",
             }}
           >
-            <p className="mx-auto max-w-lg text-[16px] leading-relaxed text-slate-400">
-              クリニック・サロン・EC。
-              <br className="sm:hidden" />
-              それぞれの業務フローに合わせて設計された、
-              <br className="hidden sm:block" />
-              LINE公式アカウント運用ツール。
-            </p>
+            <TextScramble
+              className="text-[12px] tracking-[0.25em] text-slate-400"
+              delay={800}
+            >
+              CLINIC / SALON / EC / LINE
+            </TextScramble>
           </div>
 
-          {/* 4サービスアイコンナビ */}
-          <motion.div
-            className="mx-auto mt-10"
-            style={{ y: iconY }}
-          >
-            <div className="flex items-center justify-center gap-5 sm:gap-8">
-              {heroIcons.map((item, i) => (
-                <motion.div
-                  key={item.label}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={visible ? { opacity: 1, y: 0 } : {}}
-                  transition={{ delay: 0.8 + i * 0.1, duration: 0.5 }}
-                  className="flex flex-col items-center gap-1.5"
+          {/* サービスアイコンナビ */}
+          <div className="mt-12 flex items-center justify-center gap-6 sm:gap-10">
+            {[
+              { label: "LINE", color: "#06C755", Icon: LineIcon },
+              { label: "CLINIC", color: "#3b82f6", Icon: ClinicIcon },
+              { label: "SALON", color: "#ec4899", Icon: SalonIcon },
+              { label: "EC", color: "#8B7355", Icon: EcIcon },
+            ].map((item, i) => (
+              <motion.div
+                key={item.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={phase >= 2 ? { opacity: 1, y: 0 } : {}}
+                transition={{ delay: 1.4 + i * 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div
+                  className="flex h-12 w-12 items-center justify-center rounded-full transition-transform duration-300 hover:scale-110 sm:h-14 sm:w-14"
+                  style={{ backgroundColor: `${item.color}0D` }}
+                  data-cursor-hover
                 >
-                  <div
-                    className="flex h-11 w-11 items-center justify-center rounded-full shadow-sm sm:h-12 sm:w-12"
-                    style={{ backgroundColor: item.bg }}
-                  >
-                    <item.Icon
-                      className="h-5 w-5"
-                      style={{ color: item.color }}
-                    />
-                  </div>
-                  <span
-                    className="text-[10px] font-semibold sm:text-[11px]"
-                    style={{ color: item.color }}
-                  >
-                    {item.label}
-                  </span>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
+                  <item.Icon className="h-5 w-5 sm:h-6 sm:w-6" style={{ color: item.color }} />
+                </div>
+                <span
+                  className="text-[10px] font-bold tracking-wider sm:text-[11px]"
+                  style={{ color: item.color }}
+                >
+                  {item.label}
+                </span>
+              </motion.div>
+            ))}
+          </div>
 
           {/* スクロールインジケーター */}
-          <motion.div
-            className="mt-20"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.3 }}
-            transition={{ delay: 1.5, duration: 1 }}
+          <div
+            className="mt-20 transition-all duration-1000"
+            style={{ opacity: phase >= 3 ? 0.3 : 0 }}
           >
-            <motion.div
-              className="mx-auto h-10 w-px bg-gradient-to-b from-slate-300 to-transparent"
-              animate={{ scaleY: [0.6, 1, 0.6] }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-              style={{ originY: 0 }}
-            />
-          </motion.div>
-        </div>
+            <div className="mx-auto h-12 w-[1px] overflow-hidden">
+              <div
+                className="h-full w-full bg-slate-400"
+                style={{ animation: "scrollPulse 2s ease-in-out infinite" }}
+              />
+            </div>
+          </div>
+        </motion.div>
       </section>
 
       {/* ═══════════ サービスカード ═══════════ */}
-      <section className="bg-slate-50/50 px-6 py-24 md:py-32">
-        <div className="mx-auto max-w-5xl">
-          <FadeIn className="mb-16">
-            <p className="text-[12px] font-medium tracking-[0.2em] text-slate-400">
+      <section className="relative bg-slate-50/60 px-6 py-24 md:py-32">
+        <MouseGradient color="100,116,139" size={800} opacity={0.03} />
+        <div className="relative mx-auto max-w-5xl">
+          <ScrollReveal direction="left" className="mb-16">
+            <span className="inline-flex items-center gap-3 text-[11px] font-medium tracking-[0.3em] text-slate-400">
+              <span className="h-px w-8 bg-slate-300" />
               SERVICES
-            </p>
-            <h2 className="mt-3 text-2xl font-bold text-slate-900 md:text-3xl">
+            </span>
+            <h2 className="mt-4 text-2xl font-bold text-slate-900 md:text-3xl">
               あなたの業種に合ったプランを
             </h2>
-          </FadeIn>
+          </ScrollReveal>
 
           <div className="grid gap-6 md:grid-cols-2">
             {services.map((s, i) => (
@@ -549,34 +939,46 @@ export default function HomeClient() {
       </section>
 
       {/* ═══════════ 特徴セクション ═══════════ */}
-      <section className="bg-white px-6 py-24 md:py-32">
-        <div className="mx-auto max-w-5xl">
-          <FadeIn className="mb-16">
-            <p className="text-[12px] font-medium tracking-[0.2em] text-slate-400">
+      <section ref={featuresRef} className="relative overflow-hidden bg-white px-6 py-24 md:py-32">
+        <MouseGradient color="100,116,139" size={700} opacity={0.03} />
+        <div className="relative mx-auto max-w-5xl">
+          <ScrollReveal direction="left" className="mb-16">
+            <span className="inline-flex items-center gap-3 text-[11px] font-medium tracking-[0.3em] text-slate-400">
+              <span className="h-px w-8 bg-slate-300" />
               WHY L-OPE
-            </p>
-            <h2 className="mt-3 text-2xl font-bold text-slate-900 md:text-3xl">
+            </span>
+            <h2 className="mt-4 text-2xl font-bold text-slate-900 md:text-3xl">
               選ばれる理由
             </h2>
-          </FadeIn>
+          </ScrollReveal>
 
-          <div className="grid gap-12 md:grid-cols-3 md:gap-8">
-            {features.map((item, i) => (
-              <FadeIn key={item.title} delay={i * 0.12}>
-                <div className="border-t border-slate-200 pt-6">
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100">
-                    <item.Icon className="h-5 w-5 text-slate-600" />
+          <motion.div style={{ y: featuresParallax }}>
+            <div className="grid gap-16 md:grid-cols-3 md:gap-10">
+              {features.map((item, i) => (
+                <ScrollReveal key={item.title} delay={i * 150}>
+                  <div className="group">
+                    {/* 番号 */}
+                    <TextScramble
+                      className="text-[48px] font-black leading-none text-slate-100 md:text-[56px]"
+                      delay={i * 200}
+                    >
+                      {item.number}
+                    </TextScramble>
+                    {/* 区切り線 */}
+                    <div className="mt-4 h-px w-12 bg-slate-200 transition-all duration-500 group-hover:w-20 group-hover:bg-slate-400" />
+                    {/* アイコン */}
+                    <div className="mt-6 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 transition-colors duration-300 group-hover:bg-slate-200">
+                      <item.Icon className="h-5 w-5 text-slate-500" />
+                    </div>
+                    <h3 className="mt-5 text-[16px] font-bold text-slate-900">{item.title}</h3>
+                    <p className="mt-3 text-[14px] leading-relaxed text-slate-400">
+                      {item.description}
+                    </p>
                   </div>
-                  <h3 className="mb-3 text-[16px] font-bold text-slate-900">
-                    {item.title}
-                  </h3>
-                  <p className="text-[14px] leading-relaxed text-slate-400">
-                    {item.description}
-                  </p>
-                </div>
-              </FadeIn>
-            ))}
-          </div>
+                </ScrollReveal>
+              ))}
+            </div>
+          </motion.div>
         </div>
       </section>
 
@@ -594,9 +996,7 @@ export default function HomeClient() {
                   height={28}
                   className="rounded-lg"
                 />
-                <span className="text-[15px] font-bold text-slate-900">
-                  Lオペ
-                </span>
+                <span className="text-[15px] font-bold text-slate-900">Lオペ</span>
               </div>
               <p className="mt-3 text-[12px] text-slate-400">
                 運営:{" "}
@@ -614,11 +1014,7 @@ export default function HomeClient() {
             {/* サービスリンク */}
             <nav className="flex flex-wrap justify-center gap-x-8 gap-y-3 text-[13px] text-slate-400">
               {services.map((s) => (
-                <a
-                  key={s.key}
-                  href={s.href}
-                  className="transition-colors hover:text-slate-700"
-                >
+                <a key={s.key} href={s.href} className="transition-colors hover:text-slate-700">
                   {s.name}
                 </a>
               ))}
@@ -638,17 +1034,26 @@ export default function HomeClient() {
             <p className="text-[12px] font-semibold text-slate-500">連携・代理店パートナー募集</p>
             <p className="mt-1 text-[11px] text-slate-400">
               Lオペとの連携・代理店についてのご相談は
-              <a href="mailto:partner@l-ope.jp" className="text-blue-600 underline ml-1">partner@l-ope.jp</a>
+              <a href="mailto:partner@l-ope.jp" className="ml-1 text-slate-600 underline transition-colors hover:text-slate-900">
+                partner@l-ope.jp
+              </a>
               までお問い合わせください。
             </p>
           </div>
 
           <div className="mt-12 border-t border-slate-200 pt-8 text-center text-[11px] text-slate-400">
-            &copy; {new Date().getFullYear()} 株式会社ORDIX. All rights
-            reserved.
+            &copy; {new Date().getFullYear()} 株式会社ORDIX. All rights reserved.
           </div>
         </div>
       </footer>
+
+      {/* アニメーション用キーフレーム */}
+      <style jsx>{`
+        @keyframes scrollPulse {
+          0% { transform: translateY(-100%); }
+          100% { transform: translateY(100%); }
+        }
+      `}</style>
     </div>
   );
 }

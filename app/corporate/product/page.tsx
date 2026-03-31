@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import TextReveal from "../components/TextReveal";
 import ScrollReveal from "../components/ScrollReveal";
 import TiltCard from "../components/TiltCard";
@@ -9,7 +8,7 @@ import TextScramble from "../components/TextScramble";
 /* ── サービス定義 ── */
 const PRODUCTS = [
   {
-    name: "Lオペ",
+    name: "Lオペ for LINE",
     desc: "LINE公式アカウントの高度な運用・自動化プラットフォーム",
     color: "#06C755",
     href: "/line/",
@@ -134,7 +133,7 @@ export default function ProductPage() {
                         {product.desc}
                       </p>
                       {product.status === "production" ? (
-                        <Link
+                        <a
                           href={product.href}
                           className="group mt-10 inline-flex items-center gap-2.5 rounded-full bg-white px-9 py-4 text-[13px] font-bold text-slate-900 transition-all duration-500 hover:shadow-[0_0_40px_rgba(59,130,246,0.15)]"
                           data-cursor-hover
@@ -143,7 +142,7 @@ export default function ProductPage() {
                           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-3 w-3 transition-transform duration-500 group-hover:translate-x-1.5">
                             <path d="M3 8h10m-4-4 4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
-                        </Link>
+                        </a>
                       ) : (
                         <span className="mt-10 inline-flex items-center gap-2 rounded-full border border-slate-700 px-9 py-4 text-[13px] font-medium text-slate-500">
                           Coming Soon
