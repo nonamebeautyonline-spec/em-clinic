@@ -141,19 +141,8 @@ export async function POST(req: NextRequest) {
     if (isNonce) {
       customerId = (await ensureSquareCustomer(baseUrl, accessToken, patientId, tenantId)) ?? undefined;
 
-      // カード保存: nonceが有効なうちに先にCards APIで保存 → card_id で決済
-      // （nonceは1回しか使えないため、決済後の payment_id からでは保存できない）
-      if (saveCard && customerId) {
-        try {
-          const savedCardId = await saveCardOnFile(baseUrl, accessToken, patientId, sourceId, tenantId);
-          if (savedCardId) {
-            paySourceId = savedCardId;
-          }
-        } catch (e) {
-          // カード保存失敗でもnonce決済にフォールバック（決済を止めない）
-          console.error("[square/pay] card save error (fallback to nonce):", e);
-        }
-      }
+      // nonceは1回限り使用可 → 決済を最優先（nonceで決済）
+      // カード保存は決済成功後に payment_id から行う（後述）
     } else {
       // 2回目以降: card_id で直接決済
       // customer_id 取得 + カードID所有権検証
@@ -195,6 +184,19 @@ export async function POST(req: NextRequest) {
 
     const payment = payResult.payment!;
     const paymentId = payment.id as string;
+
+    // 決済成功後にカード保存（nonceは決済で消費済みなので payment_id を使う）
+    if (isNonce && saveCard && customerId) {
+      try {
+        const savedCardId = await saveCardOnFile(baseUrl, accessToken, patientId, paymentId, tenantId);
+        if (savedCardId) {
+          console.log(`[square/pay] card saved after payment: ${savedCardId}`);
+        }
+      } catch (e) {
+        // カード保存失敗は決済に影響しない（次回は再度カード入力すればよい）
+        console.error("[square/pay] post-payment card save error (non-fatal):", e);
+      }
+    }
 
     // orders INSERT（配送先は自前フォームから取得）
     const finalPhone = normalizeJPPhone(shipping.phone);
