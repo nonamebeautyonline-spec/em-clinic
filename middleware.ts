@@ -187,6 +187,12 @@ export async function middleware(req: NextRequest) {
     return new NextResponse("Not Found", { status: 404 });
   }
 
+  // === 公開ページ（LP・コラム・トップ）はこれ以上のmiddleware処理不要 ===
+  // テナント解決・CSRF・JWT発行等を通すとRSCストリーミングに干渉するため早期return
+  if (isPublicPath && (isRootDomain || isLocalhost)) {
+    return NextResponse.next();
+  }
+
   // === 旧サブドメインからの移行（ベアドメインはのなめLP用にスルー） ===
   if (
     host.includes("noname-beauty.jp") &&
