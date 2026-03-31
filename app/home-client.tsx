@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
+
 import { motion, useInView, useMotionValue, animate } from "motion/react";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -191,7 +191,7 @@ function ServiceCard({
 }) {
   return (
     <FadeIn delay={index * 0.1}>
-      <Link
+      <a
         href={service.href}
         className="group relative flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/50"
       >
@@ -266,7 +266,7 @@ function ServiceCard({
             />
           </svg>
         </div>
-      </Link>
+      </a>
     </FadeIn>
   );
 }
@@ -479,13 +479,13 @@ export default function HomeClient() {
             {/* サービスリンク */}
             <nav className="flex flex-wrap justify-center gap-x-8 gap-y-3 text-[13px] text-slate-400">
               {services.map((s) => (
-                <Link
+                <a
                   key={s.name}
                   href={s.href}
                   className="transition-colors hover:text-slate-700"
                 >
                   {s.name}
-                </Link>
+                </a>
               ))}
               <a
                 href="https://ordix.co.jp"
