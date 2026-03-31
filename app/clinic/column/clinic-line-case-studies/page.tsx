@@ -9,6 +9,7 @@ import ArticleLayout, {
   Callout,
   FlowSteps,
   DonutChart,
+  ComparisonTable,
 } from "../_components/article-layout";
 
 const SITE_URL = "https://l-ope.jp";
@@ -47,11 +48,13 @@ const keyPoints = [
 
 const toc = [
   { id: "why-line", label: "なぜLINE公式アカウントが必要か" },
+  { id: "line-effect", label: "LINE導入で何が変わるか" },
   { id: "case-1", label: "事例1: 問診→予約を完全自動化" },
   { id: "case-2", label: "事例2: セグメント配信で再診率向上" },
   { id: "case-3", label: "事例3: 自動リマインドでキャンセル削減" },
   { id: "case-4", label: "事例4: オンライン決済+配送" },
   { id: "case-5", label: "事例5: AI自動返信で24時間対応" },
+  { id: "five-cases-comparison", label: "5事例の成果比較" },
   { id: "summary", label: "まとめ" },
   { id: "faq", label: "よくある質問" },
 ];
@@ -60,6 +63,12 @@ export default function Page() {
   return (
     <ArticleLayout slug={self.slug} breadcrumbLabel="活用事例" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+
+      {/* Featured Snippet対策: 要約 */}
+      <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-5 text-[14px] leading-relaxed text-slate-700">
+        <p className="font-bold text-slate-900 mb-2">【結論】</p>
+        <p>クリニックのLINE公式アカウント活用で成果を出すには、問診自動化・セグメント配信・自動リマインド・オンライン決済・AI返信の5施策が有効です。導入クリニックでは受付工数87%削減、再診率1.5倍、無断キャンセル80%減を実現しています。</p>
+      </div>
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         クリニックのLINE公式アカウント活用で成果を出すには、問診自動化・セグメント配信・自動リマインド・オンライン決済・AI返信の<strong>5施策</strong>が効果的です。本記事では、実際に成果を上げた<strong>5つのクリニック事例</strong>と、汎用ツールではなくクリニック専用ツールを選ぶべき理由を具体的なデータとともに解説します。
@@ -85,6 +94,19 @@ export default function Page() {
         </Callout>
 
         <p>しかし、多くのクリニックではLINE公式アカウントを開設しただけで活用しきれていないのが実情です。ツール選定で迷っている方は<Link href="/clinic/column/lstep-vs-clinic-tool" className="text-emerald-700 underline">Lステップ・Liny vs クリニック専用ツール比較</Link>も参考にしてください。ここでは、LINE公式アカウントを効果的に活用しているクリニックの事例を5つご紹介します。</p>
+      </section>
+
+      {/* ── LINE導入で何が変わるか ── */}
+      <section>
+        <h2 id="line-effect" className="text-xl font-bold text-gray-800">クリニックにLINEを導入すると何が変わるのか？</h2>
+        <p>LINE公式アカウントを本格活用したクリニックで実現できる改善効果を一覧で示します。</p>
+        <ul className="list-disc pl-6 space-y-1 text-[14px] text-gray-700">
+          <li>受付スタッフの電話対応時間を<strong>87%削減</strong></li>
+          <li>セグメント配信で再診率が<strong>23ポイント向上</strong></li>
+          <li>自動リマインドで無断キャンセルを<strong>80%削減</strong></li>
+          <li>LINE上の決済で決済完了率が<strong>65%→95%</strong>に改善</li>
+          <li>AI自動返信で夜間問い合わせの<strong>85%に即時対応</strong></li>
+        </ul>
       </section>
 
       {/* ── 事例1 ── */}
@@ -209,6 +231,22 @@ export default function Page() {
           { value: "15", unit: "%", label: "新患獲得増加" },
           { value: "30", unit: "%", label: "問い合わせ工数削減" },
         ]} />
+      </section>
+
+      {/* ── 5事例の成果比較 ── */}
+      <section>
+        <h2 id="five-cases-comparison" className="text-xl font-bold text-gray-800">5事例の成果を一覧比較</h2>
+        <p>5つの事例の導入前後の成果を比較表でまとめます。</p>
+        <ComparisonTable
+          headers={["事例", "診療科", "導入前", "導入後", "改善率"]}
+          rows={[
+            ["問診→予約自動化", "美容皮膚科", "電話対応1日2時間", "1日15分", "87%削減"],
+            ["セグメント配信", "内科", "再診率45%", "再診率68%", "+23pt"],
+            ["自動リマインド", "歯科", "月30件キャンセル", "月6件", "80%削減"],
+            ["オンライン決済", "オンライン", "決済完了率65%", "決済完了率95%", "+30pt"],
+            ["AI自動返信", "皮膚科", "夜間対応0%", "夜間対応85%", "85%達成"],
+          ]}
+        />
       </section>
 
       {/* ── まとめ ── */}

@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "Lオペ 利用規約",
   description:
     "Lオペ for CLINIC の利用規約です。サービスのご利用条件をご確認ください。",
-  alternates: { canonical: "https://l-ope.jp/lp/terms" },
+  alternates: { canonical: "https://l-ope.jp/clinic/terms" },
 };
 
 /* ──── 条文データ ──── */

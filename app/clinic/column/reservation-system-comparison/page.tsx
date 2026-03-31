@@ -188,8 +188,17 @@ export default function Page() {
           <li><strong>拡張性を見据える</strong> — <Link href="/clinic/column/electronic-medical-record-guide" className="text-blue-600 underline">電子カルテ</Link>連携・決済連携・分院管理など、将来の拡張に対応できるか</li>
         </ol>
         <p className="mt-4">Lオペ for CLINICは、<Link href="/clinic/features#予約・診察" className="text-sky-600 underline hover:text-sky-800">予約管理</Link>・LINE連携・問診・決済・配信をオールインワンで提供するクリニック専用プラットフォームです。予約システムの乗り換えや新規導入をご検討の方は、お気軽にご相談ください。</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/lstep-vs-clinic-tool" className="text-blue-600 underline">クリニック LINE ツール 比較 — Lステップ・Liny vs 専用ツールの選び方</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-dx-guide" className="text-blue-600 underline">クリニック LINE DXガイド — 予約・問診・会計をデジタル化する5ステップ</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-line-case-studies" className="text-blue-600 underline">クリニック LINE 活用事例5選 — 予約・問診・AI返信の導入成果を公開</a>
+        </p>
       </section>
-    
+
       {/* ── FAQ ── */}
       <section id="faq">
         <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>

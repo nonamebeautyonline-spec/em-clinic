@@ -337,6 +337,15 @@ export default function Page() {
           LINE導入の費用対効果を定量的に判断したい方は<Link href="/clinic/column/clinic-line-roi" className="text-sky-600 underline hover:text-sky-800">LINE導入ROIの計算方法</Link>を参考にしてください。CRM製品の比較は<Link href="/clinic/column/clinic-crm-comparison" className="text-sky-600 underline hover:text-sky-800">CRM比較6選</Link>もあわせてご覧ください。
           Lオペ for CLINICの機能詳細は<Link href="/clinic/features" className="text-sky-600 underline hover:text-sky-800">機能一覧ページ</Link>をご覧ください。
         </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-dx-guide" className="text-blue-600 underline">クリニック LINE DXガイド — 予約・問診・会計をデジタル化する5ステップ</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-line-case-studies" className="text-blue-600 underline">クリニック LINE 活用事例5選 — 予約・問診・AI返信の導入成果を公開</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/online-clinic-complete-guide" className="text-blue-600 underline">オンライン診療 LINE連携ガイド — 開業準備・集患・運用を徹底解説</a>
+        </p>
       </section>
     </ArticleLayout>
   );

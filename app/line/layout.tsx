@@ -44,11 +44,13 @@ export const metadata: Metadata = {
     siteName: "Lオペ for LINE",
     locale: "ja_JP",
     type: "website",
+    images: [{ url: `${SITE_URL}/line/opengraph-image`, width: 1200, height: 630, alt: "Lオペ for LINE — LINE公式アカウント運用プラットフォーム" }],
   },
   twitter: {
     card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
+    images: [`${SITE_URL}/line/opengraph-image`],
   },
 };
 

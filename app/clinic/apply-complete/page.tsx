@@ -1,4 +1,4 @@
-// app/lp/apply-complete/page.tsx — 申し込み完了ページ（Stripe決済後）
+// app/clinic/apply-complete/page.tsx — 申し込み完了ページ（Stripe決済後）
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {

@@ -45,6 +45,7 @@ const keyPoints = [
 
 const toc = [
   { id: "pitfall", label: "LINE配信ツール選びの落とし穴" },
+  { id: "lstep-what", label: "Lステップとは？クリニックに向いているか" },
   { id: "comparison", label: "比較表: 汎用 vs 専用ツール" },
   { id: "generic-use-case", label: "汎用ツールが向いているケース" },
   { id: "why-clinic-tool", label: "クリニック専用ツールが必要な理由" },
@@ -58,6 +59,12 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="ツール比較" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      {/* Featured Snippet対策: 要約 */}
+      <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-5 text-[14px] leading-relaxed text-slate-700">
+        <p className="font-bold text-slate-900 mb-2">【結論】</p>
+        <p>Lステップ・Linyは配信・タグ管理に強い汎用ツールですが、問診・カルテ・決済・配送などクリニック特有の業務には非対応です。複数SaaSの併用で月15〜30万円かかるところ、クリニック専用ツールなら月10〜18万円でオールインワン運用が可能です。</p>
+      </div>
+
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         Lステップ・Linyなどの汎用LINE配信ツールは配信・タグ管理に強い一方、問診・カルテ・決済・配送といったクリニック特有の業務には対応できません。複数SaaSを組み合わせるとコストが膨らむため、クリニックには<strong>オールインワンの専用ツール</strong>が費用対効果で優れます。本記事では機能・費用の両面から徹底比較します。
       </p>
@@ -69,6 +76,20 @@ export default function Page() {
         <Callout type="warning" title="クリニック特有の業務フローに注意">
           汎用ツールは「配信・タグ管理」が主領域。問診・カルテ・決済・配送といった医療特有の業務フローはカバーできず、複数SaaSを組み合わせる必要があります。実際のクリニック活用事例は<Link href="/clinic/column/clinic-line-case-studies" className="text-emerald-700 underline">クリニックのLINE公式アカウント活用事例5選</Link>で紹介しています。
         </Callout>
+      </section>
+
+      <section>
+        <h2 id="lstep-what" className="text-xl font-bold text-gray-800">Lステップとは？クリニックに向いているのか</h2>
+        <p>Lステップは、LINE公式アカウントの機能を拡張する汎用マーケティングツールです。主な機能はシナリオ配信・タグ管理・リッチメニュー切替・流入経路分析で、飲食・EC・サロンなど幅広い業種で利用されています。</p>
+        <p>ただし、クリニックが求める以下の機能は搭載されていません。</p>
+        <ul className="list-disc pl-6 space-y-1 text-[14px] text-gray-700">
+          <li>オンライン問診→予約→カルテへの自動連携</li>
+          <li>SOAP形式の電子カルテ管理</li>
+          <li>Square/GMO連携のオンライン決済</li>
+          <li>処方薬の配送管理・追跡番号自動通知</li>
+          <li>患者の来院履歴・決済データに基づくセグメント配信</li>
+        </ul>
+        <p>これらを実現するには複数の外部SaaSとの連携が必要になり、コスト・運用負荷ともに増大します。</p>
       </section>
 
       <section>

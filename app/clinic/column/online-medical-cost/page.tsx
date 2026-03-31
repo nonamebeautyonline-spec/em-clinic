@@ -167,8 +167,17 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICは、LINE上で予約・問診・<Link href="/clinic/features#決済・配送" className="text-sky-600 underline hover:text-sky-800">決済・配送管理</Link>まで完結するオールインワンプラットフォーム。オンライン診療の導入コストを最小限に抑えながら、患者体験を最大化します。DX化の進め方全体については<Link href="/clinic/column/clinic-dx-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>もご覧ください。</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/online-clinic-complete-guide" className="text-blue-600 underline">オンライン診療 LINE連携ガイド — 開業準備・集患・運用を徹底解説</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/lstep-vs-clinic-tool" className="text-blue-600 underline">クリニック LINE ツール 比較 — Lステップ・Liny vs 専用ツールの選び方</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-line-case-studies" className="text-blue-600 underline">クリニック LINE 活用事例5選 — 予約・問診・AI返信の導入成果を公開</a>
+        </p>
       </section>
-    
+
       {/* ── FAQ ── */}
       <section id="faq">
         <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>

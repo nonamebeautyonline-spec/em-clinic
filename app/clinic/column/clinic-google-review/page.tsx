@@ -158,8 +158,17 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICなら、診察完了からNPS調査・口コミ依頼までの一連のフローを自動化できます。口コミ対策は「始めた者勝ち」の施策です。まずは現状のGoogle口コミを確認し、今日からLINE連携の口コミ施策をスタートしましょう。Google MEO対策を含めた集患戦略については<Link href="/clinic/column/self-pay-clinic-google-meo" className="text-sky-600 underline hover:text-sky-800">Google MEO対策ガイド</Link>、SEOと合わせた総合的な集患施策は<Link href="/clinic/column/clinic-seo-complete-guide" className="text-sky-600 underline hover:text-sky-800">SEO対策完全ガイド</Link>もご覧ください。</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/self-pay-clinic-marketing-guide" className="text-blue-600 underline">自費クリニック LINE 集患マーケティング完全ガイド — SEO・広告・SNSの費用対効果比較</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-repeat-rate-improvement" className="text-blue-600 underline">クリニック LINE リピート率改善 — 自動フォローで再診率1.5倍にする方法</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-line-case-studies" className="text-blue-600 underline">クリニック LINE 活用事例5選 — 予約・問診・AI返信の導入成果を公開</a>
+        </p>
       </section>
-    
+
       {/* ── FAQ ── */}
       <section id="faq">
         <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>

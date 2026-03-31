@@ -7,16 +7,16 @@ export const metadata: Metadata = {
   description:
     "Lオペ for CLINICへのお問い合わせ・資料請求はこちら。クリニックのLINE公式アカウント活用に関するご相談、デモのご案内、導入に関するご質問を受け付けています。",
   keywords: "Lオペ 資料請求, Lオペ 問い合わせ, クリニック LINE 導入 相談, LINE公式アカウント クリニック 見積もり, クリニック DX 相談, クリニック LINE 費用",
-  alternates: { canonical: `${SITE_URL}/lp/contact` },
+  alternates: { canonical: `${SITE_URL}/clinic/contact` },
   openGraph: {
     title: "Lオペ お問い合わせ・資料請求 | 無料相談・デモ案内",
     description:
       "クリニックのLINE活用に関するご相談・資料請求・デモのご案内はこちらから。",
-    url: `${SITE_URL}/lp/contact`,
+    url: `${SITE_URL}/clinic/contact`,
     siteName: "Lオペ for CLINIC",
     locale: "ja_JP",
     type: "website",
-    images: [{ url: `${SITE_URL}/lp/contact/opengraph-image`, width: 1200, height: 630 }],
+    images: [{ url: `${SITE_URL}/clinic/contact/opengraph-image`, width: 1200, height: 630 }],
   },
 };
 
@@ -25,7 +25,7 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "ContactPage",
   name: "お問い合わせ | Lオペ for CLINIC",
-  url: `${SITE_URL}/lp/contact`,
+  url: `${SITE_URL}/clinic/contact`,
   isPartOf: { "@type": "WebSite", name: "Lオペ for CLINIC", url: SITE_URL },
 };
 

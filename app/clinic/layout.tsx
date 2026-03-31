@@ -62,7 +62,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
-    images: [`${SITE_URL}/lp/opengraph-image`],
+    images: [`${SITE_URL}/clinic/opengraph-image`],
   },
 };
 
@@ -94,7 +94,7 @@ const jsonLd = [
       "AI自動返信",
       "電子カルテ連携",
     ],
-    sameAs: ["https://l-ope.jp/lp/about"],
+    sameAs: ["https://l-ope.jp/clinic/about"],
   },
   {
     "@context": "https://schema.org",
@@ -188,11 +188,11 @@ const jsonLd = [
   },
   /* SiteNavigationElement — Googleサイトリンク表示を促進 */
   ...[
-    { name: "Lオペとは", url: `${SITE_URL}/lp/about` },
-    { name: "機能一覧", url: `${SITE_URL}/lp/features` },
+    { name: "Lオペとは", url: `${SITE_URL}/clinic/about` },
+    { name: "機能一覧", url: `${SITE_URL}/clinic/features` },
     { name: "料金プラン", url: `${SITE_URL}/#pricing` },
-    { name: "コラム", url: `${SITE_URL}/lp/column` },
-    { name: "お問い合わせ", url: `${SITE_URL}/lp/contact` },
+    { name: "コラム", url: `${SITE_URL}/clinic/column` },
+    { name: "お問い合わせ", url: `${SITE_URL}/clinic/contact` },
   ].map((item, i) => ({
     "@context": "https://schema.org",
     "@type": "SiteNavigationElement",

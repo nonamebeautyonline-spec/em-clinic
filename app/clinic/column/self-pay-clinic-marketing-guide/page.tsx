@@ -48,6 +48,7 @@ const keyPoints = [
 
 const toc = [
   { id: "why-difficult", label: "なぜ自費クリニックの集患は難しいのか" },
+  { id: "best-channels", label: "自費クリニックに最適な集患チャネルは？" },
   { id: "seo-meo", label: "SEO・MEO対策 — 検索から選ばれる仕組み" },
   { id: "listing-ads", label: "リスティング広告 — 即効性のある集患チャネル" },
   { id: "sns", label: "SNS活用 — 認知拡大と信頼構築" },
@@ -63,6 +64,13 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="マーケティング" keyPoints={keyPoints} toc={toc}>
 
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+
+      {/* Featured Snippet対策: 要約 */}
+      <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-5 text-[14px] leading-relaxed text-slate-700">
+        <p className="font-bold text-slate-900 mb-2">【結論】</p>
+        <p>自費クリニックの集患はSEO・MEO・広告・SNS・LINE・紹介の6チャネルをファネル設計し、LINEを「出口」に据えるのが最も効果的です。LINE経由のCVR向上でCPA65%削減・新患数2.8倍を実現した事例もあります。</p>
+      </div>
+
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         自費クリニックの院長先生から最も多い相談が「広告費を増やしているのに新患が増えない」というものです。自費診療は保険診療と異なり、患者の意思決定プロセスが長く、<strong>適切なチャネル戦略</strong>なしに広告費を投下しても成果につながりません。本記事では、SEO・MEO・リスティング広告・SNS・LINE・紹介の<strong>6つの集患チャネル</strong>を費用対効果の観点から徹底比較し、優先順位のつけ方から具体的な実行方法までを解説します。
       </p>
@@ -89,6 +97,20 @@ export default function Page() {
         </Callout>
 
         <p>では、具体的に各チャネルをどのように活用すればよいのか。ここからはチャネルごとの特性、費用感、効果が出るまでの期間を詳しく見ていきましょう。なお、自費クリニック全体の売上向上戦略については<Link href="/clinic/column/self-pay-clinic-revenue-triple" className="text-sky-600 underline hover:text-sky-800">自費クリニックの売上を3倍にするマーケティング戦略</Link>で体系的に解説しています。</p>
+      </section>
+
+      {/* ── 自費クリニックに最適な集患チャネルは？ ── */}
+      <section>
+        <h2 id="best-channels" className="text-xl font-bold text-gray-800">自費クリニックに最適な集患チャネルは？優先順位の付け方</h2>
+        <p>自費クリニックで費用対効果が高い集患チャネルを優先度順に整理します。</p>
+        <ol className="list-decimal pl-6 space-y-1 text-[14px] text-gray-700">
+          <li><strong>LINE公式アカウント</strong> — CPA500〜2,000円、友だち蓄積で長期効果。全チャネルの「出口」として機能</li>
+          <li><strong>SEO対策</strong> — CPA2,000〜5,000円、3〜6ヶ月で効果発現。長期的に最もROI高い</li>
+          <li><strong>MEO対策（Googleマップ）</strong> — CPA1,000〜3,000円、1〜3ヶ月で効果発現。地域集患に強い</li>
+          <li><strong>リスティング広告</strong> — CPA8,000〜25,000円、即日効果。開業初期の新患獲得に不可欠</li>
+          <li><strong>Instagram</strong> — CPA3,000〜8,000円、美容系クリニックの認知拡大に最適</li>
+          <li><strong>紹介制度</strong> — CPA1,000〜3,000円、信頼ベースで高い成約率</li>
+        </ol>
       </section>
 
       {/* ── セクション2: SEO・MEO対策 ── */}

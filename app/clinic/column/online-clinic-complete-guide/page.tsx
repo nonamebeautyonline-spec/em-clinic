@@ -39,6 +39,7 @@ const keyPoints = [
 
 const toc = [
   { id: "what-is", label: "オンライン診療とは" },
+  { id: "online-start-steps", label: "オンライン診療を始めるには？" },
   { id: "how-to-start", label: "始め方 — 届出と準備" },
   { id: "system-comparison", label: "システム選定・比較" },
   { id: "specialties", label: "扱える診療科目" },
@@ -55,6 +56,13 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="オンライン診療完全ガイド" keyPoints={keyPoints} toc={toc}>
 
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+
+      {/* Featured Snippet対策: 要約 */}
+      <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-5 text-[14px] leading-relaxed text-slate-700">
+        <p className="font-bold text-slate-900 mb-2">【結論】</p>
+        <p>オンライン診療は厚生局への届出（最短2週間）とシステム導入で開始でき、自費診療なら月間160万円以上の追加売上が見込めます。LINE連携プラットフォームを選ぶことで予約〜配送まで一気通貫の運用が実現します。</p>
+      </div>
+
       {/* ── イントロ ── */}
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         2026年、オンライン診療市場は<strong>推定1,200億円規模</strong>にまで拡大し、クリニックにとっての「参入するかどうか」ではなく「いかに効率よく始めるか」のフェーズに入りました。
@@ -93,6 +101,20 @@ export default function Page() {
             ["決済", "窓口会計", "オンライン決済対応"],
           ]}
         />
+      </section>
+
+      {/* ── オンライン診療を始めるには？ ── */}
+      <section>
+        <h2 id="online-start-steps" className="text-xl font-bold text-gray-800">オンライン診療を始めるには？必要な5ステップ</h2>
+        <p>オンライン診療の開始に必要な手順を5ステップで整理します。</p>
+        <ol className="list-decimal pl-6 space-y-1 text-[14px] text-gray-700">
+          <li><strong>厚生局への届出</strong> — 施設基準の届出書類を地方厚生局に提出（最短2週間）</li>
+          <li><strong>システム導入</strong> — ビデオ通話・予約・決済機能を備えたプラットフォームを選定</li>
+          <li><strong>オペレーション設計</strong> — 予約枠・問診フロー・処方配送手順を策定</li>
+          <li><strong>集患開始</strong> — Webサイト・LINE・広告で告知し、既存患者にも案内</li>
+          <li><strong>運用改善</strong> — 離脱率・リピート率を分析し、オペレーションを継続改善</li>
+        </ol>
+        <p>初期費用は10万円〜、必要な機材はPC・カメラ・ヘッドセットの3点のみで、高額な専用機材は不要です。</p>
       </section>
 
       {/* ── セクション2: 始め方 ── */}
@@ -325,12 +347,12 @@ export default function Page() {
         <p>オンライン診療は2022年の恒久化から急速に普及が進み、2026年現在では多くのクリニックが参入を果たしています。しかし、参入しただけでは差別化は困難です。<strong>成功するクリニックと伸び悩むクリニックの違い</strong>は、システム選定・集患戦略・オペレーション設計・リピート施策の4つの要素にあります。</p>
 
         <Callout type="success" title="オンライン診療成功の4つの鍵">
-          <ul className="mt-1 space-y-1">
-            <li>1. <strong>患者のアクセスハードルを最小化する</strong> — 専用アプリ不要、LINE完結のUXを実現</li>
-            <li>2. <strong>集患からリピートまでの導線を自動化する</strong> — LINE友だち追加→予約→リマインドの自動フロー</li>
-            <li>3. <strong>自費診療の収益を最大化する</strong> — AGA・ピル・美容内服など高単価領域の開拓</li>
-            <li>4. <strong>一気通貫のプラットフォームを選ぶ</strong> — 予約〜配送まで1つのシステムで完結</li>
-          </ul>
+          <ol className="mt-1 space-y-1 list-decimal pl-4">
+            <li><strong>患者のアクセスハードルを最小化する</strong> — 専用アプリ不要、LINE完結のUXを実現</li>
+            <li><strong>集患からリピートまでの導線を自動化する</strong> — LINE友だち追加→予約→リマインドの自動フロー</li>
+            <li><strong>自費診療の収益を最大化する</strong> — AGA・ピル・美容内服など高単価領域の開拓</li>
+            <li><strong>一気通貫のプラットフォームを選ぶ</strong> — 予約〜配送まで1つのシステムで完結</li>
+          </ol>
         </Callout>
 
         <p>Lオペ for CLINICは、これら4つの要素をすべてカバーするクリニック特化型のLINE運用プラットフォームです。オンライン診療の開業を検討されている方も、すでに開始していて伸び悩みを感じている方も、まずは<Link href="/clinic/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>でお気軽にご相談ください。</p>

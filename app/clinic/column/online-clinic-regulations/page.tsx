@@ -344,8 +344,17 @@ export default function Page() {
         <p>
           法規制を正しく理解し遵守することは、クリニックを法的リスクから守るだけでなく、患者からの信頼を築く基盤となります。Lオペを活用し、コンプライアンスに配慮した安全なオンライン診療体制を構築していきましょう。オンライン診療の運用コストについては<Link href="/clinic/column/online-medical-cost" className="text-sky-600 underline hover:text-sky-800">オンライン診療の費用と運用コスト</Link>、LINE活用の全体像は<Link href="/clinic/column/online-medical-line" className="text-sky-600 underline hover:text-sky-800">オンライン診療×LINE完全ガイド</Link>もご参照ください。お問い合わせは<Link href="/clinic/contact" className="text-sky-600 underline hover:text-sky-800">こちら</Link>から。
         </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-dx-guide" className="text-blue-600 underline">クリニック LINE DXガイド — 予約・問診・会計をデジタル化する5ステップ</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/lstep-vs-clinic-tool" className="text-blue-600 underline">クリニック LINE ツール 比較 — Lステップ・Liny vs 専用ツールの選び方</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-line-case-studies" className="text-blue-600 underline">クリニック LINE 活用事例5選 — 予約・問診・AI返信の導入成果を公開</a>
+        </p>
       </section>
-    
+
       {/* ── FAQ ── */}
       <section id="faq">
         <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>

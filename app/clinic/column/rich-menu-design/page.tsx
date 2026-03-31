@@ -224,8 +224,20 @@ export default function Page() {
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: リッチメニューはクリニックLINEの「顔」</h2>
         <p>リッチメニューは患者がLINE公式アカウントを開いたときに最初に目にするUIであり、<strong>クリニックのデジタル上の「顔」</strong>とも言えます。ボタン配置・状態連動切替・デザイン・導線設計・継続改善の5つのポイントを押さえることで、患者の利便性と満足度を大きく向上させられます。美容クリニックでのリッチメニュー活用例は<Link href="/clinic/column/beauty-clinic-line" className="text-sky-600 underline hover:text-sky-800">美容クリニックのLINE活用術</Link>でも紹介しています。友だちのブロックを防ぎ定着率を高めるコツは<Link href="/clinic/column/line-block-rate-reduction" className="text-sky-600 underline hover:text-sky-800">ブロック率を下げる5つの鉄則</Link>をご覧ください。</p>
         <p>Lオペ for CLINICでは、クリニック専用に設計されたリッチメニューテンプレートと、予約・来院状態に連動した自動切替機能を標準搭載。デザインの知識がなくても、<strong>プロ品質のリッチメニュー</strong>をすぐに導入できます。<Link href="/clinic/features#ノーコード構築" className="text-sky-600 underline hover:text-sky-800">リッチメニュービルダー</Link>の詳細はこちらからご確認いただけます。</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-dx-guide" className="text-blue-600 underline">クリニック LINE DXガイド — 予約・問診・会計をデジタル化する5ステップ</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-line-case-studies" className="text-blue-600 underline">クリニック LINE 活用事例5選 — 予約・問診・AI返信の導入成果を公開</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-line-automation" className="text-blue-600 underline">クリニック LINE 自動化ガイド — 予約・問診・返信の手動業務をゼロにする方法</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/lstep-vs-clinic-tool" className="text-blue-600 underline">クリニック LINE ツール 比較 — Lステップ・Liny vs 専用ツールの選び方</a>
+        </p>
       </section>
-    
+
       {/* ── FAQ ── */}
       <section id="faq">
         <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>

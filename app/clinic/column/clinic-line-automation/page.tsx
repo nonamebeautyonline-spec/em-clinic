@@ -165,6 +165,15 @@ export default function Page() {
         </Callout>
 
         <p>LINE自動化は、一度設定すれば継続的に効果を発揮する「仕組み」です。Lオペ for CLINICなら、これらの自動化をノーコードで設定でき、クリニックの規模やスタッフのITスキルに関係なく導入可能です。まずは予約リマインドの自動化から始めて、段階的に自動化の範囲を広げていくことをおすすめします。導入のROI計算方法は<Link href="/clinic/column/clinic-line-roi" className="text-sky-600 underline hover:text-sky-800">LINE導入ROIの計算方法</Link>で解説しています。スタッフへの研修・定着方法は<Link href="/clinic/column/clinic-staff-training" className="text-sky-600 underline hover:text-sky-800">スタッフ研修ガイド</Link>もご覧ください。</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-dx-guide" className="text-blue-600 underline">クリニック LINE DXガイド — 予約・問診・会計をデジタル化する5ステップ</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-repeat-rate-improvement" className="text-blue-600 underline">クリニック LINE リピート率改善 — 自動フォローで再診率1.5倍にする方法</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/online-clinic-complete-guide" className="text-blue-600 underline">オンライン診療 LINE連携ガイド — 開業準備・集患・運用を徹底解説</a>
+        </p>
       </section>
 
       <section id="faq">

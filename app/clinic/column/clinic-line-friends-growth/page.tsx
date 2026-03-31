@@ -271,6 +271,15 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICでは、友だち追加の経路分析・QRコード生成・自動応答メッセージの設定まで、友だち集めに必要な機能をワンストップで提供しています。詳しくは<Link href="/clinic/features#分析・レポート" className="text-sky-600 underline hover:text-sky-800">分析・レポート機能</Link>をご覧ください。</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/self-pay-clinic-marketing-guide" className="text-blue-600 underline">自費クリニック LINE 集患マーケティング完全ガイド — SEO・広告・SNSの費用対効果比較</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-dx-guide" className="text-blue-600 underline">クリニック LINE DXガイド — 予約・問診・会計をデジタル化する5ステップ</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-line-case-studies" className="text-blue-600 underline">クリニック LINE 活用事例5選 — 予約・問診・AI返信の導入成果を公開</a>
+        </p>
       </section>
 
       <section id="faq">

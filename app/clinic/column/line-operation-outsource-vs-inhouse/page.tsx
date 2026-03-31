@@ -188,8 +188,17 @@ export default function Page() {
           { value: "半額以下", unit: "", label: "ハイブリッド方式の年間コスト" },
         ]} />
         <p className="mt-4">Lオペ for CLINICは、クリニックの自社運用を前提に設計されたLINE運用プラットフォームです。直感的な操作性と充実したテンプレートで、ITに詳しくないスタッフでもすぐに運用を開始できます。<Link href="/clinic/features" className="text-sky-600 underline hover:text-sky-800">全機能一覧</Link>もご覧ください。初期構築サポートからトレーニングまで、自社運用の立ち上げを伴走いたします。まずは<Link href="/clinic/column/clinic-line-friends-growth" className="text-sky-600 underline hover:text-sky-800">LINE友だち集め月100人増やす7つの施策</Link>から取り組んでみてはいかがでしょうか。</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-dx-guide" className="text-blue-600 underline">クリニック LINE DXガイド — 予約・問診・会計をデジタル化する5ステップ</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-line-case-studies" className="text-blue-600 underline">クリニック LINE 活用事例5選 — 予約・問診・AI返信の導入成果を公開</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-repeat-rate-improvement" className="text-blue-600 underline">クリニック LINE リピート率改善 — 自動フォローで再診率1.5倍にする方法</a>
+        </p>
       </section>
-    
+
       {/* ── FAQ ── */}
       <section id="faq">
         <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>

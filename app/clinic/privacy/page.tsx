@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "Lオペ プライバシーポリシー",
   description:
     "Lオペ for CLINIC のプライバシーポリシー。個人情報の取り扱いについてご説明します。",
-  alternates: { canonical: "https://l-ope.jp/lp/privacy" },
+  alternates: { canonical: "https://l-ope.jp/clinic/privacy" },
 };
 
 export default function PrivacyPolicyPage() {

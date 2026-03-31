@@ -8,12 +8,12 @@ export const metadata: Metadata = {
   description:
     "Lオペの全40機能以上を一覧で紹介。Lオペなら患者CRM・セグメント配信・リッチメニュー・オンライン問診・予約管理・業務時間管理・Google Calendar連携・AI自動返信・音声カルテ・決済管理・配送管理・在庫管理・NPS調査・フロービルダー・マルチ診療分野・スタッフ権限管理など、LINE公式アカウントでクリニック業務をDX化する全機能をオールインワンで提供。",
   keywords: "Lオペ, Lオペ 機能一覧, Lオペ for CLINIC, クリニック LINE 機能, 患者CRM, セグメント配信, リッチメニュー ビルダー, AI自動返信 クリニック, 音声カルテ AI, 予約管理 LINE, オンライン問診, 電子カルテ連携, 配送管理 クリニック, 在庫管理, NPS調査, フロービルダー, チャットボット ビルダー, A/Bテスト LINE, クーポン管理, ダッシュボード 経営, 売上分析 LTV, ステップシナリオ, Flex Message, 業務時間管理, Google Calendar連携, マルチ診療分野, スタッフ権限管理, 問診フォーム複数",
-  alternates: { canonical: `${SITE_URL}/lp/features` },
+  alternates: { canonical: `${SITE_URL}/clinic/features` },
   openGraph: {
     title: "Lオペ 機能一覧 | 45の医療特化機能をオールインワン",
     description:
       "Lオペなら患者CRM・AI・予約・決済・配送・分析まで、40以上の機能をオールインワンで提供。LINE公式アカウントでクリニック業務をDX化。",
-    url: `${SITE_URL}/lp/features`,
+    url: `${SITE_URL}/clinic/features`,
     siteName: "Lオペ for CLINIC",
     locale: "ja_JP",
     type: "website",
@@ -182,7 +182,7 @@ const jsonLd = [
         availability: "https://schema.org/InStock",
         price: "0",
         priceCurrency: "JPY",
-        url: `${SITE_URL}/lp/contact`,
+        url: `${SITE_URL}/clinic/contact`,
       },
       {
         "@type": "Offer",
@@ -191,7 +191,7 @@ const jsonLd = [
         availability: "https://schema.org/InStock",
         price: "0",
         priceCurrency: "JPY",
-        url: `${SITE_URL}/lp/contact`,
+        url: `${SITE_URL}/clinic/contact`,
       },
     ],
   },
@@ -231,13 +231,13 @@ const jsonLd = [
     name: "機能一覧 | Lオペ for CLINIC",
     description:
       "Lオペ for CLINICの全40機能以上を一覧で紹介。患者CRM・セグメント配信・リッチメニュー・オンライン問診・予約管理・AI自動返信・音声カルテ・決済管理・配送管理・在庫管理・NPS調査・フロービルダーなど、LINE公式アカウントでクリニック業務をDX化する全機能を解説。",
-    url: `${SITE_URL}/lp/features`,
+    url: `${SITE_URL}/clinic/features`,
     isPartOf: { "@type": "WebSite", name: "Lオペ for CLINIC", url: SITE_URL },
     breadcrumb: {
       "@type": "BreadcrumbList",
       itemListElement: [
         { "@type": "ListItem", position: 1, name: "Lオペ for CLINIC", item: SITE_URL },
-        { "@type": "ListItem", position: 2, name: "機能一覧", item: `${SITE_URL}/lp/features` },
+        { "@type": "ListItem", position: 2, name: "機能一覧", item: `${SITE_URL}/clinic/features` },
       ],
     },
   },

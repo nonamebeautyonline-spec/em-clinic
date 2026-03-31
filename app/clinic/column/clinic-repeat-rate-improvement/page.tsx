@@ -48,6 +48,7 @@ const keyPoints = [
 
 const toc = [
   { id: "why-decline", label: "なぜクリニックのリピート率が下がるのか" },
+  { id: "how-to-improve-repeat", label: "リピート率を上げるには？" },
   { id: "three-systems", label: "LINE自動フォローの3つの仕組み" },
   { id: "segment-strategy", label: "セグメント別フォローアップ戦略" },
   { id: "results", label: "導入クリニックの成果事例" },
@@ -61,6 +62,13 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="マーケティング" keyPoints={keyPoints} toc={toc}>
 
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+
+      {/* Featured Snippet対策: 要約 */}
+      <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-5 text-[14px] leading-relaxed text-slate-700">
+        <p className="font-bold text-slate-900 mb-2">【結論】</p>
+        <p>クリニックのリピート率低下の最大原因は「忘れ」（40%）と「予約の面倒さ」（22%）です。LINE自動フォローで適切なタイミングにリマインドを送り、ワンタップ予約の導線を整えることで、再診率を平均1.5倍に改善できます。</p>
+      </div>
+
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
         クリニック経営において<strong>リピート率（再診率）</strong>は売上安定に直結する最重要指標です。新患を1人獲得するコストは、既存患者に再来院してもらうコストの<strong>約5倍</strong>。にもかかわらず、多くのクリニックでは新患集客にばかり投資し、既存患者のフォローアップが手薄になっています。本記事では、<strong>Lオペ for CLINIC</strong>を活用したLINE自動フォローで再診率を1.5倍に改善する具体的な戦略を解説します。
       </p>
@@ -95,6 +103,20 @@ export default function Page() {
         </Callout>
 
         <p>逆に言えば、フォローアップの仕組みがないクリニックは、本来リピートできるはずの患者の6割を「放置」によって失っていることになります。Lオペ for CLINICは、この課題をLINE自動配信で解決するために設計されたプラットフォームです。</p>
+      </section>
+
+      {/* ── リピート率を上げるには？ ── */}
+      <section>
+        <h2 id="how-to-improve-repeat" className="text-xl font-bold text-gray-800">クリニックのリピート率を上げるにはどうすればいい？</h2>
+        <p>リピート率を改善するために即実行できる施策を優先度順に整理します。</p>
+        <ol className="list-decimal pl-6 space-y-1 text-[14px] text-gray-700">
+          <li><strong>来院翌日のお礼メッセージ</strong>をLINEで自動送信し、親近感を醸成する</li>
+          <li><strong>定期検診リマインド</strong>を診療科別の推奨間隔で自動配信する</li>
+          <li><strong>メッセージ内に予約ボタン</strong>を設置し、2タップで予約完了できる導線を作る</li>
+          <li><strong>休眠患者（3ヶ月以上未来院）</strong>に気遣いメッセージを自動送信する</li>
+          <li>初診・リピーター・休眠の<strong>3セグメント</strong>で配信内容を最適化する</li>
+        </ol>
+        <p>これらをすべて自動化することで、手動フォローの月30時間を2時間に削減しながら、再診率を大幅に改善できます。</p>
       </section>
 
       {/* ── LINE自動フォローの3つの仕組み ── */}

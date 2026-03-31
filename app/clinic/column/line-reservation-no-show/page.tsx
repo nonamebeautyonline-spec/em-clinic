@@ -137,6 +137,15 @@ export default function Page() {
         <p>無断キャンセル対策の本質は、<strong>患者が「面倒くさい」と感じるハードルを徹底的に下げる</strong>ことです。LINEという日常的に使うツール上で、予約確認・変更・キャンセルをワンタップで完結させることが最も効果的です。Lオペ for CLINICの<Link href="/clinic/features#予約・診察" className="text-sky-600 underline hover:text-sky-800">予約・スケジュール管理機能</Link>では、これらの機能が標準搭載されています。予約システムの選び方については<Link href="/clinic/column/reservation-system-comparison" className="text-emerald-700 underline">予約システム比較10選</Link>も参考にしてください。また、キャンセル対策と合わせて<Link href="/clinic/column/line-block-rate-reduction" className="text-emerald-700 underline">ブロック率を下げる5つの鉄則</Link>も押さえておくと、患者との接点を維持しやすくなります。</p>
         <p>関連記事: <Link href="/clinic/column/clinic-waiting-time" className="text-blue-600 underline">クリニックの待ち時間対策</Link></p>
         <p>関連記事: <Link href="/clinic/column/clinic-appointment-optimization" className="text-blue-600 underline">クリニックの予約枠最適化</Link></p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-dx-guide" className="text-blue-600 underline">クリニック LINE DXガイド — 予約・問診・会計をデジタル化する5ステップ</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/lstep-vs-clinic-tool" className="text-blue-600 underline">クリニック LINE ツール 比較 — Lステップ・Liny vs 専用ツールの選び方</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-line-automation" className="text-blue-600 underline">クリニック LINE 自動化ガイド — 予約・問診・返信の手動業務をゼロにする方法</a>
+        </p>
       </section>
 
       <section id="faq">

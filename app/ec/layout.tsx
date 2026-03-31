@@ -43,11 +43,13 @@ export const metadata: Metadata = {
     siteName: "Lオペ for EC",
     locale: "ja_JP",
     type: "website",
+    images: [{ url: `${SITE_URL}/ec/opengraph-image`, width: 1200, height: 630, alt: "Lオペ for EC — EC・小売向けLINE運用プラットフォーム" }],
   },
   twitter: {
     card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
+    images: [`${SITE_URL}/ec/opengraph-image`],
   },
 };
 

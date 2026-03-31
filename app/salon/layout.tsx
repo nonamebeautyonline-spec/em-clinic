@@ -43,11 +43,13 @@ export const metadata: Metadata = {
     siteName: "Lオペ for SALON",
     locale: "ja_JP",
     type: "website",
+    images: [{ url: `${SITE_URL}/salon/opengraph-image`, width: 1200, height: 630, alt: "Lオペ for SALON — サロン特化LINE運用プラットフォーム" }],
   },
   twitter: {
     card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
+    images: [`${SITE_URL}/salon/opengraph-image`],
   },
 };
 
