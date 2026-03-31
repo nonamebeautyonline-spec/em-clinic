@@ -185,20 +185,7 @@ export async function POST(req: NextRequest) {
     const payment = payResult.payment!;
     const paymentId = payment.id as string;
 
-    // 決済成功後にカード保存（nonceは決済で消費済みなので payment_id を使う）
-    if (isNonce && saveCard && customerId) {
-      try {
-        const savedCardId = await saveCardOnFile(baseUrl, accessToken, patientId, paymentId, tenantId);
-        if (savedCardId) {
-          console.log(`[square/pay] card saved after payment: ${savedCardId}`);
-        }
-      } catch (e) {
-        // カード保存失敗は決済に影響しない（次回は再度カード入力すればよい）
-        console.error("[square/pay] post-payment card save error (non-fatal):", e);
-      }
-    }
-
-    // orders INSERT（配送先は自前フォームから取得）
+    // orders INSERT を最優先（webhookとのレース回避: webhookがSELECTする前にINSERTを完了させる）
     const finalPhone = normalizeJPPhone(shipping.phone);
     try {
       await supabaseAdmin.from("orders").insert({
@@ -278,8 +265,27 @@ export async function POST(req: NextRequest) {
     // キャッシュ削除
     await invalidateDashboardCache(patientId);
 
+    // 決済成功後にカード保存（nonceは決済で消費済みなので payment_id を使う）
+    // orders INSERT・通知の後に実行（webhookとのレースに影響しない位置）
+    if (isNonce && saveCard && customerId) {
+      try {
+        const savedCardId = await saveCardOnFile(baseUrl, accessToken, patientId, paymentId, tenantId);
+        if (savedCardId) {
+          console.log(`[square/pay] card saved after payment: ${savedCardId}`);
+        }
+      } catch (e) {
+        console.error("[square/pay] post-payment card save error (non-fatal):", e);
+      }
+    }
+
     // タグ自動付与（fire-and-forget）
     evaluateTagAutoRules(patientId, "checkout_completed", tid).catch(() => {});
+    // イベントバス発火（スコアリング・広告CAPI等）
+    if (tid) {
+      import("@/lib/event-bus").then(({ fireEvent }) =>
+        fireEvent("checkout_completed", { tenantId: tid, patientId }).catch(() => {}),
+      );
+    }
 
     return NextResponse.json({
       success: true,
