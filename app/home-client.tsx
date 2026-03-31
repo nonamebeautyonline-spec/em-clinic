@@ -673,11 +673,10 @@ function ServiceCard({ service, index }: { service: Service; index: number }) {
       <TiltCard className="h-full rounded-2xl" maxTilt={6}>
         <a
           href={service.href}
-          className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-shadow duration-500 hover:shadow-xl hover:shadow-slate-200/50"
+          className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-all duration-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/50"
+          style={{ borderLeft: `3px solid ${service.color}` }}
           data-cursor-hover
         >
-          {/* 上端テーマカラーライン */}
-          <div className="h-[2px]" style={{ backgroundColor: service.color }} />
 
           {/* Coming Soonバッジ */}
           {service.comingSoon && (
