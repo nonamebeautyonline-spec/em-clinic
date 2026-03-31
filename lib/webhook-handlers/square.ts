@@ -319,9 +319,18 @@ export async function processSquareEvent(params: SquareHandlerParams): Promise<v
     }
 
     // 決済完了サンクスFlex送信
-    // inline決済（/api/square/pay）で既に注文INSERT済みの場合はそちらで通知済みなのでスキップ
-    // hosted checkout（Payment Links）からの決済のみwebhookで通知を送る
-    if (patientId && !existingOrder) {
+    // inline決済（/api/square/pay）で既に通知済みなら二重送信しない
+    let alreadyNotified = false;
+    if (patientId) {
+      const { count } = await supabaseAdmin
+        .from("message_log")
+        .select("id", { count: "exact", head: true })
+        .eq("patient_id", patientId)
+        .eq("message_type", "payment_thank")
+        .gte("created_at", new Date(Date.now() - 5 * 60_000).toISOString());
+      alreadyNotified = (count ?? 0) > 0;
+    }
+    if (patientId && !alreadyNotified) {
       try {
         const rules = await getBusinessRules(tenantId ?? undefined);
         if (rules.notifyReorderPaid) {
