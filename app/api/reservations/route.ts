@@ -941,6 +941,12 @@ export async function POST(req: NextRequest) {
       // タグ自動付与（fire-and-forget）
       if (pid) {
         evaluateTagAutoRules(pid, "reservation_made", tenantId ?? undefined).catch(() => {});
+        // イベントバス発火（スコアリング・外部Webhook等）
+        if (tenantId) {
+          import("@/lib/event-bus").then(({ fireEvent }) =>
+            fireEvent("reservation_made", { tenantId, patientId: pid }).catch(() => {}),
+          );
+        }
       }
 
       return NextResponse.json({

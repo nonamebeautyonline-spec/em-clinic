@@ -415,6 +415,18 @@ export async function POST(
     });
   }
 
+  // イベントバス発火（スコアリング・外部Webhook等）
+  if (tenantId) {
+    import("@/lib/event-bus").then(({ fireEvent }) =>
+      fireEvent("form_submitted", {
+        tenantId,
+        patientId: patientId ?? undefined,
+        lineUid: line_user_id ?? undefined,
+        eventData: { formId: form.id, formSlug: slug },
+      }).catch(() => {}),
+    );
+  }
+
   return NextResponse.json({
     ok: true,
     response_id: response?.id,

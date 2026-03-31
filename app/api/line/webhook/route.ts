@@ -13,6 +13,7 @@ import { MERGE_TABLES } from "@/lib/merge-tables";
 import { getSettingOrEnv } from "@/lib/settings";
 import { scheduleAiReply, sendAiReply, processAiReply, clearAiReplyDebounce, rescheduleAiReply } from "@/lib/ai-reply";
 import { isWithinBusinessHours } from "@/lib/business-hours";
+import { fireEvent } from "@/lib/event-bus";
 import { acquireLock } from "@/lib/distributed-lock";
 import { checkSpamBurst } from "@/lib/spam-burst";
 import { findScenarioByKeyword, getActiveSession, startScenario, processUserInput, getNextMessage } from "@/lib/chatbot-engine";
@@ -410,6 +411,11 @@ async function handleFollow(lineUid: string, tenantId: string | null, accessToke
   // タグ自動付与（fire-and-forget）
   if (patient?.patient_id) {
     evaluateTagAutoRules(patient.patient_id, "follow", tenantId ?? undefined).catch(() => {});
+  }
+
+  // イベントバス発火（スコアリング・外部Webhook等の連鎖）
+  if (patient?.patient_id && tenantId) {
+    fireEvent("follow", { tenantId, patientId: patient.patient_id, lineUid }).catch(() => {});
   }
 }
 

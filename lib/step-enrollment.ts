@@ -248,6 +248,9 @@ export interface ConditionRule {
   product_match?: string;
   product_date_from?: string;
   product_date_to?: string;
+  // メタデータ条件（Phase 3）
+  metadata_key?: string;
+  metadata_value?: string;
 }
 
 export async function evaluateStepConditions(
@@ -316,6 +319,55 @@ export async function evaluateStepConditions(
         const counts = await getReorderCounts([patientId], tenantId);
         const count = counts.get(patientId) || 0;
         matched = matchBehaviorCondition(count, rule.behavior_operator || rule.operator || ">=", rule.behavior_value || rule.value || "0", rule.behavior_value_end || rule.value_end);
+        break;
+      }
+      case "metadata_equals": {
+        // メタデータの特定キーが特定値と一致するか
+        const metaKey = rule.metadata_key || "";
+        const metaValue = rule.metadata_value ?? "";
+        if (!metaKey) { matched = true; break; }
+        const { data: pMeta } = await withTenant(
+          supabaseAdmin
+            .from("patients")
+            .select("metadata")
+            .eq("patient_id", patientId)
+            .maybeSingle(),
+          tenantId
+        );
+        const metadata = (pMeta?.metadata || {}) as Record<string, unknown>;
+        matched = String(metadata[metaKey] ?? "") === String(metaValue);
+        break;
+      }
+      case "metadata_not_equals": {
+        const metaKey2 = rule.metadata_key || "";
+        const metaValue2 = rule.metadata_value ?? "";
+        if (!metaKey2) { matched = true; break; }
+        const { data: pMeta2 } = await withTenant(
+          supabaseAdmin
+            .from("patients")
+            .select("metadata")
+            .eq("patient_id", patientId)
+            .maybeSingle(),
+          tenantId
+        );
+        const metadata2 = (pMeta2?.metadata || {}) as Record<string, unknown>;
+        matched = String(metadata2[metaKey2] ?? "") !== String(metaValue2);
+        break;
+      }
+      case "lead_score": {
+        // リードスコアの条件（例: score >= 50）
+        const { data: pScore } = await withTenant(
+          supabaseAdmin
+            .from("patients")
+            .select("lead_score")
+            .eq("patient_id", patientId)
+            .maybeSingle(),
+          tenantId
+        );
+        const score = (pScore?.lead_score as number) ?? 0;
+        const op = rule.behavior_operator || rule.operator || ">=";
+        const val = Number(rule.behavior_value || rule.value || "0");
+        matched = matchBehaviorCondition(score, op, String(val), rule.behavior_value_end || rule.value_end);
         break;
       }
       default:

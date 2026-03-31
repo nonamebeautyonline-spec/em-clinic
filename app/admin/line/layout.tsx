@@ -35,6 +35,10 @@ const SUB_TABS = [
   { href: "/admin/line/click-analytics", label: "クリック分析" },
   { href: "/admin/line/analytics", label: "配信効果分析" },
   { href: "/admin/line/nps", label: "NPS" },
+  { href: "/admin/line/conversions", label: "CV管理" },
+  { href: "/admin/line/scoring", label: "スコアリング" },
+  { href: "/admin/line/webhooks", label: "Webhook" },
+  { href: "/admin/line/ad-platforms", label: "広告連携" },
   { href: "/admin/line/messages", label: "送信履歴" },
   { href: "/admin/line/column-settings", label: "表示設定" },
 ];

@@ -49,6 +49,12 @@ export async function GET(
     if (val) customParams[def.key] = val;
   }
 
+  // 広告クリックID取得（gclid/fbclid/ttclid/twclid）
+  const gclid = searchParams.get("gclid") || null;
+  const fbclid = searchParams.get("fbclid") || null;
+  const ttclid = searchParams.get("ttclid") || null;
+  const twclid = searchParams.get("twclid") || null;
+
   // 訪問記録
   const ua = req.headers.get("user-agent") || "";
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "";
@@ -68,6 +74,10 @@ export async function GET(
       utm_term: utmTerm || null,
       utm_content: utmContent || null,
       custom_params: Object.keys(customParams).length > 0 ? customParams : {},
+      gclid,
+      fbclid,
+      ttclid,
+      twclid,
     })
     .select("id")
     .single();

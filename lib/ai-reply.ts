@@ -575,6 +575,11 @@ export async function processAiReply(
     }
   }
 
+  // 0.3. タイピングインジケーター表示（AI処理中を示す）
+  import("@/lib/line-push").then(({ showLoadingAnimation }) =>
+    showLoadingAnimation(lineUid, 30, tid).catch(() => {}),
+  );
+
   // 0.5. cooldownチェック（レート制限でブロックされた患者）
   const cooldownActive = await isInCooldown(tenantId, patientId);
   if (cooldownActive) {

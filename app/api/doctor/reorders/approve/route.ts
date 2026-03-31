@@ -123,6 +123,12 @@ export async function POST(req: NextRequest) {
     // タグ自動付与（fire-and-forget）
     if (reorderData.patient_id) {
       evaluateTagAutoRules(reorderData.patient_id, "reorder_approved", tenantId ?? undefined).catch(() => {});
+      // イベントバス発火
+      if (tenantId) {
+        import("@/lib/event-bus").then(({ fireEvent }) =>
+          fireEvent("reorder_approved", { tenantId, patientId: reorderData.patient_id }).catch(() => {}),
+        );
+      }
     }
 
     return NextResponse.json({ ok: true, lineNotify }, { status: 200 });

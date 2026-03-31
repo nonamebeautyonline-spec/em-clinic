@@ -2,6 +2,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant, tenantPayload } from "@/lib/tenant";
 import { checkTagTriggerScenarios, enrollPatient } from "@/lib/step-enrollment";
+import { fireEvent } from "@/lib/event-bus";
 
 export interface ActionStep {
   type: "tag_add" | "tag_remove" | "scenario_enroll";
@@ -37,6 +38,10 @@ export async function executeActions(
           );
           // タグ追加トリガーのシナリオをチェック
           await checkTagTriggerScenarios(patientId, step.tag_id, lineUid, tenantId).catch(() => {});
+          // イベントバス発火（スコアリング・外部Webhook等の連鎖）
+          if (tid) {
+            fireEvent("tag_added", { tenantId: tid, patientId, lineUid, eventData: { tagId: step.tag_id } }).catch(() => {});
+          }
           break;
         }
         case "tag_remove": {
@@ -49,6 +54,10 @@ export async function executeActions(
               .eq("tag_id", step.tag_id),
             tid,
           );
+          // イベントバス発火
+          if (tid) {
+            fireEvent("tag_removed", { tenantId: tid, patientId, lineUid, eventData: { tagId: step.tag_id } }).catch(() => {});
+          }
           break;
         }
         case "scenario_enroll": {
