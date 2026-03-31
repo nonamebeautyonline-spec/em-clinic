@@ -189,7 +189,7 @@ export default function CorporateTopPage() {
               },
             ].map((product, i) => (
               <ScrollReveal key={product.name} delay={i * 100}>
-                <div className="group relative overflow-hidden rounded-2xl border border-slate-800/50 bg-slate-900/50 p-8 transition-all duration-500 hover:border-slate-700 md:p-10" style={{ borderLeft: `3px solid ${product.color}` }}>
+                <div className="group relative overflow-hidden rounded-2xl border border-slate-800/50 bg-slate-900/50 p-8 transition-all duration-500 hover:border-slate-700 md:p-10">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <h3 className="text-2xl font-black text-white md:text-3xl">
