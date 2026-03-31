@@ -3,11 +3,12 @@
 
 import { useRouter } from "next/navigation";
 
-export type SectionKey = "general" | "payment" | "line" | "sms" | "mypage" | "purchase" | "consultation" | "medical_fields" | "ehr" | "notification" | "business_rules" | "report" | "legal" | "options" | "cron" | "staff" | "account";
-const SECTIONS: { key: SectionKey; label: string; icon: string; clinicOnly?: boolean; ownerOnly?: boolean }[] = [
+export type SectionKey = "general" | "payment" | "line" | "sms" | "mypage" | "purchase" | "consultation" | "medical_fields" | "ehr" | "notification" | "business_rules" | "report" | "legal" | "options" | "cron" | "staff" | "account" | "stripe_connect";
+const SECTIONS: { key: SectionKey; label: string; icon: string; clinicOnly?: boolean; ecOnly?: boolean; ownerOnly?: boolean }[] = [
   { key: "general", label: "基本情報", icon: "🏥" },
   { key: "line", label: "LINE連携", icon: "💬" },
   { key: "payment", label: "決済設定", icon: "💳" },
+  { key: "stripe_connect", label: "Stripe Connect", icon: "🔗", ecOnly: true },
   { key: "sms", label: "SMS認証", icon: "📱", clinicOnly: true },
   { key: "mypage", label: "マイページ", icon: "🎨" },
   { key: "purchase", label: "購入画面", icon: "🛒" },
@@ -35,6 +36,7 @@ export default function SettingsNav({ active, onChange, industry = "clinic", ten
   const router = useRouter();
   const visibleSections = SECTIONS.filter((s) => {
     if (s.clinicOnly && industry !== "clinic") return false;
+    if (s.ecOnly && industry !== "ec") return false;
     if (s.ownerOnly && tenantRole !== "owner" && tenantRole !== "admin") return false;
     return true;
   });

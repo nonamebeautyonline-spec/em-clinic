@@ -13,6 +13,8 @@ import { generateUsername } from "@/lib/username";
 import { seedTenantData } from "@/lib/tenant-seed";
 import { getStripeClient } from "@/lib/stripe";
 import { sendTenantSetupEmail } from "@/lib/email";
+import { generateFeatureFlagSettings } from "@/lib/industry-config";
+import type { Industry } from "@/lib/feature-flags";
 
 /**
  * GET: テナント一覧取得
@@ -32,6 +34,7 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const search = url.searchParams.get("search") || "";
     const status = url.searchParams.get("status") || "all";
+    const industry = url.searchParams.get("industry") || "";
     const sort = url.searchParams.get("sort") || "created_at";
     const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
     const limit = Math.min(
@@ -52,6 +55,7 @@ export async function GET(req: NextRequest) {
       let filtered = q;
       if (status === "active") filtered = filtered.eq("is_active", true);
       else if (status === "inactive") filtered = filtered.eq("is_active", false);
+      if (industry) filtered = filtered.eq("industry", industry);
       if (search) filtered = filtered.or(`name.ilike.%${search}%,slug.ilike.%${search}%`);
       if (sort === "name") filtered = filtered.order("name", { ascending: true });
       else filtered = filtered.order("created_at", { ascending: false });
@@ -330,7 +334,29 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 6. Stripe Customer自動作成（Stripeキー設定済みの場合のみ）
+    // 6. 業種別デフォルト機能フラグ投入
+    try {
+      const industry = (data.industry || "clinic") as Industry;
+      const featureFlags = generateFeatureFlagSettings(industry);
+      if (featureFlags.length > 0) {
+        const flagRows = featureFlags.map((f) => ({
+          tenant_id: tenantId,
+          category: "feature_flags",
+          key: f.key,
+          value: f.value,
+        }));
+        const { error: ffErr } = await supabaseAdmin
+          .from("tenant_settings")
+          .insert(flagRows);
+        if (ffErr) {
+          console.error("[platform/tenants] feature_flags投入エラー:", ffErr);
+        }
+      }
+    } catch (ffErr) {
+      console.error("[platform/tenants] feature_flags投入スキップ:", ffErr);
+    }
+
+    // 7. Stripe Customer自動作成（Stripeキー設定済みの場合のみ）
     try {
       const stripe = await getStripeClient();
       if (stripe) {

@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { SWRConfig } from "swr";
 import Link from "next/link";
+import { ProductProvider } from "@/lib/contexts/product-context";
+import { PRODUCT_NAMES, INDUSTRY_ICONS, type Industry } from "@/lib/feature-flags";
 
 // プラットフォーム管理メニュー
 const PLATFORM_MENU_ITEMS = [
@@ -65,6 +67,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
+  const [activeProduct, setActiveProductRaw] = useState<"all" | Industry>("all");
   const sidebarNavRef = useRef<HTMLDivElement>(null);
   const prevPathnameRef = useRef(pathname);
 
@@ -143,6 +146,17 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
     }
   }, [pathname]);
 
+  // プロダクトスイッチャーの復元
+  useEffect(() => {
+    const saved = sessionStorage.getItem("platform-active-product");
+    if (saved) setActiveProductRaw(saved as "all" | Industry);
+  }, []);
+
+  const setActiveProduct = (p: "all" | Industry) => {
+    setActiveProductRaw(p);
+    sessionStorage.setItem("platform-active-product", p);
+  };
+
   // サイドバーのスクロール位置を保存・復元
   useEffect(() => {
     const savedScrollPos = sessionStorage.getItem("platform-sidebar-scroll");
@@ -188,6 +202,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   }
 
   return (
+    <ProductProvider>
     <div className="h-dvh bg-zinc-100 flex overflow-hidden">
       {/* モバイル用ハンバーガーボタン */}
       <button
@@ -266,6 +281,22 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
               <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Platform</span>
             </div>
           )}
+          {/* プロダクトスイッチャー */}
+          {isSidebarOpen && (
+            <div className="px-4 mb-3">
+              <select
+                value={activeProduct}
+                onChange={(e) => setActiveProduct(e.target.value as "all" | Industry)}
+                className="w-full bg-zinc-700 text-white border border-zinc-600 px-3 py-1.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 cursor-pointer"
+              >
+                <option value="all">全プロダクト</option>
+                <option value="clinic">{INDUSTRY_ICONS.clinic} {PRODUCT_NAMES.clinic}</option>
+                <option value="salon">{INDUSTRY_ICONS.salon} {PRODUCT_NAMES.salon}</option>
+                <option value="ec">{INDUSTRY_ICONS.ec} {PRODUCT_NAMES.ec}</option>
+                <option value="other">{INDUSTRY_ICONS.other} {PRODUCT_NAMES.other}</option>
+              </select>
+            </div>
+          )}
           {PLATFORM_MENU_ITEMS.map((item) => (
             <Link
               key={item.href}
@@ -318,5 +349,6 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
         </SWRConfig>
       </main>
     </div>
+    </ProductProvider>
   );
 }

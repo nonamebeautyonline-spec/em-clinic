@@ -10,8 +10,10 @@ if (!JWT_SECRET) {
   console.error("[middleware] JWT_SECRET and ADMIN_TOKEN are both missing");
 }
 
-// テナント slug → id のキャッシュ（プロセス内メモリ、1分TTL）
-const slugCache = new Map<string, { id: string; expires: number }>();
+// テナント slug → id+industry のキャッシュ（プロセス内メモリ、1分TTL）
+const slugCache = new Map<string, { id: string; industry: string; expires: number }>();
+// テナントID → industry のキャッシュ（JWTからtenantId取得時用）
+const industryCache = new Map<string, { industry: string; expires: number }>();
 const CACHE_TTL = 1 * 60 * 1000;
 
 async function resolveSlugToTenantId(slug: string): Promise<string | null> {
@@ -25,16 +27,39 @@ async function resolveSlugToTenantId(slug: string): Promise<string | null> {
   const sb = createClient(url, key);
   const { data } = await sb
     .from("tenants")
-    .select("id")
+    .select("id, industry")
     .eq("slug", slug)
     .eq("is_active", true)
     .maybeSingle();
 
   if (data?.id) {
-    slugCache.set(slug, { id: data.id, expires: Date.now() + CACHE_TTL });
+    const industry = data.industry || "clinic";
+    slugCache.set(slug, { id: data.id, industry, expires: Date.now() + CACHE_TTL });
+    industryCache.set(data.id, { industry, expires: Date.now() + CACHE_TTL });
     return data.id;
   }
   return null;
+}
+
+/** テナントIDからindustryを取得（キャッシュ優先） */
+async function resolveIndustry(tenantId: string): Promise<string> {
+  const cached = industryCache.get(tenantId);
+  if (cached && cached.expires > Date.now()) return cached.industry;
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return "clinic";
+
+  const sb = createClient(url, key);
+  const { data } = await sb
+    .from("tenants")
+    .select("industry")
+    .eq("id", tenantId)
+    .maybeSingle();
+
+  const industry = data?.industry || "clinic";
+  industryCache.set(tenantId, { industry, expires: Date.now() + CACHE_TTL });
+  return industry;
 }
 
 // サブドメインとして無視するホスト名プレフィックス
@@ -45,6 +70,7 @@ const CSRF_EXEMPT_PREFIXES = [
   "/api/line/webhook",
   "/api/square/webhook",
   "/api/gmo/webhook",
+  "/api/ec/",
   "/api/cron/",
   "/api/health",
   "/api/admin/login",
@@ -404,8 +430,10 @@ export async function middleware(req: NextRequest) {
 
   // テナントIDが解決できた場合はヘッダーに設定
   if (tenantId) {
+    const industry = await resolveIndustry(tenantId);
     const headers = new Headers(req.headers);
     headers.set("x-tenant-id", tenantId);
+    headers.set("x-tenant-industry", industry);
     return NextResponse.next({ request: { headers } });
   }
 

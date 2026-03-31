@@ -10,7 +10,7 @@ async function getToken(tenantId?: string) {
   return (await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId)) || "";
 }
 
-type LineMessage = {
+export type LineMessage = {
   type: "text";
   text: string;
 } | {

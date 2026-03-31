@@ -45,6 +45,7 @@ const abTestVariantSchema = z.object({
   template_id: z.string().uuid().optional().nullable(),
   message_content: z.string().optional().nullable(),
   message_type: z.string().default("text"),
+  flex_json: z.unknown().optional().nullable(),
   allocation_ratio: z.number().min(1).max(99).default(50),
 });
 

@@ -13,6 +13,7 @@ const faqs = [
   { q: "Stripe決済連携とは何ですか？", a: "Stripeでの決済完了をトリガーに、注文確認・発送通知・レビュー依頼などのLINEメッセージを自動配信する機能です。ビジネスプラン以上でご利用いただけます。" },
   { q: "複数店舗の管理は可能ですか？", a: "エンタープライズプランでは、複数店舗・複数ブランドのLINEアカウントを一元管理できます。店舗ごとの配信・分析も個別に対応可能です。" },
   { q: "契約期間の縛りはありますか？", a: "最低契約期間はありません。月額課金で、いつでもプラン変更・解約が可能です。14日間の無料トライアルもご用意しています。" },
+  { q: "導入にどれくらいの期間がかかりますか？", a: "最短3日で運用開始可能です。ECカートの種類や必要なカスタマイズの範囲によりますが、初期設定代行サービスを利用すれば、技術的な作業は基本的にすべてお任せいただけます。" },
 ];
 
 /* FAQPage JSON-LD */
@@ -29,14 +30,17 @@ const faqJsonLd = {
 export function FAQ() {
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   return (
-    <Section id="faq" className="bg-stone-50/50">
+    <Section id="faq" className="bg-gradient-to-b from-[#1a1a2e] to-[#16213e]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
-      <div className="text-center"><Label>FAQ</Label><Title>よくあるご質問</Title></div>
+      <div className="text-center">
+        <Label>FAQ</Label>
+        <Title>よくあるご質問</Title>
+      </div>
       <FadeIn>
-        <div className="mx-auto mt-8 max-w-3xl divide-y divide-slate-200/80">
+        <div className="mx-auto mt-8 max-w-3xl divide-y divide-slate-700/50">
           {faqs.map((f, i) => (
             <div key={i}>
               <button
@@ -45,9 +49,12 @@ export function FAQ() {
                 aria-expanded={openIdx === i}
                 aria-controls={`faq-answer-ec-${i}`}
               >
-                <span className="flex items-start gap-3 text-[13px] font-semibold text-slate-700 md:text-[14px]"><span className="mt-0.5 shrink-0 rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">Q</span>{f.q}</span>
+                <span className="flex items-start gap-3 text-[13px] font-semibold text-slate-200 md:text-[14px]">
+                  <span className="mt-0.5 shrink-0 rounded bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">Q</span>
+                  {f.q}
+                </span>
                 <motion.svg
-                  className="ml-3 h-4 w-4 shrink-0 text-slate-400"
+                  className="ml-3 h-4 w-4 shrink-0 text-slate-500"
                   fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
                   animate={{ rotate: openIdx === i ? 180 : 0 }}
                   transition={{ duration: 0.25 }}

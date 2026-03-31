@@ -1,7 +1,8 @@
 "use client";
 
-import { Section, Label, Title, Sub } from "./shared";
-import { ScaleIn } from "./animations";
+import { motion } from "motion/react";
+import { Section, Label, Title, Sub, ComingSoonBadge } from "./shared";
+import { ScaleIn, GoldShimmer } from "./animations";
 
 /* JSON-LD 構造化データ */
 const pricingJsonLd = {
@@ -75,44 +76,57 @@ const plans = [
 
 export function Pricing() {
   return (
-    <Section id="pricing" className="bg-gradient-to-b from-white to-stone-50/40">
+    <Section id="pricing" className="bg-gradient-to-b from-[#16213e] to-[#1a1a2e]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd) }}
       />
-      <div className="text-center"><Label>PRICING</Label><Title>料金プラン</Title><Sub>事業規模に合わせた3つのプランをご用意。<br />すべてのプランで14日間の無料トライアルをご利用いただけます。</Sub></div>
+      <div className="text-center">
+        <Label>PRICING</Label>
+        <Title>料金プラン</Title>
+        <Sub>事業規模に合わせた3つのプランをご用意。<br />すべてのプランで14日間の無料トライアルをご利用いただけます。</Sub>
+      </div>
 
       <div className="grid gap-6 md:grid-cols-3">
         {plans.map((p, i) => (
           <ScaleIn key={p.name} delay={i * 0.08}>
-            <div className={`relative flex h-full flex-col rounded-2xl border-2 bg-white p-7 shadow-sm ${
-              p.popular ? "border-amber-600 shadow-amber-100/40" : "border-slate-200"
+            <div className={`relative flex h-full flex-col rounded-2xl border-2 p-7 backdrop-blur ${
+              p.popular
+                ? "border-amber-500/50 bg-gradient-to-b from-amber-500/10 to-slate-800/60 shadow-lg shadow-amber-500/10"
+                : "border-slate-700/50 bg-slate-800/40"
             }`}>
               {p.popular && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-stone-700 to-amber-700 px-4 py-1 text-[11px] font-bold text-white shadow-sm">人気No.1</span>
+                <GoldShimmer className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                  <span className="rounded-full bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-amber-500/30">人気No.1</span>
+                </GoldShimmer>
               )}
+
               <div className="mb-6 text-center">
-                <h3 className="text-[14px] font-bold text-slate-500">{p.name}プラン</h3>
+                <h3 className="text-[14px] font-bold text-slate-400">{p.name}プラン</h3>
                 <div className="mt-3">
-                  <span className="text-[11px] text-slate-400">月額</span>
-                  <span className="ml-1 text-4xl font-extrabold text-slate-900">¥{p.price}</span>
+                  <span className="text-[11px] text-slate-500">月額</span>
+                  <span className={`ml-1 text-4xl font-extrabold ${p.popular ? "bg-gradient-to-r from-amber-400 to-yellow-400 bg-clip-text text-transparent" : "text-white"}`}>
+                    &yen;{p.price}
+                  </span>
                 </div>
-                <p className="mt-2 text-[12px] text-slate-400">{p.desc}</p>
+                <p className="mt-2 text-[12px] text-slate-500">{p.desc}</p>
               </div>
+
               <div className="flex-1 space-y-3">
                 {p.features.map((f) => (
-                  <div key={f} className="flex items-center gap-2 text-[13px] text-slate-600">
-                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[8px] text-amber-600">&#10003;</span>
+                  <div key={f} className="flex items-center gap-2 text-[13px] text-slate-300">
+                    <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[8px] ${p.popular ? "bg-amber-500/20 text-amber-400" : "bg-slate-700 text-slate-400"}`}>&#10003;</span>
                     {f}
                   </div>
                 ))}
               </div>
+
               <a
                 href="/ec/contact"
                 className={`mt-6 block rounded-xl py-3 text-center text-[13px] font-bold transition ${
                   p.popular
-                    ? "bg-gradient-to-r from-stone-700 to-amber-700 text-white shadow-lg shadow-stone-500/20 hover:shadow-xl"
-                    : "bg-slate-100 text-slate-700 hover:bg-amber-50 hover:text-amber-700"
+                    ? "bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/20 hover:shadow-xl hover:shadow-amber-500/30"
+                    : "bg-slate-700/60 text-slate-300 hover:bg-amber-500/10 hover:text-amber-400"
                 }`}
               >
                 事前登録はこちら
@@ -122,8 +136,12 @@ export function Pricing() {
         ))}
       </div>
 
-      <p className="mt-10 text-center text-[12px] text-slate-400">※ 税込表記。14日間の無料トライアル期間あり。契約期間の縛りはありません。</p>
-      <p className="mt-2 text-center text-[12px] font-semibold text-yellow-700">※ リリース時の料金です。事前登録で割引あり。</p>
+      {/* Coming Soonと注釈 */}
+      <div className="mt-10 flex flex-col items-center gap-3">
+        <ComingSoonBadge size="default" />
+        <p className="text-center text-[12px] text-slate-500">※ 税込表記。14日間の無料トライアル期間あり。契約期間の縛りはありません。</p>
+        <p className="text-center text-[12px] font-semibold text-amber-400/70">※ リリース時の料金です。事前登録で割引あり。</p>
+      </div>
     </Section>
   );
 }

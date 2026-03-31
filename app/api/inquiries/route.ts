@@ -36,6 +36,8 @@ export async function POST(req: NextRequest) {
     ...tenantPayload(tenantId),
     company_name: data.company_name || null,
     contact_name: data.contact_name,
+    product: data.product || null,
+    industry: data.industry || null,
     service_name: data.service_name || null,
     implementation_timing: data.implementation_timing || null,
     has_existing_line: data.has_existing_line,

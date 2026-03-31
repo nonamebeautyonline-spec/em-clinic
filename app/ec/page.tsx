@@ -24,16 +24,16 @@ export const metadata: Metadata = {
 
 export default function EcLPPage() {
   return (
-    <div className="min-h-screen overflow-x-hidden bg-white text-slate-800" style={{ fontFeatureSettings: "'palt'" }}>
-      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999] focus:rounded-lg focus:bg-amber-700 focus:px-4 focus:py-2 focus:text-white focus:shadow-lg">メインコンテンツへスキップ</a>
+    <div className="min-h-screen overflow-x-hidden bg-[#1a1a2e] text-slate-200" style={{ fontFeatureSettings: "'palt'" }}>
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999] focus:rounded-lg focus:bg-amber-600 focus:px-4 focus:py-2 focus:text-white focus:shadow-lg">メインコンテンツへスキップ</a>
       <Nav />
       <main id="main-content">
         {/* パンくずリスト */}
         <nav aria-label="パンくずリスト" className="mx-auto max-w-6xl px-5 pt-[90px] md:pt-[72px] pb-0">
-          <ol className="flex items-center gap-1.5 text-[11px] text-slate-400 list-none m-0 p-0">
-            <li><a href="https://l-ope.jp" className="hover:text-amber-700 transition">ホーム</a></li>
+          <ol className="flex items-center gap-1.5 text-[11px] text-slate-500 list-none m-0 p-0">
+            <li><a href="https://l-ope.jp" className="hover:text-amber-400 transition">ホーム</a></li>
             <li aria-hidden="true">/</li>
-            <li aria-current="page" className="text-slate-600 font-medium">Lオペ for EC</li>
+            <li aria-current="page" className="text-slate-300 font-medium">Lオペ for EC</li>
           </ol>
         </nav>
         <Hero />
@@ -41,7 +41,7 @@ export default function EcLPPage() {
         <Features />
         <MidCTA title="EC特化の機能がオールインワン" sub="カゴ落ち対策・発送通知・CRM・配信・クーポン・分析まで。複数ツールの月額を大幅に削減できます。" />
         <Strengths />
-        <MidCTA title="まずは14日間の無料トライアルで体験" sub="すべての機能を14日間無料でお試しいただけます。クレジットカード不要で今すぐスタート。" />
+        <MidCTA title="まずは事前登録でリリース通知を受け取る" sub="リリース時にいち早くご案内。事前登録いただいた方には特別割引をご用意しています。" />
         <UseCases />
         <MidCTA title="あなたのEC業態でも成果を出しませんか？" sub="業態別のテンプレートと導入事例をもとに、最適な活用方法をご提案します。" />
         <Flow />

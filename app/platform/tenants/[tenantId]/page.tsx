@@ -1055,18 +1055,18 @@ export default function TenantDetailPage() {
               <div className="flex items-center gap-3 mb-1">
                 <h2 className="text-base font-semibold text-slate-900">業種</h2>
                 <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${
-                  { clinic: "bg-blue-100 text-blue-700", salon: "bg-purple-100 text-purple-700", retail: "bg-emerald-100 text-emerald-700", other: "bg-slate-100 text-slate-600" }[editForm.industry] || "bg-slate-100 text-slate-600"
+                  { clinic: "bg-blue-100 text-blue-700", salon: "bg-purple-100 text-purple-700", ec: "bg-emerald-100 text-emerald-700", other: "bg-slate-100 text-slate-600" }[editForm.industry] || "bg-slate-100 text-slate-600"
                 }`}>
-                  {{ clinic: "クリニック", salon: "サロン", retail: "小売", other: "その他" }[editForm.industry] || editForm.industry}
+                  {{ clinic: "クリニック", salon: "サロン", ec: "EC", other: "汎用" }[editForm.industry] || editForm.industry}
                 </span>
               </div>
               <p className="text-sm text-slate-500 mb-4">
                 テナントの業種を設定します。業種によってテナント管理画面の表示セクションが変わります。
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {(["clinic", "salon", "retail", "other"] as const).map((ind) => {
-                  const labels: Record<string, string> = { clinic: "クリニック", salon: "サロン", retail: "小売", other: "その他" };
-                  const icons: Record<string, string> = { clinic: "🏥", salon: "💇", retail: "🏪", other: "🏢" };
+                {(["clinic", "salon", "ec", "other"] as const).map((ind) => {
+                  const labels: Record<string, string> = { clinic: "クリニック", salon: "サロン", ec: "EC", other: "汎用" };
+                  const icons: Record<string, string> = { clinic: "🏥", salon: "💇", ec: "🛒", other: "🏢" };
                   const isSelected = editForm.industry === ind;
                   return (
                     <button

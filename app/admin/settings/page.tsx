@@ -20,6 +20,7 @@ import CronSection from "./_components/CronSection";
 import BusinessRulesSection from "./_components/BusinessRulesSection";
 import MedicalFieldsSection from "./_components/MedicalFieldsSection";
 import StaffSection from "./_components/StaffSection";
+import StripeConnectSection from "./_components/StripeConnectSection";
 
 /* ---------- 共通型（子コンポーネントから参照） ---------- */
 export type CategoryKey = "square" | "gmo" | "line" | "gas" | "general" | "payment" | "sms";
@@ -297,6 +298,7 @@ export default function SettingsPage() {
             {activeSection === "options" && <OptionsSection enabledOptions={enabledOptions} />}
             {activeSection === "cron" && <CronSection onToast={handleToast} />}
             {activeSection === "staff" && <StaffSection onToast={handleToast} currentUserId={sessionData?.ok ? (sessionData.user?.userId as string) || "" : ""} />}
+            {activeSection === "stripe_connect" && <StripeConnectSection onToast={handleToast} />}
             {activeSection === "account" && <AccountSection onToast={handleToast} />}
           </div>
         </div>

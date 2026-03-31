@@ -2233,7 +2233,7 @@
                     "enum": [
                       "clinic",
                       "salon",
-                      "retail",
+                      "ec",
                       "other"
                     ]
                   },

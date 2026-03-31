@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
     template_id: v.template_id || null,
     message_content: v.message_content || null,
     message_type: v.message_type || "text",
+    flex_json: v.flex_json || null,
     allocation_ratio: v.allocation_ratio ?? 50,
   }));
 

@@ -22,6 +22,20 @@ interface StatsData {
   by_utm_source: { name: string; count: number }[];
 }
 
+// 友だち追加分析データ
+interface AnalyticsData {
+  summary: {
+    totalThisMonth: number;
+    topSource: { name: string; count: number };
+    qrRatio: number;
+    urlRatio: number;
+    qrCount: number;
+    urlCount: number;
+  };
+  dailyCounts: { date: string; count: number }[];
+  sourceBreakdown: { name: string; code: string; count: number; percentage: number }[];
+}
+
 interface Folder {
   id: number;
   name: string;
@@ -111,6 +125,9 @@ export default function TrackingSourcesPage() {
   const statsTo = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const statsKey = viewMode === "stats" ? `/api/admin/line/tracking-sources/stats?from=${statsFrom}&to=${statsTo}` : null;
   const { data: statsData } = useSWR<StatsData>(statsKey);
+
+  // 友だち追加分析データ（常時取得 — 一覧ビューのサマリーにも使う）
+  const { data: analyticsData } = useSWR<AnalyticsData>("/api/admin/line/tracking-sources/analytics");
 
   const folders = foldersData?.folders ?? [];
   const sources = sourcesData?.sources ?? [];
@@ -378,6 +395,185 @@ export default function TrackingSourcesPage() {
       {/* ─── 統計ダッシュボード ─── */}
       {viewMode === "stats" && statsData && (
         <div className="space-y-5 animate-in fade-in duration-300">
+
+          {/* ─── 友だち追加分析セクション ─── */}
+          {analyticsData && (
+            <>
+              <div className="flex items-center gap-2 mb-1">
+                <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                <h2 className="text-base font-bold text-gray-900">友だち追加分析</h2>
+              </div>
+
+              {/* 友だち追加サマリーカード */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-blue-700">今月の友だち追加</span>
+                    <span className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                      <span className="w-2 h-2 rounded-full bg-gradient-to-br from-blue-500 to-blue-600" />
+                    </span>
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900 tracking-tight tabular-nums">{analyticsData.summary.totalThisMonth}</p>
+                </div>
+                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700">トップ経路</span>
+                    <span className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                      <span className="w-2 h-2 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600" />
+                    </span>
+                  </div>
+                  <p className="text-lg font-bold text-gray-900 tracking-tight truncate">{analyticsData.summary.topSource.name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{analyticsData.summary.topSource.count}件</p>
+                </div>
+                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-violet-700">QR経由</span>
+                    <span className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center">
+                      <span className="w-2 h-2 rounded-full bg-gradient-to-br from-violet-500 to-violet-600" />
+                    </span>
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900 tracking-tight tabular-nums">{analyticsData.summary.qrRatio}%</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{analyticsData.summary.qrCount}件</p>
+                </div>
+                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-700">URL経由</span>
+                    <span className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                      <span className="w-2 h-2 rounded-full bg-gradient-to-br from-amber-500 to-amber-600" />
+                    </span>
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900 tracking-tight tabular-nums">{analyticsData.summary.urlRatio}%</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{analyticsData.summary.urlCount}件</p>
+                </div>
+              </div>
+
+              {/* 日別友だち追加推移（CSSバーチャート） */}
+              <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-sm font-bold text-gray-800">日別友だち追加推移</h3>
+                  <span className="text-[11px] text-gray-400 font-medium">過去30日間</span>
+                </div>
+                {(() => {
+                  const maxCount = Math.max(...analyticsData.dailyCounts.map(d => d.count), 1);
+                  return (
+                    <div className="flex items-end gap-[3px] h-40">
+                      {analyticsData.dailyCounts.map((d) => {
+                        const heightPct = maxCount > 0 ? (d.count / maxCount) * 100 : 0;
+                        return (
+                          <div key={d.date} className="flex-1 flex flex-col items-center justify-end h-full group relative">
+                            <div
+                              className="w-full bg-gradient-to-t from-emerald-500 to-emerald-400 rounded-t-sm min-h-[2px] transition-all hover:from-emerald-600 hover:to-emerald-500"
+                              style={{ height: `${Math.max(heightPct, 2)}%` }}
+                            />
+                            {/* ツールチップ */}
+                            <div className="absolute bottom-full mb-2 hidden group-hover:block z-10">
+                              <div className="bg-gray-900 text-white text-[10px] px-2 py-1 rounded-lg whitespace-nowrap shadow-lg">
+                                {d.date.slice(5)}: {d.count}件
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+                <div className="flex justify-between mt-2">
+                  <span className="text-[10px] text-gray-300">{analyticsData.dailyCounts[0]?.date.slice(5)}</span>
+                  <span className="text-[10px] text-gray-300">{analyticsData.dailyCounts[analyticsData.dailyCounts.length - 1]?.date.slice(5)}</span>
+                </div>
+              </div>
+
+              {/* 流入経路別の友だち追加割合 */}
+              <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-sm font-bold text-gray-800">経路別 友だち追加数</h3>
+                  <span className="text-[11px] text-gray-400 font-medium">全期間</span>
+                </div>
+                {analyticsData.sourceBreakdown.length === 0 ? (
+                  <p className="text-sm text-gray-300 text-center py-12">データなし</p>
+                ) : (
+                  <div className="space-y-3">
+                    {analyticsData.sourceBreakdown.slice(0, 15).map((item, i) => {
+                      const maxCount = analyticsData.sourceBreakdown[0]?.count || 1;
+                      return (
+                        <div key={i} className="group">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-sm font-medium text-gray-700 truncate">{item.name}</span>
+                              {item.code && (
+                                <span className="text-[10px] text-gray-300 font-mono flex-shrink-0">/s/{item.code}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                              <span className="text-sm font-bold text-gray-900 tabular-nums">{item.count}</span>
+                              <span className="text-[11px] text-gray-400 tabular-nums w-12 text-right">{item.percentage}%</span>
+                            </div>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="bg-gradient-to-r from-emerald-400 to-emerald-500 h-full rounded-full transition-all duration-500"
+                              style={{ width: `${(item.count / maxCount) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* QR vs URL 比率ビジュアル */}
+              {(analyticsData.summary.qrCount > 0 || analyticsData.summary.urlCount > 0) && (
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                  <h3 className="text-sm font-bold text-gray-800 mb-5">QR経由 vs URL経由（今月）</h3>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <div className="flex h-8 rounded-xl overflow-hidden">
+                        {analyticsData.summary.qrRatio > 0 && (
+                          <div
+                            className="bg-gradient-to-r from-violet-400 to-violet-500 flex items-center justify-center transition-all duration-500"
+                            style={{ width: `${analyticsData.summary.qrRatio}%` }}
+                          >
+                            {analyticsData.summary.qrRatio >= 15 && (
+                              <span className="text-[11px] font-bold text-white">QR {analyticsData.summary.qrRatio}%</span>
+                            )}
+                          </div>
+                        )}
+                        {analyticsData.summary.urlRatio > 0 && (
+                          <div
+                            className="bg-gradient-to-r from-amber-400 to-amber-500 flex items-center justify-center transition-all duration-500"
+                            style={{ width: `${analyticsData.summary.urlRatio}%` }}
+                          >
+                            {analyticsData.summary.urlRatio >= 15 && (
+                              <span className="text-[11px] font-bold text-white">URL {analyticsData.summary.urlRatio}%</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-6 mt-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-sm bg-gradient-to-r from-violet-400 to-violet-500" />
+                      <span className="text-xs text-gray-500">QR経由: {analyticsData.summary.qrCount}件（{analyticsData.summary.qrRatio}%）</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-sm bg-gradient-to-r from-amber-400 to-amber-500" />
+                      <span className="text-xs text-gray-500">URL経由: {analyticsData.summary.urlCount}件（{analyticsData.summary.urlRatio}%）</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* セパレーター */}
+              <div className="flex items-center gap-3 pt-2">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-[11px] text-gray-400 font-medium">クリック・CVR分析</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+            </>
+          )}
+
           {/* KPIカード */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {([
@@ -487,6 +683,55 @@ export default function TrackingSourcesPage() {
       {/* ─── 一覧ビュー ─── */}
       {viewMode === "list" && (
         <div className="animate-in fade-in duration-300">
+          {/* 友だち追加サマリーカード */}
+          {analyticsData && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-blue-700">今月の友だち追加</span>
+                  <span className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                  </span>
+                </div>
+                <p className="text-3xl font-bold text-gray-900 tabular-nums">{analyticsData.summary.totalThisMonth}</p>
+                <p className="text-[11px] text-gray-400 mt-1">{new Date().getFullYear()}年{new Date().getMonth() + 1}月</p>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700">トップ流入経路</span>
+                  <span className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+                  </span>
+                </div>
+                <p className="text-lg font-bold text-gray-900 truncate">{analyticsData.summary.topSource.name}</p>
+                <p className="text-[11px] text-gray-400 mt-1">{analyticsData.summary.topSource.count}件（今月）</p>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-violet-700">QR経由</span>
+                  <span className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center">
+                    <IconQr className="w-4 h-4 text-violet-500" />
+                  </span>
+                </div>
+                <p className="text-3xl font-bold text-gray-900 tabular-nums">{analyticsData.summary.qrRatio}%</p>
+                <p className="text-[11px] text-gray-400 mt-1">{analyticsData.summary.qrCount}件</p>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-700">URL経由</span>
+                  <span className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                    <IconLink className="w-4 h-4 text-amber-500" />
+                  </span>
+                </div>
+                <p className="text-3xl font-bold text-gray-900 tabular-nums">{analyticsData.summary.urlRatio}%</p>
+                <p className="text-[11px] text-gray-400 mt-1">{analyticsData.summary.urlCount}件</p>
+              </div>
+            </div>
+          )}
+
           {/* ツールバー */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-5">
             <div className="flex flex-wrap gap-3 items-center">

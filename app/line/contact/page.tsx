@@ -68,6 +68,7 @@ function ContactForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          product: "line",
           referrer_page: refPage,
           utm_source: utmSource,
           utm_medium: utmMedium,

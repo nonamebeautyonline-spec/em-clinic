@@ -21,9 +21,10 @@ import { checkIdempotency } from "@/lib/idempotency";
 import { executeLifecycleActions } from "@/lib/lifecycle-actions";
 import { evaluateTagAutoRules } from "@/lib/tag-auto-rules";
 import { notifyWebhookFailure } from "@/lib/notifications/webhook-failure";
+import { handleSalonReservationMessage, handleSalonReservationPostback } from "@/lib/salon-reservation-handler";
 
 /** after()で処理するAI返信の対象患者リスト（リクエスト単位） */
-let pendingAiReplyTargets: Array<{ lineUid: string; patientId: string; patientName: string; tenantId: string | null }> = [];
+let pendingAiReplyTargets: Array<{ lineUid: string; patientId: string; patientName: string; tenantId: string | null; receivedAt: number }> = [];
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -643,9 +644,34 @@ async function handleMessage(lineUid: string, message: { type: string; id?: stri
     status: "received",
   });
 
-  // キーワード自動応答チェック（テキストメッセージのみ）
+  // SALON予約フロー処理（キーワード・AI返信より優先）
+  let salonReserveHandled = false;
+  if (message.type === "text" && message.text && patient?.patient_id && tenantId) {
+    try {
+      const salonMessages = await handleSalonReservationMessage(lineUid, message.text, tenantId, patient.patient_id);
+      if (salonMessages && salonMessages.length > 0) {
+        salonReserveHandled = true;
+        await pushMessage(lineUid, salonMessages, tenantId ?? undefined);
+        // message_log にSALON予約フロー応答を記録
+        await logEvent({
+          tenantId,
+          patient_id: patient.patient_id,
+          line_uid: lineUid,
+          direction: "outgoing",
+          event_type: "auto_reply",
+          message_type: "salon_reserve",
+          content: salonMessages.map(m => m.type === "text" ? m.text : `[${m.type}]`).join(" / "),
+          status: "sent",
+        });
+      }
+    } catch (e) {
+      console.error("[webhook] salon reservation flow error:", e);
+    }
+  }
+
+  // キーワード自動応答チェック（テキストメッセージのみ、SALON予約未処理時）
   let keywordMatched = false;
-  if (message.type === "text" && message.text) {
+  if (message.type === "text" && message.text && !salonReserveHandled) {
     try {
       keywordMatched = await checkAndReplyKeyword(lineUid, patient, message.text, tenantId);
     } catch (e) {
@@ -662,9 +688,9 @@ async function handleMessage(lineUid: string, message: { type: string; id?: stri
     }
   }
 
-  // チャットボット処理（キーワード未マッチ時、AI返信より優先）
+  // チャットボット処理（キーワード未マッチ・SALON予約未処理時、AI返信より優先）
   let chatbotHandled = false;
-  if (message.type === "text" && message.text && patient?.patient_id && !keywordMatched) {
+  if (message.type === "text" && message.text && patient?.patient_id && !keywordMatched && !salonReserveHandled) {
     try {
       chatbotHandled = await handleChatbotMessage(lineUid, patient.patient_id, message.text, tenantId);
     } catch (e) {
@@ -672,8 +698,8 @@ async function handleMessage(lineUid: string, message: { type: string; id?: stri
     }
   }
 
-  // AI返信処理（テキスト・キーワード未マッチ・チャットボット未処理時のみ）
-  if (message.type === "text" && message.text && patient?.patient_id && !keywordMatched && !chatbotHandled) {
+  // AI返信処理（テキスト・キーワード未マッチ・チャットボット未処理・SALON予約未処理時のみ）
+  if (message.type === "text" && message.text && patient?.patient_id && !keywordMatched && !chatbotHandled && !salonReserveHandled) {
     // 営業時間チェック: 営業時間外なら定型メッセージを送信してAI返信をスキップ
     try {
       const { withinHours, outsideMessage } = await isWithinBusinessHours(tenantId);
@@ -695,12 +721,12 @@ async function handleMessage(lineUid: string, message: { type: string; id?: stri
       } else {
         // 営業時間内: 通常のAI返信フロー
         scheduleAiReply(lineUid, patient.patient_id, patient.patient_name, message.text, tenantId).catch(() => {});
-        pendingAiReplyTargets.push({ lineUid, patientId: patient.patient_id, patientName: patient.patient_name, tenantId });
+        pendingAiReplyTargets.push({ lineUid, patientId: patient.patient_id, patientName: patient.patient_name, tenantId, receivedAt: Date.now() });
       }
     } catch (e) {
       console.error("[webhook] 営業時間チェックエラー（AI返信フローにフォールバック）:", e);
       scheduleAiReply(lineUid, patient.patient_id, patient.patient_name, message.text, tenantId).catch(() => {});
-      pendingAiReplyTargets.push({ lineUid, patientId: patient.patient_id, patientName: patient.patient_name, tenantId });
+      pendingAiReplyTargets.push({ lineUid, patientId: patient.patient_id, patientName: patient.patient_name, tenantId, receivedAt: Date.now() });
     }
   }
 }
@@ -1049,6 +1075,30 @@ async function handleUserPostback(lineUid: string, postbackData: string, tenantI
     status: "received",
     postback_data: parsed || { raw: postbackData },
   });
+
+  // SALON予約フローのPostback処理（リッチメニューより優先）
+  if (postbackData.includes("action=salon_reserve") && patient?.patient_id && tenantId) {
+    try {
+      const salonMessages = await handleSalonReservationPostback(lineUid, postbackData, tenantId, patient.patient_id);
+      if (salonMessages && salonMessages.length > 0) {
+        await pushMessage(lineUid, salonMessages, tenantId ?? undefined);
+        // message_log にSALON予約フロー応答を記録
+        await logEvent({
+          tenantId,
+          patient_id: patient.patient_id,
+          line_uid: lineUid,
+          direction: "outgoing",
+          event_type: "auto_reply",
+          message_type: "salon_reserve",
+          content: salonMessages.map(m => m.type === "text" ? m.text : `[${m.type}]`).join(" / "),
+          status: "sent",
+        });
+        return; // SALON予約フローで処理済み
+      }
+    } catch (e) {
+      console.error("[webhook] salon reservation postback error:", e);
+    }
+  }
 
   // リッチメニューのアクション実行
   if (parsed?.type === "rich_menu_action" && Array.isArray(parsed.actions)) {
@@ -1691,7 +1741,7 @@ export async function POST(req: NextRequest) {
             continue;
           }
           try {
-            await processAiReply(t.lineUid, t.patientId, t.patientName, t.tenantId);
+            await processAiReply(t.lineUid, t.patientId, t.patientName, t.tenantId, t.receivedAt);
             // 処理成功 → Redisデバウンスキーを削除してcron重複を防止
             await clearAiReplyDebounce(t.patientId);
           } catch (err) {

@@ -56,6 +56,15 @@
     },
     "app/api/cron/suspend-overdue/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/cron/cart-reminder/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/cron/salon-dormant/route.ts": {
+      "maxDuration": 120
+    },
+    "app/api/cron/salon-birthday/route.ts": {
+      "maxDuration": 120
     }
   },
   "crons": [
@@ -122,6 +131,18 @@
     {
       "path": "/api/cron/suspend-overdue",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/cart-reminder",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/salon-dormant",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/salon-birthday",
+      "schedule": "0 9 1 * *"
     }
   ]
 }

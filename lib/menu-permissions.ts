@@ -31,6 +31,17 @@ export const MENU_ITEMS: MenuDef[] = [
   { key: "subscription_plans", label: "定期プラン", section: "決済管理", paths: ["/admin/subscription-plans"] },
   { key: "inventory", label: "在庫", section: "業務管理", paths: ["/admin/inventory"] },
   { key: "tracking_sources", label: "流入経路", section: "業務管理", paths: ["/admin/line/tracking-sources"] },
+  // --- SALON専用メニュー ---
+  { key: "stylists", label: "スタッフ管理", section: "予約・施術", paths: ["/admin/stylists"] },
+  { key: "treatments", label: "施術メニュー", section: "予約・施術", paths: ["/admin/treatments"] },
+  { key: "salon_karte", label: "施術カルテ", section: "予約・施術", paths: ["/admin/salon-karte"] },
+  { key: "hotpepper", label: "HotPepper連携", section: "予約・施術", paths: ["/admin/hotpepper"] },
+  { key: "stamp_cards", label: "スタンプカード", section: "業務管理", paths: ["/admin/stamp-cards"] },
+  // --- EC専用メニュー ---
+  { key: "ec_subscriptions", label: "定期購入管理", section: "注文管理", paths: ["/admin/ec-subscriptions"] },
+  { key: "ec_settings", label: "EC連携設定", section: "注文管理", paths: ["/admin/ec-settings"] },
+  { key: "rfm", label: "RFM分析", section: "注文管理", paths: ["/admin/rfm"] },
+  // --- 共通 ---
   { key: "settings", label: "設定", section: "システム", paths: ["/admin/settings"] },
   { key: "help", label: "ヘルプ", section: "システム", paths: ["/admin/help"] },
 ];

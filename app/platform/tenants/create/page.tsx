@@ -663,7 +663,7 @@ export default function CreateTenantPage() {
                     {([
                       { key: "clinic", label: "クリニック", icon: "🏥" },
                       { key: "salon", label: "サロン", icon: "💇" },
-                      { key: "retail", label: "小売", icon: "🏪" },
+                      { key: "ec", label: "EC", icon: "🛒" },
                       { key: "other", label: "その他", icon: "🏢" },
                     ] as const).map((ind) => (
                       <button
@@ -1029,7 +1029,7 @@ export default function CreateTenantPage() {
                 <div className="bg-slate-50 rounded-lg p-4 space-y-2">
                   <ConfirmRow label="クリニック名" value={formData.name} />
                   <ConfirmRow label="URL" value={`${formData.slug}.l-ope.jp`} mono />
-                  <ConfirmRow label="業種" value={{ clinic: "クリニック", salon: "サロン", retail: "小売", other: "その他" }[formData.industry] || formData.industry} />
+                  <ConfirmRow label="業種" value={{ clinic: "クリニック", salon: "サロン", ec: "EC", other: "汎用" }[formData.industry] || formData.industry} />
                   {formData.contactEmail && (
                     <ConfirmRow label="連絡先メール" value={formData.contactEmail} />
                   )}

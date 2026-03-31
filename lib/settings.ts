@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { encrypt, decrypt } from "@/lib/crypto";
 import { DEFAULT_TENANT_ID } from "@/lib/tenant";
 
-export type SettingCategory = "square" | "gmo" | "line" | "gas" | "general" | "payment" | "mypage" | "purchase" | "flex" | "sms" | "dashboard" | "ehr" | "feature_flags" | "consultation" | "notification" | "report" | "business_rules" | "medical_fields" | "talk";
+export type SettingCategory = "square" | "gmo" | "line" | "gas" | "general" | "payment" | "mypage" | "purchase" | "flex" | "sms" | "dashboard" | "ehr" | "feature_flags" | "consultation" | "notification" | "report" | "business_rules" | "medical_fields" | "talk" | "stripe_connect";
 
 /** DB から設定を取得（復号済み） */
 export async function getSetting(

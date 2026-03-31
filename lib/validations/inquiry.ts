@@ -11,6 +11,10 @@ export const inquirySchema = z.object({
   message: z.string().max(5000).optional().default(""),
   email: z.string().email("正しいメールアドレスを入力してください"),
   phone: z.string().max(20).optional().default(""),
+  // プロダクト識別（どのLPから来たか）
+  product: z.enum(["clinic", "salon", "ec", "line", ""]).optional().default(""),
+  // 業種（フォーム選択値）
+  industry: z.string().max(100).optional().default(""),
   // 流入元トラッキング
   referrer_page: z.string().max(500).optional().default(""),
   utm_source: z.string().max(200).optional().default(""),

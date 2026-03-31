@@ -25,7 +25,9 @@ export const metadata: Metadata = {
 export default function SalonLPPage() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-white text-slate-800" style={{ fontFeatureSettings: "'palt'" }}>
-      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999] focus:rounded-lg focus:bg-pink-600 focus:px-4 focus:py-2 focus:text-white focus:shadow-lg">メインコンテンツへスキップ</a>
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999] focus:rounded-lg focus:bg-pink-600 focus:px-4 focus:py-2 focus:text-white focus:shadow-lg">
+        メインコンテンツへスキップ
+      </a>
       <Nav />
       <main id="main-content">
         {/* パンくずリスト */}
@@ -39,11 +41,16 @@ export default function SalonLPPage() {
         <Hero />
         <Problems />
         <Features />
-        <MidCTA title="サロンに必要な機能がオールインワン" sub="予約管理・顧客管理・配信・リッチメニュー・スタンプカード・物販まで。複数ツールの月額を大幅に削減できます。" />
+        <MidCTA
+          title="サロンに必要な機能がオールインワン"
+          sub="予約管理・顧客管理・配信・リッチメニュー・スタンプカード・物販まで。複数ツールの月額を大幅に削減できます。"
+        />
         <Strengths />
-        <MidCTA title="まずは無料相談から" sub="サロンの業態・規模に合わせた最適な活用方法をご提案します。お気軽にお問い合わせください。" />
         <UseCases />
-        <MidCTA title="あなたのサロンでも成果を出しませんか？" sub="業態別のテンプレートと導入事例をもとに、最適な活用方法をご提案します。" />
+        <MidCTA
+          title="あなたのサロンでも成果を出しませんか？"
+          sub="業態別のテンプレートと導入サポートで、最適な活用方法をご提案します。"
+        />
         <Flow />
         <Pricing />
         <FAQ />

@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import useSWR, { mutate } from "swr";
+import { INDUSTRY_LABELS, INDUSTRY_COLORS, INDUSTRY_ICONS, type Industry } from "@/lib/feature-flags";
 
 // テナントデータ型
 interface TenantPlan {
@@ -20,6 +21,7 @@ interface Tenant {
   id: string;
   name: string;
   slug: string;
+  industry?: string;
   is_active: boolean;
   contact_email: string | null;
   contact_phone: string | null;
@@ -40,6 +42,7 @@ interface Pagination {
 }
 
 type StatusFilter = "all" | "active" | "inactive" | "deleted";
+type IndustryFilter = "all" | "clinic" | "salon" | "ec" | "other";
 type SortOption = "created_at" | "name" | "patients_count";
 
 export default function TenantsListPage() {
@@ -47,6 +50,7 @@ export default function TenantsListPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [industryFilter, setIndustryFilter] = useState<IndustryFilter>("all");
   const [sort, setSort] = useState<SortOption>("created_at");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -67,6 +71,7 @@ export default function TenantsListPage() {
     sort,
   });
   if (debouncedSearch) params.set("search", debouncedSearch);
+  if (industryFilter !== "all") params.set("industry", industryFilter);
 
   const { data: rawData, error: swrError, isLoading: loading } = useSWR<{
     tenants: Tenant[];
@@ -119,6 +124,15 @@ export default function TenantsListPage() {
     { key: "active", label: "有効" },
     { key: "inactive", label: "無効" },
     { key: "deleted", label: "削除済み" },
+  ];
+
+  // 業種フィルターのタブ
+  const industryTabs: { key: IndustryFilter; label: string }[] = [
+    { key: "all", label: "全業種" },
+    { key: "clinic", label: "クリニック" },
+    { key: "salon", label: "サロン" },
+    { key: "ec", label: "EC" },
+    { key: "other", label: "汎用" },
   ];
 
   return (
@@ -204,13 +218,33 @@ export default function TenantsListPage() {
             {statusTabs.map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setStatusFilter(tab.key)}
+                onClick={() => { setStatusFilter(tab.key); setPage(1); }}
                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                   statusFilter === tab.key
                     ? "bg-blue-600 text-white shadow-sm"
                     : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* 業種フィルタータブ */}
+          <div className="flex gap-1 mt-3 border-t border-slate-100 pt-3">
+            {industryTabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => { setIndustryFilter(tab.key); setPage(1); }}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  industryFilter === tab.key
+                    ? "bg-amber-500 text-white shadow-sm"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                {tab.key !== "all" && (
+                  <span className="mr-1">{INDUSTRY_ICONS[tab.key as Industry]}</span>
+                )}
                 {tab.label}
               </button>
             ))}
@@ -321,9 +355,16 @@ export default function TenantsListPage() {
                         <h3 className="text-base font-semibold text-slate-900 truncate group-hover:text-blue-600 transition-colors">
                           {tenant.name}
                         </h3>
-                        <p className="text-xs text-slate-400 mt-0.5 font-mono">
-                          {tenant.slug}.l-ope.jp
-                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-xs text-slate-400 font-mono">
+                            {tenant.slug}.l-ope.jp
+                          </p>
+                          {tenant.industry && (
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${INDUSTRY_COLORS[tenant.industry as Industry] || "bg-slate-100 text-slate-600"}`}>
+                              {INDUSTRY_ICONS[tenant.industry as Industry]} {INDUSTRY_LABELS[tenant.industry as Industry] || tenant.industry}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <span
                         className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

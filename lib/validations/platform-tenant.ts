@@ -24,7 +24,7 @@ export const createTenantSchema = z.object({
   adminPassword: strongPasswordSchema.optional(),
   adminPasswordHash: z.string().optional(),
   // 業種
-  industry: z.enum(["clinic", "salon", "retail", "other"]).default("clinic"),
+  industry: z.enum(["clinic", "salon", "ec", "other"]).default("clinic"),
   // LINE設定（任意）
   lineChannelId: z.string().optional(),
   lineChannelSecret: z.string().optional(),
@@ -58,7 +58,7 @@ export const updateTenantSchema = z.object({
   address: z.string().max(500).nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
   logoUrl: z.string().url().max(500).nullable().optional(),
-  industry: z.enum(["clinic", "salon", "retail", "other"]).optional(),
+  industry: z.enum(["clinic", "salon", "ec", "other"]).optional(),
 });
 
 export const updateTenantStatusSchema = z.object({

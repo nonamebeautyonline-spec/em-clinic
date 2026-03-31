@@ -126,6 +126,13 @@ const SETTING_DEFINITIONS: Record<SettingCategory, SettingDef[]> = {
     { key: "notify_no_answer", label: "不通時LINE自動通知", sensitive: false },
     { key: "no_answer_message", label: "不通通知メッセージ", sensitive: false },
   ],
+  stripe_connect: [
+    { key: "account_id", label: "Connected Account ID", sensitive: false, readonly: true },
+    { key: "charges_enabled", label: "決済有効", sensitive: false, readonly: true },
+    { key: "payouts_enabled", label: "出金有効", sensitive: false, readonly: true },
+    { key: "details_submitted", label: "情報提出済み", sensitive: false, readonly: true },
+    { key: "connected_at", label: "接続日時", sensitive: false, readonly: true },
+  ],
 };
 
 export async function GET(req: NextRequest) {

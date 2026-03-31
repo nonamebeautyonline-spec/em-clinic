@@ -27,12 +27,13 @@ export async function GET(req: NextRequest) {
 
     // メニュー権限を取得
     let allowedMenuKeys: string[] | null = null;
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     if (!isFullAccessRole(tenantRole)) {
       try {
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
         const { data: permissions } = await supabase
           .from("role_menu_permissions")
           .select("menu_key")
@@ -44,6 +45,22 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // テナントのindustryを取得
+    const tenantId = (payload as Record<string, unknown>).tenantId as string | null;
+    let industry: string = "clinic";
+    if (tenantId) {
+      try {
+        const { data: tenantData } = await supabase
+          .from("tenants")
+          .select("industry")
+          .eq("id", tenantId)
+          .maybeSingle();
+        industry = tenantData?.industry || "clinic";
+      } catch {
+        // テナント情報取得失敗 → デフォルトclinic
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       user: {
@@ -51,10 +68,11 @@ export async function GET(req: NextRequest) {
         email: payload.email,
         name: payload.name,
         role: payload.role,
-        tenantId: (payload as Record<string, unknown>).tenantId || null,
+        tenantId: tenantId || null,
         platformRole: (payload as Record<string, unknown>).platformRole || "tenant_admin",
         tenantRole,
         allowedMenuKeys,
+        industry,
       },
       expiresAt: payload.exp ? new Date(payload.exp * 1000).toISOString() : null,
     });
