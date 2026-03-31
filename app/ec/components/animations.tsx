@@ -374,13 +374,13 @@ export function OrderTimeline({
             <div
               className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition-colors duration-300 ${
                 activeStep >= i
-                  ? "border-amber-400 bg-amber-500/20 text-amber-400"
-                  : "border-slate-600 bg-slate-700/50 text-slate-500"
+                  ? "border-amber-400 bg-amber-500/20 text-amber-500"
+                  : "border-slate-200 bg-slate-100 text-slate-400"
               }`}
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d={step.icon} /></svg>
             </div>
-            <span className={`text-[10px] font-semibold whitespace-nowrap transition-colors duration-300 ${activeStep >= i ? "text-amber-400" : "text-slate-500"}`}>{step.label}</span>
+            <span className={`text-[10px] font-semibold whitespace-nowrap transition-colors duration-300 ${activeStep >= i ? "text-amber-500" : "text-slate-400"}`}>{step.label}</span>
           </motion.div>
           {i < steps.length - 1 && (
             <motion.div
@@ -431,14 +431,14 @@ export function SalesCounter({
 
   return (
     <div ref={ref} className={className}>
-      <div className="text-[11px] font-semibold text-amber-400/70 tracking-wider">TODAY&apos;S SALES</div>
+      <div className="text-[11px] font-semibold text-amber-600/70 tracking-wider">TODAY&apos;S SALES</div>
       <div className="mt-1 flex items-baseline gap-1">
-        <span className="text-[10px] text-amber-400/50">&yen;</span>
+        <span className="text-[10px] text-amber-600/50">&yen;</span>
         <motion.span
           key={amount}
           initial={{ y: -5, opacity: 0.5 }}
           animate={{ y: 0, opacity: 1 }}
-          className="text-3xl font-black text-amber-400 tabular-nums md:text-4xl"
+          className="text-3xl font-black text-amber-600 tabular-nums md:text-4xl"
         >
           {amount.toLocaleString()}
         </motion.span>
@@ -494,7 +494,7 @@ export function CartRecoveryFlow({
       {flowSteps.map((s, i) => (
         <div key={i} className="flex items-center gap-2">
           <motion.div
-            className={`flex flex-col items-center gap-2 rounded-xl border px-3 py-3 ${step >= i ? s.bg : "border-slate-700 bg-slate-800/50"}`}
+            className={`flex flex-col items-center gap-2 rounded-xl border px-3 py-3 ${step >= i ? s.bg : "border-slate-200 bg-slate-50"}`}
             animate={{
               scale: step >= i ? 1.05 : 0.95,
               opacity: step >= i ? 1 : 0.4,

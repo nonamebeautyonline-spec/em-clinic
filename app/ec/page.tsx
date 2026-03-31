@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 
 export default function EcLPPage() {
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#1a1a2e] text-slate-200" style={{ fontFeatureSettings: "'palt'" }}>
+    <div className="min-h-screen overflow-x-hidden bg-white text-slate-800" style={{ fontFeatureSettings: "'palt'" }}>
       <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999] focus:rounded-lg focus:bg-amber-600 focus:px-4 focus:py-2 focus:text-white focus:shadow-lg">メインコンテンツへスキップ</a>
       <Nav />
       <main id="main-content">
@@ -33,7 +33,7 @@ export default function EcLPPage() {
           <ol className="flex items-center gap-1.5 text-[11px] text-slate-500 list-none m-0 p-0">
             <li><a href="https://l-ope.jp" className="hover:text-amber-400 transition">ホーム</a></li>
             <li aria-hidden="true">/</li>
-            <li aria-current="page" className="text-slate-300 font-medium">Lオペ for EC</li>
+            <li aria-current="page" className="text-slate-800 font-medium">Lオペ for EC</li>
           </ol>
         </nav>
         <Hero />

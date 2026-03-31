@@ -48,7 +48,7 @@ export default function Problems() {
   ];
 
   return (
-    <Section className="bg-[#1a1a2e]">
+    <Section className="bg-slate-50">
       <div className="text-center">
         <Label>PROBLEM</Label>
         <Title>ECのLINE運用で<br className="md:hidden" />こんなお悩みはありませんか？</Title>
@@ -56,7 +56,7 @@ export default function Problems() {
       <StaggerChildren className="mx-auto mt-8 grid max-w-4xl gap-4 md:grid-cols-2">
         {items.map((p, i) => (
           <StaggerItem key={i}>
-            <div className={`rounded-2xl border ${p.border} bg-slate-800/40 p-6 backdrop-blur transition hover:bg-slate-800/60`}>
+            <div className={`rounded-2xl border ${p.border} bg-white p-6 shadow-sm transition hover:shadow-md`}>
               <div className="flex items-start gap-4">
                 <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${p.bg}`}>
                   <svg className={`h-5 w-5 ${p.color}`} fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d={p.icon} /></svg>
@@ -67,7 +67,7 @@ export default function Problems() {
                     <span className={`text-[13px] font-bold ${p.color}`}>{p.unit}</span>
                     <span className="text-[11px] text-slate-500">{p.statLabel}</span>
                   </div>
-                  <p className="text-[13px] leading-relaxed text-slate-400">{p.text}</p>
+                  <p className="text-[13px] leading-relaxed text-slate-500">{p.text}</p>
                 </div>
               </div>
             </div>
@@ -75,7 +75,7 @@ export default function Problems() {
         ))}
       </StaggerChildren>
       <div className="mt-12 flex justify-center">
-        <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-6 py-2.5 text-[14px] font-semibold text-amber-400">
+        <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-6 py-2.5 text-[14px] font-semibold text-amber-600">
           <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" /></svg>
           これらの課題を Lオペ for EC がすべて解決します
         </div>

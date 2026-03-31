@@ -370,29 +370,29 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
       </div>
 
       {/* フッター */}
-      <footer className="bg-slate-900 py-10 text-center">
+      <footer className="bg-slate-50 py-10 text-center">
         <div className="mx-auto max-w-6xl px-6">
-          <Link href="/salon" className="text-[14px] font-bold tracking-tight text-white hover:opacity-80 transition">
-            Lオペ <span className="text-pink-400">for SALON</span>
+          <Link href="/salon" className="text-[14px] font-bold tracking-tight text-slate-900 hover:opacity-80 transition">
+            Lオペ <span className="text-pink-500">for SALON</span>
           </Link>
           <div className="mt-4 flex items-center justify-center gap-6">
-            <Link href="/salon/column" className="text-[12px] text-slate-400 hover:text-white transition">
+            <Link href="/salon/column" className="text-[12px] text-slate-500 hover:text-pink-500 transition">
               コラム一覧
             </Link>
-            <Link href="/salon" className="text-[12px] text-slate-400 hover:text-white transition">
+            <Link href="/salon" className="text-[12px] text-slate-500 hover:text-pink-500 transition">
               トップ
             </Link>
-            <Link href="/salon/features" className="text-[12px] text-slate-400 hover:text-white transition">
+            <Link href="/salon/features" className="text-[12px] text-slate-500 hover:text-pink-500 transition">
               機能一覧
             </Link>
-            <Link href="/salon/about" className="text-[12px] text-slate-400 hover:text-white transition">
+            <Link href="/salon/about" className="text-[12px] text-slate-500 hover:text-pink-500 transition">
               Lオペ for SALONとは
             </Link>
-            <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="text-[12px] text-slate-400 hover:text-white transition">
+            <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="text-[12px] text-slate-500 hover:text-pink-500 transition">
               運営会社
             </a>
           </div>
-          <p className="mt-6 text-[11px] text-slate-500">&copy; {new Date().getFullYear()} 株式会社ORDIX. All rights reserved.</p>
+          <p className="mt-6 text-[11px] text-slate-400">&copy; {new Date().getFullYear()} 株式会社ORDIX. All rights reserved.</p>
         </div>
       </footer>
     </div>

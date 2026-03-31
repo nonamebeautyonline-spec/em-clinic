@@ -21,13 +21,13 @@ function ShippingFeature() {
   return (
     <DashboardPanel title="発送管理 — 配送ステータス">
       <div className="mb-4 flex items-center justify-between">
-        <h4 className="text-[12px] font-bold text-slate-300">注文 #EC-20260328-0847</h4>
-        <span className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-[9px] font-bold text-sky-400">配送中</span>
+        <h4 className="text-[12px] font-bold text-slate-700">注文 #EC-20260328-0847</h4>
+        <span className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-[9px] font-bold text-sky-600">配送中</span>
       </div>
       <OrderTimeline steps={steps} className="justify-center" />
-      <div className="mt-4 rounded-lg bg-slate-900/50 p-3">
-        <div className="flex items-center gap-2 text-[10px] text-slate-500">
-          <svg className="h-3.5 w-3.5 text-amber-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      <div className="mt-4 rounded-lg bg-slate-50 p-3">
+        <div className="flex items-center gap-2 text-[10px] text-slate-400">
+          <svg className="h-3.5 w-3.5 text-amber-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" strokeLinecap="round" strokeLinejoin="round" /></svg>
           ステータス変更時にLINEで自動通知
         </div>
       </div>
@@ -41,18 +41,18 @@ function CartRecoveryFeature() {
     <DashboardPanel title="カゴ落ち対策 — 回収フロー">
       <div className="mb-4 grid grid-cols-3 gap-2">
         {[
-          { label: "カゴ落ち数", val: "547", color: "text-red-400" },
-          { label: "通知送信", val: "412", color: "text-amber-400" },
-          { label: "回収成功", val: "127", color: "text-emerald-400" },
+          { label: "カゴ落ち数", val: "547", color: "text-red-500" },
+          { label: "通知送信", val: "412", color: "text-amber-600" },
+          { label: "回収成功", val: "127", color: "text-emerald-600" },
         ].map((s) => (
-          <div key={s.label} className="rounded-lg bg-slate-900/50 p-2 text-center">
-            <div className="text-[9px] text-slate-500">{s.label}</div>
+          <div key={s.label} className="rounded-lg bg-slate-50 p-2 text-center">
+            <div className="text-[9px] text-slate-400">{s.label}</div>
             <div className={`text-lg font-bold ${s.color}`}>{s.val}</div>
           </div>
         ))}
       </div>
       <CartRecoveryFlow />
-      <div className="mt-3 rounded-lg bg-emerald-500/10 p-2.5 text-center text-[10px] font-semibold text-emerald-400">
+      <div className="mt-3 rounded-lg bg-emerald-500/10 p-2.5 text-center text-[10px] font-semibold text-emerald-600">
         回収率 23.2% / 回収売上 ¥847,200
       </div>
     </DashboardPanel>
@@ -62,10 +62,10 @@ function CartRecoveryFeature() {
 /* ──── 3. 顧客CRM — RFM分析テーブルモック ──── */
 function CRMFeature() {
   const segments = [
-    { name: "VIP顧客", r: "1", f: "1", m: "1", count: 124, color: "text-amber-400 bg-amber-500/10" },
-    { name: "優良顧客", r: "2", f: "1", m: "2", count: 356, color: "text-emerald-400 bg-emerald-500/10" },
-    { name: "新規顧客", r: "1", f: "5", m: "4", count: 892, color: "text-sky-400 bg-sky-500/10" },
-    { name: "離反リスク", r: "4", f: "2", m: "2", count: 213, color: "text-red-400 bg-red-500/10" },
+    { name: "VIP顧客", r: "1", f: "1", m: "1", count: 124, color: "text-amber-600 bg-amber-500/10" },
+    { name: "優良顧客", r: "2", f: "1", m: "2", count: 356, color: "text-emerald-600 bg-emerald-500/10" },
+    { name: "新規顧客", r: "1", f: "5", m: "4", count: 892, color: "text-sky-600 bg-sky-500/10" },
+    { name: "離反リスク", r: "4", f: "2", m: "2", count: 213, color: "text-red-500 bg-red-500/10" },
   ];
 
   return (
@@ -73,7 +73,7 @@ function CRMFeature() {
       <div className="overflow-x-auto">
         <table className="w-full text-[10px]">
           <thead>
-            <tr className="border-b border-slate-700/50 text-slate-500">
+            <tr className="border-b border-slate-200 text-slate-400">
               <th className="pb-2 text-left font-semibold">セグメント</th>
               <th className="pb-2 text-center font-semibold">R</th>
               <th className="pb-2 text-center font-semibold">F</th>
@@ -83,14 +83,14 @@ function CRMFeature() {
           </thead>
           <tbody>
             {segments.map((s) => (
-              <tr key={s.name} className="border-b border-slate-700/30">
+              <tr key={s.name} className="border-b border-slate-100">
                 <td className="py-2">
                   <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${s.color}`}>{s.name}</span>
                 </td>
-                <td className="py-2 text-center text-slate-400">{s.r}</td>
-                <td className="py-2 text-center text-slate-400">{s.f}</td>
-                <td className="py-2 text-center text-slate-400">{s.m}</td>
-                <td className="py-2 text-right font-bold text-slate-300">{s.count.toLocaleString()}</td>
+                <td className="py-2 text-center text-slate-500">{s.r}</td>
+                <td className="py-2 text-center text-slate-500">{s.f}</td>
+                <td className="py-2 text-center text-slate-500">{s.m}</td>
+                <td className="py-2 text-right font-bold text-slate-700">{s.count.toLocaleString()}</td>
               </tr>
             ))}
           </tbody>
@@ -112,19 +112,19 @@ function SegmentFeature() {
     <DashboardPanel title="セグメント配信 — 配信条件">
       <div className="space-y-2">
         {conditions.map((c, i) => (
-          <div key={i} className="flex items-center gap-2 rounded-lg bg-slate-900/50 px-3 py-2">
-            <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-400">{c.field}</span>
-            <span className="text-[10px] text-slate-500">{c.op}</span>
-            <span className="text-[10px] font-bold text-slate-300">{c.val}</span>
+          <div key={i} className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+            <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-600">{c.field}</span>
+            <span className="text-[10px] text-slate-400">{c.op}</span>
+            <span className="text-[10px] font-bold text-slate-700">{c.val}</span>
             {i < conditions.length - 1 && (
-              <span className="ml-auto rounded bg-violet-500/10 px-1.5 py-0.5 text-[8px] font-bold text-violet-400">AND</span>
+              <span className="ml-auto rounded bg-violet-500/10 px-1.5 py-0.5 text-[8px] font-bold text-violet-500">AND</span>
             )}
           </div>
         ))}
       </div>
       <div className="mt-3 flex items-center justify-between rounded-lg bg-emerald-500/10 px-3 py-2">
-        <span className="text-[10px] text-emerald-400">対象: 1,247人</span>
-        <span className="text-[10px] font-bold text-emerald-300">予測CV率: 8.4%</span>
+        <span className="text-[10px] text-emerald-600">対象: 1,247人</span>
+        <span className="text-[10px] font-bold text-emerald-700">予測CV率: 8.4%</span>
       </div>
     </DashboardPanel>
   );
@@ -133,22 +133,22 @@ function SegmentFeature() {
 /* ──── 5. クーポン管理 — クーポン一覧モック ──── */
 function CouponFeature() {
   const coupons = [
-    { name: "初回10%OFF", code: "WELCOME10", rate: "12.4%", status: "配信中", statusColor: "text-emerald-400 bg-emerald-500/10" },
-    { name: "誕生日500円", code: "BDAY500", rate: "34.2%", status: "配信中", statusColor: "text-emerald-400 bg-emerald-500/10" },
-    { name: "リピート特典", code: "REPEAT20", rate: "8.7%", status: "準備中", statusColor: "text-amber-400 bg-amber-500/10" },
+    { name: "初回10%OFF", code: "WELCOME10", rate: "12.4%", status: "配信中", statusColor: "text-emerald-600 bg-emerald-500/10" },
+    { name: "誕生日500円", code: "BDAY500", rate: "34.2%", status: "配信中", statusColor: "text-emerald-600 bg-emerald-500/10" },
+    { name: "リピート特典", code: "REPEAT20", rate: "8.7%", status: "準備中", statusColor: "text-amber-600 bg-amber-500/10" },
   ];
 
   return (
     <DashboardPanel title="クーポン管理 — 一覧">
       <div className="space-y-2">
         {coupons.map((c) => (
-          <div key={c.code} className="flex items-center gap-3 rounded-lg bg-slate-900/50 px-3 py-2.5">
+          <div key={c.code} className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2.5">
             <div className="flex-1">
-              <div className="text-[11px] font-bold text-slate-300">{c.name}</div>
-              <div className="text-[9px] text-slate-500 font-mono">{c.code}</div>
+              <div className="text-[11px] font-bold text-slate-700">{c.name}</div>
+              <div className="text-[9px] text-slate-400 font-mono">{c.code}</div>
             </div>
             <div className="text-right">
-              <div className="text-[10px] font-bold text-amber-400">利用率 {c.rate}</div>
+              <div className="text-[10px] font-bold text-amber-600">利用率 {c.rate}</div>
               <span className={`rounded-full px-2 py-0.5 text-[8px] font-bold ${c.statusColor}`}>{c.status}</span>
             </div>
           </div>
@@ -167,7 +167,7 @@ function AnalyticsFeature() {
           <div key={i} className="flex-1 rounded-t bg-gradient-to-t from-amber-600/80 to-amber-400/60" style={{ height: `${h}%` }} />
         ))}
       </div>
-      <div className="flex justify-between text-[8px] text-slate-600 mb-3">
+      <div className="flex justify-between text-[8px] text-slate-400 mb-3">
         {["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"].map((m) => (
           <span key={m}>{m}</span>
         ))}
@@ -178,10 +178,10 @@ function AnalyticsFeature() {
           { label: "客単価", val: "¥8,420", change: "+5.3%", positive: true },
           { label: "LTV", val: "¥24,800", change: "+18%", positive: true },
         ].map((s) => (
-          <div key={s.label} className="rounded-lg bg-slate-900/50 p-2 text-center">
-            <div className="text-[8px] text-slate-500">{s.label}</div>
-            <div className="text-[12px] font-bold text-slate-300">{s.val}</div>
-            <div className={`text-[9px] font-bold ${s.positive ? "text-emerald-400" : "text-red-400"}`}>{s.change}</div>
+          <div key={s.label} className="rounded-lg bg-slate-50 p-2 text-center">
+            <div className="text-[8px] text-slate-400">{s.label}</div>
+            <div className="text-[12px] font-bold text-slate-700">{s.val}</div>
+            <div className={`text-[9px] font-bold ${s.positive ? "text-emerald-500" : "text-red-500"}`}>{s.change}</div>
           </div>
         ))}
       </div>
@@ -231,7 +231,7 @@ const features = [
 
 export default function Features() {
   return (
-    <Section id="features" className="bg-gradient-to-b from-[#1a1a2e] to-[#16213e]">
+    <Section id="features" className="bg-white">
       <div className="text-center">
         <Label>FEATURES</Label>
         <Title>ECに必要なLINE機能を<br className="md:hidden" />オールインワンで</Title>
@@ -242,11 +242,11 @@ export default function Features() {
         {features.map((f, i) => (
           <div key={f.id} className={`grid items-center gap-8 md:grid-cols-2 md:gap-12 ${i % 2 === 1 ? "md:[direction:rtl]" : ""}`}>
             <SlideIn from={i % 2 === 0 ? "left" : "right"} className={i % 2 === 1 ? "md:[direction:ltr]" : ""}>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-1 text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-1 text-[10px] font-bold text-amber-600 uppercase tracking-wider">
                 0{i + 1}
               </div>
-              <h3 className="mb-3 text-xl font-extrabold text-white md:text-2xl">{f.title}</h3>
-              <p className="text-[14px] leading-relaxed text-slate-400">{f.desc}</p>
+              <h3 className="mb-3 text-xl font-extrabold text-slate-900 md:text-2xl">{f.title}</h3>
+              <p className="text-[14px] leading-relaxed text-slate-500">{f.desc}</p>
             </SlideIn>
             <FadeIn direction={i % 2 === 0 ? "right" : "left"} delay={0.15} className={i % 2 === 1 ? "md:[direction:ltr]" : ""}>
               <f.Mock />

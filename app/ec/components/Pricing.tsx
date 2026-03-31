@@ -76,7 +76,7 @@ const plans = [
 
 export function Pricing() {
   return (
-    <Section id="pricing" className="bg-gradient-to-b from-[#16213e] to-[#1a1a2e]">
+    <Section id="pricing" className="bg-slate-50">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd) }}
@@ -90,10 +90,10 @@ export function Pricing() {
       <div className="grid gap-6 md:grid-cols-3">
         {plans.map((p, i) => (
           <ScaleIn key={p.name} delay={i * 0.08}>
-            <div className={`relative flex h-full flex-col rounded-2xl border-2 p-7 backdrop-blur ${
+            <div className={`relative flex h-full flex-col rounded-2xl border-2 p-7 ${
               p.popular
-                ? "border-amber-500/50 bg-gradient-to-b from-amber-500/10 to-slate-800/60 shadow-lg shadow-amber-500/10"
-                : "border-slate-700/50 bg-slate-800/40"
+                ? "border-amber-500/50 bg-gradient-to-b from-amber-500/5 to-white shadow-lg shadow-amber-500/10"
+                : "border-slate-200 bg-white"
             }`}>
               {p.popular && (
                 <GoldShimmer className="absolute -top-3.5 left-1/2 -translate-x-1/2">
@@ -102,20 +102,20 @@ export function Pricing() {
               )}
 
               <div className="mb-6 text-center">
-                <h3 className="text-[14px] font-bold text-slate-400">{p.name}プラン</h3>
+                <h3 className="text-[14px] font-bold text-slate-500">{p.name}プラン</h3>
                 <div className="mt-3">
-                  <span className="text-[11px] text-slate-500">月額</span>
-                  <span className={`ml-1 text-4xl font-extrabold ${p.popular ? "bg-gradient-to-r from-amber-400 to-yellow-400 bg-clip-text text-transparent" : "text-white"}`}>
+                  <span className="text-[11px] text-slate-400">月額</span>
+                  <span className={`ml-1 text-4xl font-extrabold ${p.popular ? "bg-gradient-to-r from-amber-500 to-yellow-500 bg-clip-text text-transparent" : "text-slate-900"}`}>
                     &yen;{p.price}
                   </span>
                 </div>
-                <p className="mt-2 text-[12px] text-slate-500">{p.desc}</p>
+                <p className="mt-2 text-[12px] text-slate-400">{p.desc}</p>
               </div>
 
               <div className="flex-1 space-y-3">
                 {p.features.map((f) => (
-                  <div key={f} className="flex items-center gap-2 text-[13px] text-slate-300">
-                    <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[8px] ${p.popular ? "bg-amber-500/20 text-amber-400" : "bg-slate-700 text-slate-400"}`}>&#10003;</span>
+                  <div key={f} className="flex items-center gap-2 text-[13px] text-slate-600">
+                    <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[8px] ${p.popular ? "bg-amber-500/20 text-amber-600" : "bg-slate-100 text-slate-400"}`}>&#10003;</span>
                     {f}
                   </div>
                 ))}
@@ -126,7 +126,7 @@ export function Pricing() {
                 className={`mt-6 block rounded-xl py-3 text-center text-[13px] font-bold transition ${
                   p.popular
                     ? "bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/20 hover:shadow-xl hover:shadow-amber-500/30"
-                    : "bg-slate-700/60 text-slate-300 hover:bg-amber-500/10 hover:text-amber-400"
+                    : "bg-slate-100 text-slate-600 hover:bg-amber-500/10 hover:text-amber-600"
                 }`}
               >
                 事前登録はこちら
@@ -139,8 +139,8 @@ export function Pricing() {
       {/* Coming Soonと注釈 */}
       <div className="mt-10 flex flex-col items-center gap-3">
         <ComingSoonBadge size="default" />
-        <p className="text-center text-[12px] text-slate-500">※ 税込表記。14日間の無料トライアル期間あり。契約期間の縛りはありません。</p>
-        <p className="text-center text-[12px] font-semibold text-amber-400/70">※ リリース時の料金です。事前登録で割引あり。</p>
+        <p className="text-center text-[12px] text-slate-400">※ 税込表記。14日間の無料トライアル期間あり。契約期間の縛りはありません。</p>
+        <p className="text-center text-[12px] font-semibold text-amber-600/70">※ リリース時の料金です。事前登録で割引あり。</p>
       </div>
     </Section>
   );

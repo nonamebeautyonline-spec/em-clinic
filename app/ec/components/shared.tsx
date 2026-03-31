@@ -17,26 +17,26 @@ export function Section({ id, children, className = "" }: { id?: string; childre
 }
 
 export function Label({ children }: { children: React.ReactNode }) {
-  return <span className="mb-4 inline-block rounded-full bg-amber-500/10 px-4 py-1.5 text-[11px] font-semibold tracking-[.18em] text-amber-400 uppercase">{children}</span>;
+  return <span className="mb-4 inline-block rounded-full bg-amber-500/10 px-4 py-1.5 text-[11px] font-semibold tracking-[.18em] text-amber-600 uppercase">{children}</span>;
 }
 
 export function Title({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <h2 className={`mb-5 text-[1.7rem] font-extrabold leading-snug tracking-tight text-white md:text-4xl lg:text-[2.6rem] ${className}`}>{children}</h2>;
+  return <h2 className={`mb-5 text-[1.7rem] font-extrabold leading-snug tracking-tight text-slate-900 md:text-4xl lg:text-[2.6rem] ${className}`}>{children}</h2>;
 }
 
 export function Sub({ children }: { children: React.ReactNode }) {
-  return <p className="mx-auto mb-16 max-w-2xl text-[15px] leading-relaxed text-slate-400">{children}</p>;
+  return <p className="mx-auto mb-16 max-w-2xl text-[15px] leading-relaxed text-slate-500">{children}</p>;
 }
 
 /* ──── DashboardPanel: EC管理画面風パネル（ダークヘッダー） ──── */
 export function DashboardPanel({ title, children, className = "" }: { title: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={`min-w-0 overflow-hidden rounded-xl border border-slate-700/80 bg-slate-800/60 shadow-2xl shadow-black/30 backdrop-blur ${className}`}>
-      <div className="flex items-center gap-2 border-b border-slate-700/60 bg-slate-900/80 px-4 py-2.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-red-500/80" />
-        <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80" />
-        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" />
-        <span className="ml-3 text-[10px] font-medium text-slate-500">{title}</span>
+    <div className={`min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg shadow-slate-200/50 ${className}`}>
+      <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2.5">
+        <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
+        <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+        <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+        <span className="ml-3 text-[10px] font-medium text-slate-400">{title}</span>
       </div>
       <div className="overflow-x-auto p-4 md:p-5">{children}</div>
     </div>
@@ -53,7 +53,7 @@ export function ComingSoonBadge({ className = "", size = "default" }: { classNam
 
   return (
     <motion.span
-      className={`inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-gradient-to-r from-amber-500/10 to-amber-600/5 font-bold text-amber-400 backdrop-blur ${sizeClasses[size]} ${className}`}
+      className={`inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-gradient-to-r from-amber-500/10 to-amber-600/5 font-bold text-amber-600 backdrop-blur ${sizeClasses[size]} ${className}`}
       animate={{ boxShadow: ["0 0 0px rgba(245,158,11,0)", "0 0 20px rgba(245,158,11,0.15)", "0 0 0px rgba(245,158,11,0)"] }}
       transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
     >

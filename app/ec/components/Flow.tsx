@@ -27,7 +27,7 @@ export function Flow() {
   ];
 
   return (
-    <Section id="flow" className="bg-[#1a1a2e]">
+    <Section id="flow" className="bg-white">
       <div className="text-center">
         <Label>FLOW</Label>
         <Title>導入の流れ</Title>
@@ -41,7 +41,7 @@ export function Flow() {
                 <div className="flex flex-col items-center">
                   <div className="relative">
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/20 to-amber-600/10 shadow-lg shadow-amber-500/10" aria-hidden="true">
-                      <svg className="h-6 w-6 text-amber-400" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d={s.icon} /></svg>
+                      <svg className="h-6 w-6 text-amber-600" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d={s.icon} /></svg>
                     </div>
                     <span className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-[10px] font-black text-white">{s.num}</span>
                   </div>
@@ -50,8 +50,8 @@ export function Flow() {
                   )}
                 </div>
                 <div className={i < steps.length - 1 ? "pb-12" : ""}>
-                  <h3 className="mb-1.5 text-[16px] font-bold text-white">{s.title}</h3>
-                  <p className="text-[13px] leading-relaxed text-slate-400">{s.desc}</p>
+                  <h3 className="mb-1.5 text-[16px] font-bold text-slate-900">{s.title}</h3>
+                  <p className="text-[13px] leading-relaxed text-slate-500">{s.desc}</p>
                 </div>
               </li>
             </StaggerItem>
@@ -60,9 +60,10 @@ export function Flow() {
       </ol>
       <div className="mt-12 flex justify-center">
         <GoldShimmer className="rounded-full">
-          <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-6 py-2.5 text-[12px] font-semibold text-amber-400">
+          <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-6 py-2.5 text-[12px] font-semibold text-amber-600">
             最短3日で導入完了 / 初期設定代行あり
           </span>
+
         </GoldShimmer>
       </div>
     </Section>

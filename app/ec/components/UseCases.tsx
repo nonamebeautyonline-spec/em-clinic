@@ -48,7 +48,7 @@ const useCases = [
 
 export default function UseCases() {
   return (
-    <Section id="usecases" className="bg-[#1a1a2e]">
+    <Section id="usecases" className="bg-slate-50">
       <div className="text-center">
         <Label>USE CASES</Label>
         <Title>業態別の活用事例</Title>
@@ -57,15 +57,15 @@ export default function UseCases() {
       <StaggerChildren className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         {useCases.map((uc) => (
           <StaggerItem key={uc.industry}>
-            <div className={`rounded-2xl border ${uc.border} bg-gradient-to-br ${uc.gradient} p-6 backdrop-blur transition hover:shadow-lg hover:shadow-black/20`}>
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/5">
+            <div className={`rounded-2xl border ${uc.border} bg-white p-6 shadow-sm transition hover:shadow-md`}>
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-50">
                 <svg className={`h-6 w-6 ${uc.accent}`} fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d={uc.icon} /></svg>
               </div>
-              <h3 className="mb-3 text-[15px] font-bold text-white">{uc.industry}</h3>
+              <h3 className="mb-3 text-[15px] font-bold text-slate-900">{uc.industry}</h3>
               <ul className="space-y-2">
                 {uc.examples.map((ex) => (
-                  <li key={ex} className="flex items-start gap-2 text-[13px] text-slate-400">
-                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[8px] text-amber-400">&#10003;</span>
+                  <li key={ex} className="flex items-start gap-2 text-[13px] text-slate-500">
+                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[8px] text-amber-600">&#10003;</span>
                     {ex}
                   </li>
                 ))}

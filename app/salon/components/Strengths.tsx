@@ -5,7 +5,7 @@ import { Section, RoseGoldDivider } from "./shared";
 import { FadeIn, SlideIn, CountUp, AnimatedBlob, GlowBorder } from "./animations";
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   選ばれる理由 — ローズゴールドアクセントのダークセクション
+   選ばれる理由 — ローズゴールドアクセントの白ベースセクション
    カウントアップ数字 + 左右交互レイアウト
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -42,20 +42,20 @@ const reasons = [
 
 export default function Strengths() {
   return (
-    <Section id="strengths" className="relative overflow-hidden bg-slate-900 text-white">
-      <AnimatedBlob className="-top-40 -right-20" color="bg-pink-500/10" size={400} />
-      <AnimatedBlob className="-bottom-40 -left-20" color="bg-rose-500/10" size={400} />
+    <Section id="strengths" className="relative overflow-hidden bg-pink-50/30">
+      <AnimatedBlob className="-top-40 -right-20" color="bg-pink-500/5" size={400} />
+      <AnimatedBlob className="-bottom-40 -left-20" color="bg-rose-500/5" size={400} />
 
       <div className="text-center">
-        <span className="mb-4 inline-block rounded-full bg-gradient-to-r from-pink-500/20 to-rose-500/20 px-4 py-1.5 text-[11px] font-semibold tracking-[.18em] text-pink-400 uppercase ring-1 ring-pink-500/30">
+        <span className="mb-4 inline-block rounded-full bg-gradient-to-r from-pink-500/10 to-rose-500/10 px-4 py-1.5 text-[11px] font-semibold tracking-[.18em] text-pink-500 uppercase ring-1 ring-pink-500/20">
           STRENGTHS
         </span>
-        <h2 className="mb-5 text-[1.7rem] font-extrabold leading-snug tracking-tight text-white md:text-4xl">
+        <h2 className="mb-5 text-[1.7rem] font-extrabold leading-snug tracking-tight text-slate-900 md:text-4xl">
           Lオペ for SALONが
           <br className="md:hidden" />
           選ばれる3つの理由
         </h2>
-        <p className="mx-auto mb-12 max-w-2xl text-[14px] leading-relaxed text-slate-400">
+        <p className="mx-auto mb-12 max-w-2xl text-[14px] leading-relaxed text-slate-500">
           サロン特化の専門設計、リピート率の改善、かんたん導入。
           サロン経営を次のステージへ導く基盤がすべて揃っています。
         </p>
@@ -66,14 +66,14 @@ export default function Strengths() {
         <div className="mx-auto grid max-w-3xl grid-cols-2 gap-4 md:grid-cols-4">
           {stats.map((s) => (
             <div key={s.label} className="text-center">
-              <div className="text-3xl font-black text-transparent bg-gradient-to-r from-pink-400 to-rose-300 bg-clip-text md:text-4xl">
+              <div className="text-3xl font-black text-transparent bg-gradient-to-r from-pink-500 to-rose-400 bg-clip-text md:text-4xl">
                 {s.value === 0 ? (
                   <span className="text-2xl">準備中</span>
                 ) : (
                   <CountUp to={s.value} prefix={s.prefix} suffix={s.suffix} />
                 )}
               </div>
-              <div className="mt-1 text-[11px] text-slate-500">{s.label}</div>
+              <div className="mt-1 text-[11px] text-slate-400">{s.label}</div>
             </div>
           ))}
         </div>
@@ -84,36 +84,36 @@ export default function Strengths() {
         {reasons.map((r, i) => (
           <SlideIn key={r.num} from={i % 2 === 0 ? "left" : "right"} delay={i * 0.1}>
             <GlowBorder className="mx-auto max-w-4xl">
-              <div className="rounded-2xl bg-slate-800/90 p-7 md:p-8">
+              <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm md:p-8">
                 <div className="flex flex-col gap-6 md:flex-row md:items-start">
                   {/* ナンバー */}
                   <div className="flex shrink-0 items-center gap-4">
                     <motion.div
-                      className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 to-rose-400 text-xl font-black text-white shadow-lg shadow-pink-500/30"
+                      className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 to-rose-400 text-xl font-black text-white shadow-lg shadow-pink-500/20"
                       whileHover={{ rotate: 5, scale: 1.05 }}
                     >
                       {r.num}
                     </motion.div>
                     <div className="md:hidden">
-                      <h3 className="text-lg font-bold text-white">{r.title}</h3>
-                      <p className="text-[11px] font-semibold text-pink-400">{r.sub}</p>
+                      <h3 className="text-lg font-bold text-slate-900">{r.title}</h3>
+                      <p className="text-[11px] font-semibold text-pink-500">{r.sub}</p>
                     </div>
                   </div>
 
                   {/* コンテンツ */}
                   <div className="flex-1">
                     <div className="hidden md:block">
-                      <h3 className="text-lg font-bold text-white">{r.title}</h3>
-                      <p className="mb-3 text-[11px] font-semibold text-pink-400">{r.sub}</p>
+                      <h3 className="text-lg font-bold text-slate-900">{r.title}</h3>
+                      <p className="mb-3 text-[11px] font-semibold text-pink-500">{r.sub}</p>
                     </div>
-                    <p className="mb-4 text-[13px] leading-relaxed text-slate-300">{r.desc}</p>
+                    <p className="mb-4 text-[13px] leading-relaxed text-slate-500">{r.desc}</p>
                     <div className="flex flex-wrap gap-2">
                       {r.features.map((f) => (
                         <span
                           key={f}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-pink-500/10 px-3 py-1 text-[11px] font-medium text-pink-300 ring-1 ring-pink-500/20"
+                          className="inline-flex items-center gap-1.5 rounded-full bg-pink-500/10 px-3 py-1 text-[11px] font-medium text-pink-600 ring-1 ring-pink-500/20"
                         >
-                          <span className="h-1 w-1 rounded-full bg-pink-400" />
+                          <span className="h-1 w-1 rounded-full bg-pink-500" />
                           {f}
                         </span>
                       ))}

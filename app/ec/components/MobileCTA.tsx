@@ -9,7 +9,7 @@ export function MobileCTA() {
 
   return (
     <motion.div
-      className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-800 bg-[#1a1a2e]/95 px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.3)] backdrop-blur md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur md:hidden"
       style={{ opacity, y }}
       initial={{ opacity: 0, y: 20 }}
     >

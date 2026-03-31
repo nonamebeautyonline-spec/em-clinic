@@ -30,7 +30,7 @@ const faqJsonLd = {
 export function FAQ() {
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   return (
-    <Section id="faq" className="bg-gradient-to-b from-[#1a1a2e] to-[#16213e]">
+    <Section id="faq" className="bg-white">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
@@ -40,7 +40,7 @@ export function FAQ() {
         <Title>よくあるご質問</Title>
       </div>
       <FadeIn>
-        <div className="mx-auto mt-8 max-w-3xl divide-y divide-slate-700/50">
+        <div className="mx-auto mt-8 max-w-3xl divide-y divide-slate-200">
           {faqs.map((f, i) => (
             <div key={i}>
               <button
@@ -49,8 +49,8 @@ export function FAQ() {
                 aria-expanded={openIdx === i}
                 aria-controls={`faq-answer-ec-${i}`}
               >
-                <span className="flex items-start gap-3 text-[13px] font-semibold text-slate-200 md:text-[14px]">
-                  <span className="mt-0.5 shrink-0 rounded bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">Q</span>
+                <span className="flex items-start gap-3 text-[13px] font-semibold text-slate-800 md:text-[14px]">
+                  <span className="mt-0.5 shrink-0 rounded bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600">Q</span>
                   {f.q}
                 </span>
                 <motion.svg
@@ -74,7 +74,7 @@ export function FAQ() {
                     transition={{ duration: 0.25, ease: "easeInOut" }}
                     className="overflow-hidden"
                   >
-                    <div className="pb-5 pl-9 text-[13px] leading-relaxed text-slate-400">{f.a}</div>
+                    <div className="pb-5 pl-9 text-[13px] leading-relaxed text-slate-500">{f.a}</div>
                   </motion.div>
                 )}
               </AnimatePresence>

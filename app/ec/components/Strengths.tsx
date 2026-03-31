@@ -45,44 +45,44 @@ export default function Strengths() {
   ];
 
   return (
-    <Section id="strengths" className="bg-[#0f3460]/20 relative overflow-hidden">
+    <Section id="strengths" className="relative overflow-hidden bg-amber-50/30">
       {/* 背景装飾 */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#1a1a2e] via-[#16213e] to-[#1a1a2e]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(184,134,11,0.05),transparent_70%)]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-white via-amber-50/20 to-white" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(184,134,11,0.03),transparent_70%)]" />
 
       <div className="relative">
         <div className="text-center">
-          <span className="mb-4 inline-block rounded-full bg-amber-500/10 px-4 py-1.5 text-[11px] font-semibold tracking-[.18em] text-amber-400 uppercase">STRENGTHS</span>
-          <h2 className="mb-5 text-[1.7rem] font-extrabold leading-snug tracking-tight text-white md:text-4xl">Lオペ for ECが選ばれる<br className="md:hidden" />3つの理由</h2>
-          <p className="mx-auto mb-16 max-w-2xl text-[14px] leading-relaxed text-slate-400">EC特化設計、かんたん導入、売上可視化。LINE運用でEC売上を最大化するための基盤がすべて揃っています。</p>
+          <span className="mb-4 inline-block rounded-full bg-amber-500/10 px-4 py-1.5 text-[11px] font-semibold tracking-[.18em] text-amber-600 uppercase">STRENGTHS</span>
+          <h2 className="mb-5 text-[1.7rem] font-extrabold leading-snug tracking-tight text-slate-900 md:text-4xl">Lオペ for ECが選ばれる<br className="md:hidden" />3つの理由</h2>
+          <p className="mx-auto mb-16 max-w-2xl text-[14px] leading-relaxed text-slate-500">EC特化設計、かんたん導入、売上可視化。LINE運用でEC売上を最大化するための基盤がすべて揃っています。</p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">
           {cards.map((s, i) => (
             <SlideIn key={s.num} from={i % 2 === 0 ? "left" : "right"} delay={i * 0.1}>
               <GoldShimmer className="h-full">
-                <div className="flex h-full flex-col rounded-2xl border border-slate-700/50 bg-slate-800/40 p-7 backdrop-blur">
+                <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
                   {/* アイコン + 番号 */}
                   <div className="mb-4 flex items-center justify-between">
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10">
-                      <svg className="h-6 w-6 text-amber-400" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d={s.icon} /></svg>
+                      <svg className="h-6 w-6 text-amber-500" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d={s.icon} /></svg>
                     </div>
-                    <div className="bg-gradient-to-r from-amber-400 to-yellow-400 bg-clip-text text-3xl font-black text-transparent">{s.num}</div>
+                    <div className="bg-gradient-to-r from-amber-500 to-yellow-500 bg-clip-text text-3xl font-black text-transparent">{s.num}</div>
                   </div>
 
-                  <h3 className="mb-1 text-lg font-bold text-white">{s.title}</h3>
-                  <p className="mb-4 text-[11px] font-semibold text-amber-400">{s.sub}</p>
+                  <h3 className="mb-1 text-lg font-bold text-slate-900">{s.title}</h3>
+                  <p className="mb-4 text-[11px] font-semibold text-amber-600">{s.sub}</p>
 
                   {/* 統計ハイライト */}
                   <div className="mb-5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-center">
-                    <CountUp to={s.stat.val} className="text-3xl font-black text-amber-400" suffix={s.stat.unit} />
-                    <div className="mt-0.5 text-[10px] text-slate-500">{s.stat.label}</div>
+                    <CountUp to={s.stat.val} className="text-3xl font-black text-amber-600" suffix={s.stat.unit} />
+                    <div className="mt-0.5 text-[10px] text-slate-400">{s.stat.label}</div>
                   </div>
 
                   <ul className="flex-1 space-y-3">
                     {s.points.map((p, pi) => (
-                      <li key={pi} className="flex gap-3 text-[12px] leading-relaxed text-slate-300">
-                        <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[8px] text-amber-400">&#10003;</span>
+                      <li key={pi} className="flex gap-3 text-[12px] leading-relaxed text-slate-600">
+                        <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[8px] text-amber-600">&#10003;</span>
                         {p}
                       </li>
                     ))}
