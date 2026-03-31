@@ -14,16 +14,16 @@ import { FadeIn, ScaleIn, GradientText } from "./animations";
 const pricingJsonLd = {
   "@context": "https://schema.org",
   "@type": "Service",
-  name: "Lオペ",
+  name: "Lオペ for LINE",
   description: "LINE公式アカウントの配信・セグメント・リッチメニュー・フォーム・分析を管理できるプラットフォーム。使用料0円、メッセージ従量課金。",
-  brand: { "@type": "Brand", name: "Lオペ" },
-  provider: { "@type": "Organization", name: "Lオペ", url: "https://l-ope.jp" },
+  brand: { "@type": "Brand", name: "Lオペ for LINE" },
+  provider: { "@type": "Organization", name: "Lオペ for LINE", url: "https://l-ope.jp" },
   serviceType: "LINE公式アカウント運用プラットフォーム",
   areaServed: { "@type": "Country", name: "JP" },
   url: "https://l-ope.jp/line#pricing",
   hasOfferCatalog: {
     "@type": "OfferCatalog",
-    name: "Lオペ料金体系",
+    name: "Lオペ for LINE料金体系",
     itemListElement: [
       { "@type": "Offer", name: "基本利用料", price: "0", priceCurrency: "JPY", description: "使用料0円・全機能利用可能" },
       { "@type": "Offer", name: "メッセージ配信", price: "0", priceCurrency: "JPY", description: "従量課金制・1通あたりの料金" },

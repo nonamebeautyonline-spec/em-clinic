@@ -6,6 +6,6 @@ export default function Image() {
     title: "Lステップ徹底解説 — 機能・料金・評判・できることを完全網羅",
     category: "ツール比較・選定",
     description: "LINE拡張ツールの代表格「Lステップ」の全機能を徹底解説。料金プラン、シナリオ配信、セグメント管理、流入経路分析など、導入前に知っておくべき情報を網羅的に紹介します。",
-    brandName: "Lオペ",
+    brandName: "Lオペ for LINE",
   });
 }

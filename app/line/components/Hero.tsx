@@ -65,7 +65,7 @@ export default function Hero() {
                 LINE運用を、<br />
                 <GradientText from="#06C755" to="#00B900" className="font-extrabold">もっとシンプルに。</GradientText>
               </h1>
-              <p className="sr-only">Lオペ（エルオペ）はLINE公式アカウントの運用をオールインワンで効率化するプラットフォームです。</p>
+              <p className="sr-only">Lオペ for LINE（エルオペ for LINE）はLINE公式アカウントの運用をオールインワンで効率化するプラットフォームです。</p>
             </TextReveal>
 
             {/* 使用料0円の大きな強調 */}

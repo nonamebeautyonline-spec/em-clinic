@@ -30,7 +30,7 @@ export default function LineLPPage() {
           <ol className="flex items-center gap-1.5 text-[11px] text-slate-400 list-none m-0 p-0">
             <li><a href="https://l-ope.jp" className="hover:text-[#06C755] transition">ホーム</a></li>
             <li aria-hidden="true">/</li>
-            <li aria-current="page" className="text-slate-600 font-medium">Lオペ</li>
+            <li aria-current="page" className="text-slate-600 font-medium">Lオペ for LINE</li>
           </ol>
         </nav>
         <Hero />

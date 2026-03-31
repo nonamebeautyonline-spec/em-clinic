@@ -3,16 +3,16 @@ import type { Metadata } from "next";
 const SITE_URL = "https://l-ope.jp";
 
 export const metadata: Metadata = {
-  title: "Lオペ お問い合わせ・無料相談 | LINE運用プラットフォーム",
+  title: "Lオペ for LINE お問い合わせ・無料相談 | LINE運用プラットフォーム",
   description:
-    "Lオペへのお問い合わせ・無料相談はこちら。LINE公式アカウント運用に関するご相談、デモのご案内、導入に関するご質問を受け付けています。",
-  keywords: "Lオペ 問い合わせ, Lオペ 無料相談, LINE公式アカウント 導入 相談, LINE配信ツール 見積もり, LINE運用 相談",
+    "Lオペ for LINEへのお問い合わせ・無料相談はこちら。LINE公式アカウント運用に関するご相談、デモのご案内、導入に関するご質問を受け付けています。",
+  keywords: "Lオペ for LINE 問い合わせ, Lオペ for LINE 無料相談, LINE公式アカウント 導入 相談, LINE配信ツール 見積もり, LINE運用 相談",
   alternates: { canonical: `${SITE_URL}/line/contact` },
   openGraph: {
-    title: "Lオペ お問い合わせ・無料相談",
+    title: "Lオペ for LINE お問い合わせ・無料相談",
     description: "LINE公式アカウント運用に関するご相談・デモのご案内はこちらから。",
     url: `${SITE_URL}/line/contact`,
-    siteName: "Lオペ",
+    siteName: "Lオペ for LINE",
     locale: "ja_JP",
     type: "website",
   },
@@ -22,9 +22,9 @@ export const metadata: Metadata = {
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "ContactPage",
-  name: "お問い合わせ | Lオペ",
+  name: "お問い合わせ | Lオペ for LINE",
   url: `${SITE_URL}/line/contact`,
-  isPartOf: { "@type": "WebSite", name: "Lオペ", url: SITE_URL },
+  isPartOf: { "@type": "WebSite", name: "Lオペ for LINE", url: SITE_URL },
 };
 
 const faqJsonLd = {

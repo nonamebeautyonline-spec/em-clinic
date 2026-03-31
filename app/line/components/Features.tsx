@@ -193,7 +193,7 @@ export default function Features() {
       <div className="text-center">
         <Label>FEATURES</Label>
         <Title>LINE運用に必要な機能を<br className="md:hidden" />オールインワンで</Title>
-        <Sub>複数ツールを使い分ける必要はありません。Lオペなら1つの管理画面でLINE運用のすべてが完結します。</Sub>
+        <Sub>複数ツールを使い分ける必要はありません。Lオペ for LINEなら1つの管理画面でLINE運用のすべてが完結します。</Sub>
       </div>
 
       <div className="space-y-16 md:space-y-24">
@@ -210,7 +210,7 @@ export default function Features() {
               </div>
               {/* デモUI側 */}
               <div className={i % 2 === 1 ? "md:[direction:ltr]" : ""}>
-                <MockWindow title={`Lオペ — ${f.title}`}>
+                <MockWindow title={`Lオペ for LINE — ${f.title}`}>
                   {f.demo}
                 </MockWindow>
               </div>

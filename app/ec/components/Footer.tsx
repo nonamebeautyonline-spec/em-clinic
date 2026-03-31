@@ -24,6 +24,16 @@ export function Footer() {
             <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="hover:text-amber-600 transition">運営会社</a>
           </nav>
         </div>
+        {/* パートナー募集 */}
+        <div className="mt-8 border-t border-slate-200 pt-6 text-center">
+          <p className="text-[12px] font-semibold text-slate-500">連携・代理店パートナー募集</p>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Lオペとの連携・代理店についてのご相談は
+            <a href="mailto:partner@l-ope.jp" className="text-amber-600 underline ml-1">partner@l-ope.jp</a>
+            までお問い合わせください。
+          </p>
+        </div>
+
         <div className="mt-7 flex flex-col items-center justify-between gap-3 border-t border-slate-200 pt-7 text-[11px] md:flex-row">
           <div className="flex gap-5">
             <a href="/clinic/terms" className="hover:text-amber-600 transition">利用規約</a>

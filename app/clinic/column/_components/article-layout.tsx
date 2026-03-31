@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { articles, getArticleTags } from "../articles";
 import { categories } from "../categories";
@@ -86,7 +85,7 @@ function AuthorCard() {
               <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-            </Link>
+            </a>
           </div>
         </div>
       </div>
@@ -186,7 +185,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800">
+    <div className="min-h-screen bg-blue-50/30 text-gray-800">
       <ReadingProgress />
       {/* Article JSON-LD（集約） */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }} />
@@ -194,13 +193,13 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
       {/* ヘッダー */}
       <header className="border-b border-gray-200/60 bg-white shadow-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-1 text-[14px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition">
+          <a href="/" className="flex items-center gap-1 text-[14px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition">
             Lオペ <span className="text-blue-600">for CLINIC</span>
-          </Link>
+          </a>
           <div className="flex items-center gap-4">
-            <Link href="/clinic/column" className="text-[12px] text-gray-400 hover:text-gray-700 transition">
+            <a href="/clinic/column" className="text-[12px] text-gray-400 hover:text-gray-700 transition">
               コラム一覧
-            </Link>
+            </a>
             <a
               href={`/lp/contact?ref=${slug}`}
               className="rounded-lg bg-blue-600 px-4 py-2 text-[12px] font-semibold text-white transition hover:bg-blue-700"
@@ -215,11 +214,11 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
       <div className="border-b border-gray-200/60 bg-white">
         <nav aria-label="パンくずリスト" className="mx-auto max-w-6xl px-6 py-3">
           <ol className="flex flex-wrap items-center gap-1.5 text-[12px] text-gray-400 list-none m-0 p-0">
-            <li><Link href="/" className="hover:text-blue-600 transition">トップ</Link></li>
+            <li><a href="/" className="hover:text-blue-600 transition">トップ</a></li>
             <li aria-hidden="true" className="text-gray-300">/</li>
-            <li><Link href="/clinic/column" className="hover:text-blue-600 transition">コラム</Link></li>
+            <li><a href="/clinic/column" className="hover:text-blue-600 transition">コラム</a></li>
             <li aria-hidden="true" className="text-gray-300">/</li>
-            <li><Link href={`/clinic/column/category/${catSlug}`} className="hover:text-blue-600 transition">{catLabel}</Link></li>
+            <li><a href={`/clinic/column/category/${catSlug}`} className="hover:text-blue-600 transition">{catLabel}</a></li>
             <li aria-hidden="true" className="text-gray-300">/</li>
             <li className="text-gray-700 font-medium truncate max-w-[300px]">{self.title}</li>
           </ol>
@@ -350,7 +349,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
                           {a.title}
                         </p>
                       </div>
-                    </Link>
+                    </a>
                   );
                 })}
               </div>
@@ -383,22 +382,22 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
       {/* フッター — ダーク系でプロフェッショナル感を演出 */}
       <footer className="bg-slate-900 py-10 text-center">
         <div className="mx-auto max-w-6xl px-6">
-          <Link href="/" className="text-[14px] font-bold tracking-tight text-white hover:opacity-80 transition">
+          <a href="/" className="text-[14px] font-bold tracking-tight text-white hover:opacity-80 transition">
             Lオペ <span className="text-blue-400">for CLINIC</span>
-          </Link>
+          </a>
           <div className="mt-4 flex items-center justify-center gap-6">
-            <Link href="/clinic/column" className="text-[12px] text-slate-400 hover:text-white transition">
+            <a href="/clinic/column" className="text-[12px] text-slate-400 hover:text-white transition">
               コラム一覧
-            </Link>
-            <Link href="/" className="text-[12px] text-slate-400 hover:text-white transition">
+            </a>
+            <a href="/" className="text-[12px] text-slate-400 hover:text-white transition">
               トップ
-            </Link>
-            <Link href="/clinic/features" className="text-[12px] text-slate-400 hover:text-white transition">
+            </a>
+            <a href="/clinic/features" className="text-[12px] text-slate-400 hover:text-white transition">
               機能一覧
-            </Link>
-            <Link href="/clinic/about" className="text-[12px] text-slate-400 hover:text-white transition">
+            </a>
+            <a href="/clinic/about" className="text-[12px] text-slate-400 hover:text-white transition">
               Lオペとは
-            </Link>
+            </a>
             <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="text-[12px] text-slate-400 hover:text-white transition">
               運営会社
             </a>

@@ -2,7 +2,7 @@
 
 import React from "react";
 
-/* ──── 汎用UIパーツ（Lオペ無印 — LINE緑テーマ） ──── */
+/* ──── 汎用UIパーツ（Lオペ for LINE — LINE緑テーマ） ──── */
 export function Section({ id, children, className = "" }: { id?: string; children: React.ReactNode; className?: string }) {
   return (
     <section id={id} className={`px-5 py-24 md:py-32 ${className}`}>
@@ -50,7 +50,7 @@ export function MockPhone({ children, className = "" }: { children: React.ReactN
 }
 
 /* ──── LineChatHeader: LINEトーク画面のヘッダー ──── */
-export function LineChatHeader({ name = "Lオペ", className = "" }: { name?: string; className?: string }) {
+export function LineChatHeader({ name = "Lオペ for LINE", className = "" }: { name?: string; className?: string }) {
   return (
     <div className={`flex items-center gap-3 bg-[#06C755] px-4 py-3 ${className}`}>
       <svg className="h-4 w-4 text-white/80" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" /></svg>

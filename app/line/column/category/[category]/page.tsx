@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const cat = getCategoryBySlug(slug);
   if (!cat) return {};
 
-  const title = `${cat.label}の記事一覧 | コラム | Lオペ`;
+  const title = `${cat.label}の記事一覧 | コラム | Lオペ for LINE`;
   const description = cat.description;
   const url = `${SITE_URL}/line/column/category/${cat.slug}`;
 
@@ -66,10 +66,10 @@ export default async function CategoryPage({ params }: Props) {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    name: `${cat.label}の記事一覧 — Lオペ コラム`,
+    name: `${cat.label}の記事一覧 — Lオペ for LINE コラム`,
     description: cat.description,
     url: `${SITE_URL}/line/column/category/${cat.slug}`,
-    isPartOf: { "@type": "WebSite", name: "Lオペ", url: SITE_URL },
+    isPartOf: { "@type": "WebSite", name: "Lオペ for LINE", url: SITE_URL },
     mainEntity: {
       "@type": "ItemList",
       numberOfItems: articleList.length,
@@ -97,11 +97,11 @@ export default async function CategoryPage({ params }: Props) {
               href="/line"
               className="flex items-center gap-1.5 text-[16px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition"
             >
-              Lオペ
+              Lオペ for LINE
             </Link>
             <div className="flex items-center gap-6">
               <Link href="/line/about" className="hidden text-[14px] text-gray-500 hover:text-blue-600 transition md:block">
-                Lオペとは
+                Lオペ for LINEとは
               </Link>
               <Link href="/line/features" className="hidden text-[14px] text-gray-500 hover:text-blue-600 transition md:block">
                 機能一覧
@@ -305,7 +305,7 @@ export default async function CategoryPage({ params }: Props) {
           {/* CTA */}
           <div className="mt-14 overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 via-indigo-50 to-violet-50 p-10 text-center ring-1 ring-blue-100 md:p-14">
             <p className="text-[12px] font-bold tracking-widest text-blue-400 uppercase">
-              Lオペ
+              Lオペ for LINE
             </p>
             <h2 className="mt-3 text-[22px] font-bold text-gray-800 md:text-[26px]">
               LINE公式アカウント運用をもっと効率的に
@@ -337,14 +337,14 @@ export default async function CategoryPage({ params }: Props) {
           <div className="mx-auto max-w-7xl px-6">
             <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
               <p className="text-[14px] font-bold text-gray-900">
-                Lオペ
+                Lオペ for LINE
               </p>
               <div className="flex items-center gap-6">
                 <Link href="/line" className="text-[13px] text-gray-400 hover:text-blue-600 transition">
                   トップ
                 </Link>
                 <Link href="/line/about" className="text-[13px] text-gray-400 hover:text-blue-600 transition">
-                  Lオペとは
+                  Lオペ for LINEとは
                 </Link>
                 <Link href="/line/features" className="text-[13px] text-gray-400 hover:text-blue-600 transition">
                   機能一覧

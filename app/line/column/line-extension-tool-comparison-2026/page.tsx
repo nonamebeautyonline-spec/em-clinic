@@ -96,7 +96,7 @@ export default function Page() {
             ["Poster", "980円〜", true, true, false, "シンプルで低価格"],
             ["LIBOT", "3,000円〜", false, true, true, "チャットボット特化"],
             ["Penglue", "成果報酬型", false, false, false, "離脱防止ポップアップ"],
-            ["Lオペ", "要問合せ", false, true, true, "業種特化型（クリニック等）"],
+            ["Lオペ for LINE", "要問合せ", false, true, true, "業種特化型（クリニック等）"],
           ]}
         />
       </section>

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { articles, getArticleTags } from "../articles";
 import { categories } from "../categories";
@@ -86,7 +85,7 @@ function AuthorCard() {
               <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-            </Link>
+            </a>
           </div>
         </div>
       </div>
@@ -186,7 +185,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800">
+    <div className="min-h-screen bg-amber-50/30 text-gray-800">
       <ReadingProgress />
       {/* Article JSON-LD（集約） */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }} />
@@ -194,13 +193,13 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
       {/* ヘッダー */}
       <header className="border-b border-gray-200/60 bg-white shadow-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/ec" className="flex items-center gap-1 text-[14px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition">
+          <a href="/ec" className="flex items-center gap-1 text-[14px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition">
             Lオペ <span className="text-[11px] font-semibold text-stone-500">for EC</span>
-          </Link>
+          </a>
           <div className="flex items-center gap-4">
-            <Link href="/ec/column" className="text-[12px] text-gray-400 hover:text-gray-700 transition">
+            <a href="/ec/column" className="text-[12px] text-gray-400 hover:text-gray-700 transition">
               コラム一覧
-            </Link>
+            </a>
             <a
               href={`/ec/contact?ref=${slug}`}
               className="rounded-lg bg-gradient-to-r from-stone-700 to-amber-700 px-4 py-2 text-[12px] font-semibold text-white transition hover:shadow-md"
@@ -215,11 +214,11 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
       <div className="border-b border-gray-200/60 bg-white">
         <nav aria-label="パンくずリスト" className="mx-auto max-w-6xl px-6 py-3">
           <ol className="flex flex-wrap items-center gap-1.5 text-[12px] text-gray-400 list-none m-0 p-0">
-            <li><Link href="/ec" className="hover:text-amber-700 transition">トップ</Link></li>
+            <li><a href="/ec" className="hover:text-amber-700 transition">トップ</a></li>
             <li aria-hidden="true" className="text-gray-300">/</li>
-            <li><Link href="/ec/column" className="hover:text-amber-700 transition">コラム</Link></li>
+            <li><a href="/ec/column" className="hover:text-amber-700 transition">コラム</a></li>
             <li aria-hidden="true" className="text-gray-300">/</li>
-            <li><Link href={`/ec/column/category/${catSlug}`} className="hover:text-amber-700 transition">{catLabel}</Link></li>
+            <li><a href={`/ec/column/category/${catSlug}`} className="hover:text-amber-700 transition">{catLabel}</a></li>
             <li aria-hidden="true" className="text-gray-300">/</li>
             <li className="text-gray-700 font-medium truncate max-w-[300px]">{self.title}</li>
           </ol>
@@ -341,7 +340,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
                           {a.title}
                         </p>
                       </div>
-                    </Link>
+                    </a>
                   );
                 })}
               </div>
@@ -372,14 +371,14 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
       {/* フッター */}
       <footer className="bg-slate-50 py-10 text-center">
         <div className="mx-auto max-w-6xl px-6">
-          <Link href="/ec" className="text-[14px] font-bold tracking-tight text-slate-900 hover:opacity-80 transition">
+          <a href="/ec" className="text-[14px] font-bold tracking-tight text-slate-900 hover:opacity-80 transition">
             Lオペ <span className="text-[11px] font-semibold text-amber-600">for EC</span>
-          </Link>
+          </a>
           <div className="mt-4 flex items-center justify-center gap-6">
-            <Link href="/ec/column" className="text-[12px] text-slate-500 hover:text-amber-600 transition">コラム一覧</Link>
-            <Link href="/ec" className="text-[12px] text-slate-500 hover:text-amber-600 transition">トップ</Link>
-            <Link href="/ec/features" className="text-[12px] text-slate-500 hover:text-amber-600 transition">機能一覧</Link>
-            <Link href="/ec/about" className="text-[12px] text-slate-500 hover:text-amber-600 transition">Lオペ for ECとは</Link>
+            <a href="/ec/column" className="text-[12px] text-slate-500 hover:text-amber-600 transition">コラム一覧</a>
+            <a href="/ec" className="text-[12px] text-slate-500 hover:text-amber-600 transition">トップ</a>
+            <a href="/ec/features" className="text-[12px] text-slate-500 hover:text-amber-600 transition">機能一覧</a>
+            <a href="/ec/about" className="text-[12px] text-slate-500 hover:text-amber-600 transition">Lオペ for ECとは</a>
             <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="text-[12px] text-slate-500 hover:text-amber-600 transition">運営会社</a>
           </div>
           <p className="mt-6 text-[11px] text-slate-400">&copy; {new Date().getFullYear()} 株式会社ORDIX. All rights reserved.</p>

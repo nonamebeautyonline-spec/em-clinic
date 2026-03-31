@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { articles, getArticleTags } from "../articles";
 import { categories } from "../categories";
@@ -36,7 +35,7 @@ function AuthorCard() {
   const authorJsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "Lオペ編集部",
+    "name": "Lオペ for LINE 編集部",
     "url": "https://l-ope.jp/line/about",
     "parentOrganization": {
       "@type": "Organization",
@@ -60,7 +59,7 @@ function AuthorCard() {
           L
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-bold text-gray-900">Lオペ編集部</p>
+          <p className="text-[13px] font-bold text-gray-900">Lオペ for LINE 編集部</p>
           <p className="mt-0.5 text-[11px] text-gray-400">運営: <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-gray-600">株式会社ORDIX</a></p>
           <p className="mt-1 text-[12px] leading-relaxed text-gray-500">
             LINE公式アカウント運用に関する実践的なノウハウを発信する専門編集チーム。配信設計・自動化・ツール選定・業種別活用など、LINE運用の成功を支援しています。
@@ -82,11 +81,11 @@ function AuthorCard() {
               href="/line/about"
               className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-[#06C755] transition hover:bg-emerald-100"
             >
-              Lオペとは？
+              Lオペ for LINEとは？
               <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-            </Link>
+            </a>
           </div>
         </div>
       </div>
@@ -126,9 +125,9 @@ function KeyPoints({ points }: { points: string[] }) {
 export function InlineCTA() {
   return (
     <div className="my-10 overflow-hidden rounded-xl bg-gradient-to-r from-emerald-50 via-green-50 to-teal-50 p-6 text-center ring-1 ring-emerald-100">
-      <p className="text-[14px] font-bold text-gray-800">LINE公式アカウント運用を<a href="/line" className="text-[#06C755] underline font-bold">Lオペ</a>でもっと効率的に</p>
-      <p className="mt-1 text-[12px] text-gray-500"><a href="/line" className="text-gray-600 underline">Lオペ</a>の機能・料金・導入事例をまとめた資料をお送りします。</p>
-      <InlineCTAButton contactPath="/line/contact" columnPathPrefix="/line/column/" label="Lオペの資料を無料で請求" />
+      <p className="text-[14px] font-bold text-gray-800">LINE公式アカウント運用を<a href="/line" className="text-[#06C755] underline font-bold">Lオペ for LINE</a>でもっと効率的に</p>
+      <p className="mt-1 text-[12px] text-gray-500"><a href="/line" className="text-gray-600 underline">Lオペ for LINE</a>の機能・料金・導入事例をまとめた資料をお送りします。</p>
+      <InlineCTAButton contactPath="/line/contact" columnPathPrefix="/line/column/" label="Lオペ for LINEの資料を無料で請求" />
     </div>
   );
 }
@@ -176,17 +175,17 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
     datePublished: `${self.date}T00:00:00+09:00`,
     dateModified: `${(self.updatedDate || self.date)}T00:00:00+09:00`,
     image: `${SITE_URL}/line/column/${slug}/opengraph-image`,
-    author: { "@type": "Organization", name: "Lオペ", url: SITE_URL },
-    publisher: { "@type": "Organization", name: "Lオペ", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
+    author: { "@type": "Organization", name: "Lオペ for LINE", url: SITE_URL },
+    publisher: { "@type": "Organization", name: "Lオペ for LINE", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
     mainEntityOfPage: `${SITE_URL}/line/column/${slug}`,
     wordCount: estimatedWordCount,
     timeRequired: `PT${readMinutes}M`,
     inLanguage: "ja",
-    isPartOf: { "@type": "WebSite", name: "Lオペ", url: SITE_URL },
+    isPartOf: { "@type": "WebSite", name: "Lオペ for LINE", url: SITE_URL },
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800">
+    <div className="min-h-screen bg-emerald-50/30 text-gray-800">
       <ReadingProgress />
       {/* Article JSON-LD（集約） */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }} />
@@ -194,13 +193,13 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
       {/* ヘッダー */}
       <header className="border-b border-gray-200/60 bg-white shadow-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/line" className="flex items-center gap-1 text-[14px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition">
-            Lオペ
-          </Link>
+          <a href="/line" className="flex items-center gap-1 text-[14px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition">
+            Lオペ for LINE
+          </a>
           <div className="flex items-center gap-4">
-            <Link href="/line/column" className="text-[12px] text-gray-400 hover:text-gray-700 transition">
+            <a href="/line/column" className="text-[12px] text-gray-400 hover:text-gray-700 transition">
               コラム一覧
-            </Link>
+            </a>
             <a
               href={`/line/contact?ref=${slug}`}
               className="rounded-lg bg-[#06C755] px-4 py-2 text-[12px] font-semibold text-white transition hover:bg-emerald-700"
@@ -215,11 +214,11 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
       <div className="border-b border-gray-200/60 bg-white">
         <nav aria-label="パンくずリスト" className="mx-auto max-w-6xl px-6 py-3">
           <ol className="flex flex-wrap items-center gap-1.5 text-[12px] text-gray-400 list-none m-0 p-0">
-            <li><Link href="/line" className="hover:text-emerald-600 transition">トップ</Link></li>
+            <li><a href="/line" className="hover:text-emerald-600 transition">トップ</a></li>
             <li aria-hidden="true" className="text-gray-300">/</li>
-            <li><Link href="/line/column" className="hover:text-emerald-600 transition">コラム</Link></li>
+            <li><a href="/line/column" className="hover:text-emerald-600 transition">コラム</a></li>
             <li aria-hidden="true" className="text-gray-300">/</li>
-            <li><Link href={`/line/column/category/${catSlug}`} className="hover:text-emerald-600 transition">{catLabel}</Link></li>
+            <li><a href={`/line/column/category/${catSlug}`} className="hover:text-emerald-600 transition">{catLabel}</a></li>
             <li aria-hidden="true" className="text-gray-300">/</li>
             <li className="text-gray-700 font-medium truncate max-w-[300px]">{self.title}</li>
           </ol>
@@ -251,7 +250,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-[11px] font-bold text-[#06C755]">L</div>
-                <span className="text-[12px] text-gray-500">Lオペ編集部</span>
+                <span className="text-[12px] text-gray-500">Lオペ for LINE 編集部</span>
               </div>
               <div className="flex items-center gap-2 text-[12px] text-gray-400">
                 <span>公開: <time dateTime={self.date}>{formatDate(self.date)}</time></span>
@@ -315,7 +314,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
 
             {/* CTA（明るいトーン） */}
             <div className="mt-10 overflow-hidden rounded-xl bg-gradient-to-br from-emerald-100 via-green-50 to-teal-100 p-8 text-center ring-1 ring-emerald-200/80">
-              <p className="text-[11px] font-bold tracking-widest text-emerald-400 uppercase">Lオペ</p>
+              <p className="text-[11px] font-bold tracking-widest text-emerald-400 uppercase">Lオペ for LINE</p>
               <h2 className="mt-2 text-[18px] font-bold text-gray-800">LINE公式アカウント運用を始めませんか？</h2>
               <p className="mt-1 text-[13px] text-gray-500">配信・自動応答・顧客管理・分析をオールインワンで。</p>
               <a
@@ -350,7 +349,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
                           {a.title}
                         </p>
                       </div>
-                    </Link>
+                    </a>
                   );
                 })}
               </div>
@@ -383,22 +382,22 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
       {/* フッター — ダーク系でプロフェッショナル感を演出 */}
       <footer className="bg-slate-900 py-10 text-center">
         <div className="mx-auto max-w-6xl px-6">
-          <Link href="/line" className="text-[14px] font-bold tracking-tight text-white hover:opacity-80 transition">
-            Lオペ
-          </Link>
+          <a href="/line" className="text-[14px] font-bold tracking-tight text-white hover:opacity-80 transition">
+            Lオペ for LINE
+          </a>
           <div className="mt-4 flex items-center justify-center gap-6">
-            <Link href="/line/column" className="text-[12px] text-slate-400 hover:text-white transition">
+            <a href="/line/column" className="text-[12px] text-slate-400 hover:text-white transition">
               コラム一覧
-            </Link>
-            <Link href="/line" className="text-[12px] text-slate-400 hover:text-white transition">
+            </a>
+            <a href="/line" className="text-[12px] text-slate-400 hover:text-white transition">
               トップ
-            </Link>
-            <Link href="/line/features" className="text-[12px] text-slate-400 hover:text-white transition">
+            </a>
+            <a href="/line/features" className="text-[12px] text-slate-400 hover:text-white transition">
               機能一覧
-            </Link>
-            <Link href="/line/about" className="text-[12px] text-slate-400 hover:text-white transition">
-              Lオペとは
-            </Link>
+            </a>
+            <a href="/line/about" className="text-[12px] text-slate-400 hover:text-white transition">
+              Lオペ for LINEとは
+            </a>
             <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="text-[12px] text-slate-400 hover:text-white transition">
               運営会社
             </a>

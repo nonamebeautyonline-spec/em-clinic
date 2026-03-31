@@ -27,7 +27,7 @@ const cards = [
     stat: { value: 0, suffix: "円", desc: "基本利用料・全機能利用可能" },
     points: [
       "月額0円で基本機能をすべて利用可能。友だち数の増加に合わせて段階的にスケールアップ",
-      "配信ツール・予約ツール・フォームツール・分析ツールを個別契約すると月5〜15万円。Lオペならオールインワンでコストを大幅に削減",
+      "配信ツール・予約ツール・フォームツール・分析ツールを個別契約すると月5〜15万円。Lオペ for LINEならオールインワンでコストを大幅に削減",
       "メッセージ従量課金のシンプルな体系で、予算管理がしやすく想定外のコスト発生を防止",
     ],
   },
@@ -57,10 +57,10 @@ export default function Strengths() {
         <div className="text-center">
           <span className="mb-4 inline-block rounded-full bg-[#06C755]/10 px-4 py-1.5 text-[11px] font-semibold tracking-[.18em] text-[#06C755] uppercase">STRENGTHS</span>
           <h2 className="mb-5 text-[1.7rem] font-extrabold leading-snug tracking-tight text-white md:text-4xl">
-            Lオペが選ばれる<br className="md:hidden" />3つの理由
+            Lオペ for LINEが選ばれる<br className="md:hidden" />3つの理由
           </h2>
           <p className="mx-auto mb-16 max-w-2xl text-[14px] leading-relaxed text-slate-400">
-            直感的なUI、低コスト、手厚いサポート。LINE運用を成功に導くための基盤がLオペにはすべて揃っています。
+            直感的なUI、低コスト、手厚いサポート。LINE運用を成功に導くための基盤がLオペ for LINEにはすべて揃っています。
           </p>
         </div>
 

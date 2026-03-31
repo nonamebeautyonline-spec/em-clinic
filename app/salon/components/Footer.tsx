@@ -104,6 +104,16 @@ export function Footer() {
           ))}
         </div>
 
+        {/* パートナー募集 */}
+        <div className="mt-8 border-t border-slate-200 pt-6 text-center">
+          <p className="text-[12px] font-semibold text-slate-500">連携・代理店パートナー募集</p>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Lオペとの連携・代理店についてのご相談は
+            <a href="mailto:partner@l-ope.jp" className="text-pink-500 underline ml-1">partner@l-ope.jp</a>
+            までお問い合わせください。
+          </p>
+        </div>
+
         {/* 装飾線 */}
         <div className="my-8 flex items-center gap-3">
           <div className="h-px flex-1 bg-gradient-to-r from-transparent via-pink-500/15 to-transparent" />

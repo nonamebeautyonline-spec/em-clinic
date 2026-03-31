@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 const SITE_URL = "https://l-ope.jp";
 const LINE_URL = `${SITE_URL}/line`;
-const TITLE = "Lオペ | LINE公式アカウント運用プラットフォーム";
+const TITLE = "Lオペ for LINE | LINE公式アカウント運用プラットフォーム";
 const DESCRIPTION =
   "LINE公式アカウントの配信・セグメント・リッチメニュー・予約・フォーム・分析をオールインワンで管理できるプラットフォーム。飲食・美容・EC・不動産・教育・士業など、あらゆる業種のLINE運用を効率化。";
 
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   },
   keywords: [
     /* ブランド */
-    "Lオペ", "L-OPE",
+    "Lオペ for LINE", "Lオペ", "L-OPE",
     /* ピラー */
     "LINEマーケティングツール", "LINE公式アカウント", "LINE運用", "LINE拡張ツール",
     /* 配信 */
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     title: TITLE,
     description: DESCRIPTION,
     url: LINE_URL,
-    siteName: "Lオペ",
+    siteName: "Lオペ for LINE",
     locale: "ja_JP",
     type: "website",
   },
@@ -58,12 +58,12 @@ const jsonLd = [
   {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "Lオペ",
-    alternateName: ["エルオペ", "L-OPE"],
+    name: "Lオペ for LINE",
+    alternateName: ["エルオペ for LINE", "L-OPE for LINE"],
     url: SITE_URL,
     logo: `${SITE_URL}/icon.png`,
     description:
-      "Lオペは、LINE公式アカウントの運用を効率化するオールインワンプラットフォームです。",
+      "Lオペ for LINEは、LINE公式アカウントの運用を効率化するオールインワンプラットフォームです。",
     email: "info@l-ope.jp",
     contactPoint: {
       "@type": "ContactPoint",
@@ -85,7 +85,7 @@ const jsonLd = [
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: "Lオペ",
+    name: "Lオペ for LINE",
     applicationCategory: "BusinessApplication",
     applicationSubCategory: "LINE公式アカウント拡張ツール",
     operatingSystem: "Web",
@@ -106,11 +106,11 @@ const jsonLd = [
   {
     "@context": "https://schema.org",
     "@type": "Service",
-    name: "Lオペ",
+    name: "Lオペ for LINE",
     serviceType: "LINE公式アカウント運用プラットフォーム",
     provider: {
       "@type": "Organization",
-      name: "Lオペ",
+      name: "Lオペ for LINE",
       url: SITE_URL,
     },
     description: DESCRIPTION,
@@ -126,14 +126,14 @@ const jsonLd = [
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    name: "Lオペ",
+    name: "Lオペ for LINE",
     url: SITE_URL,
     description:
-      "LINE公式アカウント運用をオールインワンで効率化するプラットフォーム「Lオペ」",
+      "LINE公式アカウント運用をオールインワンで効率化するプラットフォーム「Lオペ for LINE」",
   },
   /* SiteNavigationElement */
   ...[
-    { name: "Lオペとは", url: `${LINE_URL}/about` },
+    { name: "Lオペ for LINEとは", url: `${LINE_URL}/about` },
     { name: "機能一覧", url: `${LINE_URL}/features` },
     { name: "料金プラン", url: `${LINE_URL}#pricing` },
     { name: "コラム", url: `${LINE_URL}/column` },

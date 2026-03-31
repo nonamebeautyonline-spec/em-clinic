@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { articles } from "../articles";
 import { categories, getArticlesByCategory } from "../categories";
@@ -49,23 +48,23 @@ export default function ColumnIndex() {
   const popular = popularSlugs.map((s) => articles.find((a) => a.slug === s)!).filter(Boolean);
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800">
+    <div className="min-h-screen bg-amber-50/30 text-gray-800">
       {/* ヘッダー */}
       <header className="sticky top-0 z-30 border-b border-gray-200/60 bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
-          <Link href="/ec" className="flex items-center gap-1.5 text-[16px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition">
+          <a href="/ec" className="flex items-center gap-1.5 text-[16px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition">
             Lオペ <span className="text-[11px] font-semibold text-stone-500">for EC</span>
-          </Link>
+          </a>
           <div className="flex items-center gap-6">
-            <Link href="/ec/about" className="hidden text-[14px] text-gray-500 hover:text-amber-700 transition md:block">Lオペ for ECとは</Link>
-            <Link href="/ec/features" className="hidden text-[14px] text-gray-500 hover:text-amber-700 transition md:block">機能一覧</Link>
-            <Link href="/ec/column" className="hidden text-[14px] font-medium text-amber-700 md:block">コラム</Link>
+            <a href="/ec/about" className="hidden text-[14px] text-gray-500 hover:text-amber-700 transition md:block">Lオペ for ECとは</a>
+            <a href="/ec/features" className="hidden text-[14px] text-gray-500 hover:text-amber-700 transition md:block">機能一覧</a>
+            <a href="/ec/column" className="hidden text-[14px] font-medium text-amber-700 md:block">コラム</a>
             <Link
               href="/ec/contact"
               className="rounded-full bg-gradient-to-r from-stone-700 to-amber-700 px-6 py-2.5 text-[13px] font-semibold text-white transition hover:shadow-md"
             >
               お問い合わせ
-            </Link>
+            </a>
           </div>
         </div>
       </header>
@@ -74,7 +73,7 @@ export default function ColumnIndex() {
       <div className="border-b border-gray-200 bg-white">
         <nav aria-label="パンくずリスト" className="mx-auto max-w-7xl px-6 py-3">
           <ol className="flex items-center gap-2 text-[13px] text-gray-400 list-none m-0 p-0">
-            <li><Link href="/ec" className="hover:text-amber-700 transition">トップ</Link></li>
+            <li><a href="/ec" className="hover:text-amber-700 transition">トップ</a></li>
             <li aria-hidden="true" className="text-gray-300">/</li>
             <li className="text-gray-700 font-medium">コラム</li>
           </ol>
@@ -106,7 +105,7 @@ export default function ColumnIndex() {
                   <p className="text-[14px] font-bold text-gray-800 group-hover:text-amber-700 transition">{cat.label}</p>
                   <p className="mt-1 text-[11px] text-gray-400 line-clamp-2">{cat.description.slice(0, 40)}...</p>
                   <p className="mt-1.5 text-[11px] font-semibold text-amber-600">{count}件の記事</p>
-                </Link>
+                </a>
               );
             })}
           </div>
@@ -141,7 +140,7 @@ export default function ColumnIndex() {
                   <div className="px-5 py-4">
                     <p className="text-[13px] leading-relaxed text-gray-500 line-clamp-3">{a.description}</p>
                   </div>
-                </Link>
+                </a>
               );
             })}
           </div>
@@ -216,7 +215,7 @@ export default function ColumnIndex() {
                       </span>
                     </div>
                   </div>
-                </Link>
+                </a>
               ))}
             </div>
 
@@ -233,13 +232,13 @@ export default function ColumnIndex() {
                   className="rounded-full bg-gradient-to-r from-stone-700 to-amber-700 px-8 py-3.5 text-[14px] font-bold text-white transition hover:shadow-lg"
                 >
                   お問い合わせ
-                </Link>
+                </a>
                 <Link
                   href="/ec/features"
                   className="rounded-full bg-white px-8 py-3.5 text-[14px] font-bold text-gray-600 ring-1 ring-gray-200 transition hover:bg-gray-50 hover:text-amber-700"
                 >
                   機能一覧を見る
-                </Link>
+                </a>
               </div>
             </div>
           </main>
@@ -268,7 +267,7 @@ export default function ColumnIndex() {
                       <p className="text-[13px] font-medium leading-snug text-gray-700 group-hover:text-amber-700 transition line-clamp-2">
                         {a.title}
                       </p>
-                    </Link>
+                    </a>
                   ))}
                 </div>
               </div>
@@ -287,7 +286,7 @@ export default function ColumnIndex() {
                       >
                         {cat.label}
                         <span className="text-[12px] text-gray-300">{count}</span>
-                      </Link>
+                      </a>
                     );
                   })}
                 </div>
@@ -317,7 +316,7 @@ export default function ColumnIndex() {
                   className="mt-4 inline-block w-full rounded-full bg-gradient-to-r from-stone-700 to-amber-700 py-3 text-[13px] font-bold text-white transition hover:shadow-md"
                 >
                   お問い合わせ
-                </Link>
+                </a>
               </div>
             </div>
           </aside>
@@ -332,10 +331,10 @@ export default function ColumnIndex() {
               Lオペ <span className="text-[11px] font-semibold text-stone-500">for EC</span>
             </p>
             <div className="flex items-center gap-6">
-              <Link href="/ec" className="text-[13px] text-gray-400 hover:text-amber-700 transition">トップ</Link>
-              <Link href="/ec/about" className="text-[13px] text-gray-400 hover:text-amber-700 transition">Lオペ for ECとは</Link>
-              <Link href="/ec/features" className="text-[13px] text-gray-400 hover:text-amber-700 transition">機能一覧</Link>
-              <Link href="/ec/column" className="text-[13px] text-amber-700 font-medium">コラム</Link>
+              <a href="/ec" className="text-[13px] text-gray-400 hover:text-amber-700 transition">トップ</a>
+              <a href="/ec/about" className="text-[13px] text-gray-400 hover:text-amber-700 transition">Lオペ for ECとは</a>
+              <a href="/ec/features" className="text-[13px] text-gray-400 hover:text-amber-700 transition">機能一覧</a>
+              <a href="/ec/column" className="text-[13px] text-amber-700 font-medium">コラム</a>
               <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="text-[13px] text-gray-400 hover:text-amber-700 transition">運営会社</a>
             </div>
           </div>

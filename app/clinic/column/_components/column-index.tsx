@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { articles } from "../articles";
 import { categories, getArticlesByCategory } from "../categories";
@@ -82,23 +81,23 @@ export default function ColumnIndex() {
   const popular = popularSlugs.map((s) => articles.find((a) => a.slug === s)!).filter(Boolean);
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800">
+    <div className="min-h-screen bg-blue-50/30 text-gray-800">
       {/* ヘッダー */}
       <header className="sticky top-0 z-30 border-b border-gray-200/60 bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
-          <Link href="/" className="flex items-center gap-1.5 text-[16px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition">
+          <a href="/" className="flex items-center gap-1.5 text-[16px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition">
             Lオペ <span className="text-blue-600">for CLINIC</span>
-          </Link>
+          </a>
           <div className="flex items-center gap-6">
-            <Link href="/clinic/about" className="hidden text-[14px] text-gray-500 hover:text-blue-600 transition md:block">Lオペとは</Link>
-            <Link href="/clinic/features" className="hidden text-[14px] text-gray-500 hover:text-blue-600 transition md:block">機能一覧</Link>
-            <Link href="/clinic/column" className="hidden text-[14px] font-medium text-blue-600 md:block">コラム</Link>
+            <a href="/clinic/about" className="hidden text-[14px] text-gray-500 hover:text-blue-600 transition md:block">Lオペとは</a>
+            <a href="/clinic/features" className="hidden text-[14px] text-gray-500 hover:text-blue-600 transition md:block">機能一覧</a>
+            <a href="/clinic/column" className="hidden text-[14px] font-medium text-blue-600 md:block">コラム</a>
             <Link
               href="/#contact"
               className="rounded-full bg-blue-600 px-6 py-2.5 text-[13px] font-semibold text-white transition hover:bg-blue-700 hover:shadow-md"
             >
               無料で資料請求
-            </Link>
+            </a>
           </div>
         </div>
       </header>
@@ -107,7 +106,7 @@ export default function ColumnIndex() {
       <div className="border-b border-gray-200 bg-white">
         <nav aria-label="パンくずリスト" className="mx-auto max-w-7xl px-6 py-3">
           <ol className="flex items-center gap-2 text-[13px] text-gray-400 list-none m-0 p-0">
-            <li><Link href="/" className="hover:text-blue-600 transition">トップ</Link></li>
+            <li><a href="/" className="hover:text-blue-600 transition">トップ</a></li>
             <li aria-hidden="true" className="text-gray-300">/</li>
             <li className="text-gray-700 font-medium">コラム</li>
           </ol>
@@ -139,7 +138,7 @@ export default function ColumnIndex() {
                   <p className="text-[14px] font-bold text-gray-800 group-hover:text-blue-700 transition">{cat.label}</p>
                   <p className="mt-1 text-[11px] text-gray-400 line-clamp-2">{cat.description.slice(0, 40)}...</p>
                   <p className="mt-1.5 text-[11px] font-semibold text-blue-500">{count}件の記事</p>
-                </Link>
+                </a>
               );
             })}
           </div>
@@ -174,7 +173,7 @@ export default function ColumnIndex() {
                   <div className="px-5 py-4">
                     <p className="text-[13px] leading-relaxed text-gray-500 line-clamp-3">{a.description}</p>
                   </div>
-                </Link>
+                </a>
               );
             })}
           </div>
@@ -214,7 +213,7 @@ export default function ColumnIndex() {
                           {article!.title}
                         </p>
                         <p className="mt-1 text-[12px] text-gray-400">{article!.readTime}</p>
-                      </Link>
+                      </a>
                     ))}
                   </div>
                 </section>
@@ -292,7 +291,7 @@ export default function ColumnIndex() {
                       </span>
                     </div>
                   </div>
-                </Link>
+                </a>
               ))}
             </div>
 
@@ -309,13 +308,13 @@ export default function ColumnIndex() {
                   className="rounded-full bg-blue-600 px-8 py-3.5 text-[14px] font-bold text-white transition hover:bg-blue-700 hover:shadow-lg"
                 >
                   無料で資料請求
-                </Link>
+                </a>
                 <Link
                   href="/clinic/features"
                   className="rounded-full bg-white px-8 py-3.5 text-[14px] font-bold text-gray-600 ring-1 ring-gray-200 transition hover:bg-gray-50 hover:text-blue-600"
                 >
                   機能一覧を見る
-                </Link>
+                </a>
               </div>
             </div>
           </main>
@@ -344,7 +343,7 @@ export default function ColumnIndex() {
                       <p className="text-[13px] font-medium leading-snug text-gray-700 group-hover:text-blue-600 transition line-clamp-2">
                         {a.title}
                       </p>
-                    </Link>
+                    </a>
                   ))}
                 </div>
               </div>
@@ -363,7 +362,7 @@ export default function ColumnIndex() {
                       >
                         {cat.label}
                         <span className="text-[12px] text-gray-300">{count}</span>
-                      </Link>
+                      </a>
                     );
                   })}
                 </div>
@@ -393,7 +392,7 @@ export default function ColumnIndex() {
                   className="mt-4 inline-block w-full rounded-full bg-blue-600 py-3 text-[13px] font-bold text-white transition hover:bg-blue-700 hover:shadow-md"
                 >
                   無料で資料請求
-                </Link>
+                </a>
               </div>
             </div>
           </aside>
@@ -408,10 +407,10 @@ export default function ColumnIndex() {
               Lオペ <span className="text-blue-600">for CLINIC</span>
             </p>
             <div className="flex items-center gap-6">
-              <Link href="/" className="text-[13px] text-gray-400 hover:text-blue-600 transition">トップ</Link>
-              <Link href="/clinic/about" className="text-[13px] text-gray-400 hover:text-blue-600 transition">Lオペとは</Link>
-              <Link href="/clinic/features" className="text-[13px] text-gray-400 hover:text-blue-600 transition">機能一覧</Link>
-              <Link href="/clinic/column" className="text-[13px] text-blue-600 font-medium">コラム</Link>
+              <a href="/" className="text-[13px] text-gray-400 hover:text-blue-600 transition">トップ</a>
+              <a href="/clinic/about" className="text-[13px] text-gray-400 hover:text-blue-600 transition">Lオペとは</a>
+              <a href="/clinic/features" className="text-[13px] text-gray-400 hover:text-blue-600 transition">機能一覧</a>
+              <a href="/clinic/column" className="text-[13px] text-blue-600 font-medium">コラム</a>
               <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="text-[13px] text-gray-400 hover:text-blue-600 transition">運営会社</a>
             </div>
           </div>

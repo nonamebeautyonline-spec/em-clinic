@@ -81,7 +81,7 @@ export default function Problems() {
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#06C755]">
               <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </div>
-            <span className="text-[16px] font-bold text-[#06C755]">これらの課題を Lオペ がすべて解決します</span>
+            <span className="text-[16px] font-bold text-[#06C755]">これらの課題を Lオペ for LINE がすべて解決します</span>
           </motion.div>
         </div>
       </ScaleIn>

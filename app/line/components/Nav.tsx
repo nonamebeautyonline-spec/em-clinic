@@ -15,7 +15,7 @@ export default function Nav() {
   const borderColor = useTransform(scrollY, [0, 100], ["rgba(226,232,240,0)", "rgba(226,232,240,1)"]);
 
   const links = [
-    { label: "Lオペとは", href: "/line/about" },
+    { label: "Lオペ for LINEとは", href: "/line/about" },
     { label: "機能", href: "#features" },
     { label: "料金", href: "#pricing" },
     { label: "活用事例", href: "#usecases" },
@@ -39,10 +39,13 @@ export default function Nav() {
       }}
     >
       <div className="mx-auto flex h-[56px] max-w-6xl items-center justify-between px-4">
-        <a href="/line" className="flex items-center gap-2">
-          <Image src="/icon.png" alt="Lオペ" width={32} height={32} className="rounded-lg object-contain" priority />
-          <span className="text-[14px] font-bold tracking-tight">Lオペ</span>
-        </a>
+        <div className="flex items-center gap-2">
+          <a href="/line" className="flex items-center gap-2">
+            <Image src="/icon.png" alt="Lオペ for LINE" width={32} height={32} className="rounded-lg object-contain" priority />
+            <span className="text-[14px] font-bold tracking-tight">Lオペ for LINE</span>
+          </a>
+          <a href="/" className="text-[10px] text-slate-400 hover:text-slate-600 transition">Lオペ TOP</a>
+        </div>
         <div className="hidden items-center gap-7 md:flex">
           {links.map((l) => (
             <a key={l.href} href={l.href} className="text-[13px] font-medium text-slate-500 transition hover:text-[#06C755]">{l.label}</a>

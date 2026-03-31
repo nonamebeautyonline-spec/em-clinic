@@ -12,7 +12,7 @@ export function Footer() {
     {
       title: "サービス",
       links: [
-        { label: "Lオペとは", href: "/line/about" },
+        { label: "Lオペ for LINEとは", href: "/line/about" },
         { label: "機能一覧", href: "/line/features" },
         { label: "料金", href: "#pricing" },
         { label: "活用事例", href: "#usecases" },
@@ -44,8 +44,8 @@ export function Footer() {
           {/* ロゴ・概要 */}
           <div className="md:col-span-1">
             <div className="flex items-center gap-2 text-[14px] font-bold text-white">
-              <Image src="/icon.png" alt="Lオペ" width={32} height={32} className="rounded-lg object-contain" />
-              Lオペ
+              <Image src="/icon.png" alt="Lオペ for LINE" width={32} height={32} className="rounded-lg object-contain" />
+              Lオペ for LINE
             </div>
             <p className="mt-3 text-[12px] leading-relaxed text-slate-500">
               LINE公式アカウント運用を、<br />もっとシンプルに。
@@ -77,6 +77,16 @@ export function Footer() {
               </ul>
             </div>
           ))}
+        </div>
+
+        {/* パートナー募集 */}
+        <div className="mt-8 border-t border-slate-800 pt-6 text-center">
+          <p className="text-[12px] font-semibold text-slate-500">連携・代理店パートナー募集</p>
+          <p className="mt-1 text-[11px] text-slate-500">
+            Lオペとの連携・代理店についてのご相談は
+            <a href="mailto:partner@l-ope.jp" className="text-emerald-400 underline ml-1">partner@l-ope.jp</a>
+            までお問い合わせください。
+          </p>
         </div>
 
         {/* 下部: コピーライト */}

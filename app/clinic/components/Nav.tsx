@@ -22,10 +22,13 @@ export default function Nav() {
   return (
     <nav className="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-xl">
       <div className="mx-auto flex h-[56px] max-w-6xl items-center justify-between px-4">
-        <a href="/" className="flex items-center gap-2">
-          <Image src="/icon.png" alt="Lオペ" width={32} height={32} className="rounded-lg object-contain" priority />
-          <span className="text-[14px] font-bold tracking-tight">Lオペ <span className="text-blue-600">for CLINIC</span></span>
-        </a>
+        <div className="flex items-center gap-2">
+          <a href="/clinic" className="flex items-center gap-2">
+            <Image src="/icon.png" alt="Lオペ" width={32} height={32} className="rounded-lg object-contain" priority />
+            <span className="text-[14px] font-bold tracking-tight">Lオペ <span className="text-blue-600">for CLINIC</span></span>
+          </a>
+          <a href="/" className="text-[10px] text-slate-400 hover:text-slate-600 transition">Lオペ TOP</a>
+        </div>
         <div className="hidden items-center gap-7 md:flex">
           {links.map((l) => <a key={l.href} href={l.href} className="text-[13px] font-medium text-slate-500 transition hover:text-blue-600">{l.label}</a>)}
           <a href="/clinic/contact" className="rounded-lg bg-gradient-to-r from-blue-600 to-sky-500 px-5 py-2 text-[13px] font-bold text-white shadow-sm shadow-blue-500/20 transition hover:shadow-md">お問い合わせ</a>

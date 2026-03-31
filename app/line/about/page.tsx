@@ -5,16 +5,16 @@ import Image from "next/image";
 const SITE_URL = "https://l-ope.jp";
 
 export const metadata: Metadata = {
-  title: "Lオペとは？ — LINE公式アカウント運用プラットフォーム",
+  title: "Lオペ for LINEとは？ — LINE公式アカウント運用プラットフォーム",
   description:
-    "LオペはLINE公式アカウントの配信・セグメント・リッチメニュー・予約・フォーム・分析をオールインワンで管理できるプラットフォームです。あらゆる業種のLINE運用を効率化します。",
-  keywords: "Lオペ, Lオペとは, LINE公式アカウント 運用, LINE配信ツール, セグメント配信, リッチメニュー, LINE CRM, LINE運用 効率化",
+    "Lオペ for LINEはLINE公式アカウントの配信・セグメント・リッチメニュー・予約・フォーム・分析をオールインワンで管理できるプラットフォームです。あらゆる業種のLINE運用を効率化します。",
+  keywords: "Lオペ for LINE, Lオペ for LINEとは, LINE公式アカウント 運用, LINE配信ツール, セグメント配信, リッチメニュー, LINE CRM, LINE運用 効率化",
   alternates: { canonical: `${SITE_URL}/line/about` },
   openGraph: {
-    title: "Lオペとは？ — LINE公式アカウント運用プラットフォーム",
+    title: "Lオペ for LINEとは？ — LINE公式アカウント運用プラットフォーム",
     description: "セグメント配信・シナリオ配信・リッチメニュー・予約・フォーム・分析をオールインワンで。あらゆる業種のLINE運用を効率化。",
     url: `${SITE_URL}/line/about`,
-    siteName: "Lオペ",
+    siteName: "Lオペ for LINE",
     locale: "ja_JP",
     type: "website",
   },
@@ -25,16 +25,16 @@ const jsonLd = [
   {
     "@context": "https://schema.org",
     "@type": "WebPage",
-    name: "Lオペとは？",
+    name: "Lオペ for LINEとは？",
     description: "LINE公式アカウント運用プラットフォーム",
     url: `${SITE_URL}/line/about`,
-    isPartOf: { "@type": "WebSite", name: "Lオペ", url: SITE_URL },
+    isPartOf: { "@type": "WebSite", name: "Lオペ for LINE", url: SITE_URL },
     breadcrumb: {
       "@type": "BreadcrumbList",
       itemListElement: [
         { "@type": "ListItem", position: 1, name: "ホーム", item: SITE_URL },
-        { "@type": "ListItem", position: 2, name: "Lオペ", item: `${SITE_URL}/line` },
-        { "@type": "ListItem", position: 3, name: "Lオペとは？", item: `${SITE_URL}/line/about` },
+        { "@type": "ListItem", position: 2, name: "Lオペ for LINE", item: `${SITE_URL}/line` },
+        { "@type": "ListItem", position: 3, name: "Lオペ for LINEとは？", item: `${SITE_URL}/line/about` },
       ],
     },
   },
@@ -66,8 +66,8 @@ export default function AboutPage() {
         <header className="border-b border-slate-100/60 bg-white/80 backdrop-blur-xl">
           <div className="mx-auto flex h-[60px] max-w-6xl items-center px-5">
             <Link href="/line" className="flex items-center gap-2.5">
-              <Image src="/icon.png" alt="Lオペ" width={36} height={36} className="rounded-lg object-contain" />
-              <span className="text-[15px] font-bold tracking-tight">Lオペ</span>
+              <Image src="/icon.png" alt="Lオペ for LINE" width={36} height={36} className="rounded-lg object-contain" />
+              <span className="text-[15px] font-bold tracking-tight">Lオペ for LINE</span>
             </Link>
           </div>
         </header>
@@ -75,9 +75,9 @@ export default function AboutPage() {
         {/* パンくず */}
         <nav aria-label="パンくずリスト" className="mx-auto max-w-6xl px-5 pt-6 pb-0">
           <ol className="flex items-center gap-1.5 text-[11px] text-slate-400 list-none m-0 p-0">
-            <li><Link href="/line" className="hover:text-emerald-600 transition">Lオペ</Link></li>
+            <li><Link href="/line" className="hover:text-emerald-600 transition">Lオペ for LINE</Link></li>
             <li aria-hidden="true">/</li>
-            <li aria-current="page" className="text-slate-600 font-medium">Lオペとは</li>
+            <li aria-current="page" className="text-slate-600 font-medium">Lオペ for LINEとは</li>
           </ol>
         </nav>
 
@@ -88,13 +88,13 @@ export default function AboutPage() {
               LINE公式アカウント運用を、<br /><span className="bg-gradient-to-r from-[#06C755] to-emerald-500 bg-clip-text text-transparent">もっとシンプルに。</span>
             </h1>
             <p className="mx-auto max-w-2xl text-[15px] leading-relaxed text-slate-500">
-              Lオペは、LINE公式アカウントの配信・セグメント・リッチメニュー・予約・フォーム・分析をオールインワンで管理できるプラットフォームです。
+              Lオペ for LINEは、LINE公式アカウントの配信・セグメント・リッチメニュー・予約・フォーム・分析をオールインワンで管理できるプラットフォームです。
             </p>
           </div>
 
           {/* ミッション */}
           <section className="mb-16">
-            <h2 className="mb-8 text-center text-xl font-extrabold text-slate-900">Lオペが大切にしていること</h2>
+            <h2 className="mb-8 text-center text-xl font-extrabold text-slate-900">Lオペ for LINEが大切にしていること</h2>
             <div className="grid gap-5 md:grid-cols-3">
               {missions.map((m) => (
                 <div key={m.title} className="rounded-2xl border border-slate-100 bg-white p-6">

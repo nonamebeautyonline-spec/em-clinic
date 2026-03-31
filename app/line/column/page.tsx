@@ -5,14 +5,14 @@ import { articles } from "./articles";
 const SITE_URL = "https://l-ope.jp";
 
 export const metadata: Metadata = {
-  title: "コラム | Lオペ — LINE公式アカウント運用情報",
+  title: "コラム | Lオペ for LINE — LINE公式アカウント運用情報",
   description:
-    "Lオペ公式コラム。LINE公式アカウントの活用事例・ツール比較・配信設計・リッチメニュー・自動化など、LINE運用に役立つ情報を発信。",
-  keywords: "Lオペ, Lオペ コラム, LINE公式アカウント 活用, LINE 配信, LINE 運用, セグメント配信, リッチメニュー 作り方, LINE チャットボット, LINE 拡張ツール 比較, Lステップ, エルメ, LINE 友だち集め, ブロック率 改善, LINE 自動応答, LINE予約システム",
+    "Lオペ for LINE公式コラム。LINE公式アカウントの活用事例・ツール比較・配信設計・リッチメニュー・自動化など、LINE運用に役立つ情報を発信。",
+  keywords: "Lオペ for LINE, Lオペ for LINE コラム, LINE公式アカウント 活用, LINE 配信, LINE 運用, セグメント配信, リッチメニュー 作り方, LINE チャットボット, LINE 拡張ツール 比較, Lステップ, エルメ, LINE 友だち集め, ブロック率 改善, LINE 自動応答, LINE予約システム",
   alternates: { canonical: `${SITE_URL}/line/column` },
   openGraph: {
-    title: "コラム | Lオペ — LINE公式アカウント運用情報",
-    description: "Lオペ公式コラム。LINE公式アカウントの運用に役立つ情報を発信。",
+    title: "コラム | Lオペ for LINE — LINE公式アカウント運用情報",
+    description: "Lオペ for LINE公式コラム。LINE公式アカウントの運用に役立つ情報を発信。",
     url: `${SITE_URL}/line/column`,
   },
 };
@@ -21,10 +21,10 @@ export const metadata: Metadata = {
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "CollectionPage",
-  name: "Lオペ コラム",
+  name: "Lオペ for LINE コラム",
   description: "LINE公式アカウントの活用事例・ツール比較・配信設計・リッチメニュー・自動化など、LINE運用に役立つ情報を発信。",
   url: `${SITE_URL}/line/column`,
-  isPartOf: { "@type": "WebSite", name: "Lオペ", url: SITE_URL },
+  isPartOf: { "@type": "WebSite", name: "Lオペ for LINE", url: SITE_URL },
   mainEntity: {
     "@type": "ItemList",
     numberOfItems: articles.length,

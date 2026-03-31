@@ -5,16 +5,16 @@ import Image from "next/image";
 const SITE_URL = "https://l-ope.jp";
 
 export const metadata: Metadata = {
-  title: "Lオペ 機能一覧 | LINE運用に必要な全機能をオールインワン",
+  title: "Lオペ for LINE 機能一覧 | LINE運用に必要な全機能をオールインワン",
   description:
-    "Lオペの全機能を一覧で紹介。セグメント配信・シナリオ配信・リッチメニュー管理・予約管理・フォーム作成・分析ダッシュボード・チャットボット・A/Bテスト・API連携など、LINE公式アカウント運用に必要な機能をオールインワンで提供。",
-  keywords: "Lオペ 機能一覧, LINE配信ツール 機能, セグメント配信, シナリオ配信, リッチメニュー ビルダー, 予約管理 LINE, フォーム作成, 分析ダッシュボード, チャットボット, A/Bテスト, API連携",
+    "Lオペ for LINEの全機能を一覧で紹介。セグメント配信・シナリオ配信・リッチメニュー管理・予約管理・フォーム作成・分析ダッシュボード・チャットボット・A/Bテスト・API連携など、LINE公式アカウント運用に必要な機能をオールインワンで提供。",
+  keywords: "Lオペ for LINE 機能一覧, LINE配信ツール 機能, セグメント配信, シナリオ配信, リッチメニュー ビルダー, 予約管理 LINE, フォーム作成, 分析ダッシュボード, チャットボット, A/Bテスト, API連携",
   alternates: { canonical: `${SITE_URL}/line/features` },
   openGraph: {
-    title: "Lオペ 機能一覧 | LINE運用に必要な全機能をオールインワン",
+    title: "Lオペ for LINE 機能一覧 | LINE運用に必要な全機能をオールインワン",
     description: "セグメント配信・シナリオ配信・リッチメニュー・予約・フォーム・分析まで、全機能をオールインワンで提供。",
     url: `${SITE_URL}/line/features`,
-    siteName: "Lオペ",
+    siteName: "Lオペ for LINE",
     locale: "ja_JP",
     type: "website",
   },
@@ -98,8 +98,8 @@ export default function FeaturesPage() {
       <header className="border-b border-slate-100/60 bg-white/80 backdrop-blur-xl">
         <div className="mx-auto flex h-[60px] max-w-6xl items-center px-5">
           <Link href="/line" className="flex items-center gap-2.5">
-            <Image src="/icon.png" alt="Lオペ" width={36} height={36} className="rounded-lg object-contain" />
-            <span className="text-[15px] font-bold tracking-tight">Lオペ</span>
+            <Image src="/icon.png" alt="Lオペ for LINE" width={36} height={36} className="rounded-lg object-contain" />
+            <span className="text-[15px] font-bold tracking-tight">Lオペ for LINE</span>
           </Link>
         </div>
       </header>
@@ -107,7 +107,7 @@ export default function FeaturesPage() {
       {/* パンくず */}
       <nav aria-label="パンくずリスト" className="mx-auto max-w-6xl px-5 pt-6 pb-0">
         <ol className="flex items-center gap-1.5 text-[11px] text-slate-400 list-none m-0 p-0">
-          <li><Link href="/line" className="hover:text-emerald-600 transition">Lオペ</Link></li>
+          <li><Link href="/line" className="hover:text-emerald-600 transition">Lオペ for LINE</Link></li>
           <li aria-hidden="true">/</li>
           <li aria-current="page" className="text-slate-600 font-medium">機能一覧</li>
         </ol>

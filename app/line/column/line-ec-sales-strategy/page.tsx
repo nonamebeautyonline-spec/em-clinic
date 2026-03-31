@@ -194,7 +194,7 @@ export default function Page() {
           { title: "ロイヤル化", desc: "VIPセグメントへの限定オファーでLTVを最大化" },
         ]} />
 
-        <p className="mt-4">Lオペは、これらのEC×LINE施策をワンストップで実現できるプラットフォームです。セグメント配信からチャット対応まで、LINE運用の全てを一元管理できます。</p>
+        <p className="mt-4">Lオペ for LINEは、これらのEC×LINE施策をワンストップで実現できるプラットフォームです。セグメント配信からチャット対応まで、LINE運用の全てを一元管理できます。</p>
       </section>
 
       <section id="faq">

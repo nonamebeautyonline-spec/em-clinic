@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { articles } from "../articles";
 import { categories, getArticlesByCategory } from "../categories";
@@ -49,23 +48,23 @@ export default function ColumnIndex() {
   const popular = popularSlugs.map((s) => articles.find((a) => a.slug === s)!).filter(Boolean);
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800">
+    <div className="min-h-screen bg-emerald-50/30 text-gray-800">
       {/* ヘッダー */}
       <header className="sticky top-0 z-30 border-b border-gray-200/60 bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
-          <Link href="/line" className="flex items-center gap-1.5 text-[16px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition">
-            Lオペ
-          </Link>
+          <a href="/line" className="flex items-center gap-1.5 text-[16px] font-bold tracking-tight text-gray-900 hover:opacity-70 transition">
+            Lオペ for LINE
+          </a>
           <div className="flex items-center gap-6">
-            <Link href="/line/about" className="hidden text-[14px] text-gray-500 hover:text-blue-600 transition md:block">Lオペとは</Link>
-            <Link href="/line/features" className="hidden text-[14px] text-gray-500 hover:text-blue-600 transition md:block">機能一覧</Link>
-            <Link href="/line/column" className="hidden text-[14px] font-medium text-blue-600 md:block">コラム</Link>
+            <a href="/line/about" className="hidden text-[14px] text-gray-500 hover:text-blue-600 transition md:block">Lオペ for LINEとは</a>
+            <a href="/line/features" className="hidden text-[14px] text-gray-500 hover:text-blue-600 transition md:block">機能一覧</a>
+            <a href="/line/column" className="hidden text-[14px] font-medium text-blue-600 md:block">コラム</a>
             <Link
               href="/line/contact"
               className="rounded-full bg-blue-600 px-6 py-2.5 text-[13px] font-semibold text-white transition hover:bg-blue-700 hover:shadow-md"
             >
               お問い合わせ
-            </Link>
+            </a>
           </div>
         </div>
       </header>
@@ -74,7 +73,7 @@ export default function ColumnIndex() {
       <div className="border-b border-gray-200 bg-white">
         <nav aria-label="パンくずリスト" className="mx-auto max-w-7xl px-6 py-3">
           <ol className="flex items-center gap-2 text-[13px] text-gray-400 list-none m-0 p-0">
-            <li><Link href="/line" className="hover:text-blue-600 transition">トップ</Link></li>
+            <li><a href="/line" className="hover:text-blue-600 transition">トップ</a></li>
             <li aria-hidden="true" className="text-gray-300">/</li>
             <li className="text-gray-700 font-medium">コラム</li>
           </ol>
@@ -106,7 +105,7 @@ export default function ColumnIndex() {
                   <p className="text-[14px] font-bold text-gray-800 group-hover:text-blue-700 transition">{cat.label}</p>
                   <p className="mt-1 text-[11px] text-gray-400 line-clamp-2">{cat.description.slice(0, 40)}...</p>
                   <p className="mt-1.5 text-[11px] font-semibold text-blue-500">{count}件の記事</p>
-                </Link>
+                </a>
               );
             })}
           </div>
@@ -141,7 +140,7 @@ export default function ColumnIndex() {
                   <div className="px-5 py-4">
                     <p className="text-[13px] leading-relaxed text-gray-500 line-clamp-3">{a.description}</p>
                   </div>
-                </Link>
+                </a>
               );
             })}
           </div>
@@ -216,13 +215,13 @@ export default function ColumnIndex() {
                       </span>
                     </div>
                   </div>
-                </Link>
+                </a>
               ))}
             </div>
 
             {/* CTA */}
             <div className="mt-14 overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 via-indigo-50 to-violet-50 p-10 text-center ring-1 ring-blue-100 md:p-14">
-              <p className="text-[12px] font-bold tracking-widest text-blue-400 uppercase">Lオペ</p>
+              <p className="text-[12px] font-bold tracking-widest text-blue-400 uppercase">Lオペ for LINE</p>
               <h2 className="mt-3 text-[22px] font-bold text-gray-800 md:text-[26px]">LINE公式アカウント運用をもっと効率的に</h2>
               <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-gray-500">
                 配信・自動応答・顧客管理・分析をオールインワンで。<br className="hidden sm:block" />まずはお気軽にお問い合わせください。
@@ -233,13 +232,13 @@ export default function ColumnIndex() {
                   className="rounded-full bg-blue-600 px-8 py-3.5 text-[14px] font-bold text-white transition hover:bg-blue-700 hover:shadow-lg"
                 >
                   お問い合わせ
-                </Link>
+                </a>
                 <Link
                   href="/line/features"
                   className="rounded-full bg-white px-8 py-3.5 text-[14px] font-bold text-gray-600 ring-1 ring-gray-200 transition hover:bg-gray-50 hover:text-blue-600"
                 >
                   機能一覧を見る
-                </Link>
+                </a>
               </div>
             </div>
           </main>
@@ -268,7 +267,7 @@ export default function ColumnIndex() {
                       <p className="text-[13px] font-medium leading-snug text-gray-700 group-hover:text-blue-600 transition line-clamp-2">
                         {a.title}
                       </p>
-                    </Link>
+                    </a>
                   ))}
                 </div>
               </div>
@@ -287,7 +286,7 @@ export default function ColumnIndex() {
                       >
                         {cat.label}
                         <span className="text-[12px] text-gray-300">{count}</span>
-                      </Link>
+                      </a>
                     );
                   })}
                 </div>
@@ -317,7 +316,7 @@ export default function ColumnIndex() {
                   className="mt-4 inline-block w-full rounded-full bg-blue-600 py-3 text-[13px] font-bold text-white transition hover:bg-blue-700 hover:shadow-md"
                 >
                   お問い合わせ
-                </Link>
+                </a>
               </div>
             </div>
           </aside>
@@ -329,13 +328,13 @@ export default function ColumnIndex() {
         <div className="mx-auto max-w-7xl px-6">
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
             <p className="text-[14px] font-bold text-gray-900">
-              Lオペ
+              Lオペ for LINE
             </p>
             <div className="flex items-center gap-6">
-              <Link href="/line" className="text-[13px] text-gray-400 hover:text-blue-600 transition">トップ</Link>
-              <Link href="/line/about" className="text-[13px] text-gray-400 hover:text-blue-600 transition">Lオペとは</Link>
-              <Link href="/line/features" className="text-[13px] text-gray-400 hover:text-blue-600 transition">機能一覧</Link>
-              <Link href="/line/column" className="text-[13px] text-blue-600 font-medium">コラム</Link>
+              <a href="/line" className="text-[13px] text-gray-400 hover:text-blue-600 transition">トップ</a>
+              <a href="/line/about" className="text-[13px] text-gray-400 hover:text-blue-600 transition">Lオペ for LINEとは</a>
+              <a href="/line/features" className="text-[13px] text-gray-400 hover:text-blue-600 transition">機能一覧</a>
+              <a href="/line/column" className="text-[13px] text-blue-600 font-medium">コラム</a>
               <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="text-[13px] text-gray-400 hover:text-blue-600 transition">運営会社</a>
             </div>
           </div>

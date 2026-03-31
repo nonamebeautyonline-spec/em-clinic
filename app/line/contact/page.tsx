@@ -95,8 +95,8 @@ function ContactForm() {
         <header className="border-b border-slate-100/60 bg-white/80 backdrop-blur-xl">
           <div className="mx-auto flex h-[60px] max-w-6xl items-center px-5">
             <Link href="/line" className="flex items-center gap-2.5">
-              <Image src="/icon.png" alt="Lオペ" width={36} height={36} className="rounded-lg object-contain" />
-              <span className="text-[15px] font-bold tracking-tight">Lオペ</span>
+              <Image src="/icon.png" alt="Lオペ for LINE" width={36} height={36} className="rounded-lg object-contain" />
+              <span className="text-[15px] font-bold tracking-tight">Lオペ for LINE</span>
             </Link>
           </div>
         </header>
@@ -122,8 +122,8 @@ function ContactForm() {
       <header className="border-b border-slate-100/60 bg-white/80 backdrop-blur-xl">
         <div className="mx-auto flex h-[60px] max-w-6xl items-center px-5">
           <Link href="/line" className="flex items-center gap-2.5">
-            <Image src="/icon.png" alt="Lオペ" width={36} height={36} className="rounded-lg object-contain" />
-            <span className="text-[15px] font-bold tracking-tight">Lオペ</span>
+            <Image src="/icon.png" alt="Lオペ for LINE" width={36} height={36} className="rounded-lg object-contain" />
+            <span className="text-[15px] font-bold tracking-tight">Lオペ for LINE</span>
           </Link>
         </div>
       </header>
