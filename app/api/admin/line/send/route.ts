@@ -93,6 +93,11 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // タイピングインジケーター表示（オペレーター手動返信中を患者に通知）
+  import("@/lib/line-push").then(({ showLoadingAnimation }) =>
+    showLoadingAnimation(patient.line_id, 15, tenantId ?? undefined).catch(() => {}),
+  );
+
   // Imagemap Message送信
   if (message_type === "imagemap" && imagemap) {
     const imData = imagemap as { imageUrl: string; altText?: string; data: ImagemapData };
