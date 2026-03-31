@@ -77,7 +77,7 @@ function AuthorCard() {
           </div>
           {/* Lオペ for CLINICとは？リンク */}
           <div className="mt-3">
-            <Link
+            <a
               href="/clinic/about"
               className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-[11px] font-semibold text-blue-600 transition hover:bg-blue-100"
             >
@@ -332,7 +332,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
                 {related.map((a) => {
                   const rc = categoryColors[a.category] || { bg: "bg-gray-50", text: "text-gray-600" };
                   return (
-                    <Link
+                    <a
                       key={a.slug}
                       href={`/clinic/column/${a.slug}`}
                       className="group flex items-start gap-4 py-4 transition"

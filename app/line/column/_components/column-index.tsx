@@ -59,7 +59,7 @@ export default function ColumnIndex() {
             <a href="/line/about" className="hidden text-[14px] text-gray-500 hover:text-blue-600 transition md:block">Lオペ for LINEとは</a>
             <a href="/line/features" className="hidden text-[14px] text-gray-500 hover:text-blue-600 transition md:block">機能一覧</a>
             <a href="/line/column" className="hidden text-[14px] font-medium text-blue-600 md:block">コラム</a>
-            <Link
+            <a
               href="/line/contact"
               className="rounded-full bg-blue-600 px-6 py-2.5 text-[13px] font-semibold text-white transition hover:bg-blue-700 hover:shadow-md"
             >
@@ -97,7 +97,7 @@ export default function ColumnIndex() {
             {categories.map((cat) => {
               const count = getArticlesByCategory(cat).length;
               return (
-                <Link
+                <a
                   key={cat.slug}
                   href={`/line/column/category/${cat.slug}`}
                   className="group rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 transition hover:border-blue-200 hover:bg-blue-50"
@@ -127,7 +127,7 @@ export default function ColumnIndex() {
               const a = articles.find((x) => x.slug === slug);
               if (!a) return null;
               return (
-                <Link
+                <a
                   key={a.slug}
                   href={`/line/column/${a.slug}`}
                   className="group relative overflow-hidden rounded-2xl bg-white shadow-md ring-1 ring-gray-200/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-100/50 hover:ring-blue-300/80"
@@ -178,7 +178,7 @@ export default function ColumnIndex() {
           <main className="min-w-0 flex-1">
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((a) => (
-                <Link
+                <a
                   key={a.slug}
                   href={`/line/column/${a.slug}`}
                   className="group overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:ring-blue-200/80"
@@ -227,13 +227,13 @@ export default function ColumnIndex() {
                 配信・自動応答・顧客管理・分析をオールインワンで。<br className="hidden sm:block" />まずはお気軽にお問い合わせください。
               </p>
               <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-                <Link
+                <a
                   href="/line/contact"
                   className="rounded-full bg-blue-600 px-8 py-3.5 text-[14px] font-bold text-white transition hover:bg-blue-700 hover:shadow-lg"
                 >
                   お問い合わせ
                 </a>
-                <Link
+                <a
                   href="/line/features"
                   className="rounded-full bg-white px-8 py-3.5 text-[14px] font-bold text-gray-600 ring-1 ring-gray-200 transition hover:bg-gray-50 hover:text-blue-600"
                 >
@@ -256,7 +256,7 @@ export default function ColumnIndex() {
                 </h3>
                 <div className="mt-4 space-y-0 divide-y divide-gray-100">
                   {popular.map((a, i) => (
-                    <Link
+                    <a
                       key={a.slug}
                       href={`/line/column/${a.slug}`}
                       className="group flex items-start gap-3 py-3.5 transition"
@@ -279,7 +279,7 @@ export default function ColumnIndex() {
                   {categories.map((cat) => {
                     const count = articles.filter((a) => cat.matchValues.includes(a.category)).length;
                     return (
-                      <Link
+                      <a
                         key={cat.slug}
                         href={`/line/column/category/${cat.slug}`}
                         className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-[14px] text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition"
@@ -311,7 +311,7 @@ export default function ColumnIndex() {
               <div className="rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 p-6 text-center ring-1 ring-blue-100">
                 <p className="text-[14px] font-bold text-gray-800">LINE運用のご相談はこちら</p>
                 <p className="mt-1.5 text-[12px] text-gray-500">機能・料金・事例をまとめた資料を<br />無料でお送りします</p>
-                <Link
+                <a
                   href="/line/contact"
                   className="mt-4 inline-block w-full rounded-full bg-blue-600 py-3 text-[13px] font-bold text-white transition hover:bg-blue-700 hover:shadow-md"
                 >
