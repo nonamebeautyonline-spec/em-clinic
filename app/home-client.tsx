@@ -5,55 +5,13 @@ import Image from "next/image";
 
 import {
   motion,
-  useInView,
-  useMotionValue,
   useScroll,
   useTransform,
-  animate,
 } from "motion/react";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Lオペ 統合トップページ — リッチデザイン + ミニモック + モーション
    ═══════════════════════════════════════════════════════════════════════════ */
-
-/* ------------------------------------------------------------------ */
-/*  カウントアップ                                                      */
-/* ------------------------------------------------------------------ */
-function CountUp({
-  to,
-  duration = 2,
-  suffix = "",
-  className = "",
-  decimals = 0,
-}: {
-  to: number;
-  duration?: number;
-  suffix?: string;
-  className?: string;
-  decimals?: number;
-}) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-60px" });
-  const motionVal = useMotionValue(0);
-  const [display, setDisplay] = useState("0");
-
-  useEffect(() => {
-    if (!inView) return;
-    const controls = animate(motionVal, to, {
-      duration,
-      ease: [0.25, 0.46, 0.45, 0.94],
-      onUpdate: (v) => setDisplay(v.toFixed(decimals)),
-    });
-    return controls.stop;
-  }, [inView, to, duration, decimals, motionVal]);
-
-  return (
-    <span ref={ref} className={className}>
-      {display}
-      {suffix}
-    </span>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /*  FadeIn ラッパー                                                     */
@@ -149,146 +107,6 @@ function ShieldIcon({ className = "" }: { className?: string }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  ミニモック: LINEトーク画面                                           */
-/* ------------------------------------------------------------------ */
-function LineMock() {
-  return (
-    <div className="w-full max-w-[180px] rounded-xl border border-slate-200 bg-[#7494C0] p-2.5 shadow-sm">
-      <div className="mb-2 flex items-center gap-1.5">
-        <div className="h-4 w-4 rounded-full bg-white/40" />
-        <div className="h-2 w-12 rounded-full bg-white/50" />
-      </div>
-      <div className="space-y-1.5">
-        <div className="flex justify-start">
-          <div className="rounded-xl rounded-tl-sm bg-white px-2.5 py-1.5 text-[9px] leading-tight text-slate-600">
-            予約を取りたいです
-          </div>
-        </div>
-        <div className="flex justify-end">
-          <div className="rounded-xl rounded-tr-sm bg-[#06C755] px-2.5 py-1.5 text-[9px] leading-tight text-white">
-            ご希望の日時を<br />お選びください
-          </div>
-        </div>
-        <div className="flex justify-start">
-          <div className="rounded-xl rounded-tl-sm bg-white px-2.5 py-1.5 text-[9px] leading-tight text-slate-600">
-            明日の14時で
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  ミニモック: クリニック予約管理画面                                      */
-/* ------------------------------------------------------------------ */
-function ClinicMock() {
-  return (
-    <div className="w-full max-w-[180px] rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm">
-      <div className="mb-2 flex items-center justify-between">
-        <div className="text-[8px] font-bold text-slate-700">本日の予約</div>
-        <div className="rounded-md bg-blue-500 px-1.5 py-0.5 text-[8px] font-bold text-white">
-          12件
-        </div>
-      </div>
-      <div className="space-y-1">
-        {[
-          { time: "10:00", name: "田中 様", status: "bg-green-400" },
-          { time: "10:30", name: "佐藤 様", status: "bg-blue-400" },
-          { time: "11:00", name: "高橋 様", status: "bg-yellow-400" },
-        ].map((row) => (
-          <div
-            key={row.time}
-            className="flex items-center gap-1.5 rounded-lg bg-slate-50 px-2 py-1"
-          >
-            <div className={`h-1.5 w-1.5 rounded-full ${row.status}`} />
-            <div className="text-[8px] text-slate-400">{row.time}</div>
-            <div className="text-[8px] font-medium text-slate-600">
-              {row.name}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  ミニモック: EC注文一覧画面                                            */
-/* ------------------------------------------------------------------ */
-function EcMock() {
-  return (
-    <div className="w-full max-w-[180px] rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm">
-      <div className="mb-2 flex items-center justify-between">
-        <div className="text-[8px] font-bold text-slate-700">売上推移</div>
-        <div className="text-[8px] font-bold text-amber-600">+23%</div>
-      </div>
-      <div className="mb-2 flex h-10 items-end gap-0.5">
-        {[35, 50, 40, 65, 55, 80, 70].map((h, i) => (
-          <div
-            key={i}
-            className="flex-1 rounded-t-sm bg-amber-400/60"
-            style={{ height: `${h}%` }}
-          />
-        ))}
-      </div>
-      <div className="space-y-1">
-        {["発送準備中", "決済完了", "配送中"].map((s, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-1.5 rounded-lg bg-slate-50 px-2 py-1"
-          >
-            <div
-              className={`h-1.5 w-1.5 rounded-full ${i === 0 ? "bg-yellow-400" : i === 1 ? "bg-green-400" : "bg-blue-400"}`}
-            />
-            <div className="text-[8px] text-slate-600">{s}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  ミニモック: サロン予約カレンダー                                        */
-/* ------------------------------------------------------------------ */
-function SalonMock() {
-  return (
-    <div className="w-full max-w-[180px] rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm">
-      <div className="mb-2 text-[8px] font-bold text-slate-700">
-        施術者スケジュール
-      </div>
-      <div className="mb-1.5 grid grid-cols-5 gap-0.5">
-        {["月", "火", "水", "木", "金"].map((d) => (
-          <div key={d} className="text-center text-[7px] text-slate-400">
-            {d}
-          </div>
-        ))}
-      </div>
-      <div className="space-y-1">
-        {[
-          { name: "Aさん", slots: [true, true, false, true, true] },
-          { name: "Bさん", slots: [true, false, true, true, false] },
-          { name: "Cさん", slots: [false, true, true, false, true] },
-        ].map((row) => (
-          <div key={row.name} className="flex items-center gap-1">
-            <div className="w-5 text-[7px] text-slate-500">{row.name}</div>
-            <div className="flex flex-1 gap-0.5">
-              {row.slots.map((on, i) => (
-                <div
-                  key={i}
-                  className={`h-2.5 flex-1 rounded-sm ${on ? "bg-pink-300" : "bg-slate-100"}`}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /*  サービスデータ                                                      */
 /* ------------------------------------------------------------------ */
 type Service = {
@@ -300,9 +118,9 @@ type Service = {
   colorLight: string;
   description: string;
   features: string[];
+  catchphrase: string;
   comingSoon?: boolean;
   Icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
-  Mock: React.ComponentType;
   cta: string;
 };
 
@@ -321,8 +139,8 @@ const services: Service[] = [
       "タップで予約完了",
       "AIが自動で返信",
     ],
+    catchphrase: "届けたい人に、届くLINE。",
     Icon: LineIcon,
-    Mock: LineMock,
     cta: "LINE運用を見る",
   },
   {
@@ -339,8 +157,8 @@ const services: Service[] = [
       "AIが返信を下書き",
       "処方・配送まで一気通貫",
     ],
+    catchphrase: "患者対応を、LINEで完結。",
     Icon: ClinicIcon,
-    Mock: ClinicMock,
     cta: "クリニック向けを見る",
   },
   {
@@ -357,9 +175,9 @@ const services: Service[] = [
       "施術履歴を自動で記録",
       "来店後にクーポン配信",
     ],
+    catchphrase: "予約もリピートも、LINEで。",
     comingSoon: true,
     Icon: SalonIcon,
-    Mock: SalonMock,
     cta: "準備中",
   },
   {
@@ -375,9 +193,9 @@ const services: Service[] = [
       "カゴ落ちをリマインド",
       "売上レポートを自動生成",
     ],
+    catchphrase: "購入後もつながる、LINE。",
     comingSoon: true,
     Icon: EcIcon,
-    Mock: EcMock,
     cta: "準備中",
   },
 ];
@@ -407,16 +225,6 @@ const features = [
 ];
 
 /* ------------------------------------------------------------------ */
-/*  数字実績                                                            */
-/* ------------------------------------------------------------------ */
-const stats = [
-  { value: 50, suffix: "+", label: "導入テナント" },
-  { value: 120, suffix: "万+", label: "累計配信数" },
-  { value: 8, suffix: "万+", label: "友だち管理数" },
-  { value: 99.9, suffix: "%", label: "稼働率", decimals: 1 },
-];
-
-/* ------------------------------------------------------------------ */
 /*  ヒーローアイコンナビ                                                  */
 /* ------------------------------------------------------------------ */
 const heroIcons = [
@@ -436,7 +244,7 @@ function ServiceCard({
   service: Service;
   index: number;
 }) {
-  const { Mock, Icon } = service;
+  const { Icon } = service;
   return (
     <FadeIn delay={index * 0.12}>
       <a
@@ -458,99 +266,101 @@ function ServiceCard({
           </span>
         )}
 
-        <div className="flex flex-1 flex-col p-7 md:flex-row md:gap-6 md:p-8">
-          {/* 左: ミニモック（PCのみ表示） */}
-          <div className="hidden shrink-0 items-center justify-center md:flex">
-            <div className="transition-transform duration-500 ease-out group-hover:scale-105">
-              <Mock />
+        <div className="flex flex-1 flex-col p-7 md:p-8">
+          {/* カード上部のビジュアル */}
+          <div
+            className="mb-6 rounded-xl p-6 text-center"
+            style={{
+              background: `linear-gradient(135deg, ${service.color}15, ${service.color}08)`,
+            }}
+          >
+            <Icon
+              className="mx-auto h-10 w-10"
+              style={{ color: service.color }}
+            />
+            <p
+              className="mt-3 text-[15px] font-bold"
+              style={{ color: service.color }}
+            >
+              {service.catchphrase}
+            </p>
+          </div>
+
+          {/* アイコン + サービス名 */}
+          <div className="mb-4 flex items-center gap-3">
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-xl"
+              style={{ backgroundColor: service.colorLight }}
+            >
+              <Icon
+                className="h-5 w-5"
+                style={{ color: service.color }}
+              />
+            </div>
+            <div>
+              <h3 className="text-[16px] font-bold text-slate-900">
+                {service.name}
+              </h3>
+              <p className="text-[11px] font-medium text-slate-400">
+                {service.subtitle}
+              </p>
             </div>
           </div>
 
-          {/* 右: テキスト */}
-          <div className="flex flex-1 flex-col">
-            {/* アイコン + サービス名 */}
-            <div className="mb-4 flex items-center gap-3">
-              <div
-                className="flex h-9 w-9 items-center justify-center rounded-xl"
-                style={{ backgroundColor: service.colorLight }}
+          {/* 説明 */}
+          <p className="mb-5 text-[13px] leading-relaxed text-slate-500">
+            {service.description}
+          </p>
+
+          {/* 機能リスト */}
+          <ul className="flex-1 space-y-2">
+            {service.features.map((f) => (
+              <li
+                key={f}
+                className="flex items-center gap-2.5 text-[13px] text-slate-600"
               >
-                <Icon
-                  className="h-5 w-5"
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  className="h-3.5 w-3.5 shrink-0"
                   style={{ color: service.color }}
-                />
-              </div>
-              <div>
-                <h3 className="text-[16px] font-bold text-slate-900">
-                  {service.name}
-                </h3>
-                <p className="text-[11px] font-medium text-slate-400">
-                  {service.subtitle}
-                </p>
-              </div>
-            </div>
-
-            {/* 説明 */}
-            <p className="mb-5 text-[13px] leading-relaxed text-slate-500">
-              {service.description}
-            </p>
-
-            {/* 機能リスト */}
-            <ul className="flex-1 space-y-2">
-              {service.features.map((f) => (
-                <li
-                  key={f}
-                  className="flex items-center gap-2.5 text-[13px] text-slate-600"
                 >
-                  <svg
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    className="h-3.5 w-3.5 shrink-0"
-                    style={{ color: service.color }}
-                  >
-                    <circle
-                      cx="8"
-                      cy="8"
-                      r="8"
-                      fill="currentColor"
-                      opacity="0.15"
-                    />
-                    <path
-                      d="M5 8l2 2 4-4"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  {f}
-                </li>
-              ))}
-            </ul>
+                  <circle
+                    cx="8"
+                    cy="8"
+                    r="8"
+                    fill="currentColor"
+                    opacity="0.15"
+                  />
+                  <path
+                    d="M5 8l2 2 4-4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                {f}
+              </li>
+            ))}
+          </ul>
 
-            {/* モバイル用ミニモック */}
-            <div className="mt-5 flex justify-center md:hidden">
-              <div className="scale-90 opacity-80">
-                <Mock />
-              </div>
-            </div>
-
-            {/* CTA */}
-            <div className="mt-6 flex items-center gap-1.5 text-[13px] font-medium text-slate-400 transition-all duration-300 group-hover:gap-3 group-hover:text-slate-700">
-              {service.cta}
-              <svg
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1"
-              >
-                <path
-                  d="M3 8h10m-4-4 4 4-4 4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
+          {/* CTA */}
+          <div className="mt-6 flex items-center gap-1.5 text-[13px] font-medium text-slate-400 transition-all duration-300 group-hover:gap-3 group-hover:text-slate-700">
+            {service.cta}
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1"
+            >
+              <path
+                d="M3 8h10m-4-4 4 4-4 4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </div>
         </div>
       </a>
@@ -601,7 +411,7 @@ export default function HomeClient() {
         <div className="relative z-10 mx-auto w-full max-w-4xl px-6 py-32 text-center md:py-0">
           {/* ロゴ */}
           <div
-            className="mx-auto mb-8 transition-all duration-700"
+            className="mx-auto mb-4 transition-all duration-700"
             style={{
               opacity: visible ? 1 : 0,
               transform: visible ? "translateY(0)" : "translateY(12px)",
@@ -617,9 +427,55 @@ export default function HomeClient() {
             />
           </div>
 
+          {/* サービス名 */}
+          <div
+            className="mb-8 transition-all duration-700"
+            style={{
+              opacity: visible ? 1 : 0,
+              transform: visible ? "translateY(0)" : "translateY(12px)",
+              transitionDelay: "200ms",
+            }}
+          >
+            <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 md:text-5xl">Lオペ</h1>
+          </div>
+
+          {/* メインキャッチコピー */}
+          <div
+            className="transition-all duration-1000"
+            style={{
+              opacity: visible ? 1 : 0,
+              transform: visible ? "translateY(0)" : "translateY(20px)",
+              transitionDelay: "400ms",
+            }}
+          >
+            <h2 className="text-[clamp(2rem,5vw,3.5rem)] font-bold leading-[1.3] tracking-tight text-slate-900">
+              業種に最適化された
+              <br />
+              LINE運用プラットフォーム
+            </h2>
+          </div>
+
+          {/* サブテキスト */}
+          <div
+            className="mt-6 transition-all duration-1000"
+            style={{
+              opacity: visible ? 1 : 0,
+              transform: visible ? "translateY(0)" : "translateY(16px)",
+              transitionDelay: "650ms",
+            }}
+          >
+            <p className="mx-auto max-w-lg text-[16px] leading-relaxed text-slate-400">
+              クリニック・サロン・EC。
+              <br className="sm:hidden" />
+              それぞれの業務フローに合わせて設計された、
+              <br className="hidden sm:block" />
+              LINE公式アカウント運用ツール。
+            </p>
+          </div>
+
           {/* 4サービスアイコンナビ */}
           <motion.div
-            className="mx-auto mb-10"
+            className="mx-auto mt-10"
             style={{ y: iconY }}
           >
             <div className="flex items-center justify-center gap-5 sm:gap-8">
@@ -628,7 +484,7 @@ export default function HomeClient() {
                   key={item.label}
                   initial={{ opacity: 0, y: 16 }}
                   animate={visible ? { opacity: 1, y: 0 } : {}}
-                  transition={{ delay: 0.3 + i * 0.1, duration: 0.5 }}
+                  transition={{ delay: 0.8 + i * 0.1, duration: 0.5 }}
                   className="flex flex-col items-center gap-1.5"
                 >
                   <div
@@ -650,40 +506,6 @@ export default function HomeClient() {
               ))}
             </div>
           </motion.div>
-
-          {/* メインタイトル */}
-          <div
-            className="transition-all duration-1000"
-            style={{
-              opacity: visible ? 1 : 0,
-              transform: visible ? "translateY(0)" : "translateY(20px)",
-              transitionDelay: "400ms",
-            }}
-          >
-            <h1 className="text-[clamp(2rem,5vw,3.5rem)] font-bold leading-[1.3] tracking-tight text-slate-900">
-              業種に最適化された
-              <br />
-              LINE運用プラットフォーム
-            </h1>
-          </div>
-
-          {/* サブテキスト */}
-          <div
-            className="mt-6 transition-all duration-1000"
-            style={{
-              opacity: visible ? 1 : 0,
-              transform: visible ? "translateY(0)" : "translateY(16px)",
-              transitionDelay: "650ms",
-            }}
-          >
-            <p className="mx-auto max-w-lg text-[16px] leading-relaxed text-slate-400">
-              クリニック・サロン・EC。
-              <br className="sm:hidden" />
-              それぞれの業務フローに合わせて設計された、
-              <br className="hidden sm:block" />
-              LINE公式アカウント運用ツール。
-            </p>
-          </div>
 
           {/* スクロールインジケーター */}
           <motion.div
@@ -721,37 +543,6 @@ export default function HomeClient() {
           <div className="grid gap-6 md:grid-cols-2">
             {services.map((s, i) => (
               <ServiceCard key={s.key} service={s} index={i} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════ 数字で見るLオペ ═══════════ */}
-      <section className="border-y border-slate-100 bg-white px-6 py-24 md:py-32">
-        <div className="mx-auto max-w-5xl">
-          <FadeIn className="mb-16 text-center">
-            <p className="text-[12px] font-medium tracking-[0.2em] text-slate-400">
-              NUMBERS
-            </p>
-            <h2 className="mt-3 text-2xl font-bold text-slate-900 md:text-3xl">
-              数字で見るLオペ
-            </h2>
-          </FadeIn>
-
-          <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
-            {stats.map((stat, i) => (
-              <FadeIn key={stat.label} delay={i * 0.1} className="text-center">
-                <div className="text-3xl font-bold text-slate-900 md:text-4xl">
-                  <CountUp
-                    to={stat.value}
-                    suffix={stat.suffix}
-                    decimals={stat.decimals || 0}
-                  />
-                </div>
-                <div className="mt-2 text-[13px] text-slate-400">
-                  {stat.label}
-                </div>
-              </FadeIn>
             ))}
           </div>
         </div>
