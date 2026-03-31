@@ -1,20 +1,17 @@
 import type { Metadata } from "next";
-import dynamic from "next/dynamic";
 import Nav from "./components/Nav";
 import Hero from "./components/Hero";
 import Problems from "./components/Problems";
-
-/* ATF（Above The Fold）以外は遅延読み込みで初期JS削減 */
-const Features = dynamic(() => import("./components/Features"));
-const Strengths = dynamic(() => import("./components/Strengths"));
-const MidCTA = dynamic(() => import("./components/MidCTA").then((m) => ({ default: m.MidCTA })));
-const MobileCTA = dynamic(() => import("./components/MobileCTA").then((m) => ({ default: m.MobileCTA })));
-const UseCases = dynamic(() => import("./components/UseCases"));
-const Flow = dynamic(() => import("./components/Flow").then((m) => ({ default: m.Flow })));
-const Pricing = dynamic(() => import("./components/Pricing").then((m) => ({ default: m.Pricing })));
-const FAQ = dynamic(() => import("./components/FAQ").then((m) => ({ default: m.FAQ })));
-const FinalCTA = dynamic(() => import("./components/FinalCTA").then((m) => ({ default: m.FinalCTA })));
-const Footer = dynamic(() => import("./components/Footer").then((m) => ({ default: m.Footer })));
+import Features from "./components/Features";
+import Strengths from "./components/Strengths";
+import UseCases from "./components/UseCases";
+import { MidCTA } from "./components/MidCTA";
+import { MobileCTA } from "./components/MobileCTA";
+import { Flow } from "./components/Flow";
+import { Pricing } from "./components/Pricing";
+import { FAQ } from "./components/FAQ";
+import { FinalCTA } from "./components/FinalCTA";
+import { Footer } from "./components/Footer";
 
 export const metadata: Metadata = {
   alternates: {
