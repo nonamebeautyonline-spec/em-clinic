@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title = `${cat.label}の記事一覧 | コラム | Lオペ for CLINIC`;
   const description = cat.description;
-  const url = `${SITE_URL}/lp/column/category/${cat.slug}`;
+  const url = `${SITE_URL}/clinic/column/category/${cat.slug}`;
 
   return {
     title,
@@ -68,7 +68,7 @@ export default async function CategoryPage({ params }: Props) {
     "@type": "CollectionPage",
     name: `${cat.label}の記事一覧 — Lオペ for CLINIC コラム`,
     description: cat.description,
-    url: `${SITE_URL}/lp/column/category/${cat.slug}`,
+    url: `${SITE_URL}/clinic/column/category/${cat.slug}`,
     isPartOf: { "@type": "WebSite", name: "Lオペ for CLINIC", url: SITE_URL },
     mainEntity: {
       "@type": "ItemList",
@@ -76,7 +76,7 @@ export default async function CategoryPage({ params }: Props) {
       itemListElement: articleList.map((a, i) => ({
         "@type": "ListItem",
         position: i + 1,
-        url: `${SITE_URL}/lp/column/${a.slug}`,
+        url: `${SITE_URL}/clinic/column/${a.slug}`,
         name: a.title,
       })),
     },
@@ -147,8 +147,8 @@ export default async function CategoryPage({ params }: Props) {
             "@type": "BreadcrumbList",
             itemListElement: [
               { "@type": "ListItem", position: 1, name: "トップ", item: "https://l-ope.jp" },
-              { "@type": "ListItem", position: 2, name: "コラム", item: "https://l-ope.jp/lp/column" },
-              { "@type": "ListItem", position: 3, name: cat.label, item: `https://l-ope.jp/lp/column/category/${cat.slug}` },
+              { "@type": "ListItem", position: 2, name: "コラム", item: "https://l-ope.jp/clinic/column" },
+              { "@type": "ListItem", position: 3, name: cat.label, item: `https://l-ope.jp/clinic/column/category/${cat.slug}` },
             ],
           }) }} />
         </div>
@@ -188,7 +188,7 @@ export default async function CategoryPage({ params }: Props) {
               return (
                 <Link
                   key={c.slug}
-                  href={`/lp/column/category/${c.slug}`}
+                  href={`/clinic/column/category/${c.slug}`}
                   className={`shrink-0 rounded-full px-5 py-2 text-[14px] font-medium ring-1 transition ${
                     isActive
                       ? "bg-blue-600 text-white ring-blue-600 shadow-sm"
@@ -211,7 +211,7 @@ export default async function CategoryPage({ params }: Props) {
             {articleList.map((a) => (
               <Link
                 key={a.slug}
-                href={`/lp/column/${a.slug}`}
+                href={`/clinic/column/${a.slug}`}
                 className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-100/50 hover:ring-blue-200/80"
               >
                 {/* サムネイル */}
@@ -287,7 +287,7 @@ export default async function CategoryPage({ params }: Props) {
               {categories.filter((c) => c.slug !== slug).map((c) => (
                 <Link
                   key={c.slug}
-                  href={`/lp/column/category/${c.slug}`}
+                  href={`/clinic/column/category/${c.slug}`}
                   className="px-4 py-2 bg-gray-100 rounded-lg text-sm text-gray-700 hover:bg-gray-200 transition"
                 >
                   {c.label}

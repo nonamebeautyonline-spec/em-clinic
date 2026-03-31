@@ -17,8 +17,8 @@ const self = articles.find((a) => a.slug === "ms-corporation-medical-corporation
 export const metadata: Metadata = {
   title: self.title,
   description: self.description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${self.slug}` },
-  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${self.slug}` },
+  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/clinic/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
 
@@ -309,6 +309,7 @@ export default function Page() {
         <ul>
           <li><Link href="/clinic/column/medical-corporation-vs-individual-opening" className="text-sky-600 hover:underline">医療法人と個人開業の徹底比較 — クリニック開業で最適な事業形態の選び方</Link></li>
           <li><Link href="/clinic/column/solo-doctor-self-pay-clinic-opening" className="text-sky-600 hover:underline">個人医師の自費クリニック開業完全ガイド</Link></li>
+          <li><Link href="/clinic/column/doctor-asset-management-tax" className="text-blue-600 hover:underline">開業医の資産運用と節税対策</Link></li>
         </ul>
       </section>
     

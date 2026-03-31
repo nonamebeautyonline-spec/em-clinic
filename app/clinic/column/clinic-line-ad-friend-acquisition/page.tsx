@@ -17,8 +17,8 @@ const self = articles.find((a) => a.slug === "clinic-line-ad-friend-acquisition"
 export const metadata: Metadata = {
   title: self.title,
   description: self.description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${self.slug}` },
-  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${self.slug}` },
+  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/clinic/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
 
@@ -215,6 +215,8 @@ export default function Page() {
         </Callout>
 
         <p>Lオペのリッチメニュー機能・ステップ配信・予約管理・患者CRMを活用すれば、広告で獲得した友だちを来院・リピートにつなげる導線を効率的に構築できます。広告の「獲得」だけでなく「育成→来院→リピート」まで一気通貫で設計しましょう。</p>
+        <p>関連記事: <Link href="/clinic/column/self-pay-clinic-marketing-guide" className="text-blue-600 underline">自費クリニック集患マーケティング完全ガイド</Link></p>
+        <p>関連記事: <Link href="/clinic/column/clinic-line-case-studies" className="text-blue-600 underline">クリニックのLINE公式アカウント活用事例5選</Link></p>
       </section>
     
       {/* ── FAQ ── */}

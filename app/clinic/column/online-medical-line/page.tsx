@@ -9,8 +9,8 @@ const self = articles.find((a) => a.slug === "online-medical-line")!;
 export const metadata: Metadata = {
   title: self.title,
   description: self.description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${self.slug}` },
-  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${self.slug}` },
+  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/clinic/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
 
@@ -173,6 +173,8 @@ export default function Page() {
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: LINEでオンライン診療の患者体験を根本から変える</h2>
         <p>オンライン診療の成功は、医療の質だけでなく<strong>患者体験（UX）の設計</strong>にかかっています。専用アプリ・別システム決済・煩雑な予約といった従来の課題を、LINE起点のフローで一掃することで、患者の利便性とクリニックの業務効率を同時に向上させられます。なお、オンライン診療フローの起点となるリッチメニューの設計については<Link href="/clinic/column/rich-menu-design" className="text-sky-600 underline hover:text-sky-800">リッチメニュー設計5つのポイント</Link>で詳しく解説しています。また、電子カルテとの連携を検討中の方は<Link href="/clinic/column/electronic-medical-record-guide" className="text-sky-600 underline hover:text-sky-800">電子カルテ選び方ガイド</Link>も参考にしてください。</p>
         <p>Lオペ for CLINICは、LINE上での予約・問診・決済・配送追跡・フォローアップまでワンストップで提供。<strong>オンライン診療に最適化されたLINE運用プラットフォーム</strong>として、クリニックのオンライン診療を全面的にサポートします。<Link href="/clinic/features#決済・配送" className="text-sky-600 underline hover:text-sky-800">決済・配送管理機能</Link>の詳細もご覧ください。</p>
+        <p>関連記事: <Link href="/clinic/column/online-clinic-complete-guide" className="text-blue-600 underline">オンライン診療完全ガイド</Link></p>
+        <p>関連記事: <Link href="/clinic/column/clinic-dx-guide" className="text-blue-600 underline">クリニックDX完全ガイド</Link></p>
       </section>
     
       {/* ── FAQ ── */}

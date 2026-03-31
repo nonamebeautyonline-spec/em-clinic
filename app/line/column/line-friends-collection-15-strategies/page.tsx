@@ -186,6 +186,18 @@ export default function Page() {
         <p>KPIの設計・追跡方法の詳細は<Link href="/line/column/line-kpi-dashboard-analytics-guide" className="text-sky-600 underline hover:text-sky-800">LINE分析KPIダッシュボードガイド</Link>をご覧ください。</p>
       </section>
 
+      {/* クリニック向け誘導 */}
+      <div className="my-8 rounded-xl border-2 border-blue-100 bg-gradient-to-r from-blue-50 to-sky-50 p-6">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white">C</span>
+          <span className="text-[14px] font-bold text-blue-800">クリニックの集患にLINEを活用したい方へ</span>
+        </div>
+        <p className="text-[13px] text-slate-600 leading-relaxed">
+          クリニックでは、院内POP・受付QRコード・Google MAP連携など医療機関特有の友だち集め施策が効果的です。<Link href="/clinic" className="text-blue-600 font-bold underline">Lオペ for CLINIC</Link>なら友だち追加から予約・問診までをシームレスにつなげられます。
+          <Link href="/clinic/column/clinic-line-ad-friend-acquisition" className="text-blue-600 underline ml-1">クリニック向け友だち獲得施策を見る →</Link>
+        </p>
+      </div>
+
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: 15の施策を組み合わせて友だちを効率的に集める</h2>
         <p>友だち集めはオンライン・オフラインの施策を複合的に展開することが鍵です。1つの施策に依存せず、複数の経路を組み合わせることでリスクを分散し、安定した友だち獲得を実現しましょう。</p>

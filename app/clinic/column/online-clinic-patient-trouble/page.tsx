@@ -17,8 +17,8 @@ const self = articles.find((a) => a.slug === "online-clinic-patient-trouble")!;
 export const metadata: Metadata = {
   title: self.title,
   description: self.description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${self.slug}` },
-  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${self.slug}` },
+  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/clinic/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
 
@@ -262,6 +262,7 @@ export default function Page() {
         <p>
           配送トラブルの詳細な予防策は<Link href="/clinic/column/online-clinic-prescription-delivery" className="text-sky-600 underline hover:text-sky-800">医薬品配送ガイド</Link>、オンライン診療の法規制は<Link href="/clinic/column/online-clinic-regulations" className="text-sky-600 underline hover:text-sky-800">法規制ガイド</Link>、オンライン診療の全体像は<Link href="/clinic/column/online-clinic-complete-guide" className="text-sky-600 underline hover:text-sky-800">オンライン診療完全ガイド</Link>もあわせてご確認ください。お問い合わせは<Link href="/clinic/contact" className="text-sky-600 underline hover:text-sky-800">こちら</Link>から。
         </p>
+        <p>関連記事: <Link href="/clinic/column/telemedicine-patient-satisfaction" className="text-blue-600 underline">オンライン診療の患者満足度を上げる方法</Link></p>
       </section>
     
       {/* ── FAQ ── */}

@@ -176,6 +176,18 @@ export default function Page() {
         ]} />
       </section>
 
+      {/* クリニック向け誘導 */}
+      <div className="my-8 rounded-xl border-2 border-blue-100 bg-gradient-to-r from-blue-50 to-sky-50 p-6">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white">C</span>
+          <span className="text-[14px] font-bold text-blue-800">クリニックの患者セグメント設計をお考えの方へ</span>
+        </div>
+        <p className="text-[13px] text-slate-600 leading-relaxed">
+          クリニックでは、診療科目・来院回数・再診時期など医療特有のセグメントが重要です。<Link href="/clinic" className="text-blue-600 font-bold underline">Lオペ for CLINIC</Link>なら患者データと連動したセグメント配信が簡単に構築できます。
+          <Link href="/clinic/column/clinic-line-tag-segment-design" className="text-blue-600 underline ml-1">クリニック向けタグ・セグメント設計を見る →</Link>
+        </p>
+      </div>
+
       {/* ── まとめ ── */}
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ</h2>

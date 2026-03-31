@@ -24,8 +24,8 @@ const tags = ["人件費", "非常勤医師", "タスクシフト", "業務効�
 export const metadata: Metadata = {
   title,
   description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${slug}` },
-  openGraph: { title, description, url: `${SITE_URL}/lp/column/${slug}`, type: "article", publishedTime: date },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${slug}` },
+  openGraph: { title, description, url: `${SITE_URL}/clinic/column/${slug}`, type: "article", publishedTime: date },
 };
 
 

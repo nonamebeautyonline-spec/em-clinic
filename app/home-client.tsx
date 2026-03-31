@@ -370,11 +370,11 @@ const services: Service[] = [
     href: "/clinic/",
     color: "#3b82f6",
     icon: IconClinic,
-    description: "患者CRM・予約・問診・決済までクリニック業務をオールインワンで",
+    description: "予約・問診・カルテ・決済・配送・AI自動返信をLINE起点で一元管理。月60時間の事務作業を削減し、再診率1.5倍を実現するクリニック専用プラットフォーム",
     features: [
-      "オンライン問診・予約管理",
-      "電子カルテ連携・SOAP記録",
-      "処方薬の決済・配送管理",
+      "オンライン問診・予約管理・リマインド自動配信",
+      "電子カルテ連携・SOAP記録・AI自動返信",
+      "処方薬の決済・配送管理・定期処方自動化",
     ],
   },
   {
@@ -578,7 +578,7 @@ function ServiceCard({
             className="mt-6 flex items-center gap-1.5 text-[13px] font-medium transition-all duration-300 group-hover:gap-3"
             style={{ color: service.color }}
           >
-            {service.comingSoon ? "準備中" : "詳しく見る"}
+            {service.comingSoon ? "準備中" : service.name === "Lオペ for CLINIC" ? "クリニック向けはこちら" : "詳しく見る"}
             <svg
               viewBox="0 0 16 16"
               fill="none"

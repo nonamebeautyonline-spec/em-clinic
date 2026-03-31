@@ -16,8 +16,8 @@ const self = articles.find((a) => a.slug === "clinic-crm-comparison")!;
 export const metadata: Metadata = {
   title: self.title,
   description: self.description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${self.slug}` },
-  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${self.slug}` },
+  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/clinic/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
 
@@ -197,6 +197,8 @@ export default function Page() {
         />
 
         <p>LINE公式アカウントを中心にクリニック業務を一元管理したい場合は、Lオペ for CLINICが<Link href="/clinic/features#患者CRM" className="text-sky-600 underline hover:text-sky-800">クリニック専用CRM</Link>として最もフィットします。予約管理機能をさらに比較したい方は<Link href="/clinic/column/reservation-system-comparison" className="text-sky-600 underline hover:text-sky-800">予約システム比較10選</Link>も参考にしてください。患者データの分析・活用については<Link href="/clinic/column/clinic-patient-ltv" className="text-sky-600 underline hover:text-sky-800">患者LTV向上戦略</Link>を、既存システムからのデータ移行については<Link href="/clinic/column/clinic-data-migration" className="text-sky-600 underline hover:text-sky-800">データ移行ガイド</Link>も併せてご覧ください。</p>
+        <p>関連記事: <Link href="/clinic/column/lstep-vs-clinic-tool" className="text-blue-600 underline">Lステップ vs クリニック専用ツール比較</Link></p>
+        <p>関連記事: <Link href="/clinic/column/clinic-line-tool-5-comparison" className="text-blue-600 underline">クリニック向けLINEツール5社比較</Link></p>
       </section>
     
       {/* ── FAQ ── */}

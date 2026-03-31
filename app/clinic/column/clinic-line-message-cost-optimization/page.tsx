@@ -17,8 +17,8 @@ const self = articles.find((a) => a.slug === "clinic-line-message-cost-optimizat
 export const metadata: Metadata = {
   title: self.title,
   description: self.description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${self.slug}` },
-  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${self.slug}` },
+  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/clinic/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
 const faqItems = [
@@ -195,6 +195,8 @@ export default function Page() {
         </Callout>
 
         <p>Lオペのセグメント配信機能と患者CRMを活用すれば、配信対象の最適化を効率的に行えます。まずは現在の配信数と費用を棚卸しし、セグメント配信の導入から始めてみてください。</p>
+        <p>関連記事: <Link href="/clinic/column/line-block-rate-reduction" className="text-blue-600 underline">ブロック率を下げる5つの鉄則</Link></p>
+        <p>関連記事: <Link href="/clinic/column/clinic-line-analytics" className="text-blue-600 underline">LINE配信効果測定 — 開封率・CV率の分析方法</Link></p>
       </section>
 
       <section id="faq">

@@ -175,10 +175,10 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
     description: self.description,
     datePublished: `${self.date}T00:00:00+09:00`,
     dateModified: `${(self.updatedDate || self.date)}T00:00:00+09:00`,
-    image: `${SITE_URL}/lp/column/${slug}/opengraph-image`,
+    image: `${SITE_URL}/clinic/column/${slug}/opengraph-image`,
     author: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL },
     publisher: { "@type": "Organization", name: "Lオペ for CLINIC", url: SITE_URL, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` } },
-    mainEntityOfPage: `${SITE_URL}/lp/column/${slug}`,
+    mainEntityOfPage: `${SITE_URL}/clinic/column/${slug}`,
     wordCount: estimatedWordCount,
     timeRequired: `PT${readMinutes}M`,
     inLanguage: "ja",
@@ -219,7 +219,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
             <li aria-hidden="true" className="text-gray-300">/</li>
             <li><Link href="/clinic/column" className="hover:text-blue-600 transition">コラム</Link></li>
             <li aria-hidden="true" className="text-gray-300">/</li>
-            <li><Link href={`/lp/column/category/${catSlug}`} className="hover:text-blue-600 transition">{catLabel}</Link></li>
+            <li><Link href={`/clinic/column/category/${catSlug}`} className="hover:text-blue-600 transition">{catLabel}</Link></li>
             <li aria-hidden="true" className="text-gray-300">/</li>
             <li className="text-gray-700 font-medium truncate max-w-[300px]">{self.title}</li>
           </ol>
@@ -229,9 +229,9 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
           "@type": "BreadcrumbList",
           itemListElement: [
             { "@type": "ListItem", position: 1, name: "トップ", item: "https://l-ope.jp" },
-            { "@type": "ListItem", position: 2, name: "コラム", item: "https://l-ope.jp/lp/column" },
-            { "@type": "ListItem", position: 3, name: catLabel, item: `https://l-ope.jp/lp/column/category/${catSlug}` },
-            { "@type": "ListItem", position: 4, name: self.title, item: `https://l-ope.jp/lp/column/${slug}` },
+            { "@type": "ListItem", position: 2, name: "コラム", item: "https://l-ope.jp/clinic/column" },
+            { "@type": "ListItem", position: 3, name: catLabel, item: `https://l-ope.jp/clinic/column/category/${catSlug}` },
+            { "@type": "ListItem", position: 4, name: self.title, item: `https://l-ope.jp/clinic/column/${slug}` },
           ],
         }) }} />
       </div>
@@ -335,7 +335,7 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
                   return (
                     <Link
                       key={a.slug}
-                      href={`/lp/column/${a.slug}`}
+                      href={`/clinic/column/${a.slug}`}
                       className="group flex items-start gap-4 py-4 transition"
                     >
                       {/* サムネイル */}

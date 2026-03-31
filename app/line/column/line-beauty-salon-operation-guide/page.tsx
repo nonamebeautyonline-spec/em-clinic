@@ -183,6 +183,18 @@ export default function Page() {
         <p>リッチメニューにデザインギャラリーを設置し、最新ネイルデザインを定期配信。気に入ったデザインからそのまま予約できるフローが高い予約率につながりました。</p>
       </section>
 
+      {/* クリニック向け誘導 */}
+      <div className="my-8 rounded-xl border-2 border-blue-100 bg-gradient-to-r from-blue-50 to-sky-50 p-6">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white">C</span>
+          <span className="text-[14px] font-bold text-blue-800">クリニック・医療機関の方へ</span>
+        </div>
+        <p className="text-[13px] text-slate-600 leading-relaxed">
+          美容サロンのLINE運用ノウハウはクリニックにも応用できます。美容クリニック・医療機関には、予約管理・問診・AI自動返信を備えた<Link href="/clinic" className="text-blue-600 font-bold underline">Lオペ for CLINIC</Link>が最適です。
+          <Link href="/clinic/column/beauty-clinic-line" className="text-blue-600 underline ml-1">美容クリニックのLINE活用事例を見る →</Link>
+        </p>
+      </div>
+
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ</h2>
 

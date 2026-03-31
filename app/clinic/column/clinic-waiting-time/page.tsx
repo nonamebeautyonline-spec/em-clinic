@@ -15,8 +15,8 @@ const self = articles.find((a) => a.slug === "clinic-waiting-time")!;
 export const metadata: Metadata = {
   title: self.title,
   description: self.description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${self.slug}` },
-  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${self.slug}` },
+  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/clinic/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
 
@@ -167,6 +167,8 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICは、LINE順番通知・混雑可視化・オンライン問診・予約管理を<Link href="/clinic/features" className="text-sky-600 underline hover:text-sky-800">オールインワンで提供</Link>するクリニック専用プラットフォームです。待ち時間の問題を解消し、患者満足度とクリニックの生産性を同時に向上させます。</p>
+        <p>関連記事: <Link href="/clinic/column/line-reservation-no-show" className="text-blue-600 underline">LINE予約管理で無断キャンセルを削減する方法</Link></p>
+        <p>関連記事: <Link href="/clinic/column/clinic-appointment-optimization" className="text-blue-600 underline">クリニックの予約枠最適化</Link></p>
       </section>
     
       {/* ── FAQ ── */}

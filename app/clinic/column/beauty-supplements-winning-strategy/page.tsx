@@ -28,11 +28,11 @@ const articleMeta = {
 export const metadata: Metadata = {
   title: articleMeta.title,
   description: articleMeta.description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${SLUG}` },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${SLUG}` },
   openGraph: {
     title: articleMeta.title,
     description: articleMeta.description,
-    url: `${SITE_URL}/lp/column/${SLUG}`,
+    url: `${SITE_URL}/clinic/column/${SLUG}`,
     type: "article",
     publishedTime: articleMeta.date,
   },

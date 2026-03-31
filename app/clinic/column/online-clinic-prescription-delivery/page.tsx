@@ -17,8 +17,8 @@ const self = articles.find((a) => a.slug === "online-clinic-prescription-deliver
 export const metadata: Metadata = {
   title: self.title,
   description: self.description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${self.slug}` },
-  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${self.slug}` },
+  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/clinic/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
 
@@ -273,6 +273,7 @@ export default function Page() {
         <p>
           配送体制の構築は、オンラインクリニックの競争力を支えるインフラです。法規制の全体像は<Link href="/clinic/column/online-clinic-complete-guide" className="text-sky-600 underline hover:text-sky-800">オンライン診療完全ガイド</Link>、患者トラブルへの対応は<Link href="/clinic/column/online-clinic-patient-trouble" className="text-sky-600 underline hover:text-sky-800">患者トラブル対応マニュアル</Link>もあわせてご確認ください。お問い合わせは<Link href="/clinic/contact" className="text-sky-600 underline hover:text-sky-800">こちら</Link>から。
         </p>
+        <p>関連記事: <Link href="/clinic/column/online-clinic-prescription-delivery-flow" className="text-blue-600 underline">処方箋と薬の受け取りフロー</Link></p>
       </section>
     
       {/* ── FAQ ── */}

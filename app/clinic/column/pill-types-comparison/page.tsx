@@ -16,8 +16,8 @@ const self = articles.find((a) => a.slug === "pill-types-comparison")!;
 export const metadata: Metadata = {
   title: self.title,
   description: self.description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${self.slug}` },
-  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${self.slug}` },
+  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/clinic/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
 
@@ -276,6 +276,8 @@ export default function Page() {
         <Callout type="point" title="処方は必ず医師の判断で">
           本記事は低用量ピルの一般的な薬剤情報を整理したものであり、個別の処方を推奨するものではありません。ピルには血栓症などの重大な副作用リスクがあり、禁忌事項の確認が不可欠です。処方・薬剤変更は、必ず医師の診察と判断のもとで行ってください。
         </Callout>
+        <p>関連記事: <Link href="/clinic/column/gynecology-online-clinic-guide" className="text-blue-600 underline">婦人科オンライン診療の始め方</Link></p>
+        <p>関連記事: <Link href="/clinic/column/femtech-clinic-online-strategy" className="text-blue-600 underline">フェムテック市場とクリニックの参入戦略</Link></p>
       </section>
     
       {/* ── FAQ ── */}

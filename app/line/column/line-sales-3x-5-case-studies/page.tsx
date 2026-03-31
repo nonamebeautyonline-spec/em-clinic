@@ -182,6 +182,18 @@ export default function Page() {
         />
       </section>
 
+      {/* クリニック向け誘導 */}
+      <div className="my-8 rounded-xl border-2 border-blue-100 bg-gradient-to-r from-blue-50 to-sky-50 p-6">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white">C</span>
+          <span className="text-[14px] font-bold text-blue-800">クリニックの売上アップをお考えの方へ</span>
+        </div>
+        <p className="text-[13px] text-slate-600 leading-relaxed">
+          クリニックの売上向上には、LINE経由の再診率アップと自費メニュー訴求が鍵です。<Link href="/clinic" className="text-blue-600 font-bold underline">Lオペ for CLINIC</Link>なら患者LTV最大化のためのセグメント配信・リピート施策を簡単に構築できます。
+          <Link href="/clinic/column/clinic-line-revenue-growth" className="text-blue-600 underline ml-1">クリニックのLINE売上成長事例を見る →</Link>
+        </p>
+      </div>
+
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: 自社でも売上3倍を目指すためのステップ</h2>
         <p>売上3倍を達成した5社は、いずれも特別な技術力やマーケティング予算を持った企業ではありません。LINE公式アカウントの標準機能と拡張ツールを正しく活用し、データに基づく改善を継続した結果です。</p>

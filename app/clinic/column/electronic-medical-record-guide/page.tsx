@@ -9,8 +9,8 @@ const self = articles.find((a) => a.slug === "electronic-medical-record-guide")!
 export const metadata: Metadata = {
   title: self.title,
   description: self.description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${self.slug}` },
-  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${self.slug}` },
+  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/clinic/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
 
@@ -164,6 +164,8 @@ export default function Page() {
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: LINE連携を前提に電子カルテを選ぶ時代</h2>
         <p>電子カルテ選びは「カルテ入力の効率化」だけでなく、<strong>患者コミュニケーション全体の効率化</strong>という視点が重要です。LINE連携に対応した電子カルテを選ぶことで、問診・予約・リマインド・フォローアップまで一気通貫の業務効率化が実現します。Web問診の導入についてさらに詳しく知りたい方は<Link href="/clinic/column/online-questionnaire-guide" className="text-sky-600 underline hover:text-sky-800">オンライン問診導入ガイド</Link>も参考にしてください。また、クリニック全体のDX推進については<Link href="/clinic/column/clinic-dx-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>で体系的に解説しています。</p>
         <p>Lオペ for CLINICは、LINE上の問診データをダッシュボードで一元管理し、カルテ入力時の参照に活用可能です。来院データに基づく自動フォローメッセージなど、<strong>問診データ活用とLINE運用の架け橋</strong>となるプラットフォームです。<Link href="/clinic/features#予約・診察" className="text-sky-600 underline hover:text-sky-800">予約・診察カテゴリの全機能</Link>もご確認ください。</p>
+        <p>関連記事: <Link href="/clinic/column/clinic-line-case-studies" className="text-blue-600 underline">クリニックのLINE公式アカウント活用事例5選</Link></p>
+        <p>関連記事: <Link href="/clinic/column/reservation-system-comparison" className="text-blue-600 underline">クリニック予約システム比較10選</Link></p>
       </section>
     
       {/* ── FAQ ── */}

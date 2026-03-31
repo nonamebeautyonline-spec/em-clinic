@@ -24,8 +24,8 @@ const tags = ["節税", "資産運用", "医療法人", "所得分散", "退職�
 export const metadata: Metadata = {
   title,
   description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${slug}` },
-  openGraph: { title, description, url: `${SITE_URL}/lp/column/${slug}`, type: "article", publishedTime: date },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${slug}` },
+  openGraph: { title, description, url: `${SITE_URL}/clinic/column/${slug}`, type: "article", publishedTime: date },
 };
 
 

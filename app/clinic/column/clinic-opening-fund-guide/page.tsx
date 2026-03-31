@@ -24,8 +24,8 @@ const tags = ["開業資金", "融資", "リース", "日本政策金融公庫",
 export const metadata: Metadata = {
   title,
   description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${slug}` },
-  openGraph: { title, description, url: `${SITE_URL}/lp/column/${slug}`, type: "article", publishedTime: date },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${slug}` },
+  openGraph: { title, description, url: `${SITE_URL}/clinic/column/${slug}`, type: "article", publishedTime: date },
 };
 
 

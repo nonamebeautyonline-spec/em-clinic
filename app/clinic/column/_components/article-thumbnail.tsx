@@ -424,7 +424,7 @@ export default function ArticleThumbnail({ slug, title, category, size = "card",
   const meta = thumbMeta[slug] || { subtitle: "", ill: "phone-chat" };
   const theme = catTheme[category] || catTheme["ガイド"];
   const Illustration = illustrations[meta.ill] || IllPhoneChat;
-  const pngSrc = `/lp/column/thumbnails/${slug}.png`;
+  const pngSrc = `/clinic/column/thumbnails/${slug}.png`;
 
   const isHero = size === "hero";
   const isSm = size === "sm";

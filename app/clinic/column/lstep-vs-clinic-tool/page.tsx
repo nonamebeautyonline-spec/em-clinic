@@ -16,8 +16,8 @@ const self = articles.find((a) => a.slug === "lstep-vs-clinic-tool")!;
 export const metadata: Metadata = {
   title: self.title,
   description: self.description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${self.slug}` },
-  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${self.slug}` },
+  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/clinic/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
 const faqItems = [
@@ -160,7 +160,7 @@ export default function Page() {
 
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: クリニックには専用ツールを選ぶべき</h2>
-        <p>Lステップ・Linyは優れたLINE配信ツールですが、クリニックの業務フロー全体をカバーするには力不足です。<strong>LINE配信だけでなく、予約・問診・カルテ・決済・配送まで統合管理</strong>したいクリニックには、専用設計のツールが最適解です。LINE起点でDXを進める全体像については<Link href="/clinic/column/clinic-dx-guide" className="text-emerald-700 underline">クリニックDX完全ガイド</Link>も併せてご覧ください。</p>
+        <p>Lステップ・Linyは優れたLINE配信ツールですが、クリニックの業務フロー全体をカバーするには力不足です。<strong>LINE配信だけでなく、予約・問診・カルテ・決済・配送まで統合管理</strong>したいクリニックには、専用設計のツールが最適解です。LINE起点でDXを進める全体像については<Link href="/clinic/column/clinic-dx-guide" className="text-emerald-700 underline">クリニックDX完全ガイド</Link>も併せてご覧ください。自費クリニックの集患チャネル全体像については<Link href="/clinic/column/self-pay-clinic-marketing-guide" className="text-emerald-700 underline">自費クリニック集患マーケティング完全ガイド</Link>で詳しく解説しています。</p>
       </section>
 
       <section id="faq">

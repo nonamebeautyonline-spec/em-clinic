@@ -17,11 +17,11 @@ const self = articles.find((a) => a.slug === "anti-aging-beauty-medicine-trends"
 export const metadata: Metadata = {
   title: self.title,
   description: self.description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${self.slug}` },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${self.slug}` },
   openGraph: {
     title: self.title,
     description: self.description,
-    url: `${SITE_URL}/lp/column/${self.slug}`,
+    url: `${SITE_URL}/clinic/column/${self.slug}`,
     type: "article",
     publishedTime: self.date,
   },

@@ -22,9 +22,9 @@ const allCategories = ["すべて", ...Array.from(new Set(articles.map((a) => a.
 
 /* ─── 注目記事（コンバージョン直結の3記事） ─── */
 const featuredSlugs = [
-  "lstep-vs-clinic-tool",
-  "clinic-line-case-studies",
-  "clinic-dx-complete-guide",
+  "clinic-dx-guide",
+  "online-clinic-complete-guide",
+  "self-pay-clinic-marketing-guide",
 ];
 
 const intentSections = [
@@ -133,7 +133,7 @@ export default function ColumnIndex() {
               return (
                 <Link
                   key={cat.slug}
-                  href={`/lp/column/category/${cat.slug}`}
+                  href={`/clinic/column/category/${cat.slug}`}
                   className="group rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 transition hover:border-blue-200 hover:bg-blue-50"
                 >
                   <p className="text-[14px] font-bold text-gray-800 group-hover:text-blue-700 transition">{cat.label}</p>
@@ -163,7 +163,7 @@ export default function ColumnIndex() {
               return (
                 <Link
                   key={a.slug}
-                  href={`/lp/column/${a.slug}`}
+                  href={`/clinic/column/${a.slug}`}
                   className="group relative overflow-hidden rounded-2xl bg-white shadow-md ring-1 ring-gray-200/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-100/50 hover:ring-blue-300/80"
                 >
                   <div className="overflow-hidden">
@@ -207,7 +207,7 @@ export default function ColumnIndex() {
                     {sectionArticles.map((article) => (
                       <Link
                         key={article!.slug}
-                        href={`/lp/column/${article!.slug}`}
+                        href={`/clinic/column/${article!.slug}`}
                         className="block rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200 transition hover:ring-blue-200"
                       >
                         <p className="text-[13px] font-semibold leading-snug text-gray-900">
@@ -257,7 +257,7 @@ export default function ColumnIndex() {
               {filtered.map((a) => (
                 <Link
                   key={a.slug}
-                  href={`/lp/column/${a.slug}`}
+                  href={`/clinic/column/${a.slug}`}
                   className="group overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:ring-blue-200/80"
                 >
                   {/* サムネイル */}
@@ -335,7 +335,7 @@ export default function ColumnIndex() {
                   {popular.map((a, i) => (
                     <Link
                       key={a.slug}
-                      href={`/lp/column/${a.slug}`}
+                      href={`/clinic/column/${a.slug}`}
                       className="group flex items-start gap-3 py-3.5 transition"
                     >
                       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-blue-600 text-[11px] font-bold text-white">
@@ -358,7 +358,7 @@ export default function ColumnIndex() {
                     return (
                       <Link
                         key={cat.slug}
-                        href={`/lp/column/category/${cat.slug}`}
+                        href={`/clinic/column/category/${cat.slug}`}
                         className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-[14px] text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition"
                       >
                         {cat.label}

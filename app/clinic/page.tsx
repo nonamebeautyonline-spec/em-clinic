@@ -19,11 +19,14 @@ const Footer = dynamic(() => import("./components/Footer").then((m) => ({ defaul
 
 export const metadata: Metadata = {
   alternates: {
-    canonical: "https://l-ope.jp",
+    canonical: "https://l-ope.jp/clinic",
   },
   robots: {
-    index: false,
+    index: true,
     follow: true,
+    "max-image-preview": "large" as const,
+    "max-snippet": -1,
+    "max-video-preview": -1,
   },
 };
 

@@ -9,8 +9,8 @@ const self = articles.find((a) => a.slug === "dermatology-clinic-line")!;
 export const metadata: Metadata = {
   title: self.title,
   description: self.description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${self.slug}` },
-  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${self.slug}` },
+  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/clinic/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
 
@@ -168,6 +168,8 @@ export default function Page() {
           { title: "長期フォローアップの自動化", desc: "治療段階に応じたメッセージ配信で慢性疾患の継続治療をサポート" },
         ]} />
         <p className="mt-4">Lオペ for CLINICは、これらの皮膚科特化機能をすべて備えたLINE運用プラットフォームです。処方薬の<Link href="/clinic/features#決済・配送" className="text-sky-600 underline hover:text-sky-800">配送管理</Link>から患者の写真管理、フォローアップの自動化まで、皮膚科クリニックのDXを強力にサポートします。</p>
+        <p>関連記事: <Link href="/clinic/column/beauty-clinic-line" className="text-blue-600 underline">美容クリニックのLINE活用術</Link></p>
+        <p>関連記事: <Link href="/clinic/column/clinic-repeat-rate-improvement" className="text-blue-600 underline">クリニックのリピート率を劇的に改善する方法</Link></p>
       </section>
     
       {/* ── FAQ ── */}

@@ -15,8 +15,8 @@ const self = articles.find((a) => a.slug === "online-clinic-medication-counselin
 export const metadata: Metadata = {
   title: self.title,
   description: self.description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${self.slug}` },
-  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${self.slug}` },
+  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/clinic/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
 
@@ -175,6 +175,8 @@ export default function Page() {
         <p>成功の鍵は、<strong>薬局との事前の連携体制構築</strong>と、<strong>LINEを活用した患者導線の最適化</strong>です。診察終了から服薬指導・配送完了までの各ステップで患者が迷わない導線を設計し、配送状況の通知や服用後のフォローアップまで含めた一貫した体験を提供しましょう。</p>
 
         <p>Lオペ for CLINICでは、LINE上での予約管理・メッセージ自動配信・フォローアップ機能を通じて、オンライン診療の前後フローを含めた<Link href="/" className="text-blue-600 hover:underline">患者コミュニケーションの一元化</Link>を支援しています。</p>
+        <p>関連記事: <Link href="/clinic/column/online-clinic-complete-guide" className="text-blue-600 underline">オンライン診療完全ガイド</Link></p>
+        <p>関連記事: <Link href="/clinic/column/online-clinic-prescription-delivery" className="text-blue-600 underline">オンライン診療の医薬品配送ガイド</Link></p>
       </section>
     
       {/* ── FAQ ── */}

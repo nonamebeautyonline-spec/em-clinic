@@ -17,8 +17,8 @@ const self = articles.find((a) => a.slug === "medical-corporation-vs-individual-
 export const metadata: Metadata = {
   title: self.title,
   description: self.description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${self.slug}` },
-  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${self.slug}` },
+  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/clinic/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
 
@@ -313,6 +313,8 @@ export default function Page() {
         <ul>
           <li><Link href="/clinic/column/solo-doctor-self-pay-clinic-opening" className="text-sky-600 hover:underline">個人医師の自費クリニック開業完全ガイド</Link></li>
           <li><Link href="/clinic/column/minimum-clinic-opening-guide" className="text-sky-600 hover:underline">ワンルーム＋オンライン診療で月200万円を実現する方法</Link></li>
+          <li><Link href="/clinic/column/clinic-opening-fund-guide" className="text-blue-600 hover:underline">クリニック開業資金の調達方法</Link></li>
+          <li><Link href="/clinic/column/clinic-succession-inheritance" className="text-blue-600 hover:underline">クリニックの相続・事業承継ガイド</Link></li>
         </ul>
       </section>
     

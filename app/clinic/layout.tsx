@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 const SITE_URL = "https://l-ope.jp";
-const LP_URL = SITE_URL; // メインLPはルート（/）に移動済み
+const LP_URL = `${SITE_URL}/clinic`;
 const TITLE = "Lオペ | クリニック特化LINE運用プラットフォーム";
 const DESCRIPTION =
   "Lオペ（Lオペ for CLINIC）は、LINE公式アカウントを活用したクリニック特化の業務DXプラットフォームです。Lオペなら患者CRM・予約管理・セグメント配信・リッチメニュー構築・オンライン問診・AI自動返信・決済・配送管理をオールインワンで提供。初期設定サポート無料・最短2週間で導入。";
@@ -56,7 +56,7 @@ export const metadata: Metadata = {
     siteName: "Lオペ for CLINIC",
     locale: "ja_JP",
     type: "website",
-    images: [{ url: `${SITE_URL}/lp/opengraph-image`, width: 1200, height: 630, alt: "Lオペ for CLINIC — LINE公式アカウントでクリニック業務をDX化" }],
+    images: [{ url: `${SITE_URL}/clinic/opengraph-image`, width: 1200, height: 630, alt: "Lオペ for CLINIC — LINE公式アカウントでクリニック業務をDX化" }],
   },
   twitter: {
     card: "summary_large_image",

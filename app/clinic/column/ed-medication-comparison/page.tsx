@@ -16,8 +16,8 @@ const self = articles.find((a) => a.slug === "ed-medication-comparison")!;
 export const metadata: Metadata = {
   title: self.title,
   description: self.description,
-  alternates: { canonical: `${SITE_URL}/lp/column/${self.slug}` },
-  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/lp/column/${self.slug}`, type: "article", publishedTime: self.date },
+  alternates: { canonical: `${SITE_URL}/clinic/column/${self.slug}` },
+  openGraph: { title: self.title, description: self.description, url: `${SITE_URL}/clinic/column/${self.slug}`, type: "article", publishedTime: self.date },
 };
 
 
@@ -262,6 +262,8 @@ export default function Page() {
         <Callout type="point" title="処方は必ず医師の判断で">
           本記事はED治療薬の一般的な情報を整理したものであり、個別の処方を推奨するものではありません。ED治療薬は併用禁忌薬が存在し、心血管系リスクの評価が必要です。処方・用量変更は、必ず医師の診察と判断のもとで行ってください。
         </Callout>
+        <p>関連記事: <Link href="/clinic/column/aga-medication-comparison" className="text-blue-600 underline">AGA治療薬の種類と効果比較</Link></p>
+        <p>関連記事: <Link href="/clinic/column/mens-health-online-clinic" className="text-blue-600 underline">メンズヘルスオンラインクリニックの作り方</Link></p>
       </section>
     
       {/* ── FAQ ── */}
