@@ -11,8 +11,8 @@ import Image from "next/image";
 export default function Nav() {
   const [open, setOpen] = useState(false);
   const { scrollY } = useScroll();
-  const bgOpacity = useTransform(scrollY, [0, 100], [0.6, 0.95]);
-  const borderOpacity = useTransform(scrollY, [0, 100], [0, 1]);
+  const bgColor = useTransform(scrollY, [0, 100], ["rgba(255,255,255,0.6)", "rgba(255,255,255,0.95)"]);
+  const borderColor = useTransform(scrollY, [0, 100], ["rgba(226,232,240,0)", "rgba(226,232,240,1)"]);
 
   const links = [
     { label: "Lオペとは", href: "/line/about" },
@@ -33,8 +33,8 @@ export default function Nav() {
     <motion.nav
       className="fixed top-0 z-50 w-full backdrop-blur-xl"
       style={{
-        backgroundColor: `rgba(255, 255, 255, ${bgOpacity})`,
-        borderBottomColor: `rgba(226, 232, 240, ${borderOpacity})`,
+        backgroundColor: bgColor,
+        borderBottomColor: borderColor,
         borderBottomWidth: 1,
       }}
     >

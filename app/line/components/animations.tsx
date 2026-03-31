@@ -42,7 +42,7 @@ export function FadeIn({
       className={className}
       initial={initial}
       whileInView={{ opacity: 1, x: 0, y: 0 }}
-      viewport={{ once: true, margin: "-80px" }}
+      viewport={{ once: true, margin: "0px" }}
       transition={{ duration, delay, ease: [0.25, 0.46, 0.45, 0.94] }}
     >
       {children}
@@ -63,7 +63,7 @@ const staggerItem: Variants = {
 
 export function StaggerChildren({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <motion.div className={className} variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-60px" }}>
+    <motion.div className={className} variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "0px" }}>
       {children}
     </motion.div>
   );
@@ -78,7 +78,7 @@ export function CountUp({ to, duration = 2, prefix = "", suffix = "", className 
   to: number; duration?: number; prefix?: string; suffix?: string; className?: string; decimals?: number;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-60px" });
+  const inView = useInView(ref, { once: true, margin: "0px" });
   const motionVal = useMotionValue(0);
   const [display, setDisplay] = useState("0");
 
@@ -102,7 +102,7 @@ export function TextReveal({ children, className = "" }: { children: React.React
       className={className}
       initial={{ opacity: 0, y: 20, filter: "blur(8px)" }}
       whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-      viewport={{ once: true }}
+      viewport={{ once: true, margin: "0px" }}
       transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
     >
       {children}
@@ -196,7 +196,7 @@ export function SlideIn({ children, className = "", from = "left", delay = 0 }: 
       className={className}
       initial={{ opacity: 0, x: from === "left" ? -60 : 60 }}
       whileInView={{ opacity: 1, x: 0 }}
-      viewport={{ once: true, margin: "-60px" }}
+      viewport={{ once: true, margin: "0px" }}
       transition={{ duration: 0.7, delay, ease: [0.25, 0.46, 0.45, 0.94] }}
     >
       {children}
@@ -213,7 +213,7 @@ export function ScaleIn({ children, className = "", delay = 0 }: {
       className={className}
       initial={{ opacity: 0, scale: 0.9 }}
       whileInView={{ opacity: 1, scale: 1 }}
-      viewport={{ once: true, margin: "-60px" }}
+      viewport={{ once: true, margin: "0px" }}
       transition={{ duration: 0.5, delay, ease: [0.25, 0.46, 0.45, 0.94] }}
     >
       {children}
@@ -240,7 +240,7 @@ export function MessageBubble({
   children?: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-40px" });
+  const inView = useInView(ref, { once: true, margin: "0px" });
   const [displayed, setDisplayed] = useState("");
   const [showBubble, setShowBubble] = useState(false);
   const [typing, setTyping] = useState(false);
@@ -322,7 +322,7 @@ export function ChatFlow({
   className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-60px" });
+  const inView = useInView(ref, { once: true, margin: "0px" });
 
   return (
     <div ref={ref} className={`space-y-3 ${className}`}>
@@ -405,7 +405,7 @@ export function NumberTicker({
   prefix?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-60px" });
+  const inView = useInView(ref, { once: true, margin: "0px" });
 
   return (
     <div ref={ref} className={`inline-flex items-baseline ${className}`}>
