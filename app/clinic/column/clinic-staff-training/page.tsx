@@ -173,6 +173,12 @@ export default function Page() {
         </Callout>
 
         <p>LINE公式アカウントの効果を最大化するには、ツール選びと同じくらいスタッフ研修が重要です。Lオペ for CLINICでは、導入時の操作研修やマニュアル作成のサポートも提供しています。自動化の仕組みと合わせて、スタッフ全員が安心して使える環境を整えましょう。自動化の設定方法は<Link href="/clinic/column/clinic-line-automation" className="text-sky-600 underline hover:text-sky-800">LINE自動化完全ガイド</Link>、LINE運用ノウハウの全体像は<Link href="/clinic/column/line-operation-guide" className="text-sky-600 underline hover:text-sky-800">LINE運用完全ガイド</Link>もご参照ください。</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-dx-guide" className="text-blue-600 underline">クリニック LINE DXガイド — 予約・問診・会計をデジタル化する5ステップ</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-line-case-studies" className="text-blue-600 underline">クリニック LINE 活用事例5選 — 予約・問診・AI返信の導入成果を公開</a>
+        </p>
       </section>
     
       {/* ── FAQ ── */}

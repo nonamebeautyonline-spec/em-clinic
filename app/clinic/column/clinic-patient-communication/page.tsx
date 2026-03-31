@@ -174,6 +174,12 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICは、これら5つのポイントをすべてLINE上で実現するクリニック専用プラットフォームです。テンプレート・セグメント配信・AI返信・フォローアップの自動化を組み合わせて、患者との信頼関係を構築しましょう。NPS調査で患者満足度を数値化する方法は<Link href="/clinic/column/clinic-nps-survey" className="text-sky-600 underline hover:text-sky-800">NPS調査導入ガイド</Link>、待ち時間対策については<Link href="/clinic/column/clinic-waiting-time" className="text-sky-600 underline hover:text-sky-800">待ち時間対策ガイド</Link>もあわせてご覧ください。</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-line-case-studies" className="text-blue-600 underline">クリニック LINE 活用事例5選 — 予約・問診・AI返信の導入成果を公開</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-repeat-rate-improvement" className="text-blue-600 underline">クリニック LINE リピート率改善 — 自動フォローで再診率1.5倍にする方法</a>
+        </p>
       </section>
     
       {/* ── FAQ ── */}

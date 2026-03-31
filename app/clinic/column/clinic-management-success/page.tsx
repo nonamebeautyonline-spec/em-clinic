@@ -184,6 +184,12 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICは、クリニック経営に必要な予約・問診・配信・決済・分析をLINE公式アカウント上で一元化。経営の「攻め」と「守り」の両方を支援します。<Link href="/clinic/features" className="text-sky-600 underline hover:text-sky-800">全機能一覧</Link>もあわせてご確認ください。</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-repeat-rate-improvement" className="text-blue-600 underline">クリニック LINE リピート率改善 — 自動フォローで再診率1.5倍にする方法</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/self-pay-clinic-marketing-guide" className="text-blue-600 underline">自費クリニック LINE 集患マーケティング完全ガイド — SEO・広告・SNSの費用対効果比較</a>
+        </p>
       </section>
     
       {/* ── FAQ ── */}

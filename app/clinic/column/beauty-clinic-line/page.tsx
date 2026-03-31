@@ -218,6 +218,12 @@ export default function Page() {
         ]} />
 
         <p className="mt-4">Lオペ for CLINICは、美容クリニックに必要なこれらの機能をオールインワンで提供します。<Link href="/clinic/features#患者CRM" className="text-sky-600 underline hover:text-sky-800">患者CRM</Link>から<Link href="/clinic/features#メッセージ配信" className="text-sky-600 underline hover:text-sky-800">セグメント配信</Link>まで、LINE一つで患者体験を最大化しませんか。オンライン診療との連携に興味がある方は<Link href="/clinic/column/online-medical-line" className="text-sky-600 underline hover:text-sky-800">オンライン診療×LINE</Link>の記事もご覧ください。美容皮膚科の対面×オンラインのハイブリッドモデルは<Link href="/clinic/column/beauty-derma-online-hybrid" className="text-sky-600 underline hover:text-sky-800">美容皮膚科のオンライン診療戦略</Link>で解説しています。</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-line-case-studies" className="text-blue-600 underline">クリニック LINE 活用事例5選 — 予約・問診・AI返信の導入成果を公開</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-repeat-rate-improvement" className="text-blue-600 underline">クリニック LINE リピート率改善 — 自動フォローで再診率1.5倍にする方法</a>
+        </p>
       </section>
 
       <section id="faq">

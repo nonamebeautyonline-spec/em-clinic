@@ -43,7 +43,7 @@ const OUTPUT_DIR = path.join(process.cwd(), `public/${serviceArg}/column/thumbna
 const BG_DIR = path.join(OUTPUT_DIR, "_backgrounds");
 const W = 1200;
 const H = 630;
-const DELAY_MS = 7000; // Imagen API: 10回/分制限のため最低6秒間隔
+const DELAY_MS = 10000; // Imagen API: 10回/分制限のため余裕を持って10秒間隔
 const IMAGEN_MODEL = "imagen-4.0-fast-generate-001";
 const LOGO_PATH = path.join(process.cwd(), "icon.png");
 

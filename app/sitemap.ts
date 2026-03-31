@@ -37,7 +37,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 1.0,
     },
-    /* ─── クリニック向け（/lp） ─── */
+    /* ─── クリニック向け（/clinic） ─── */
+    {
+      url: `${baseUrl}/clinic`,
+      lastModified: pageLastModified.home,
+      changeFrequency: "weekly",
+      priority: 0.95,
+    },
     {
       url: `${baseUrl}/clinic/about`,
       lastModified: pageLastModified.about,

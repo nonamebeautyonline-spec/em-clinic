@@ -263,6 +263,12 @@ export default function Page() {
         <p>Lオペ for CLINICは、セグメント配信・患者属性の自動タグ付け・配信効果の分析ダッシュボードなど、自費診療の売上アップに必要な機能をすべて備えたクリニック専用LINE運用プラットフォームです。<Link href="/clinic/column/segment-delivery-repeat" className="text-emerald-700 underline">セグメント配信の基本</Link>から、<Link href="/clinic/column/clinic-line-revenue-growth" className="text-emerald-700 underline">収益改善の全体戦略</Link>まで、関連コラムもぜひご参照ください。オンライン決済との連携で自費診療の購入導線を整える方法は<Link href="/clinic/column/clinic-payment-guide" className="text-sky-600 underline hover:text-sky-800">オンライン決済導入ガイド</Link>をご覧ください。</p>
 
         <p>自費診療の売上アップに課題を感じているクリニックは、まずは<Link href="/clinic/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>からお気軽にお問い合わせください。現在の運用状況をヒアリングし、最適なセグメント配信の設計をご提案いたします。</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/self-pay-clinic-marketing-guide" className="text-blue-600 underline">自費クリニック LINE 集患マーケティング完全ガイド — SEO・広告・SNSの費用対効果比較</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-repeat-rate-improvement" className="text-blue-600 underline">クリニック LINE リピート率改善 — 自動フォローで再診率1.5倍にする方法</a>
+        </p>
       </section>
     
       {/* ── FAQ ── */}

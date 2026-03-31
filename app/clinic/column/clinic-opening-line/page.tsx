@@ -250,6 +250,12 @@ export default function Page() {
         />
 
         <p>Lオペ for CLINICは、開業準備期間からのLINE構築をトータルサポート。アカウント開設・リッチメニュー設計・予約連携・問診フォーム・自動配信まで、<strong>開業に必要なLINE機能をワンパッケージ</strong>で提供しています。<Link href="/clinic/features" className="text-sky-600 underline hover:text-sky-800">全機能一覧</Link>もご確認の上、開業を控えたドクターはぜひ早めにご相談ください。</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-dx-guide" className="text-blue-600 underline">クリニック LINE DXガイド — 予約・問診・会計をデジタル化する5ステップ</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-line-case-studies" className="text-blue-600 underline">クリニック LINE 活用事例5選 — 予約・問診・AI返信の導入成果を公開</a>
+        </p>
       </section>
 
       <section id="faq">

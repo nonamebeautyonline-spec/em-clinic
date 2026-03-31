@@ -169,6 +169,12 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICは、配信分析ダッシュボード・ABテスト機能・ROI自動算出を<Link href="/clinic/features" className="text-sky-600 underline hover:text-sky-800">標準搭載</Link>したクリニック専用LINE運用プラットフォームです。データに基づいた配信最適化で、通数コストの無駄をなくし、売上最大化を支援します。LINE運用の全体設計については<Link href="/clinic/column/line-operation-guide" className="text-sky-600 underline hover:text-sky-800">LINE運用完全ガイド</Link>も併せてご確認ください。</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-repeat-rate-improvement" className="text-blue-600 underline">クリニック LINE リピート率改善 — 自動フォローで再診率1.5倍にする方法</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/self-pay-clinic-marketing-guide" className="text-blue-600 underline">自費クリニック LINE 集患マーケティング完全ガイド — SEO・広告・SNSの費用対効果比較</a>
+        </p>
       </section>
 
       <section id="faq">

@@ -260,6 +260,12 @@ export default function Page() {
         <p>クリニックDXは「大がかりなシステム導入」ではありません。Lオペ for CLINICなら、すでに患者の多くが使っているLINEをベースに、<strong>段階的に・低コストで・確実に</strong>業務を変革できます。まずは問診と予約のオンライン化から始めて、効果を実感しながら会計・フォローアップへと拡張していく——それがクリニックDX成功の鉄則です。開業医の業務時間の内訳と効率化のポイントは<Link href="/clinic/column/busy-doctor-efficiency" className="text-sky-600 underline hover:text-sky-800">開業医が忙しい理由と業務効率化</Link>を、スタッフの残業削減については<Link href="/clinic/column/clinic-zero-overtime" className="text-sky-600 underline hover:text-sky-800">スタッフ残業ゼロを実現する方法</Link>もご参照ください。</p>
 
         <p>DXの進め方について体系的に学びたい方は<Link href="/clinic/column/clinic-dx-complete-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>をご覧ください。また、売上への直接的なインパクトを知りたい方は<Link href="/clinic/column/clinic-line-revenue-growth" className="text-sky-600 underline hover:text-sky-800">LINE活用でクリニックの売上を伸ばす方法</Link>も参考になります。</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-dx-guide" className="text-blue-600 underline">クリニック LINE DXガイド — 予約・問診・会計をデジタル化する5ステップ</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-line-case-studies" className="text-blue-600 underline">クリニック LINE 活用事例5選 — 予約・問診・AI返信の導入成果を公開</a>
+        </p>
 
         <p className="mt-4">
           <Link href="/clinic/contact" className="inline-block bg-sky-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-sky-700 transition-colors">無料相談・デモを予約する</Link>

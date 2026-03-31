@@ -250,6 +250,12 @@ export default function Page() {
           <li><strong>エスカレーション設計が最重要</strong> — AIが対応すべきでないケースを明確に定義し、確実に人間にバトンタッチ。AI返信の活用全般については<Link href="/clinic/column/clinic-ai-reply-guide" className="text-sky-600 underline hover:text-sky-800">AI返信活用ガイド</Link>、業務効率化の全体像は<Link href="/clinic/column/clinic-dx-complete-guide" className="text-sky-600 underline hover:text-sky-800">クリニックDX完全ガイド</Link>もご参照ください</li>
         </ol>
         <p className="mt-4">Lオペ for CLINICの<Link href="/clinic/features#AI機能" className="text-sky-600 underline hover:text-sky-800">AI自動返信</Link>は、クリニック向けに最適化されたナレッジベースとスタッフ修正フィードバック機能を標準搭載。導入から運用改善まで一貫してサポートします。24時間の問い合わせ対応で、新患獲得を最大化しませんか。</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-dx-guide" className="text-blue-600 underline">クリニック LINE DXガイド — 予約・問診・会計をデジタル化する5ステップ</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-line-case-studies" className="text-blue-600 underline">クリニック LINE 活用事例5選 — 予約・問診・AI返信の導入成果を公開</a>
+        </p>
       </section>
 
       <section id="faq">

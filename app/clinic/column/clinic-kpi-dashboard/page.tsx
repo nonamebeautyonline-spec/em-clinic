@@ -216,6 +216,12 @@ export default function Page() {
           { title: "週次レビューで改善サイクル", desc: "数値に基づいた意思決定を習慣化する" },
         ]} />
         <p className="mt-4">Lオペ for CLINICは、LINE公式アカウントの運用データとクリニックの経営データを統合し、これらのKPIを<Link href="/clinic/features#分析・レポート" className="text-sky-600 underline hover:text-sky-800">ダッシュボード</Link>で一元管理できるプラットフォームです。データドリブンなクリニック経営を始めてみませんか？</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-dx-guide" className="text-blue-600 underline">クリニック LINE DXガイド — 予約・問診・会計をデジタル化する5ステップ</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-repeat-rate-improvement" className="text-blue-600 underline">クリニック LINE リピート率改善 — 自動フォローで再診率1.5倍にする方法</a>
+        </p>
       </section>
     
       {/* ── FAQ ── */}

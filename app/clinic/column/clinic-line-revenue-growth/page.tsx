@@ -299,6 +299,12 @@ export default function Page() {
             <li><Link href="/clinic/column/clinic-patient-retention" className="text-emerald-700 underline">クリニックの患者離脱を防ぐLINEフォローアップ戦略</Link></li>
             <li><Link href="/clinic/column/clinic-line-roi" className="text-emerald-700 underline">クリニックのLINE公式アカウント導入ROI — 費用対効果の計算方法と事例</Link></li>
           </ul>
+          <p className="text-[13px] mt-2">
+            あわせて読みたい: <a href="/clinic/column/self-pay-clinic-marketing-guide" className="text-blue-600 underline">自費クリニック LINE 集患マーケティング完全ガイド — SEO・広告・SNSの費用対効果比較</a>
+          </p>
+          <p className="text-[13px] mt-2">
+            あわせて読みたい: <a href="/clinic/column/clinic-repeat-rate-improvement" className="text-blue-600 underline">クリニック LINE リピート率改善 — 自動フォローで再診率1.5倍にする方法</a>
+          </p>
         </section>
 
         <section id="faq">

@@ -163,6 +163,12 @@ export default function Page() {
         </Callout>
 
         <p>Lオペ for CLINICは、LINE予約データの分析からキャンセル待ち管理、自動リマインドまでを一元管理できるクリニック専用プラットフォームです。まずは現在の予約データを分析して、改善ポイントを把握するところから始めましょう。待ち時間対策による患者満足度向上は<Link href="/clinic/column/clinic-waiting-time" className="text-sky-600 underline hover:text-sky-800">待ち時間対策ガイド</Link>を、経営KPIの設計全体は<Link href="/clinic/column/clinic-kpi-dashboard" className="text-sky-600 underline hover:text-sky-800">クリニック経営のKPI7選</Link>もご参照ください。</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-dx-guide" className="text-blue-600 underline">クリニック LINE DXガイド — 予約・問診・会計をデジタル化する5ステップ</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-repeat-rate-improvement" className="text-blue-600 underline">クリニック LINE リピート率改善 — 自動フォローで再診率1.5倍にする方法</a>
+        </p>
       </section>
     
       {/* ── FAQ ── */}

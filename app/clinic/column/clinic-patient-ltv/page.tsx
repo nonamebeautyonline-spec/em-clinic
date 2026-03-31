@@ -170,6 +170,12 @@ export default function Page() {
         </Callout>
 
         <p>患者LTVの向上は、新患獲得に頼らない安定的なクリニック経営の基盤です。Lオペ for CLINICは、セグメント配信・自動フォロー・ポイント管理・KPIダッシュボードを一体で提供し、LTV最大化を実現します。KPI管理の方法は<Link href="/clinic/column/clinic-kpi-dashboard" className="text-sky-600 underline hover:text-sky-800">LINEダッシュボードで見るべきKPI7選</Link>、紹介制度を活用した新患獲得は<Link href="/clinic/column/clinic-referral-program" className="text-sky-600 underline hover:text-sky-800">紹介制度のLINE化</Link>もご参照ください。</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-repeat-rate-improvement" className="text-blue-600 underline">クリニック LINE リピート率改善 — 自動フォローで再診率1.5倍にする方法</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/self-pay-clinic-marketing-guide" className="text-blue-600 underline">自費クリニック LINE 集患マーケティング完全ガイド — SEO・広告・SNSの費用対効果比較</a>
+        </p>
       </section>
     
       {/* ── FAQ ── */}

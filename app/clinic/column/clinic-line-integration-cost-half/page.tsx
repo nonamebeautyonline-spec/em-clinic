@@ -276,6 +276,12 @@ export default function Page() {
           <li><Link href="/clinic/column/clinic-line-roi" className="text-sky-600 underline hover:text-sky-800">LINE導入ROIの計算方法</Link> — 費用対効果を定量的に算出</li>
           <li><Link href="/clinic/column/clinic-data-migration" className="text-sky-600 underline hover:text-sky-800">データ移行ガイド</Link> — 既存ツールからの安全なデータ移行手順</li>
         </ul>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-dx-guide" className="text-blue-600 underline">クリニック LINE DXガイド — 予約・問診・会計をデジタル化する5ステップ</a>
+        </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/lstep-vs-clinic-tool" className="text-blue-600 underline">クリニック LINE ツール 比較 — Lステップ・Liny vs 専用ツールの選び方</a>
+        </p>
       </section>
 
       <section id="faq">

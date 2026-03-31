@@ -20,6 +20,7 @@ export default function robots(): MetadataRoute.Robots {
 
   // LP・コラムのみ許可するパス（AIクローラー向け）
   const publicAllowPaths = [
+    "/",
     "/clinic",
     "/clinic/about",
     "/clinic/features",

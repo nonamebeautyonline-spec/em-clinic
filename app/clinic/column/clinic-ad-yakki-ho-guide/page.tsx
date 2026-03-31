@@ -350,6 +350,9 @@ export default function Page() {
         <p>クリニックの広告運用は、集患と法令遵守のバランスが求められる高度な業務です。<Link href="/clinic/column/online-clinic-regulations" className="text-sky-600 underline hover:text-sky-800">オンライン診療の法規制</Link>、<Link href="/clinic/column/clinic-self-pay-revenue" className="text-sky-600 underline hover:text-sky-800">自費診療の売上向上戦略</Link>、<Link href="/clinic/column/clinic-line-security" className="text-sky-600 underline hover:text-sky-800">LINE配信のセキュリティ</Link>もあわせてご確認ください。医療広告ガイドラインのより詳しい解説は<Link href="/clinic/column/medical-ad-guideline-compliance" className="text-sky-600 underline hover:text-sky-800">医療広告ガイドライン完全ガイド</Link>を、SNS広告の注意点は<Link href="/clinic/column/clinic-listing-sns-ad-compliance" className="text-sky-600 underline hover:text-sky-800">リスティング広告・SNSの医療広告ガイドライン</Link>もご参照ください。</p>
 
         <p>広告コンプライアンスの体制構築にお悩みのクリニックは、まずは<Link href="/clinic/contact" className="text-sky-600 underline hover:text-sky-800">無料相談</Link>からお気軽にお問い合わせください。Lオペ for CLINICの導入により、法令遵守と効果的な配信を両立できる運用体制をご提案いたします。</p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/self-pay-clinic-marketing-guide" className="text-blue-600 underline">自費クリニック LINE 集患マーケティング完全ガイド — SEO・広告・SNSの費用対効果比較</a>
+        </p>
       </section>
     
       {/* ── FAQ ── */}
