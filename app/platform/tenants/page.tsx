@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import useSWR, { mutate } from "swr";
-import { INDUSTRY_LABELS, INDUSTRY_COLORS, INDUSTRY_ICONS, type Industry } from "@/lib/feature-flags";
+import { INDUSTRY_LABELS, INDUSTRY_COLORS, INDUSTRY_ICONS, type Industry } from "@/lib/feature-flags-shared";
 
 // テナントデータ型
 interface TenantPlan {

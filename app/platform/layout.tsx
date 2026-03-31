@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { SWRConfig } from "swr";
 import Link from "next/link";
 import { ProductProvider } from "@/lib/contexts/product-context";
-import { PRODUCT_NAMES, INDUSTRY_ICONS, type Industry } from "@/lib/feature-flags";
+import { PRODUCT_NAMES, INDUSTRY_ICONS, type Industry } from "@/lib/feature-flags-shared";
 
 // プラットフォーム管理メニュー
 const PLATFORM_MENU_ITEMS = [

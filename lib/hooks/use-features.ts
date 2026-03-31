@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import React from "react";
-import type { Feature } from "@/lib/feature-flags";
+import type { Feature } from "@/lib/feature-flags-shared";
 
 interface FeaturesContextValue {
   enabledFeatures: Feature[];

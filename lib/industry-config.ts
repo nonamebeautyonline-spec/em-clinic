@@ -3,7 +3,7 @@
 // 業種ごとのデフォルト機能・用語・UI設定を一箇所で管理する。
 // テナント作成時やUI表示時に参照する。
 
-import type { Feature, Industry } from "@/lib/feature-flags";
+import type { Feature, Industry } from "@/lib/feature-flags-shared";
 
 // ---------------------------------------------------------------------------
 // 1. 業種別デフォルト機能マッピング

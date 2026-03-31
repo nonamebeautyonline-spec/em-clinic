@@ -3,7 +3,7 @@
 // /admin のサイドバーメニューを業種に応じてフィルタリングする。
 // menu-permissions.ts の menuKey と連動。
 
-import type { Industry } from "@/lib/feature-flags";
+import type { Industry } from "@/lib/feature-flags-shared";
 
 // ---------------------------------------------------------------------------
 // 業種別に表示するメニューキーの定義
