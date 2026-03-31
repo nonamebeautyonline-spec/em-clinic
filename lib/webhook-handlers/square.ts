@@ -327,7 +327,7 @@ export async function processSquareEvent(params: SquareHandlerParams): Promise<v
         .select("id", { count: "exact", head: true })
         .eq("patient_id", patientId)
         .eq("message_type", "payment_thank")
-        .gte("created_at", new Date(Date.now() - 5 * 60_000).toISOString());
+        .gte("sent_at", new Date(Date.now() - 5 * 60_000).toISOString());
       alreadyNotified = (count ?? 0) > 0;
     }
     if (patientId && !alreadyNotified) {
