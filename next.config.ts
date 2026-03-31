@@ -10,25 +10,65 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
-      /* コラム記事 — CDNキャッシュ24h + stale-while-revalidate */
+      /* クリニックコラム記事 — CDNキャッシュ24h + stale-while-revalidate */
       {
-        source: "/lp/column/:slug((?!category|thumbnails|_components)[^/]+)",
+        source: "/clinic/column/:slug((?!category|thumbnails|_components)[^/]+)",
         headers: [
           { key: "Cache-Control", value: "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" },
         ],
       },
-      /* OG画像 — 7日キャッシュ */
+      /* クリニックOG画像 — 7日キャッシュ */
       {
-        source: "/lp/column/:slug/opengraph-image",
+        source: "/clinic/column/:slug/opengraph-image",
         headers: [
           { key: "Cache-Control", value: "public, max-age=604800, immutable" },
         ],
       },
-      /* サムネイル画像 — ブラウザ1日 + CDN7日（再デプロイで自動パージ） */
+      /* クリニックサムネイル画像 — ブラウザ1日 + CDN7日 */
       {
-        source: "/lp/column/thumbnails/:path*",
+        source: "/clinic/column/thumbnails/:path*",
         headers: [
           { key: "Cache-Control", value: "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400" },
+        ],
+      },
+      /* 汎用LINEコラム記事 — CDNキャッシュ24h + stale-while-revalidate */
+      {
+        source: "/line/column/:slug((?!category|thumbnails|_components)[^/]+)",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" },
+        ],
+      },
+      /* 汎用LINE OG画像 — 7日キャッシュ */
+      {
+        source: "/line/column/:slug/opengraph-image",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=604800, immutable" },
+        ],
+      },
+      /* サロンコラム記事 */
+      {
+        source: "/salon/column/:slug((?!category|thumbnails|_components)[^/]+)",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" },
+        ],
+      },
+      {
+        source: "/salon/column/:slug/opengraph-image",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=604800, immutable" },
+        ],
+      },
+      /* EC コラム記事 */
+      {
+        source: "/ec/column/:slug((?!category|thumbnails|_components)[^/]+)",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" },
+        ],
+      },
+      {
+        source: "/ec/column/:slug/opengraph-image",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=604800, immutable" },
         ],
       },
       {

@@ -142,13 +142,22 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // === /lp 配下はルートドメイン(l-ope.jp) と localhost のみ許可 ===
+  // === /lp→/clinic 301リダイレクト（SEO移行） ===
+  if (pathname.startsWith("/lp")) {
+    const newPath = pathname.replace(/^\/lp/, "/clinic");
+    const url = req.nextUrl.clone();
+    url.pathname = newPath;
+    return NextResponse.redirect(url, 301);
+  }
+
+  // === LP・コラム配下はルートドメイン(l-ope.jp) と localhost のみ許可 ===
   // テナントサブドメイン（noname-beauty.l-ope.jp 等）では非表示
   const bareHost = host.replace(/:\d+$/, "");
   const isRootDomain = hostWithoutPort === "l-ope.jp" || hostWithoutPort === "www.l-ope.jp";
   const isLocalhost = hostWithoutPort === "localhost" || hostWithoutPort.startsWith("localhost");
   const isNonameBare = bareHost === "noname-beauty.jp" || bareHost === "www.noname-beauty.jp";
-  if ((pathname.startsWith("/lp") || pathname === "/") && !isLocalhost && !isRootDomain && !isOrdix && !isNonameBare) {
+  const isPublicPath = pathname.startsWith("/clinic") || pathname.startsWith("/line") || pathname.startsWith("/salon") || pathname.startsWith("/ec") || pathname === "/";
+  if (isPublicPath && !isLocalhost && !isRootDomain && !isOrdix && !isNonameBare) {
     return new NextResponse("Not Found", { status: 404 });
   }
 

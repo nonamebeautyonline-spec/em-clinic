@@ -20,14 +20,29 @@ export default function robots(): MetadataRoute.Robots {
 
   // LP・コラムのみ許可するパス（AIクローラー向け）
   const publicAllowPaths = [
-    "/lp",
-    "/lp/about",
-    "/lp/features",
-    "/lp/contact",
-    "/lp/column",
-    "/lp/terms",
-    "/lp/privacy",
-    "/lp/cancel",
+    "/clinic",
+    "/clinic/about",
+    "/clinic/features",
+    "/clinic/contact",
+    "/clinic/column",
+    "/clinic/terms",
+    "/clinic/privacy",
+    "/clinic/cancel",
+    "/line",
+    "/line/about",
+    "/line/features",
+    "/line/contact",
+    "/line/column",
+    "/salon",
+    "/salon/about",
+    "/salon/features",
+    "/salon/contact",
+    "/salon/column",
+    "/ec",
+    "/ec/about",
+    "/ec/features",
+    "/ec/contact",
+    "/ec/column",
   ];
 
   return {

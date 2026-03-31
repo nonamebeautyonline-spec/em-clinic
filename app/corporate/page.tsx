@@ -136,42 +136,109 @@ export default function CorporateTopPage() {
         </ParallaxText>
       </section>
 
-      {/* ═══════════ SECTION — Product & Mission ═══════════ */}
+      {/* ═══════════ SECTION — Product ═══════════ */}
       <section className="relative px-6 py-32 md:px-16 md:py-48">
         <MouseGradient size={800} opacity={0.05} />
         <div className="relative mx-auto max-w-7xl">
-          <div className="grid gap-20 md:grid-cols-2 md:items-center">
-            <ScrollReveal direction="left">
-              <div>
-                <span className="inline-flex items-center gap-2 text-[11px] font-medium tracking-[0.3em] text-slate-600">
-                  <span className="h-px w-8 bg-slate-800" />
-                  What we build
-                </span>
-                <div className="mt-10">
-                  <TextScramble as="p" delay={200} className="text-[80px] font-black leading-none text-slate-800/30 md:text-[120px]">
-                    01
-                  </TextScramble>
-                </div>
-              </div>
-            </ScrollReveal>
-
-            <div>
-              <ScrollReveal>
-                <h2 className="text-3xl font-black leading-snug text-white md:text-5xl">
-                  Lオペ for CLINIC
-                </h2>
-              </ScrollReveal>
-              <ScrollReveal delay={200}>
-                <p className="mt-8 max-w-md text-[15px] leading-[1.9] text-slate-500">
-                  クリニック特化のLINE運用プラットフォーム。
-                  予約・問診・決済・CRMをLINEに統合。
-                </p>
-              </ScrollReveal>
+          {/* セクションヘッダー */}
+          <ScrollReveal direction="left">
+            <div className="mb-20">
+              <span className="inline-flex items-center gap-2 text-[11px] font-medium tracking-[0.3em] text-slate-600">
+                <span className="h-px w-8 bg-slate-800" />
+                What we build
+              </span>
+              <h2 className="mt-6 text-3xl font-black text-white md:text-5xl">
+                Lオペ シリーズ
+              </h2>
+              <p className="mt-4 max-w-lg text-[15px] leading-[1.9] text-slate-500">
+                業種ごとに最適化されたLINE運用プラットフォーム
+              </p>
             </div>
+          </ScrollReveal>
+
+          {/* 4サービスグリッド */}
+          <div className="grid gap-6 md:grid-cols-2">
+            {[
+              {
+                name: "Lオペ",
+                desc: "LINE公式アカウントの高度な運用・自動化プラットフォーム",
+                color: "#06C755",
+                href: "/line/",
+                coming: false,
+              },
+              {
+                name: "Lオペ for CLINIC",
+                desc: "クリニック特化。予約・問診・決済・CRMをLINEに統合",
+                color: "#3b82f6",
+                href: "/clinic/",
+                coming: false,
+              },
+              {
+                name: "Lオペ for SALON",
+                desc: "美容サロン・エステ向けの予約・顧客管理プラットフォーム",
+                color: "#ec4899",
+                href: "/salon/",
+                coming: true,
+              },
+              {
+                name: "Lオペ for EC",
+                desc: "EC・小売向けのLINE CRM・販促プラットフォーム",
+                color: "#8B7355",
+                href: "/ec/",
+                coming: true,
+              },
+            ].map((product, i) => (
+              <ScrollReveal key={product.name} delay={i * 100}>
+                <div className="group relative overflow-hidden rounded-2xl border border-slate-800/50 bg-slate-900/50 p-8 transition-all duration-500 hover:border-slate-700 md:p-10">
+                  {/* テーマカラーのアクセント */}
+                  <div
+                    className="absolute left-0 top-0 h-1 w-full opacity-60"
+                    style={{ backgroundColor: product.color }}
+                  />
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-2xl font-black text-white md:text-3xl">
+                        {product.name}
+                      </h3>
+                      {product.coming && (
+                        <span className="mt-3 inline-block rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-bold text-amber-400">
+                          準備中
+                        </span>
+                      )}
+                    </div>
+                    {/* テーマカラーのドット */}
+                    <span
+                      className="mt-2 inline-block h-3 w-3 shrink-0 rounded-full"
+                      style={{ backgroundColor: product.color }}
+                    />
+                  </div>
+                  <p className="mt-4 text-[14px] leading-[1.8] text-slate-500">
+                    {product.desc}
+                  </p>
+                  {!product.coming ? (
+                    <a
+                      href={product.href}
+                      className="mt-6 inline-flex items-center gap-2 text-[13px] font-medium text-slate-400 transition-colors duration-300 hover:text-white"
+                      data-cursor-hover
+                    >
+                      詳しく見る
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-1">
+                        <path d="M3 8h10m-4-4 4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </a>
+                  ) : (
+                    <span className="mt-6 inline-block text-[13px] text-slate-600">
+                      Coming Soon
+                    </span>
+                  )}
+                </div>
+              </ScrollReveal>
+            ))}
           </div>
         </div>
       </section>
 
+      {/* ═══════════ SECTION — Mission ═══════════ */}
       <section className="relative overflow-hidden px-6 py-32 md:px-16 md:py-48">
         <div className="pointer-events-none absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500/[0.03] blur-[150px]" />
         <div className="relative mx-auto max-w-7xl">
