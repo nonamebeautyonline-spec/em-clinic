@@ -92,6 +92,7 @@ export function useMessageHandlers(
     selectedPatientRef,
     messagesRef,
     autoSelectedRef,
+    showUnreadOnly,
   } = state;
 
   const { fetchFriends, markAsRead, savePins } = deps;
@@ -830,8 +831,11 @@ export function useMessageHandlers(
     } catch { return null; }
   }, []);
 
-  // 算出値
-  const filteredFriends = friends;
+  // 算出値（未読フィルタはクライアントサイドで即座に適用）
+  const filteredFriends = useMemo(
+    () => showUnreadOnly ? friends.filter(f => f.is_unread) : friends,
+    [friends, showUnreadOnly],
+  );
   // 未読カウントはサイドバーと同じAPIから取得（ページネーション範囲外の未読も正確にカウント）
   const { data: unreadData } = useSWR<{ count: number }>(
     "/api/admin/unread-count",

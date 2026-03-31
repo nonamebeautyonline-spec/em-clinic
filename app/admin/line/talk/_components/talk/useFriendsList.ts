@@ -164,7 +164,8 @@ export function useFriendsList(state: TalkState) {
     // ピン取得完了 → fetchFriends経由で友達一覧を取得（初期化時は検索/フィルタなし）
     // 未読状態はfriends-listレスポンスのis_unreadで完結（chat-reads GET不要）
     pinsReadyRef.current = true;
-    await fetchFriendsRef.current({ id: "", name: "", unreadOnly: false });
+    // showUnreadOnlyの現在値を尊重（初期化前にチェックされている可能性）
+    await fetchFriendsRef.current({ id: "", name: "" });
   }, [setPinnedIds, pinnedIdsRef, setVisibleSections, pinsReadyRef]);
 
   useEffect(() => {
@@ -229,7 +230,6 @@ export function useFriendsList(state: TalkState) {
   const prevSearchIdRef = useRef(searchId);
   const prevSearchNameRef = useRef(searchName);
   useEffect(() => {
-    if (!pinsReadyRef.current) return;
     if (friendsSearchTimer.current) clearTimeout(friendsSearchTimer.current);
 
     // showUnreadOnly切替はデバウンスなしで即座にfetch（60件→5件フラッシュ防止）
@@ -239,10 +239,12 @@ export function useFriendsList(state: TalkState) {
     prevSearchIdRef.current = searchId;
     prevSearchNameRef.current = searchName;
 
+    // ピン初期化前はfetchせずinitPinsAndReadsに任せる
+    // （クライアントサイドフィルタで即座に絞り込まれるのでリストクリア不要）
+    if (!pinsReadyRef.current) return;
+
     if (unreadChanged && !textChanged) {
-      // チェックボックス切替 → 即座にfetch（リストをクリアしてローディング表示）
-      setFriends([]);
-      setFriendsSearching(true);
+      // チェックボックス切替 → クライアントサイドで即フィルタ済み、裏でサーバー同期
       fetchFriends({ id: searchId, name: searchName, unreadOnly: showUnreadOnly });
       return;
     }
