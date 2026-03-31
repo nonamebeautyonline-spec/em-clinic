@@ -279,12 +279,6 @@ export async function POST(req: NextRequest) {
 
     // タグ自動付与（fire-and-forget）
     evaluateTagAutoRules(patientId, "checkout_completed", tid).catch(() => {});
-    // イベントバス発火（スコアリング・広告CAPI等）
-    if (tid) {
-      import("@/lib/event-bus").then(({ fireEvent }) =>
-        fireEvent("checkout_completed", { tenantId: tid, patientId }).catch(() => {}),
-      );
-    }
 
     return NextResponse.json({
       success: true,
