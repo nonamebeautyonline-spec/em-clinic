@@ -242,36 +242,41 @@ export async function POST(req: NextRequest) {
     }
 
 
-    // 決済完了サンクスFlex送信
-    try {
-      const rules = await getBusinessRules(tid);
-      if (rules.notifyReorderPaid) {
-        const thankMsg = rules.paymentThankMessageCard || "お支払いありがとうございます。発送準備を進めてまいります。";
-        const { data: pt } = await withTenant(
-          supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
-          tenantId
-        );
-        if (pt?.line_id) {
-          await sendPaymentThankNotification({
-            patientId,
-            lineUid: pt.line_id,
-            message: thankMsg,
-            shipping: {
-              shippingName: shipping.name,
-              postalCode: shipping.postalCode,
-              address: shipping.address,
-              phone: finalPhone,
-              email: shipping.email,
-            },
-            paymentMethod: "credit_card",
-            productName: product.title,
-            amount: product.price,
-            tenantId: tid,
-          });
+    // 決済完了サンクスFlex送信（分散ロックで webhook との二重送信を防止）
+    const thankLock = await acquireLock(`payment-thank:${paymentId}`, 60);
+    if (thankLock.acquired) {
+      try {
+        const rules = await getBusinessRules(tid);
+        if (rules.notifyReorderPaid) {
+          const thankMsg = rules.paymentThankMessageCard || "お支払いありがとうございます。発送準備を進めてまいります。";
+          const { data: pt } = await withTenant(
+            supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
+            tenantId
+          );
+          if (pt?.line_id) {
+            await sendPaymentThankNotification({
+              patientId,
+              lineUid: pt.line_id,
+              message: thankMsg,
+              shipping: {
+                shippingName: shipping.name,
+                postalCode: shipping.postalCode,
+                address: shipping.address,
+                phone: finalPhone,
+                email: shipping.email,
+              },
+              paymentMethod: "credit_card",
+              productName: product.title,
+              amount: product.price,
+              tenantId: tid,
+            });
+          }
         }
+      } catch (thankErr) {
+        console.error("[square/pay] payment thank message error:", thankErr);
+      } finally {
+        await thankLock.release();
       }
-    } catch (thankErr) {
-      console.error("[square/pay] payment thank message error:", thankErr);
     }
 
     // キャッシュ削除

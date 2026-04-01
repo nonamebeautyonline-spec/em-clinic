@@ -319,18 +319,27 @@ export async function processSquareEvent(params: SquareHandlerParams): Promise<v
     }
 
     // 決済完了サンクスFlex送信
-    // inline決済（/api/square/pay）で既に通知済みなら二重送信しない
-    let alreadyNotified = false;
+    // 分散ロックで排他制御（/api/square/pay と webhook の同時送信を防止）
+    let thankLock: { acquired: boolean; release: () => Promise<void> } | null = null;
     if (patientId) {
+      const { acquireLock } = await import("@/lib/distributed-lock");
+      thankLock = await acquireLock(`payment-thank:${paymentId}`, 60);
+    }
+    if (patientId && thankLock?.acquired) {
+      // ロック取得後に message_log を再チェック（/api/square/pay が先に送信済みか確認）
       const { count } = await supabaseAdmin
         .from("message_log")
         .select("id", { count: "exact", head: true })
         .eq("patient_id", patientId)
         .eq("message_type", "payment_thank")
         .gte("sent_at", new Date(Date.now() - 5 * 60_000).toISOString());
-      alreadyNotified = (count ?? 0) > 0;
+      const alreadyNotified = (count ?? 0) > 0;
+      if (alreadyNotified) {
+        await thankLock.release();
+        thankLock = null;
+      }
     }
-    if (patientId && !alreadyNotified) {
+    if (patientId && thankLock?.acquired) {
       try {
         const rules = await getBusinessRules(tenantId ?? undefined);
         if (rules.notifyReorderPaid) {
@@ -359,6 +368,8 @@ export async function processSquareEvent(params: SquareHandlerParams): Promise<v
         }
       } catch (thankErr) {
         console.error("[square/handler] payment thank message error:", thankErr);
+      } finally {
+        await thankLock!.release();
       }
     }
 
