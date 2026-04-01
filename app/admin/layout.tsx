@@ -171,24 +171,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             setTenantRole(data.user?.tenantRole || "admin");
             setAllowedMenuKeys(data.user?.allowedMenuKeys ?? null);
             setIndustry((data.user?.industry as Industry) || "clinic");
+            // 認証完了とローディング解除を同時に行う（間にawaitを挟まない）
             setIsAuthenticated(true);
-
-            // 初回ログイン時: セットアップ未完了ならオンボーディングへリダイレクト
-            if (!pathname.startsWith("/admin/onboarding")) {
-              try {
-                const statusRes = await fetch("/api/admin/setup-status", { credentials: "include" });
-                if (statusRes.ok) {
-                  const statusData = await statusRes.json();
-                  if (statusData.completedCount === 0) {
-                    router.push("/admin/onboarding");
-                    setLoading(false);
-                    return;
-                  }
-                }
-              } catch { /* セットアップ状態取得失敗は無視してダッシュボードへ */ }
-            }
-
             setLoading(false);
+
+            // 初回ログイン時: セットアップ未完了ならオンボーディングへリダイレクト（認証後に非同期で実行）
+            if (!pathname.startsWith("/admin/onboarding")) {
+              fetch("/api/admin/setup-status", { credentials: "include" })
+                .then((r) => r.ok ? r.json() : null)
+                .then((d) => {
+                  if (d?.completedCount === 0) {
+                    router.push("/admin/onboarding");
+                  }
+                })
+                .catch(() => {});
+            }
             return;
           }
         }
