@@ -78,6 +78,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
   const [platformRole, setPlatformRole] = useState<string>("tenant_admin");
   const [tenantRole, setTenantRole] = useState<string>("admin");
@@ -131,9 +132,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           credentials: "include",
         });
 
-        // デバッグログ（一時的）
+        // デバッグログ（一時的 — 画面表示）
         const body = await res.json().catch(() => null);
-        console.log("[auth-debug] session check:", { status: res.status, ok: res.ok, body, retry: retryCount, pathname });
+        const logMsg = `[${new Date().toLocaleTimeString()}] status=${res.status} ok=${body?.ok} retry=${retryCount} path=${pathname}`;
+        console.log("[auth-debug]", logMsg);
+        setDebugLog(prev => [...prev.slice(-9), logMsg]);
 
         if (res.ok) {
           const data = body;
@@ -301,6 +304,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
           <p className="mt-4 text-slate-600">読み込み中...</p>
+          {/* デバッグ情報（一時的） */}
+          {debugLog.length > 0 && (
+            <div className="mt-6 text-left text-xs font-mono bg-black text-green-400 p-3 rounded max-w-sm mx-auto overflow-auto max-h-48">
+              <p className="text-yellow-400 mb-1">DEBUG: loading={String(loading)} auth={String(isAuthenticated)}</p>
+              {debugLog.map((l, i) => <p key={i}>{l}</p>)}
+            </div>
+          )}
         </div>
       </div>
     );
