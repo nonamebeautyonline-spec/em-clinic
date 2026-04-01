@@ -315,13 +315,18 @@ export async function middleware(req: NextRequest) {
       console.error("[middleware] subdomain resolve error:", e);
     }
 
-    // サブドメインが存在するのにテナント解決失敗 → 404
-    // ただし Cron / webhook / 患者向けAPIはテナント不要で動作するためスキップ
-    if (!tenantId && !pathname.startsWith("/api/cron/") && !pathname.startsWith("/api/line/webhook") && !pathname.startsWith("/api/health")) {
-      return NextResponse.json(
-        { ok: false, error: "テナントが見つかりません" },
-        { status: 404 },
-      );
+    // サブドメインが存在するのにテナント解決失敗 → JWTのtenantIdにフォールバック or 404
+    // キャッシュ切れ＋DB一時障害で認証済みユーザーが弾かれるのを防ぐ
+    if (!tenantId) {
+      if (jwtTenantId) {
+        // JWTに有効なtenantIdがあればフォールバック（認証済みユーザーの保護）
+        tenantId = jwtTenantId;
+      } else if (!pathname.startsWith("/api/cron/") && !pathname.startsWith("/api/line/webhook") && !pathname.startsWith("/api/health")) {
+        return NextResponse.json(
+          { ok: false, error: "テナントが見つかりません" },
+          { status: 404 },
+        );
+      }
     }
 
     // JWTのtenantIdがない（古いセッション）or 不一致 → 再ログインさせる
@@ -349,12 +354,18 @@ export async function middleware(req: NextRequest) {
         });
         return response;
       }
-      // APIアクセスの場合は401を返す
+      // APIアクセスの場合は401を返し、Cookieもクリア
       if (pathname.startsWith("/api/admin/")) {
-        return NextResponse.json(
+        const apiRes = NextResponse.json(
           { ok: false, error: "別テナントのセッションです。再ログインしてください。" },
           { status: 401 },
         );
+        apiRes.cookies.set("admin_session", "", {
+          maxAge: 0,
+          path: "/",
+          domain: ".l-ope.jp",
+        });
+        return apiRes;
       }
     }
   } else {

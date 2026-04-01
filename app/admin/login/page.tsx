@@ -32,12 +32,12 @@ export default function AdminLoginPage() {
         if (res.ok) {
           const data = await res.json();
           if (data.ok) {
-            router.push("/admin");
+            router.replace("/admin/dashboard");
             return;
           }
         }
       } catch {
-        // セッションなし
+        // セッションなし or ネットワークエラー
       }
 
       // 古いlocalStorageトークンがあれば削除
@@ -78,7 +78,7 @@ export default function AdminLoginPage() {
         return;
       }
 
-      router.push("/admin");
+      router.replace("/admin/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {

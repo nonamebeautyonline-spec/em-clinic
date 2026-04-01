@@ -124,7 +124,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // 認証済みなら再チェック不要（ページ遷移時のスピナー防止）
     if (isAuthenticated) return;
 
-    const checkSession = async () => {
+    const checkSession = async (retryCount = 0) => {
       try {
         const res = await fetch("/api/admin/session", {
           method: "GET",
@@ -189,12 +189,29 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             return;
           }
         }
-      } catch {
-        // セッションチェック失敗
-      }
 
-      // 認証失敗 → ログインへ
-      router.push("/admin/login");
+        // 明示的な401/403 → セッション無効、ログインへ
+        if (res.status === 401 || res.status === 403) {
+          router.replace("/admin/login");
+          return;
+        }
+
+        // サーバーエラー(5xx)等 → リトライ（最大2回）
+        if (retryCount < 2) {
+          await new Promise((r) => setTimeout(r, 1000));
+          return checkSession(retryCount + 1);
+        }
+        // リトライ上限 → ログインへ
+        router.replace("/admin/login");
+        return;
+      } catch {
+        // ネットワークエラー → リトライ（最大2回）
+        if (retryCount < 2) {
+          await new Promise((r) => setTimeout(r, 1000));
+          return checkSession(retryCount + 1);
+        }
+        router.replace("/admin/login");
+      }
     };
 
     checkSession();
