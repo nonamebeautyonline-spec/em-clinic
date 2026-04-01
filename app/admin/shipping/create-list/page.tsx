@@ -469,17 +469,18 @@ export default function CreateShippingListPage() {
       let allPaymentIds: string[] = latestSelected.map((item) => item.id);
 
       if (isMerged && originalItems.length > 0) {
-        // 選択されているアイテムの名前リスト
-        const selectedNames = latestSelected.map((item) => item.editable.name);
+        // 選択されているアイテムの郵便番号リスト（正規化済み）
+        const selectedPostals = latestSelected.map((item) =>
+          item.editable.postal_code.replace(/[-\s\u3000]/g, "").trim()
+        );
 
         console.log("[ExportYamatoB2] Merged mode detected");
-        console.log("[ExportYamatoB2] Selected names:", selectedNames);
+        console.log("[ExportYamatoB2] Selected postals:", selectedPostals);
         console.log("[ExportYamatoB2] OriginalItems count:", originalItems.length);
 
-        // 統合前のoriginalItemsから、選択されている名前と同じものを全て取得
-        // ★ item.selectedのチェックを外す（統合前の選択状態は関係ない）
+        // 統合前のoriginalItemsから、選択されている郵便番号と同じものを全て取得
         const originalSelectedItems = originalItems.filter((item) =>
-          selectedNames.includes(item.editable.name)
+          selectedPostals.includes(item.editable.postal_code.replace(/[-\s\u3000]/g, "").trim())
         );
 
         console.log("[ExportYamatoB2] OriginalSelectedItems count:", originalSelectedItems.length);
