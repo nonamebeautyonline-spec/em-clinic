@@ -122,12 +122,12 @@ export default function SegmentWidget() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-md font-bold text-slate-900 mb-4">
           セグメント分布
         </h3>
         <div className="flex items-center justify-center h-48">
-          <div className="inline-block animate-spin rounded-full h-6 w-6 border-4 border-blue-600 border-t-transparent" />
+          <div className="inline-block animate-spin rounded-full h-6 w-6 border-4 border-slate-900 border-t-transparent" />
         </div>
       </div>
     );
@@ -135,7 +135,7 @@ export default function SegmentWidget() {
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-md font-bold text-slate-900 mb-4">
           セグメント分布
         </h3>
@@ -148,7 +148,7 @@ export default function SegmentWidget() {
 
   if (total === 0 || chartData.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-md font-bold text-slate-900 mb-4">
           セグメント分布
         </h3>
@@ -166,7 +166,7 @@ export default function SegmentWidget() {
                 // 無視
               }
             }}
-            className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-3 py-1.5 bg-slate-900 text-white text-xs rounded-lg hover:bg-slate-800 transition-colors"
           >
             セグメントを計算する
           </button>
@@ -176,7 +176,7 @@ export default function SegmentWidget() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+    <div className="bg-white rounded-2xl border border-slate-100 p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-md font-bold text-slate-900">セグメント分布</h3>
         <span className="text-xs text-slate-500">合計 {total}人</span>

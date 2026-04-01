@@ -64,16 +64,16 @@ export default function LTVWidget() {
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 animate-pulse">
-        <div className="h-4 w-32 bg-slate-200 rounded mb-4" />
-        <div className="h-64 bg-slate-100 rounded" />
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 animate-pulse">
+        <div className="h-4 w-32 bg-slate-50 rounded mb-4" />
+        <div className="h-64 bg-slate-50 rounded" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-md font-bold text-slate-900 mb-4">LTV分析</h3>
         <div className="flex items-center justify-center h-48 text-red-500 text-sm">{error instanceof Error ? error.message : "エラーが発生しました"}</div>
       </div>
@@ -82,7 +82,7 @@ export default function LTVWidget() {
 
   if (!data) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-md font-bold text-slate-900 mb-4">LTV分析</h3>
         <div className="flex items-center justify-center h-48 text-slate-400 text-sm">
           データがありません
@@ -94,29 +94,29 @@ export default function LTVWidget() {
   return (
     <div className="space-y-6">
       {/* LTV概要 */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-md font-bold text-slate-900 mb-4">LTV分析</h3>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-            <div className="text-xs text-blue-600 mb-1">平均LTV</div>
-            <div className="text-lg font-bold text-blue-900">
+          <div className="bg-white rounded-2xl p-3 border border-slate-100">
+            <div className="text-xs text-slate-400 mb-1">平均LTV</div>
+            <div className="text-lg font-bold text-slate-900">
               ¥{data.overview.avgLTV.toLocaleString()}
             </div>
           </div>
-          <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+          <div className="bg-white rounded-2xl p-3 border border-slate-100">
             <div className="text-xs text-slate-500 mb-1">中央値LTV</div>
             <div className="text-lg font-bold text-slate-900">
               ¥{data.overview.medianLTV.toLocaleString()}
             </div>
           </div>
-          <div className="bg-amber-50 rounded-lg p-3 border border-amber-100">
-            <div className="text-xs text-amber-600 mb-1">上位10% 平均</div>
-            <div className="text-lg font-bold text-amber-900">
+          <div className="bg-white rounded-2xl p-3 border border-slate-100">
+            <div className="text-xs text-slate-400 mb-1">上位10% 平均</div>
+            <div className="text-lg font-bold text-slate-900">
               ¥{data.overview.top10AvgLTV.toLocaleString()}
             </div>
           </div>
-          <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+          <div className="bg-white rounded-2xl p-3 border border-slate-100">
             <div className="text-xs text-slate-500 mb-1">対象患者数</div>
             <div className="text-lg font-bold text-slate-900">
               {data.overview.totalPatients}人
@@ -163,11 +163,11 @@ export default function LTVWidget() {
 
       {/* セグメント別LTV */}
       {data.segments.length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+        <div className="bg-white rounded-2xl border border-slate-100 p-6">
           <h3 className="text-md font-bold text-slate-900 mb-4">セグメント別LTV</h3>
           <div className="space-y-3">
             {data.segments.map((seg) => (
-              <div key={seg.segment} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+              <div key={seg.segment} className="flex items-center justify-between p-3 border-b border-slate-100 last:border-b-0">
                 <div className="flex items-center gap-3">
                   <span
                     className="inline-block w-3 h-3 rounded-full"

@@ -32,40 +32,47 @@ export function DashboardHeader({
   widgetMenuRef,
   rangeLabelJa,
 }: DashboardHeaderProps) {
+  const rangeOptions = [
+    { value: "today", label: "今日" },
+    { value: "yesterday", label: "昨日" },
+    { value: "this_week", label: "今週" },
+    { value: "last_week", label: "先週" },
+    { value: "this_month", label: "今月" },
+    { value: "last_month", label: "先月" },
+    { value: "custom", label: "カスタム" },
+  ];
+
   return (
     <div className="mb-8 flex items-center justify-between">
       <div className="flex items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">ダッシュボード</h1>
-          <p className="text-slate-500 text-sm mt-1">{rangeLabelJa}の運営指標</p>
+          <h1 className="text-2xl font-bold text-slate-900">ダッシュボード</h1>
+          <p className="text-slate-400 text-sm mt-0.5">{rangeLabelJa}の運営指標</p>
         </div>
-        {/* SSE接続状態インジケーター */}
         {dateRange === "today" && (
           <SSEStatusIndicator status={sseStatus} />
         )}
       </div>
 
-      {/* 日付選択 + ウィジェット設定 */}
       <div className="flex items-center gap-3">
         {/* ウィジェット表示設定ボタン */}
         <div className="relative" ref={widgetMenuRef}>
           <button
             onClick={() => setShowWidgetMenu((prev: boolean) => !prev)}
-            className="p-2 bg-white border border-slate-300 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-sm"
+            className="p-2 bg-white border border-slate-100 rounded-xl text-slate-400 hover:text-slate-600 hover:border-slate-300 transition-colors"
             aria-label="ウィジェット設定"
             title="ウィジェット表示設定"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </button>
 
-          {/* ドロップダウンメニュー */}
           {showWidgetMenu && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-2 max-h-[70vh] overflow-y-auto">
+            <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-100 rounded-xl shadow-lg z-50 py-2 max-h-[70vh] overflow-y-auto">
               <div className="px-3 py-2 border-b border-slate-100">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                   KPIカード
                 </span>
               </div>
@@ -89,13 +96,13 @@ export function DashboardHeader({
                     type="checkbox"
                     checked={widgetSettings[key]}
                     onChange={() => toggleWidget(key)}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-slate-300 text-slate-900 focus:ring-slate-500"
                   />
-                  <span className="text-sm text-slate-700">{label}</span>
+                  <span className="text-sm text-slate-600">{label}</span>
                 </label>
               ))}
               <div className="px-3 py-2 border-t border-b border-slate-100 mt-1">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                   チャート・タブ
                 </span>
               </div>
@@ -110,28 +117,31 @@ export function DashboardHeader({
                     type="checkbox"
                     checked={widgetSettings[key]}
                     onChange={() => toggleWidget(key)}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-slate-300 text-slate-900 focus:ring-slate-500"
                   />
-                  <span className="text-sm text-slate-700">{label}</span>
+                  <span className="text-sm text-slate-600">{label}</span>
                 </label>
               ))}
             </div>
           )}
         </div>
 
-        <select
-          value={dateRange}
-          onChange={(e) => setDateRange(e.target.value)}
-          className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-        >
-          <option value="today">今日</option>
-          <option value="yesterday">昨日</option>
-          <option value="this_week">今週</option>
-          <option value="last_week">先週</option>
-          <option value="this_month">今月</option>
-          <option value="last_month">先月</option>
-          <option value="custom">カスタム</option>
-        </select>
+        {/* 日付範囲セグメントコントロール */}
+        <div className="flex bg-slate-100 rounded-xl p-1">
+          {rangeOptions.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setDateRange(opt.value)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                dateRange === opt.value
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
 
         {dateRange === "custom" && (
           <>
@@ -139,14 +149,14 @@ export function DashboardHeader({
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 bg-white border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
             />
-            <span className="text-slate-400">〜</span>
+            <span className="text-slate-300">〜</span>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 bg-white border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
             />
           </>
         )}

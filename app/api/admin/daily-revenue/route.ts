@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
-import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantIdOrThrow } from "@/lib/tenant";
+import { verifyAdminAuth, getAdminTenantId } from "@/lib/admin-auth";
+import { resolveTenantId } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +26,10 @@ export async function GET(req: NextRequest) {
     const lastDay = new Date(year, month, 0).getDate();
     const endDate = `${yearMonth}-${String(lastDay).padStart(2, "0")}`; // 月末日
 
-    const tenantId = resolveTenantIdOrThrow(req);
+    const tenantId = resolveTenantId(req) || await getAdminTenantId(req);
+    if (!tenantId) {
+      return NextResponse.json({ ok: false, error: "tenant_not_found" }, { status: 400 });
+    }
 
     const { data, error } = await supabaseAdmin.rpc("daily_revenue_summary", {
       p_tenant_id: tenantId,

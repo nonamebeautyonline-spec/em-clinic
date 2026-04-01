@@ -7,29 +7,27 @@ interface SSEStatusIndicatorProps {
 export function SSEStatusIndicator({ status }: SSEStatusIndicatorProps) {
   const config = {
     connected: {
-      dotClass: "bg-green-500",
+      dotClass: "bg-emerald-400",
       label: "リアルタイム",
-      containerClass: "bg-green-50 text-green-700 border-green-200",
+      containerClass: "text-emerald-600 bg-emerald-50",
     },
     connecting: {
-      dotClass: "bg-yellow-500 animate-pulse",
+      dotClass: "bg-amber-400 animate-pulse",
       label: "再接続中...",
-      containerClass: "bg-yellow-50 text-yellow-700 border-yellow-200",
+      containerClass: "text-amber-600 bg-amber-50",
     },
     disconnected: {
-      dotClass: "bg-slate-400",
+      dotClass: "bg-slate-300",
       label: "オフライン",
-      containerClass: "bg-slate-50 text-slate-500 border-slate-200",
+      containerClass: "text-slate-400 bg-slate-50",
     },
   };
 
   const { dotClass, label, containerClass } = config[status];
 
   return (
-    <div
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${containerClass}`}
-    >
-      <span className={`inline-block w-2 h-2 rounded-full ${dotClass}`} />
+    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${containerClass}`}>
+      <span className={`inline-block w-1.5 h-1.5 rounded-full ${dotClass}`} />
       {label}
     </div>
   );

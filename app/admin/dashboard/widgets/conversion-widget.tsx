@@ -73,16 +73,16 @@ export default function ConversionWidget() {
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 animate-pulse">
-        <div className="h-4 w-48 bg-slate-200 rounded mb-4" />
-        <div className="h-64 bg-slate-100 rounded" />
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 animate-pulse">
+        <div className="h-4 w-48 bg-slate-50 rounded mb-4" />
+        <div className="h-64 bg-slate-50 rounded" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-md font-bold text-slate-900 mb-4">初診→再診転換率</h3>
         <div className="flex items-center justify-center h-48 text-red-500 text-sm">{error instanceof Error ? error.message : "エラーが発生しました"}</div>
       </div>
@@ -91,7 +91,7 @@ export default function ConversionWidget() {
 
   if (!data || data.cohorts.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-md font-bold text-slate-900 mb-4">初診→再診転換率</h3>
         <div className="flex items-center justify-center h-48 text-slate-400 text-sm">
           データがありません
@@ -105,7 +105,7 @@ export default function ConversionWidget() {
       ? "text-yellow-600" : "text-red-600";
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+    <div className="bg-white rounded-2xl border border-slate-100 p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-md font-bold text-slate-900">初診→再診転換率</h3>
         <div className="flex items-center gap-3">

@@ -112,12 +112,12 @@ export default function KPITargetWidget() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 animate-pulse">
-        <div className="h-4 w-48 bg-slate-200 rounded mb-4" />
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 animate-pulse">
+        <div className="h-4 w-48 bg-slate-100 rounded mb-4" />
         <div className="space-y-4">
-          <div className="h-16 bg-slate-100 rounded" />
-          <div className="h-16 bg-slate-100 rounded" />
-          <div className="h-16 bg-slate-100 rounded" />
+          <div className="h-16 bg-slate-50 rounded" />
+          <div className="h-16 bg-slate-50 rounded" />
+          <div className="h-16 bg-slate-50 rounded" />
         </div>
       </div>
     );
@@ -125,7 +125,7 @@ export default function KPITargetWidget() {
 
   return (
     <>
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         {/* ヘッダー */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -157,7 +157,7 @@ export default function KPITargetWidget() {
           </div>
           <button
             onClick={() => setShowModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -181,7 +181,7 @@ export default function KPITargetWidget() {
                     const val = actuals[mt];
                     if (val == null) return null;
                     return (
-                      <div key={mt} className="bg-slate-50 rounded-lg p-3">
+                      <div key={mt} className="bg-white rounded-2xl border border-slate-100 p-3">
                         <div className="text-xs text-slate-500">{config.label}</div>
                         <div className="text-lg font-bold text-slate-900 mt-1">
                           {config.format(val)}
@@ -340,7 +340,7 @@ function KPITargetModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
         {/* ヘッダー */}
         <div className="flex items-center justify-between p-6 border-b border-slate-200">
           <div>
@@ -385,7 +385,7 @@ function KPITargetModal({
                       setValues((prev) => ({ ...prev, [mt]: e.target.value }))
                     }
                     placeholder={`目標${config.label}を入力`}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">
                     {config.unit}
@@ -407,7 +407,7 @@ function KPITargetModal({
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
           >
             {saving ? "保存中..." : "保存"}
           </button>

@@ -11,9 +11,9 @@ const SegmentWidget = dynamic(
 
 function SegmentWidgetSkeleton() {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 animate-pulse">
-      <div className="h-4 w-32 bg-slate-200 rounded mb-4" />
-      <div className="h-48 bg-slate-100 rounded" />
+    <div className="bg-white rounded-2xl border border-slate-100 p-6 animate-pulse">
+      <div className="h-4 w-32 bg-slate-100 rounded mb-4" />
+      <div className="h-48 bg-slate-50 rounded" />
     </div>
   );
 }
@@ -27,9 +27,9 @@ interface DashboardDetailTabsProps {
 
 export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSettings }: DashboardDetailTabsProps) {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-      <div className="border-b border-slate-200">
-        <nav className="flex -mb-px">
+    <div className="bg-white rounded-2xl border border-slate-100">
+      <div className="border-b border-slate-100 px-4 pt-4">
+        <nav className="flex gap-1">
           <TabButton
             active={activeTab === "overview"}
             onClick={() => setActiveTab("overview")}
@@ -59,42 +59,37 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* 売上 */}
               <div>
-                <h3 className="text-md font-bold text-slate-900 mb-4">売上</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="text-sm font-semibold text-slate-900 mb-4">売上</h3>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between py-3 border-b border-slate-100">
                     <div>
-                      <span className="text-sm font-medium text-blue-900">純売上</span>
-                      <div className="text-xs text-blue-600">返金後の金額</div>
+                      <span className="text-sm font-medium text-slate-900">純売上</span>
+                      <div className="text-xs text-slate-400">返金後の金額</div>
                     </div>
-                    <span className="text-2xl font-bold text-blue-900">
+                    <span className="text-xl font-bold text-slate-900">
                       ¥{(stats?.revenue.total || 0).toLocaleString()}
                     </span>
                   </div>
                   <StatRow label="総売上" value={`¥${(stats?.revenue.gross || 0).toLocaleString()}`} />
                   <StatRow label="カード決済" value={`¥${(stats?.revenue.square || 0).toLocaleString()}`} />
                   <StatRow label="銀行振込" value={`¥${(stats?.revenue.bankTransfer || 0).toLocaleString()}`} />
-                  <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                    <span className="text-sm text-red-600">返金</span>
-                    <span className="text-sm font-bold text-red-600">
-                      -¥{(stats?.revenue.refunded || 0).toLocaleString()} ({stats?.revenue.refundCount || 0}件)
-                    </span>
-                  </div>
+                  <StatRow label="返金" value={`-¥${(stats?.revenue.refunded || 0).toLocaleString()} (${stats?.revenue.refundCount || 0}件)`} highlight="red" />
                 </div>
               </div>
 
               {/* 銀行振込状況 */}
               <div>
-                <h3 className="text-md font-bold text-slate-900 mb-4">銀行振込状況</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                    <span className="text-sm font-medium text-yellow-900">入金待ち</span>
-                    <span className="text-2xl font-bold text-yellow-900">
+                <h3 className="text-sm font-semibold text-slate-900 mb-4">銀行振込状況</h3>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                    <span className="text-sm text-slate-500">入金待ち</span>
+                    <span className="text-xl font-bold text-amber-500">
                       {stats?.bankTransfer.pending || 0}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
-                    <span className="text-sm font-medium text-green-900">確認済み</span>
-                    <span className="text-2xl font-bold text-green-900">
+                  <div className="flex items-center justify-between py-3 border-b border-slate-100 last:border-b-0">
+                    <span className="text-sm text-slate-500">確認済み</span>
+                    <span className="text-xl font-bold text-emerald-600">
                       {stats?.bankTransfer.confirmed || 0}
                     </span>
                   </div>
@@ -103,8 +98,8 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
 
               {/* クイック統計 */}
               <div>
-                <h3 className="text-md font-bold text-slate-900 mb-4">その他統計</h3>
-                <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-900 mb-4">その他統計</h3>
+                <div className="space-y-1">
                   <StatRow label="リピート率" value={`${stats?.patients.repeatRate || 0}%`} />
                   <StatRow label="総患者数" value={`${stats?.patients.total || 0}人`} />
                   <StatRow label="新規患者" value={`${stats?.patients.new || 0}人`} />
@@ -119,8 +114,8 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
         {activeTab === "reservations" && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h3 className="text-md font-bold text-slate-900 mb-4">予約</h3>
-              <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-slate-900 mb-4">予約</h3>
+              <div className="space-y-1">
                 <StatRow label="総予約数" value={`${stats?.reservations.total || 0}件`} />
                 <StatRow label="診察済み" value={`${stats?.reservations.completed || 0}件`} />
                 <StatRow label="キャンセル" value={`${stats?.reservations.cancelled || 0}件`} />
@@ -133,8 +128,8 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
             </div>
 
             <div>
-              <h3 className="text-md font-bold text-slate-900 mb-4">配送</h3>
-              <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-slate-900 mb-4">配送</h3>
+              <div className="space-y-1">
                 <StatRow label="総配送数" value={`${stats?.shipping.total || 0}件`} />
                 <StatRow label="新規" value={`${stats?.shipping.first || 0}件`} />
                 <StatRow label="再処方" value={`${stats?.shipping.reorder || 0}件`} />
@@ -155,43 +150,43 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
 
         {activeTab === "revenue" && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200">
-                <div className="text-xs font-medium text-blue-600 mb-1">純売上</div>
-                <div className="text-xs text-blue-500 mb-2">返金後の金額</div>
-                <div className="text-2xl font-bold text-blue-700">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="bg-white rounded-2xl border border-slate-100 p-5">
+                <div className="text-xs font-medium text-slate-400 mb-1">純売上</div>
+                <div className="text-xs text-slate-300 mb-2">返金後の金額</div>
+                <div className="text-2xl font-bold text-slate-900">
                   ¥{(stats?.revenue.total || 0).toLocaleString()}
                 </div>
               </div>
               <StatCard label="総売上" value={`¥${(stats?.revenue.gross || 0).toLocaleString()}`} />
               <StatCard label="カード決済" value={`¥${(stats?.revenue.square || 0).toLocaleString()}`} />
               <StatCard label="銀行振込" value={`¥${(stats?.revenue.bankTransfer || 0).toLocaleString()}`} />
-              <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-6 border border-red-200">
-                <div className="text-xs font-medium text-red-600 mb-2">返金</div>
-                <div className="text-2xl font-bold text-red-600">
+              <div className="bg-white rounded-2xl border border-slate-100 p-5">
+                <div className="text-xs font-medium text-red-400 mb-2">返金</div>
+                <div className="text-2xl font-bold text-red-500">
                   -¥{(stats?.revenue.refunded || 0).toLocaleString()}
                 </div>
-                <div className="text-xs text-red-500 mt-1">{stats?.revenue.refundCount || 0}件</div>
+                <div className="text-xs text-slate-400 mt-1">{stats?.revenue.refundCount || 0}件</div>
               </div>
             </div>
 
             <div>
-              <h3 className="text-md font-bold text-slate-900 mb-4">商品別売上</h3>
-              <div className="space-y-2">
+              <h3 className="text-sm font-semibold text-slate-900 mb-4">商品別売上</h3>
+              <div className="space-y-1">
                 {stats?.products.map((product) => (
                   <div
                     key={product.code}
-                    className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
+                    className="flex items-center justify-between py-3 border-b border-slate-100 last:border-b-0 hover:bg-slate-50/50 transition-colors"
                   >
                     <div>
                       <div className="text-sm font-medium text-slate-900">{product.name}</div>
-                      <div className="text-xs text-slate-500">{product.code}</div>
+                      <div className="text-xs text-slate-400">{product.code}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-md font-bold text-slate-900">
+                      <div className="text-sm font-bold text-slate-900">
                         ¥{product.revenue.toLocaleString()}
                       </div>
-                      <div className="text-xs text-slate-500">{product.count}件</div>
+                      <div className="text-xs text-slate-400">{product.count}件</div>
                     </div>
                   </div>
                 ))}
@@ -204,8 +199,8 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div>
-                <h3 className="text-md font-bold text-slate-900 mb-4">患者統計</h3>
-                <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-900 mb-4">患者統計</h3>
+                <div className="space-y-1">
                   <StatRow label="総患者数" value={`${stats?.patients.total || 0}人`} />
                   <StatRow label="アクティブ患者" value={`${stats?.patients.active || 0}人`} />
                   <StatRow label="新規患者" value={`${stats?.patients.new || 0}人`} />
@@ -218,8 +213,8 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
               </div>
 
               <div>
-                <h3 className="text-md font-bold text-slate-900 mb-4">エンゲージメント</h3>
-                <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-900 mb-4">エンゲージメント</h3>
+                <div className="space-y-1">
                   <StatRow label="LINE登録者" value={`${stats?.kpi.lineRegisteredCount || 0}人`} />
                   <StatRow
                     label="問診後の予約率"
@@ -232,7 +227,6 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
                 </div>
               </div>
 
-              {/* セグメント分布（ウィジェット設定で表示/非表示を切り替え） */}
               {widgetSettings.segmentChart && <SegmentWidget />}
             </div>
           </div>

@@ -106,9 +106,9 @@ export default function CohortWidget() {
   // ローディング
   if (isLoading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 animate-pulse">
-        <div className="h-4 w-48 bg-slate-200 rounded mb-4" />
-        <div className="h-64 bg-slate-100 rounded" />
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 animate-pulse">
+        <div className="h-4 w-48 bg-slate-50 rounded mb-4" />
+        <div className="h-64 bg-slate-50 rounded" />
       </div>
     );
   }
@@ -116,7 +116,7 @@ export default function CohortWidget() {
   // エラー
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-lg font-bold text-slate-900 mb-2">コホート分析</h3>
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
           {error instanceof Error ? error.message : "エラーが発生しました"}
@@ -128,7 +128,7 @@ export default function CohortWidget() {
   // データなし
   if (filteredData.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-lg font-bold text-slate-900 mb-2">コホート分析</h3>
         <p className="text-slate-500 text-sm">コホートデータがありません</p>
       </div>
@@ -137,7 +137,7 @@ export default function CohortWidget() {
 
   return (
     <div
-      className="bg-white rounded-lg shadow-sm border border-slate-200 p-6"
+      className="bg-white rounded-2xl border border-slate-100 p-6"
       ref={containerRef}
       style={{ position: "relative" }}
     >
@@ -151,7 +151,7 @@ export default function CohortWidget() {
         </div>
 
         {/* 期間選択 */}
-        <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+        <div className="flex gap-1 bg-slate-50 rounded-lg p-1">
           {(
             [
               { value: "6", label: "6ヶ月" },

@@ -221,7 +221,7 @@ export default function ChartWidget({
   // データがない場合の表示
   if (!hasData && !trendLoading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-md font-bold text-slate-900 mb-4">売上推移</h3>
         <div className="flex items-center justify-center h-48 text-slate-400 text-sm">
           表示期間のデータがありません
@@ -236,7 +236,7 @@ export default function ChartWidget({
     <div className="space-y-6">
       {/* 売上推移エリアチャート */}
       {showRevenueChart && (
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+        <div className="bg-white rounded-2xl border border-slate-100 p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <h3 className="text-md font-bold text-slate-900">
@@ -274,26 +274,26 @@ export default function ChartWidget({
 
           {trendLoading ? (
             <div className="flex items-center justify-center h-72">
-              <div className="inline-block animate-spin rounded-full h-6 w-6 border-4 border-blue-600 border-t-transparent" />
+              <div className="inline-block animate-spin rounded-full h-6 w-6 border-4 border-slate-900 border-t-transparent" />
             </div>
           ) : (
             <>
               {/* 月別/年別の場合: 純売上サマリー */}
               {granularity !== "daily" && trendData?.currentPeriod && (
                 <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                    <div className="text-xs text-blue-600 mb-1">純売上</div>
-                    <div className="text-lg font-bold text-blue-900">
+                  <div className="bg-white rounded-2xl p-3 border border-slate-100">
+                    <div className="text-xs text-slate-400 mb-1">純売上</div>
+                    <div className="text-lg font-bold text-slate-900">
                       ¥{trendData.currentPeriod.total.toLocaleString()}
                     </div>
                   </div>
-                  <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                  <div className="bg-white rounded-2xl p-3 border border-slate-100">
                     <div className="text-xs text-slate-500 mb-1">注文数</div>
                     <div className="text-lg font-bold text-slate-900">
                       {trendData.currentPeriod.orderCount}件
                     </div>
                   </div>
-                  <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                  <div className="bg-white rounded-2xl p-3 border border-slate-100">
                     <div className="text-xs text-slate-500 mb-1">顧客数</div>
                     <div className="text-lg font-bold text-slate-900">
                       {trendData.currentPeriod.uniquePatients}人
@@ -355,7 +355,7 @@ export default function ChartWidget({
 
       {/* 新規 vs 再処方 バーチャート（日別のみ表示） */}
       {showOrderChart && granularity === "daily" && (
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+        <div className="bg-white rounded-2xl border border-slate-100 p-6">
           <h3 className="text-md font-bold text-slate-900 mb-4">
             新規処方 vs 再処方（日別件数）
           </h3>

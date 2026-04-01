@@ -2,14 +2,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
-import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
+import { verifyAdminAuth, getAdminTenantId } from "@/lib/admin-auth";
+import { resolveTenantId, strictWithTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return unauthorized();
 
-  const tenantId = resolveTenantIdOrThrow(req);
+  const tenantId = resolveTenantId(req) || await getAdminTenantId(req);
 
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from") || "";

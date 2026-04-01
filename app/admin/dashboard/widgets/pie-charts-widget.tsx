@@ -123,7 +123,7 @@ function PieChartCard({ title, subtitle, children, isEmpty }: {
   isEmpty?: boolean;
 }) {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 flex flex-col h-[360px]">
+    <div className="bg-white rounded-2xl border border-slate-100 p-4 flex flex-col h-[360px]">
       <div className="mb-1 shrink-0">
         <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
         {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
@@ -146,9 +146,9 @@ export default function PieChartsWidget() {
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[0, 1, 2].map(i => (
-          <div key={i} className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 animate-pulse h-[360px]">
-            <div className="h-4 w-32 bg-slate-200 rounded mb-4" />
-            <div className="h-52 bg-slate-100 rounded" />
+          <div key={i} className="bg-white rounded-2xl border border-slate-100 p-4 animate-pulse h-[360px]">
+            <div className="h-4 w-32 bg-slate-50 rounded mb-4" />
+            <div className="h-52 bg-slate-50 rounded" />
           </div>
         ))}
       </div>

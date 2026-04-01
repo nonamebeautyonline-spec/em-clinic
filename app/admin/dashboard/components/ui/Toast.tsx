@@ -7,36 +7,45 @@ interface ToastProps {
 }
 
 export function Toast({ toast, onDismiss }: ToastProps) {
-  const iconMap = {
-    reservation: "\u{1F4C5}",
-    payment: "\u{1F4B3}",
-    patient: "\u{1F464}",
+  const iconConfig = {
+    reservation: {
+      bg: "bg-violet-50",
+      color: "text-violet-600",
+      path: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
+    },
+    payment: {
+      bg: "bg-emerald-50",
+      color: "text-emerald-600",
+      path: "M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z",
+    },
+    patient: {
+      bg: "bg-blue-50",
+      color: "text-blue-600",
+      path: "M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z",
+    },
   };
 
-  const borderColorMap = {
-    reservation: "border-l-purple-500",
-    payment: "border-l-blue-500",
-    patient: "border-l-green-500",
-  };
-
+  const { bg, color, path } = iconConfig[toast.type];
   const timeAgo = getTimeAgo(toast.timestamp);
 
   return (
-    <div
-      className={`bg-white rounded-lg shadow-lg border border-slate-200 border-l-4 ${borderColorMap[toast.type]} p-4 animate-slide-in-right min-w-[280px]`}
-    >
+    <div className="bg-white rounded-2xl shadow-lg shadow-slate-200/50 border border-slate-100 p-4 animate-slide-in-right min-w-[280px]">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <span className="text-lg mt-0.5">{iconMap[toast.type]}</span>
+          <div className={`shrink-0 w-9 h-9 ${bg} rounded-xl flex items-center justify-center`}>
+            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4.5 w-4.5 ${color}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d={path} />
+            </svg>
+          </div>
           <div>
-            <div className="text-sm font-semibold text-slate-900">{toast.title}</div>
-            <div className="text-xs text-slate-600 mt-0.5">{toast.message}</div>
-            <div className="text-xs text-slate-400 mt-1">{timeAgo}</div>
+            <p className="text-[13px] font-semibold text-slate-700">{toast.title}</p>
+            <p className="text-[12px] text-slate-400 mt-0.5">{toast.message}</p>
+            <p className="text-[11px] text-slate-300 mt-1">{timeAgo}</p>
           </div>
         </div>
         <button
           onClick={() => onDismiss(toast.id)}
-          className="text-slate-400 hover:text-slate-600 transition-colors text-lg leading-none"
+          className="text-slate-300 hover:text-slate-400 transition-colors text-lg leading-none"
           aria-label="閉じる"
         >
           ×
