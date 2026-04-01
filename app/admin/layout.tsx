@@ -200,7 +200,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           await new Promise((r) => setTimeout(r, 1000));
           return checkSession(retryCount + 1);
         }
-        redirectToLogin();
+        router.replace("/admin/login");
         return;
       } catch {
         // ネットワークエラー → リトライ（最大2回）
@@ -208,7 +208,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           await new Promise((r) => setTimeout(r, 1000));
           return checkSession(retryCount + 1);
         }
-        redirectToLogin();
+        router.replace("/admin/login");
       }
     };
 
