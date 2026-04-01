@@ -185,6 +185,55 @@ export async function POST(req: NextRequest) {
     const payment = payResult.payment!;
     const paymentId = payment.id as string;
 
+    // orders INSERT を最優先（webhookが先にINSERTすると配送情報が消失するため）
+    const finalPhone = normalizeJPPhone(shipping.phone);
+    const postalFormatted = (() => { const d = shipping.postalCode.replace(/[^0-9]/g, ""); return d.length === 7 ? `${d.slice(0, 3)}-${d.slice(3)}` : shipping.postalCode; })();
+    const orderData = {
+      patient_id: patientId,
+      product_code: productCode,
+      product_name: product.title,
+      amount: product.price,
+      paid_at: payment.created_at || new Date().toISOString(),
+      shipping_status: "pending" as const,
+      payment_status: "COMPLETED",
+      payment_method: "credit_card",
+      status: "confirmed" as const,
+      shipping_name: shipping.name,
+      postal_code: postalFormatted,
+      address: shipping.address,
+      address_detail: shipping.addressDetail || "",
+      phone: finalPhone,
+      email: shipping.email,
+    };
+    try {
+      const { error: insertErr } = await supabaseAdmin.from("orders").insert({
+        id: paymentId,
+        ...orderData,
+        ...tenantPayload(tenantId),
+      });
+      if (insertErr) {
+        // webhookが先にINSERT済み（23505）→ 配送情報をUPDATEで補完
+        if (insertErr.code === "23505") {
+          console.warn("[square/pay] orders insert 23505, updating shipping info");
+          await withTenant(
+            supabaseAdmin.from("orders").update({
+              shipping_name: shipping.name,
+              postal_code: postalFormatted,
+              address: shipping.address,
+              address_detail: shipping.addressDetail || "",
+              phone: finalPhone,
+              email: shipping.email,
+            }).eq("id", paymentId),
+            tenantId,
+          );
+        } else {
+          console.error("[square/pay] orders insert error:", insertErr);
+        }
+      }
+    } catch (dbErr) {
+      console.error("[square/pay] orders insert exception:", dbErr);
+    }
+
     // 決済成功後にカード保存（nonceは決済で消費済みなので payment_id を使う）
     if (isNonce && saveCard && customerId) {
       try {
@@ -195,32 +244,6 @@ export async function POST(req: NextRequest) {
       } catch (e) {
         console.error("[square/pay] post-payment card save error (non-fatal):", e);
       }
-    }
-
-    // orders INSERT
-    const finalPhone = normalizeJPPhone(shipping.phone);
-    try {
-      await supabaseAdmin.from("orders").insert({
-        id: paymentId,
-        patient_id: patientId,
-        product_code: productCode,
-        product_name: product.title,
-        amount: product.price,
-        paid_at: payment.created_at || new Date().toISOString(),
-        shipping_status: "pending",
-        payment_status: "COMPLETED",
-        payment_method: "credit_card",
-        status: "confirmed",
-        shipping_name: shipping.name,
-        postal_code: (() => { const d = shipping.postalCode.replace(/[^0-9]/g, ""); return d.length === 7 ? `${d.slice(0, 3)}-${d.slice(3)}` : shipping.postalCode; })(),
-        address: shipping.address,
-        address_detail: shipping.addressDetail || "",
-        phone: finalPhone,
-        email: shipping.email,
-        ...tenantPayload(tenantId),
-      });
-    } catch (dbErr) {
-      console.error("[square/pay] orders insert error:", dbErr);
     }
 
     // reorder paidマーク + カルテ自動作成
