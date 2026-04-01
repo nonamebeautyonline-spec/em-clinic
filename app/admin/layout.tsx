@@ -125,6 +125,34 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // 認証済みなら再チェック不要（ページ遷移時のスピナー防止）
     if (isAuthenticated) return;
 
+    // リダイレクトループ検出（5秒以内に3回以上リダイレクトされていたら停止）
+    const redirectLog = JSON.parse(sessionStorage.getItem("_auth_redirects") || "[]") as number[];
+    const now = Date.now();
+    const recentRedirects = redirectLog.filter((t: number) => now - t < 5000);
+    if (recentRedirects.length >= 3) {
+      // ループ検出 — リダイレクトせずデバッグ情報を表示
+      const logs = JSON.parse(sessionStorage.getItem("_auth_debug") || "[]") as string[];
+      logs.push(`[${new Date().toLocaleTimeString()}] LOOP DETECTED (${recentRedirects.length} redirects in 5s) path=${pathname}`);
+      sessionStorage.setItem("_auth_debug", JSON.stringify(logs.slice(-15)));
+      setDebugLog(logs.slice(-15));
+      setLoading(false);
+      return;
+    }
+
+    const addDebugLog = (msg: string) => {
+      const logs = JSON.parse(sessionStorage.getItem("_auth_debug") || "[]") as string[];
+      logs.push(msg);
+      sessionStorage.setItem("_auth_debug", JSON.stringify(logs.slice(-15)));
+      setDebugLog(logs.slice(-15));
+    };
+
+    const redirectToLogin = () => {
+      const rlog = JSON.parse(sessionStorage.getItem("_auth_redirects") || "[]") as number[];
+      rlog.push(Date.now());
+      sessionStorage.setItem("_auth_redirects", JSON.stringify(rlog.slice(-10)));
+      router.replace("/admin/login");
+    };
+
     const checkSession = async (retryCount = 0) => {
       try {
         const res = await fetch("/api/admin/session", {
@@ -132,15 +160,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           credentials: "include",
         });
 
-        // デバッグログ（一時的 — 画面表示）
         const body = await res.json().catch(() => null);
-        const logMsg = `[${new Date().toLocaleTimeString()}] status=${res.status} ok=${body?.ok} retry=${retryCount} path=${pathname}`;
-        console.log("[auth-debug]", logMsg);
-        setDebugLog(prev => [...prev.slice(-9), logMsg]);
+        addDebugLog(`[${new Date().toLocaleTimeString()}] status=${res.status} ok=${body?.ok} err=${body?.error || "-"} retry=${retryCount} path=${pathname}`);
 
         if (res.ok) {
           const data = body;
           if (data?.ok) {
+            // ループカウンタをリセット
+            sessionStorage.removeItem("_auth_redirects");
             // CSRFトークン初期化 + fetch自動付与（管理画面用）
             fetch("/api/csrf-token", { credentials: "include" })
               .then((r) => r.ok ? r.json() : null)
@@ -178,11 +205,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             setTenantRole(data.user?.tenantRole || "admin");
             setAllowedMenuKeys(data.user?.allowedMenuKeys ?? null);
             setIndustry((data.user?.industry as Industry) || "clinic");
-            // 認証完了とローディング解除を同時に行う（間にawaitを挟まない）
             setIsAuthenticated(true);
             setLoading(false);
 
-            // 初回ログイン時: セットアップ未完了ならオンボーディングへリダイレクト（認証後に非同期で実行）
+            // 初回ログイン時: セットアップ未完了ならオンボーディングへリダイレクト
             if (!pathname.startsWith("/admin/onboarding")) {
               fetch("/api/admin/setup-status", { credentials: "include" })
                 .then((r) => r.ok ? r.json() : null)
@@ -199,7 +225,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         // 明示的な401/403 → セッション無効、ログインへ
         if (res.status === 401 || res.status === 403) {
-          router.replace("/admin/login");
+          redirectToLogin();
           return;
         }
 
@@ -208,16 +234,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           await new Promise((r) => setTimeout(r, 1000));
           return checkSession(retryCount + 1);
         }
-        // リトライ上限 → ログインへ
-        router.replace("/admin/login");
+        redirectToLogin();
         return;
-      } catch {
+      } catch (e) {
+        addDebugLog(`[${new Date().toLocaleTimeString()}] CATCH err=${e instanceof Error ? e.message : String(e)} retry=${retryCount}`);
         // ネットワークエラー → リトライ（最大2回）
         if (retryCount < 2) {
           await new Promise((r) => setTimeout(r, 1000));
           return checkSession(retryCount + 1);
         }
-        router.replace("/admin/login");
+        redirectToLogin();
       }
     };
 

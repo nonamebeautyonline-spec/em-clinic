@@ -30,13 +30,14 @@ export default function AdminLoginPage() {
         });
 
         const data = await res.json().catch(() => null);
-        console.log("[auth-debug] login page session check:", { status: res.status, ok: res.ok, data });
         if (res.ok && data?.ok) {
+          // ループカウンタをリセット
+          sessionStorage.removeItem("_auth_redirects");
           router.replace("/admin/dashboard");
           return;
         }
-      } catch (e) {
-        console.log("[auth-debug] login page session error:", e);
+      } catch {
+        // セッションなし or ネットワークエラー
       }
 
       // 古いlocalStorageトークンがあれば削除

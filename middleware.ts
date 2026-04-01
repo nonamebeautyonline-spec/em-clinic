@@ -291,6 +291,10 @@ export async function middleware(req: NextRequest) {
 
   // 1. admin_session Cookie から tenantId / tenantRole / allowedMenuKeys を抽出
   const sessionCookie = req.cookies.get("admin_session")?.value;
+  // デバッグログ（一時的）— admin関連リクエストのみ
+  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin/")) {
+    console.log("[auth-mw]", pathname, "cookie:", sessionCookie ? "yes" : "no", "ua:", req.headers.get("user-agent")?.substring(0, 50));
+  }
   if (sessionCookie) {
     try {
       const secret = new TextEncoder().encode(JWT_SECRET);
@@ -299,8 +303,9 @@ export async function middleware(req: NextRequest) {
       tenantRole = (payload as { tenantRole?: string | null }).tenantRole || null;
       const menuKeys = (payload as { allowedMenuKeys?: string[] | null }).allowedMenuKeys;
       allowedMenuKeys = menuKeys ?? null;
-    } catch {
+    } catch (e) {
       // JWT 無効 — tenantId なしで続行
+      console.log("[auth-mw] JWT verify failed:", pathname, e instanceof Error ? e.message : "");
     }
   }
 
