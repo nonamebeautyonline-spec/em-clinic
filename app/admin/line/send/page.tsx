@@ -147,6 +147,80 @@ export default function BroadcastSendPage() {
   const [aiResult, setAiResult] = useState<{ message: string; alternatives: string[] } | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
 
+  // AIセグメント絞り込み
+  const [showAiSegment, setShowAiSegment] = useState(false);
+  const [aiSegmentQuery, setAiSegmentQuery] = useState("");
+  const [aiSegmentSql, setAiSegmentSql] = useState("");
+  const [aiSegmentPatients, setAiSegmentPatients] = useState<{ patient_id: string; name: string }[]>([]);
+  const [aiSegmentCount, setAiSegmentCount] = useState<number | null>(null);
+  const [aiSegmentLoading, setAiSegmentLoading] = useState(false);
+  const [aiSegmentError, setAiSegmentError] = useState<string | null>(null);
+  const [aiSegmentApplied, setAiSegmentApplied] = useState(false);
+  const [aiSegmentAppliedQuery, setAiSegmentAppliedQuery] = useState("");
+
+  // AIセグメント: SQL生成
+  const handleAiSegmentGenerate = async () => {
+    if (!aiSegmentQuery.trim()) return;
+    setAiSegmentLoading(true);
+    setAiSegmentError(null);
+    setAiSegmentSql("");
+    setAiSegmentPatients([]);
+    setAiSegmentCount(null);
+    try {
+      const res = await fetch("/api/admin/line/segments/ai-query", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: aiSegmentQuery, execute: false }),
+      });
+      const data = await res.json();
+      if (!data.ok) { setAiSegmentError(data.error || "SQL生成に失敗しました"); return; }
+      setAiSegmentSql(data.sql);
+      // 生成成功 → 即実行してプレビュー
+      const execRes = await fetch("/api/admin/line/segments/ai-query", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: aiSegmentQuery, execute: true, sql: data.sql }),
+      });
+      const execData = await execRes.json();
+      if (!execData.ok) { setAiSegmentError(execData.error || "実行に失敗しました"); return; }
+      setAiSegmentPatients(execData.patients || []);
+      setAiSegmentCount(execData.count ?? 0);
+    } catch (e) {
+      setAiSegmentError("AIクエリの送信に失敗しました");
+    } finally {
+      setAiSegmentLoading(false);
+    }
+  };
+
+  // AIセグメント: 結果を配信対象に適用
+  const handleAiSegmentApply = () => {
+    if (!aiSegmentPatients.length) return;
+    setAiSegmentApplied(true);
+    setAiSegmentAppliedQuery(aiSegmentQuery);
+    setShowAiSegment(false);
+    // プレビューを更新（AIセグメント適用時はフィルター条件をリセットしてAI結果を使う）
+    setPreview({
+      total: aiSegmentPatients.length,
+      sendable: aiSegmentPatients.length,
+      no_uid: 0,
+      patients: aiSegmentPatients.map(p => ({
+        patient_id: p.patient_id,
+        patient_name: p.name || "未登録",
+        has_line: true,
+      })),
+    });
+  };
+
+  // AIセグメント: 適用解除
+  const handleAiSegmentClear = () => {
+    setAiSegmentApplied(false);
+    setAiSegmentAppliedQuery("");
+    setAiSegmentPatients([]);
+    setPreview(null);
+  };
+
   // テキストエリア参照（カーソル位置に変数を挿入するため）
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -689,9 +763,38 @@ export default function BroadcastSendPage() {
                   </svg>
                   条件追加
                 </button>
+                <button
+                  onClick={() => setShowAiSegment(true)}
+                  className="px-3 py-1.5 text-xs font-medium text-violet-600 bg-violet-50 hover:bg-violet-100 rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                  AIで絞り込む
+                </button>
               </div>
             </div>
-            {includeConditions.length === 0 ? (
+
+            {/* AIセグメント適用中の表示 */}
+            {aiSegmentApplied && (
+              <div className="mb-3 flex items-center gap-2 px-4 py-3 bg-violet-50 border border-violet-200 rounded-xl">
+                <svg className="w-4 h-4 text-violet-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-semibold text-violet-700">AI絞り込み適用中</span>
+                  <span className="text-xs text-violet-500 ml-2 truncate">「{aiSegmentAppliedQuery}」→ {aiSegmentPatients.length}人</span>
+                </div>
+                <button
+                  onClick={handleAiSegmentClear}
+                  className="px-2 py-1 text-[10px] font-medium text-violet-600 bg-white border border-violet-200 rounded-lg hover:bg-violet-100 transition-colors"
+                >
+                  解除
+                </button>
+              </div>
+            )}
+
+            {includeConditions.length === 0 && !aiSegmentApplied ? (
               <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 rounded-lg px-4 py-3">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1188,6 +1291,161 @@ export default function BroadcastSendPage() {
           )}
         </div>
       </div>
+
+      {/* AIセグメントモーダル */}
+      {showAiSegment && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowAiSegment(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  </div>
+                  AIで配信先を絞り込む
+                </h2>
+                <button onClick={() => setShowAiSegment(false)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="px-6 py-5 space-y-4">
+              {/* 書き方ガイド */}
+              <div className="bg-violet-50/60 rounded-xl p-4 border border-violet-100">
+                <p className="text-xs font-bold text-violet-700 mb-2">書き方のコツ</p>
+                <div className="grid grid-cols-2 gap-2 text-[11px] text-violet-600">
+                  <div className="bg-white/70 rounded-lg px-3 py-2">
+                    <span className="font-medium text-violet-800">期間で絞る:</span><br />
+                    「3ヶ月以内に来院した人」<br />
+                    「最終決済から半年以上経った人」
+                  </div>
+                  <div className="bg-white/70 rounded-lg px-3 py-2">
+                    <span className="font-medium text-violet-800">属性で絞る:</span><br />
+                    「30代の女性」<br />
+                    「電話番号が登録済みの人」
+                  </div>
+                  <div className="bg-white/70 rounded-lg px-3 py-2">
+                    <span className="font-medium text-violet-800">行動で絞る:</span><br />
+                    「2回以上予約した人」<br />
+                    「合計購入金額5万円以上の人」
+                  </div>
+                  <div className="bg-white/70 rounded-lg px-3 py-2">
+                    <span className="font-medium text-violet-800">ファネルで絞る:</span><br />
+                    「LINE追加のみで個人情報未入力」<br />
+                    「問診済みだけど予約がない人」
+                  </div>
+                </div>
+                <p className="text-[10px] text-violet-400 mt-2">具体的な数値・期間・条件を入れるほど正確に絞り込めます</p>
+              </div>
+
+              {/* 入力欄 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">どんな人に配信したいですか？</label>
+                <textarea
+                  value={aiSegmentQuery}
+                  onChange={e => setAiSegmentQuery(e.target.value)}
+                  placeholder="例: マンジャロを処方された30代で、最後の来院から3ヶ月以上経った人"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400 bg-gray-50/50 transition-all resize-none"
+                  rows={3}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAiSegmentGenerate(); } }}
+                />
+              </div>
+
+              <button
+                onClick={handleAiSegmentGenerate}
+                disabled={aiSegmentLoading || !aiSegmentQuery.trim()}
+                className="w-full px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-xl text-sm font-medium hover:from-violet-600 hover:to-purple-700 disabled:from-gray-300 disabled:to-gray-400 shadow-lg shadow-violet-500/25 transition-all flex items-center justify-center gap-2"
+              >
+                {aiSegmentLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    AIが条件を解析中...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    絞り込む
+                  </>
+                )}
+              </button>
+
+              {/* エラー */}
+              {aiSegmentError && (
+                <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-600">
+                  {aiSegmentError}
+                </div>
+              )}
+
+              {/* 生成されたSQL（折りたたみ） */}
+              {aiSegmentSql && (
+                <details className="text-xs">
+                  <summary className="text-gray-400 cursor-pointer hover:text-gray-600">生成されたSQL</summary>
+                  <pre className="mt-2 p-3 bg-gray-900 text-green-400 rounded-lg overflow-x-auto text-[11px] leading-relaxed">{aiSegmentSql}</pre>
+                </details>
+              )}
+
+              {/* 結果プレビュー */}
+              {aiSegmentCount !== null && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-gray-700">
+                      該当者: <span className="text-violet-600">{aiSegmentCount}人</span>
+                    </span>
+                    {aiSegmentCount > 0 && (
+                      <button
+                        onClick={handleAiSegmentApply}
+                        className="px-4 py-2 text-xs font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors shadow-md"
+                      >
+                        この{aiSegmentCount}人に配信する
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 患者一覧 */}
+                  {aiSegmentPatients.length > 0 && (
+                    <div className="border border-gray-200 rounded-xl overflow-hidden max-h-64 overflow-y-auto">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-50 sticky top-0">
+                          <tr>
+                            <th className="text-left px-3 py-2 text-gray-500 font-medium">患者ID</th>
+                            <th className="text-left px-3 py-2 text-gray-500 font-medium">氏名</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {aiSegmentPatients.slice(0, 100).map(p => (
+                            <tr key={p.patient_id} className="hover:bg-gray-50/50">
+                              <td className="px-3 py-1.5 text-gray-600 font-mono">{p.patient_id}</td>
+                              <td className="px-3 py-1.5 text-gray-800">{p.name || "未登録"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {aiSegmentPatients.length > 100 && (
+                        <div className="px-3 py-2 text-center text-[10px] text-gray-400 bg-gray-50 border-t">
+                          他 {aiSegmentPatients.length - 100}人（上位100人を表示）
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {aiSegmentCount === 0 && (
+                    <div className="text-center py-6 text-gray-400 text-xs">
+                      条件に該当する患者がいません。条件を変えて再度お試しください。
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 確認モーダル */}
       {showConfirm && (
