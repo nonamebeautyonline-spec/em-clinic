@@ -162,7 +162,7 @@ export async function processSquareEvent(params: SquareHandlerParams): Promise<v
   }
 
   // ---- payment ----
-  if (eventType === "payment.created" || eventType === "payment.updated") {
+  if (eventType === "payment.created") {
     const pay = event?.data?.object?.payment;
     const paymentId = String(pay?.id || "");
     if (!paymentId) return;
