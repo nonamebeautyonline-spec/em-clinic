@@ -291,10 +291,6 @@ export async function middleware(req: NextRequest) {
 
   // 1. admin_session Cookie から tenantId / tenantRole / allowedMenuKeys を抽出
   const sessionCookie = req.cookies.get("admin_session")?.value;
-  // デバッグログ（一時的）— admin関連リクエストのみ
-  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin/")) {
-    console.log("[auth-mw]", pathname, "cookie:", sessionCookie ? "yes" : "no", "ua:", req.headers.get("user-agent")?.substring(0, 50));
-  }
   if (sessionCookie) {
     try {
       const secret = new TextEncoder().encode(JWT_SECRET);
@@ -303,9 +299,8 @@ export async function middleware(req: NextRequest) {
       tenantRole = (payload as { tenantRole?: string | null }).tenantRole || null;
       const menuKeys = (payload as { allowedMenuKeys?: string[] | null }).allowedMenuKeys;
       allowedMenuKeys = menuKeys ?? null;
-    } catch (e) {
+    } catch {
       // JWT 無効 — tenantId なしで続行
-      console.log("[auth-mw] JWT verify failed:", pathname, e instanceof Error ? e.message : "");
     }
   }
 
@@ -337,9 +332,6 @@ export async function middleware(req: NextRequest) {
     // JWTのtenantIdが明示的に不一致 → 再ログインさせる
     // jwtTenantId=null（Edge RuntimeでJWT検証失敗）の場合は通過させ、各APIルートに認証を委ねる
     // ログインページ自体は除外（リダイレクトループ防止）、Cookieをクリアして通過させる
-    if (pathname.startsWith("/api/admin/") || pathname.startsWith("/admin")) {
-      console.log("[auth-mw-detail]", pathname, "tenantId:", tenantId, "jwtTenantId:", jwtTenantId, "match:", jwtTenantId === tenantId);
-    }
     if (tenantId && sessionCookie && jwtTenantId && jwtTenantId !== tenantId) {
       if (pathname === "/admin/login" || pathname === "/admin/login/") {
         // ログインページはCookieクリアして通過（サブドメインのtenantIdをヘッダーに設定）
@@ -364,7 +356,6 @@ export async function middleware(req: NextRequest) {
         return response;
       }
       // APIアクセスの場合は401を返し、Cookieもクリア
-      console.log("[auth-mw-401]", pathname, "TENANT MISMATCH tenantId:", tenantId, "jwtTenantId:", jwtTenantId);
       if (pathname.startsWith("/api/admin/")) {
         const apiRes = NextResponse.json(
           { ok: false, error: "別テナントのセッションです。再ログインしてください。" },

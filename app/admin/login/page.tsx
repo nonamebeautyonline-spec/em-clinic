@@ -31,8 +31,6 @@ export default function AdminLoginPage() {
 
         const data = await res.json().catch(() => null);
         if (res.ok && data?.ok) {
-          // ループカウンタをリセット
-          sessionStorage.removeItem("_auth_redirects");
           router.replace("/admin/dashboard");
           return;
         }
