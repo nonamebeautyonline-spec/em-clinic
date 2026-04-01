@@ -336,6 +336,9 @@ export async function middleware(req: NextRequest) {
 
     // JWTのtenantIdがない（古いセッション）or 不一致 → 再ログインさせる
     // ログインページ自体は除外（リダイレクトループ防止）、Cookieをクリアして通過させる
+    if (pathname.startsWith("/api/admin/") || pathname.startsWith("/admin")) {
+      console.log("[auth-mw-detail]", pathname, "tenantId:", tenantId, "jwtTenantId:", jwtTenantId, "match:", jwtTenantId === tenantId);
+    }
     if (tenantId && sessionCookie && (!jwtTenantId || jwtTenantId !== tenantId)) {
       if (pathname === "/admin/login" || pathname === "/admin/login/") {
         // ログインページはCookieクリアして通過（サブドメインのtenantIdをヘッダーに設定）
@@ -360,6 +363,7 @@ export async function middleware(req: NextRequest) {
         return response;
       }
       // APIアクセスの場合は401を返し、Cookieもクリア
+      console.log("[auth-mw-401]", pathname, "TENANT MISMATCH tenantId:", tenantId, "jwtTenantId:", jwtTenantId);
       if (pathname.startsWith("/api/admin/")) {
         const apiRes = NextResponse.json(
           { ok: false, error: "別テナントのセッションです。再ログインしてください。" },
