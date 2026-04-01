@@ -131,9 +131,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           credentials: "include",
         });
 
+        // デバッグログ（一時的）
+        const body = await res.json().catch(() => null);
+        console.log("[auth-debug] session check:", { status: res.status, ok: res.ok, body, retry: retryCount, pathname });
+
         if (res.ok) {
-          const data = await res.json();
-          if (data.ok) {
+          const data = body;
+          if (data?.ok) {
             // CSRFトークン初期化 + fetch自動付与（管理画面用）
             fetch("/api/csrf-token", { credentials: "include" })
               .then((r) => r.ok ? r.json() : null)

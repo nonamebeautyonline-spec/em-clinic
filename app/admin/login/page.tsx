@@ -29,15 +29,14 @@ export default function AdminLoginPage() {
           credentials: "include",
         });
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data.ok) {
-            router.replace("/admin/dashboard");
-            return;
-          }
+        const data = await res.json().catch(() => null);
+        console.log("[auth-debug] login page session check:", { status: res.status, ok: res.ok, data });
+        if (res.ok && data?.ok) {
+          router.replace("/admin/dashboard");
+          return;
         }
-      } catch {
-        // セッションなし or ネットワークエラー
+      } catch (e) {
+        console.log("[auth-debug] login page session error:", e);
       }
 
       // 古いlocalStorageトークンがあれば削除
