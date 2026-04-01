@@ -319,57 +319,49 @@ export async function processSquareEvent(params: SquareHandlerParams): Promise<v
     }
 
     // 決済完了サンクスFlex送信
-    // 分散ロックで排他制御（/api/square/pay と webhook の同時送信を防止）
-    let thankLock: { acquired: boolean; release: () => Promise<void> } | null = null;
+    // /api/square/pay（インライン決済）が先に送信 → message_logにINSERT済み
+    // webhook側はmessage_logで重複チェックし、未送信の場合のみ送信（hosted checkout用）
     if (patientId) {
-      const { acquireLock } = await import("@/lib/distributed-lock");
-      thankLock = await acquireLock(`payment-thank:${paymentId}`, 60);
-    }
-    if (patientId && thankLock?.acquired) {
-      // ロック取得後に message_log を再チェック（/api/square/pay が先に送信済みか確認）
-      const { count } = await supabaseAdmin
-        .from("message_log")
-        .select("id", { count: "exact", head: true })
-        .eq("patient_id", patientId)
-        .eq("message_type", "payment_thank")
-        .gte("sent_at", new Date(Date.now() - 5 * 60_000).toISOString());
-      const alreadyNotified = (count ?? 0) > 0;
-      if (alreadyNotified) {
-        await thankLock.release();
-        thankLock = null;
-      }
-    }
-    if (patientId && thankLock?.acquired) {
       try {
-        const rules = await getBusinessRules(tenantId ?? undefined);
-        if (rules.notifyReorderPaid) {
-          const thankMsg = rules.paymentThankMessageCard || "お支払いありがとうございます。発送準備を進めてまいります。";
-          // 商品名は商品マスタから取得（/api/square/payと同じ情報を送る）
-          let productName = itemsText || undefined;
-          if (!productName && productCode) {
-            const p = await getProductByCode(productCode, tid);
-            productName = p?.title || productCode;
-          }
-          const { data: pt } = await withTenant(
-            supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
-            tenantId
-          );
-          if (pt?.line_id) {
-            await sendPaymentThankNotification({
-              patientId, lineUid: pt.line_id,
-              message: thankMsg,
-              shipping: { shippingName: shipName, postalCode: postal, address, phone: finalPhone, email: finalEmail },
-              paymentMethod: "credit_card",
-              productName,
-              amount: amountText ? parseFloat(amountText) : undefined,
-              tenantId: tenantId ?? undefined,
-            });
+        // pay側の送信+message_log INSERTが完了するのを待つ（3秒）
+        await new Promise((r) => setTimeout(r, 3000));
+
+        const { count } = await supabaseAdmin
+          .from("message_log")
+          .select("id", { count: "exact", head: true })
+          .eq("patient_id", patientId)
+          .eq("message_type", "payment_thank")
+          .gte("sent_at", new Date(Date.now() - 5 * 60_000).toISOString());
+
+        if ((count ?? 0) === 0) {
+          // 未送信 → hosted checkout からの決済、またはpay側で通知無効
+          const rules = await getBusinessRules(tenantId ?? undefined);
+          if (rules.notifyReorderPaid) {
+            const thankMsg = rules.paymentThankMessageCard || "お支払いありがとうございます。発送準備を進めてまいります。";
+            let productName = itemsText || undefined;
+            if (!productName && productCode) {
+              const p = await getProductByCode(productCode, tid);
+              productName = p?.title || productCode;
+            }
+            const { data: pt } = await withTenant(
+              supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
+              tenantId
+            );
+            if (pt?.line_id) {
+              await sendPaymentThankNotification({
+                patientId, lineUid: pt.line_id,
+                message: thankMsg,
+                shipping: { shippingName: shipName, postalCode: postal, address, phone: finalPhone, email: finalEmail },
+                paymentMethod: "credit_card",
+                productName,
+                amount: amountText ? parseFloat(amountText) : undefined,
+                tenantId: tenantId ?? undefined,
+              });
+            }
           }
         }
       } catch (thankErr) {
         console.error("[square/handler] payment thank message error:", thankErr);
-      } finally {
-        await thankLock!.release();
       }
     }
 
