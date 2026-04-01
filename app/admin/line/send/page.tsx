@@ -1352,7 +1352,6 @@ export default function BroadcastSendPage() {
                   placeholder="例: マンジャロを処方された30代で、最後の来院から3ヶ月以上経った人"
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400 bg-gray-50/50 transition-all resize-none"
                   rows={3}
-                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAiSegmentGenerate(); } }}
                 />
               </div>
 
