@@ -792,11 +792,21 @@ export async function processAiReply(
 
     trace.setClassification(classificationResult as unknown as Record<string, unknown>);
 
-    // 分類で返信不要と判断された場合はスキップ
+    // 分類で返信不要と判断された場合のスキップ判定
     if (!classificationResult.should_reply) {
-      log.push(`skip: 分類で返信不要 (category=${classificationResult.category}, reason=${classificationResult.reasoning})`);
-      console.log(`[AI Reply] 分類で返信不要: ${classificationResult.reasoning}`);
-      return;
+      // 医療系で直接回答モードの場合はスキップせずドラフト生成を継続
+      const isMedicalDirect = classificationResult.category === "medical" && settings.medical_reply_mode === "direct";
+      // エスカレーション対象はドラフト生成して承認に回す
+      const isEscalation = classificationResult.escalate_to_staff;
+
+      if (isMedicalDirect || isEscalation) {
+        classificationResult.should_reply = true;
+        log.push(`step6A: should_reply=falseを上書き (medical_direct=${isMedicalDirect}, escalation=${isEscalation})`);
+      } else {
+        log.push(`skip: 分類で返信不要 (category=${classificationResult.category}, reason=${classificationResult.reasoning})`);
+        console.log(`[AI Reply] 分類で返信不要: ${classificationResult.reasoning}`);
+        return;
+      }
     }
   } catch (err) {
     // 分類失敗時は従来の単一呼び出しにフォールバック
