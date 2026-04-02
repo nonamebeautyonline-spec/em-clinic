@@ -9,7 +9,7 @@ import { getSettingOrEnv } from "@/lib/settings";
 import { logAudit } from "@/lib/audit";
 import { parseBody } from "@/lib/validations/helpers";
 import { nonameMasterRefundSchema } from "@/lib/validations/admin-operations";
-import { SquarePaymentProvider } from "@/lib/payment/square";
+import { getPaymentProvider } from "@/lib/payment";
 
 async function pushToGroup(text: string, token: string, groupId: string) {
   if (!token || !groupId) return;
@@ -90,12 +90,15 @@ export async function POST(req: NextRequest) {
         ? `${reasonParts.join(";")}の払戻し`
         : "管理画面からの払戻し";
 
-      const square = new SquarePaymentProvider(tenantId);
-      const result = await square.processRefund(order.id, order.amount, refundReason);
+      const provider = await getPaymentProvider(tenantId ?? undefined);
+      if (!provider.processRefund) {
+        return serverError("この決済プロバイダーは返金に対応していません");
+      }
+      const result = await provider.processRefund(order.id, order.amount, refundReason);
 
       if (!result.success) {
-        console.error("[noname-master/refund] Square refund failed:", result.status);
-        return serverError(`Square返金に失敗しました: ${result.status}`);
+        console.error(`[noname-master/refund] ${provider.name} refund failed:`, result.status);
+        return serverError(`返金に失敗しました: ${result.status}`);
       }
 
       // DB更新: COMPLETED（Squareが処理済み）
