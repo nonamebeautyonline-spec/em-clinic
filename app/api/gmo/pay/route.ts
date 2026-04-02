@@ -290,70 +290,76 @@ export async function POST(req: NextRequest) {
       console.error("[gmo/pay] orders insert exception:", dbErr);
     }
 
-    // reorder paidマーク + カルテ自動作成
-    if (reorderId) {
-      await markReorderPaid(reorderId, patientId, tenantId);
-      if (patientId && productCode) {
+    // 決済成功 → レスポンスを先に返し、後処理は非同期で実行（体感速度改善）
+    const response = NextResponse.json({ success: true, orderId });
+
+    // 後処理をfire-and-forget（waitUntil相当）
+    const postProcess = async () => {
+      try {
+        // reorder paidマーク + カルテ自動作成
+        if (reorderId) {
+          await markReorderPaid(reorderId, patientId, tenantId);
+          if (patientId && productCode) {
+            try {
+              await createReorderPaymentKarte(patientId, productCode, new Date().toISOString(), undefined, tid);
+            } catch (e) {
+              console.error("[gmo/pay] karte error:", e);
+            }
+          }
+        }
+
+        // 決済完了サンクスFlex送信
         try {
-          await createReorderPaymentKarte(patientId, productCode, new Date().toISOString(), undefined, tid);
-        } catch (e) {
-          console.error("[gmo/pay] karte error:", e);
+          const rules = await getBusinessRules(tid);
+          if (rules.notifyReorderPaid) {
+            const thankMsg = rules.paymentThankMessageCard || "お支払いありがとうございます。発送準備を進めてまいります。";
+            const { data: pt } = await withTenant(
+              supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
+              tenantId
+            );
+            if (pt?.line_id) {
+              await sendPaymentThankNotification({
+                patientId,
+                lineUid: pt.line_id,
+                message: thankMsg,
+                shipping: {
+                  shippingName: shipping.name,
+                  postalCode: shipping.postalCode,
+                  address: shipping.address,
+                  phone: finalPhone,
+                  email: shipping.email,
+                },
+                paymentMethod: "credit_card",
+                productName: product.title,
+                amount: product.price,
+                tenantId: tid,
+              });
+            }
+          }
+        } catch (thankErr) {
+          console.error("[gmo/pay] payment thank message error:", thankErr);
         }
-      }
-    }
 
-    // 決済完了サンクスFlex送信
-    try {
-      const rules = await getBusinessRules(tid);
-      if (rules.notifyReorderPaid) {
-        const thankMsg = rules.paymentThankMessageCard || "お支払いありがとうございます。発送準備を進めてまいります。";
-        const { data: pt } = await withTenant(
-          supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
-          tenantId
+        // キャッシュ削除・タグ自動付与・メニュールール・ポイント
+        await invalidateDashboardCache(patientId);
+        evaluateTagAutoRules(patientId, "checkout_completed", tid).catch(() => {});
+        import("@/lib/menu-auto-rules").then(({ evaluateMenuRules }) =>
+          evaluateMenuRules(patientId, tid).catch(() => {})
         );
-        if (pt?.line_id) {
-          await sendPaymentThankNotification({
-            patientId,
-            lineUid: pt.line_id,
-            message: thankMsg,
-            shipping: {
-              shippingName: shipping.name,
-              postalCode: shipping.postalCode,
-              address: shipping.address,
-              phone: finalPhone,
-              email: shipping.email,
-            },
-            paymentMethod: "credit_card",
-            productName: product.title,
-            amount: product.price,
-            tenantId: tid,
-          });
+        try {
+          const { processAutoGrant } = await import("@/lib/point-auto-grant");
+          await processAutoGrant(tenantId || "", patientId, orderId, product.price);
+        } catch (e) {
+          console.error("[gmo/pay] point auto-grant failed:", e);
         }
+      } catch (err) {
+        console.error("[gmo/pay] post-process error:", err);
       }
-    } catch (thankErr) {
-      console.error("[gmo/pay] payment thank message error:", thankErr);
-    }
+    };
+    // Vercelではレスポンス返却後もLambdaが少し生き残るため、awaitせずに実行
+    postProcess().catch((e) => console.error("[gmo/pay] post-process unhandled:", e));
 
-    // キャッシュ削除
-    await invalidateDashboardCache(patientId);
-
-    // タグ自動付与
-    evaluateTagAutoRules(patientId, "checkout_completed", tid).catch(() => {});
-
-    // リッチメニュー自動切り替え
-    import("@/lib/menu-auto-rules").then(({ evaluateMenuRules }) =>
-      evaluateMenuRules(patientId, tid).catch(() => {})
-    );
-
-    // ポイント自動付与
-    try {
-      const { processAutoGrant } = await import("@/lib/point-auto-grant");
-      await processAutoGrant(tenantId || "", patientId, orderId, product.price);
-    } catch (e) {
-      console.error("[gmo/pay] point auto-grant failed:", e);
-    }
-
-    return NextResponse.json({ success: true, orderId });
+    return response;
     } finally {
       await lock.release();
     }
