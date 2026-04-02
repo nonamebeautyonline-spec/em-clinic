@@ -112,11 +112,26 @@ export async function POST(req: Request) {
     const clientField2 = params.get("ClientField2") || "";
 
     const meta = parseClientField(clientField1);
-    const patientId = meta.patientId || "";
-    const productCode = meta.productCode || "";
-    const reorderId = meta.reorderId || "";
+    let patientId = meta.patientId || "";
+    let productCode = meta.productCode || "";
+    let reorderId = meta.reorderId || "";
     const couponId = meta.couponId || "";
     const campaignId = meta.campaignId || "";
+
+    // ClientFieldが空の場合（トークン型決済ではGMOが通知に含めないことがある）
+    // ordersテーブルからOrderIDで補完
+    if (!patientId && orderId) {
+      const { data: existingOrder } = await supabaseAdmin
+        .from("orders")
+        .select("patient_id, product_code")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (existingOrder) {
+        patientId = existingOrder.patient_id || "";
+        productCode = productCode || existingOrder.product_code || "";
+        console.log("[gmo/webhook] ClientField空のためordersから補完:", { patientId, productCode });
+      }
+    }
 
     console.log("[gmo/webhook] 結果通知受信:", {
       orderId,
