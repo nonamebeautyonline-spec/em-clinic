@@ -69,6 +69,7 @@ function IncomingWithAi({
             patientId={patientId}
             draft={ai.draft}
             loading={ai.loading}
+            generating={ai.generating}
             editedReply={ai.editedReply}
             setEditedReply={ai.setEditedReply}
             instruction={ai.instruction}
@@ -81,6 +82,7 @@ function IncomingWithAi({
             onSend={() => ai.send(onAiSent)}
             onReject={ai.reject}
             onRegenerate={ai.regenerate}
+            onGenerate={ai.generate}
             onClose={ai.close}
           />
         </div>

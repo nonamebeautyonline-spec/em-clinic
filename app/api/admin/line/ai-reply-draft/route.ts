@@ -8,11 +8,12 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, strictWithTenant } from "@/lib/tenant";
 import Anthropic from "@anthropic-ai/sdk";
-import { sendAiReply, buildSystemPrompt, buildUserMessage, fetchPatientFlowStatus, type RejectedDraftEntry } from "@/lib/ai-reply";
+import { sendAiReply, buildSystemPrompt, buildUserMessage, fetchPatientFlowStatus, processAiReply, clearAiReplyDebounce, lastProcessLog, type RejectedDraftEntry } from "@/lib/ai-reply";
 import { saveAiReplyExample, boostExampleQuality, penalizeExampleQuality, executeRAGPipeline } from "@/lib/embedding";
 import { normalizedEditDistance } from "@/lib/edit-distance";
 import { getSettingOrEnv } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
+import { acquireLock } from "@/lib/distributed-lock";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -45,11 +46,12 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ draft: data });
 }
 
-// POST: ドラフトに対するアクション（send / reject / regenerate / batch_approve / batch_reject）
+// POST: ドラフトに対するアクション（send / reject / regenerate / generate / batch_approve / batch_reject）
 const actionSchema = z.object({
   draft_id: z.number().optional(),
   draft_ids: z.array(z.number()).optional(),
-  action: z.enum(["send", "reject", "regenerate", "batch_approve", "batch_reject"]),
+  patient_id: z.string().optional(),
+  action: z.enum(["send", "reject", "regenerate", "generate", "batch_approve", "batch_reject"]),
   modified_reply: z.string().optional(),
   reject_reason: z.string().optional(),
   reject_category: z.string().optional(),
@@ -265,6 +267,79 @@ ${instruction}
       const msg = err instanceof Error ? err.message : String(err);
       console.error("[AI Reply Admin] 再生成エラー:", msg, err);
       return serverError(`AI再生成に失敗しました: ${msg}`);
+    }
+  }
+
+  // 手動生成（フォールバック: webhook/cronで生成されなかった場合）
+  if (action === "generate") {
+    const pid = parsed.data.patient_id;
+    if (!pid) return badRequest("patient_idが必要です");
+
+    // pendingドラフトが既にあれば即返却（重複防止）
+    const { data: existing } = await strictWithTenant(
+      supabaseAdmin
+        .from("ai_reply_drafts")
+        .select("id, patient_id, line_uid, original_message, draft_reply, status, ai_category, confidence, model_used, created_at, expires_at, retrieved_example_ids, retrieved_chunks, rewritten_query")
+        .eq("patient_id", pid)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      tenantId
+    );
+    if (existing) {
+      return NextResponse.json({ ok: true, action: "already_exists", draft: existing });
+    }
+
+    // 患者のline_uid・名前を取得
+    const { data: patient } = await strictWithTenant(
+      supabaseAdmin.from("patients").select("patient_id, line_id, name").eq("patient_id", pid).maybeSingle(),
+      tenantId
+    );
+    if (!patient?.line_id) return badRequest("患者のLINE IDが見つかりません");
+
+    // 分散ロックで競合回避（webhook/cronのprocessAiReplyと同じキー）
+    const lockKey = `ai-reply:${pid}`;
+    const lock = await acquireLock(lockKey, 55);
+    if (!lock.acquired) {
+      // 別プロセスが処理中 → クライアントにリトライを促す
+      return NextResponse.json({ ok: true, action: "generating", message: "他のプロセスが生成中です" });
+    }
+
+    try {
+      // processAiReply実行（ドラフト生成 + 承認Flex送信）
+      await processAiReply(patient.line_id, pid, patient.name || "", tenantId, undefined);
+      // Redisデバウンスキーが残っていれば削除
+      await clearAiReplyDebounce(pid);
+
+      // 生成されたドラフトを取得して返却
+      const { data: newDraft } = await strictWithTenant(
+        supabaseAdmin
+          .from("ai_reply_drafts")
+          .select("id, patient_id, line_uid, original_message, draft_reply, status, ai_category, confidence, model_used, created_at, expires_at, retrieved_example_ids, retrieved_chunks, rewritten_query")
+          .eq("patient_id", pid)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        tenantId
+      );
+
+      return NextResponse.json({
+        ok: true,
+        action: "generated",
+        draft: newDraft || null,
+        processLog: lastProcessLog,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[AI Reply Admin] 手動生成エラー:", msg, err);
+      return NextResponse.json(
+        { ok: false, error: `AI返信生成に失敗しました: ${msg}`, processLog: lastProcessLog },
+        { status: 500 }
+      );
+    } finally {
+      await lock.release();
     }
   }
 

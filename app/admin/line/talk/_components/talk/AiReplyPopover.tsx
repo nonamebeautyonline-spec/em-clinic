@@ -51,6 +51,7 @@ interface AiReplyCardProps {
   patientId: string;
   draft: AiDraft | null;
   loading: boolean;
+  generating: boolean;
   editedReply: string;
   setEditedReply: (v: string) => void;
   instruction: string;
@@ -63,6 +64,7 @@ interface AiReplyCardProps {
   onSend: () => void;
   onReject: () => void;
   onRegenerate: () => void;
+  onGenerate: () => void;
   onClose: () => void;
 }
 
@@ -75,9 +77,9 @@ const categoryLabel: Record<string, string> = {
 
 /** AI返信カード（メッセージの下にインライン表示） */
 export function AiReplyCard({
-  draft, loading, editedReply, setEditedReply,
+  draft, loading, generating, editedReply, setEditedReply,
   instruction, setInstruction, regenerating, sending, rejecting,
-  done, error, onSend, onReject, onRegenerate, onClose,
+  done, error, onSend, onReject, onRegenerate, onGenerate, onClose,
 }: AiReplyCardProps) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-purple-200 overflow-hidden">
@@ -101,11 +103,31 @@ export function AiReplyCard({
           </div>
         )}
 
-        {/* ドラフトなし */}
+        {/* ドラフトなし / 生成中 */}
         {!loading && !draft && !done && (
           <div className="text-center py-3">
-            <div className="text-gray-400 text-[11px]">AI返信案はまだ生成されていません</div>
-            <div className="text-gray-300 text-[10px] mt-0.5">メッセージ受信後しばらくお待ちください</div>
+            {generating ? (
+              <>
+                <div className="flex items-center justify-center mb-1">
+                  <div className="w-4 h-4 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
+                </div>
+                <div className="text-gray-500 text-[11px]">AI返信案を生成中...</div>
+              </>
+            ) : (
+              <>
+                <div className="text-gray-400 text-[11px]">AI返信案はまだ生成されていません</div>
+                <button
+                  onClick={onGenerate}
+                  className="mt-2 text-[11px] bg-purple-50 text-purple-600 px-3 py-1.5 rounded-lg hover:bg-purple-100 transition-colors inline-flex items-center gap-1"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                  生成する
+                </button>
+              </>
+            )}
+            {error && (
+              <div className="mt-1.5 text-[11px] text-red-500 bg-red-50 px-2 py-1 rounded">{error}</div>
+            )}
           </div>
         )}
 
@@ -353,6 +375,7 @@ export function useAiReplyDraft(patientId: string) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<AiDraft | null>(null);
   const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [editedReply, setEditedReply] = useState("");
   const [instruction, setInstruction] = useState("");
   const [regenerating, setRegenerating] = useState(false);
@@ -455,11 +478,56 @@ export function useAiReplyDraft(patientId: string) {
     }
   };
 
+  const generate = async () => {
+    if (generating || draft) return;
+    setGenerating(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/line/ai-reply-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patient_id: patientId, action: "generate" }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "生成失敗");
+
+      if (json.action === "generating") {
+        // 他プロセスが生成中 → 数秒後にポーリングで取得
+        for (let i = 0; i < 6; i++) {
+          await new Promise(r => setTimeout(r, 5_000));
+          const pollRes = await fetch(`/api/admin/line/ai-reply-draft?patient_id=${encodeURIComponent(patientId)}`);
+          const pollJson = await pollRes.json();
+          if (pollJson.draft) {
+            setDraft(pollJson.draft);
+            setEditedReply(pollJson.draft.draft_reply);
+            return;
+          }
+        }
+        throw new Error("生成がタイムアウトしました。再度お試しください。");
+      }
+
+      if (json.draft) {
+        setDraft(json.draft);
+        setEditedReply(json.draft.draft_reply);
+      } else if (json.action === "already_exists") {
+        // 既存ドラフトがレスポンスに含まれない場合はfetchし直す
+        await fetchDraft();
+      } else {
+        // processAiReplyが分類で返信不要と判断した場合など
+        setError(json.processLog?.find((l: string) => l.startsWith("skip:"))?.replace("skip: ", "") || "返信不要と判定されました");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "生成に失敗しました");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const close = () => setOpen(false);
 
   return {
-    open, draft, loading, editedReply, setEditedReply,
+    open, draft, loading, generating, editedReply, setEditedReply,
     instruction, setInstruction, regenerating, sending, rejecting,
-    done, error, toggle, send, reject, regenerate, close,
+    done, error, toggle, send, reject, regenerate, generate, close,
   };
 }
