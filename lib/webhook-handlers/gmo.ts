@@ -80,14 +80,23 @@ export interface GmoHandlerParams {
  */
 export async function processGmoEvent(params: GmoHandlerParams): Promise<void> {
   const { status, orderId, amount, accessId, patientId, productCode, productName, reorderId, couponId, campaignId, tenantId } = params;
-  const paymentId = accessId || orderId;
+  // インライン決済（gmo/pay）ではorderIdでorders.idを保存するため、orderIdを優先
+  const paymentId = orderId || accessId;
 
   // ---- 決済完了（CAPTURE / SALES） ----
   if (status === "CAPTURE" || status === "SALES") {
     const amountNum = amount ? parseFloat(amount) : 0;
     const paidAt = new Date().toISOString();
 
-    if (reorderId) {
+    // インライン決済（gmo/pay）で既にorders INSERT済みかチェック
+    // 既に存在する場合はgmo/pay側で後処理（reorder paid, LINE通知等）実行済みなのでスキップ
+    const { data: inlineOrder } = await withTenant(
+      supabaseAdmin.from("orders").select("id").eq("id", paymentId).maybeSingle(),
+      tenantId,
+    );
+    const alreadyProcessed = !!inlineOrder;
+
+    if (reorderId && !alreadyProcessed) {
       await markReorderPaid(reorderId, patientId, tenantId);
       if (patientId && productCode) {
         try {
@@ -184,6 +193,8 @@ export async function processGmoEvent(params: GmoHandlerParams): Promise<void> {
       await invalidateDashboardCache(patientId);
       evaluateMenuRules(patientId, tenantId ?? undefined).catch(() => {});
 
+      // インライン決済で既に処理済みの場合、ポイント/クーポン/キャンペーンはスキップ
+      if (!alreadyProcessed) {
       // ポイント自動付与
       try {
         const { processAutoGrant } = await import("@/lib/point-auto-grant");
@@ -243,6 +254,7 @@ export async function processGmoEvent(params: GmoHandlerParams): Promise<void> {
           console.error("[gmo/handler] campaign usage record failed:", e);
         }
       }
+      } // end !alreadyProcessed
     }
     return;
   }

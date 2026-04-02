@@ -143,6 +143,10 @@
     {
       "path": "/api/cron/salon-birthday",
       "schedule": "0 9 1 * *"
+    },
+    {
+      "path": "/api/cron/gmo-pending-cleanup",
+      "schedule": "0 * * * *"
     }
   ]
 }

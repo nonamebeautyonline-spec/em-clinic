@@ -102,6 +102,8 @@ const CSRF_EXEMPT_PATTERNS = [
   /^\/api\/repair$/,
   /^\/api\/ai-reply\//,
   /^\/api\/square\/pay$/,
+  /^\/api\/gmo\/pay$/,
+  /^\/api\/gmo\/3ds-callback$/,
 ];
 
 function isCsrfExempt(pathname: string): boolean {

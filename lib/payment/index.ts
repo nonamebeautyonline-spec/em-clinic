@@ -8,7 +8,7 @@ export type { PaymentProvider, CheckoutParams, CheckoutResult, WebhookEvent, Ref
 
 const providers: Record<string, (tenantId?: string) => PaymentProvider> = {
   square: (tid) => new SquarePaymentProvider(tid),
-  gmo: () => new GmoPaymentProvider(),
+  gmo: (tid) => new GmoPaymentProvider(tid),
 };
 
 /** 設定に基づき決済プロバイダーを取得（デフォルト: Square） */

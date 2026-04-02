@@ -5,6 +5,7 @@ import React, { useMemo, useState, useEffect, useCallback, useRef, Suspense } fr
 import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
 import SquareCardForm from "@/components/SquareCardForm";
+import GmoCardForm from "@/components/GmoCardForm";
 import { hasAddressDuplication, addressDetailStartsWithPrefecture } from "@/lib/address-utils";
 
 // SWRProviderのスコープ外（患者向けページ）なのでfetcherを明示指定
@@ -34,10 +35,15 @@ type Product = {
 
 type SdkConfig = {
   enabled: boolean;
+  provider?: "square" | "gmo";
+  // Square用
   applicationId?: string;
   locationId?: string;
-  environment?: "sandbox" | "production";
   threeDsEnabled?: boolean;
+  // GMO用
+  shopId?: string;
+  // 共通
+  environment?: "sandbox" | "production";
   showCoupon?: boolean;
 };
 
@@ -274,7 +280,7 @@ function PurchaseConfirmContent() {
   }, [identityData, identityError]);
 
   // SDK設定をSWRで取得 → useMemoで同期的に導出
-  const { data: sdkData, error: sdkError } = useSWR("/api/square/sdk-config", swrFetcher, {
+  const { data: sdkData, error: sdkError } = useSWR("/api/payment/sdk-config", swrFetcher, {
     revalidateOnFocus: false,
   });
 
@@ -294,7 +300,8 @@ function PurchaseConfirmContent() {
     !addressDuplicated;
 
   // 保存済みカード情報はカードフォーム表示時に遅延取得（初期表示をブロックしない）
-  const savedCardKey = showCardForm && savedCard === null ? "/api/square/saved-card" : null;
+  const savedCardUrl = sdkConfig?.provider === "gmo" ? "/api/gmo/saved-card" : "/api/square/saved-card";
+  const savedCardKey = showCardForm && savedCard === null ? savedCardUrl : null;
   const { data: savedCardData, error: savedCardError } = useSWR(savedCardKey, swrFetcher, {
     revalidateOnFocus: false,
   });
@@ -421,23 +428,45 @@ function PurchaseConfirmContent() {
       setError(null);
 
       try {
-        const res = await fetch("/api/square/pay", {
+        const isGmo = sdkConfig?.provider === "gmo";
+        const payUrl = isGmo ? "/api/gmo/pay" : "/api/square/pay";
+        const isSavedCard = isGmo && sourceId === "__saved_card__";
+        const payBody = isGmo
+          ? {
+              ...(isSavedCard ? { useSavedCard: true } : { token: sourceId }),
+              productCode: product.code,
+              mode: modeParam,
+              patientId,
+              reorderId: reorderIdParam ?? null,
+              saveCard: true,
+              shipping: { ...shipping, address: fullAddress, addressDetail },
+            }
+          : {
+              sourceId,
+              productCode: product.code,
+              mode: modeParam,
+              patientId,
+              reorderId: reorderIdParam ?? null,
+              saveCard: true,
+              shipping: { ...shipping, address: fullAddress, addressDetail },
+            };
+        const res = await fetch(payUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           signal: abortRef.current?.signal,
-          body: JSON.stringify({
-            sourceId,
-            productCode: product.code,
-            mode: modeParam,
-            patientId,
-            reorderId: reorderIdParam ?? null,
-            saveCard: true,
-            shipping: { ...shipping, address: fullAddress, addressDetail },
-          }),
+          body: JSON.stringify(payBody),
         });
 
         const data = await res.json();
+
+        // GMO 3Dセキュア認証が必要な場合 → 認証画面にリダイレクト
+        if (data.needs3ds && data.acsUrl) {
+          stopSubmitting();
+          window.location.href = data.acsUrl;
+          return;
+        }
+
         if (!res.ok) throw new Error((data.message || data.error) || "決済に失敗しました");
         router.push(`/mypage/purchase/complete?code=${product.code}`);
       } catch (e) {
@@ -460,8 +489,13 @@ function PurchaseConfirmContent() {
 
   // 保存済みカードで決済
   const handleSavedCardPay = useCallback(() => {
-    if (savedCard?.cardId) submitInlinePayment(savedCard.cardId);
-  }, [savedCard, submitInlinePayment]);
+    if (sdkConfig?.provider === "gmo") {
+      // GMO: useSavedCard フラグで識別
+      submitInlinePayment("__saved_card__");
+    } else if (savedCard?.cardId) {
+      submitInlinePayment(savedCard.cardId);
+    }
+  }, [savedCard, sdkConfig, submitInlinePayment]);
 
   const handleCardFormError = useCallback((msg: string) => setError(msg), []);
 
@@ -665,7 +699,7 @@ function PurchaseConfirmContent() {
                     クレジットカードで決済
                   </button>
                   <p className="text-[10px] text-slate-500 px-2">
-                    即時決済完了で発送手続きがスムーズ｜Squareの安全な決済システム
+                    即時決済完了で発送手続きがスムーズ｜安全な決済システム
                   </p>
                 </div>
               ) : isInline ? (
@@ -679,7 +713,7 @@ function PurchaseConfirmContent() {
                     クレジットカードで決済
                   </button>
                   <p className="text-[10px] text-slate-500 px-2">
-                    即時決済完了で発送手続きがスムーズ｜Squareの安全な決済システム
+                    即時決済完了で発送手続きがスムーズ｜安全な決済システム
                   </p>
                 </div>
               ) : (
@@ -693,7 +727,7 @@ function PurchaseConfirmContent() {
                     {submitting ? "決済画面を準備しています..." : "クレジットカードで決済"}
                   </button>
                   <p className="text-[10px] text-slate-500 px-2">
-                    即時決済完了で発送手続きがスムーズ｜Squareの安全な決済システム
+                    即時決済完了で発送手続きがスムーズ｜安全な決済システム
                   </p>
                 </div>
               )}
@@ -919,38 +953,51 @@ function PurchaseConfirmContent() {
                       : `${savedCard.brand} ****${savedCard.last4} で決済する`}
                   </button>
                   <p className="text-[10px] text-slate-400 leading-relaxed px-1">
-                    Square決済を使用しており、カード情報はのなめビューティー上では保存されません。
-                    カード情報は全てSquare社のセキュリティ基準（PCI DSS）に基づき安全に処理されます。
+                    {sdkConfig?.provider === "gmo"
+                      ? "カード情報はGMOペイメントゲートウェイ社の安全な環境で処理され、当サイト上では保存されません。PCI DSS準拠のセキュリティ基準で保護されています。"
+                      : "Square決済を使用しており、カード情報はのなめビューティー上では保存されません。カード情報は全てSquare社のセキュリティ基準（PCI DSS）に基づき安全に処理されます。"}
                   </p>
                 </div>
               )}
 
-              {/* 新規カード入力（Web Payments SDK） */}
-              {paymentMode === "new_card" && sdkConfig?.applicationId && sdkConfig?.locationId && (
-                <SquareCardForm
-                  key={cardFormKey}
-                  applicationId={sdkConfig.applicationId}
-                  locationId={sdkConfig.locationId}
-                  environment={sdkConfig.environment || "production"}
-                  onTokenize={handleNonceReady}
-                  onError={handleCardFormError}
-                  disabled={submitting || !patientId || !shippingValid}
-                  submitting={submitting}
-                  threeDsEnabled={sdkConfig.threeDsEnabled}
-                  verificationDetails={product ? {
-                    amount: String(effectivePrice),
-                    currencyCode: "JPY",
-                    intent: "CHARGE",
-                    billingContact: {
-                      givenName: shipping.name || undefined,
-                      phone: shipping.phone || undefined,
-                      email: shipping.email || undefined,
-                      addressLines: fullAddress ? [fullAddress] : undefined,
-                      postalCode: shipping.postalCode?.replace("-", "") || undefined,
-                      countryCode: "JP",
-                    },
-                  } : undefined}
-                />
+              {/* 新規カード入力 */}
+              {paymentMode === "new_card" && sdkConfig?.enabled && (
+                sdkConfig.provider === "gmo" && sdkConfig.shopId ? (
+                  <GmoCardForm
+                    key={cardFormKey}
+                    shopId={sdkConfig.shopId}
+                    environment={sdkConfig.environment || "production"}
+                    onTokenize={handleNonceReady}
+                    onError={handleCardFormError}
+                    disabled={submitting || !patientId || !shippingValid}
+                    submitting={submitting}
+                  />
+                ) : sdkConfig.applicationId && sdkConfig.locationId ? (
+                  <SquareCardForm
+                    key={cardFormKey}
+                    applicationId={sdkConfig.applicationId}
+                    locationId={sdkConfig.locationId}
+                    environment={sdkConfig.environment || "production"}
+                    onTokenize={handleNonceReady}
+                    onError={handleCardFormError}
+                    disabled={submitting || !patientId || !shippingValid}
+                    submitting={submitting}
+                    threeDsEnabled={sdkConfig.threeDsEnabled}
+                    verificationDetails={product ? {
+                      amount: String(effectivePrice),
+                      currencyCode: "JPY",
+                      intent: "CHARGE",
+                      billingContact: {
+                        givenName: shipping.name || undefined,
+                        phone: shipping.phone || undefined,
+                        email: shipping.email || undefined,
+                        addressLines: fullAddress ? [fullAddress] : undefined,
+                        postalCode: shipping.postalCode?.replace("-", "") || undefined,
+                        countryCode: "JP",
+                      },
+                    } : undefined}
+                  />
+                ) : null
               )}
             </div>
           )}

@@ -678,8 +678,8 @@ export default function PaymentSection({ settings, onSaved }: Props) {
         </div>
       </div>
 
-      {/* チェックアウトモード（Squareの場合のみ表示） */}
-      {selected === "square" && (
+      {/* チェックアウトモード（Square/GMOの場合表示） */}
+      {(selected === "square" || selected === "gmo") && (
         <div className={`px-5 py-4 border-b border-gray-100 ${!editing ? "pointer-events-none opacity-60" : ""}`}>
           <p className="text-sm font-medium text-gray-900 mb-3">チェックアウトモード</p>
           <div className="space-y-3">
@@ -741,33 +741,46 @@ export default function PaymentSection({ settings, onSaved }: Props) {
             <>
               <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3">
                 <p className="text-xs text-amber-800 leading-relaxed">
-                  アプリ内決済を使用するには、Square Developer Dashboard で <strong>Application ID</strong> を取得し、
-                  下の「Square API設定」セクションに入力してください。
+                  {selected === "gmo"
+                    ? <>アプリ内決済を使用するには、GMO PG管理画面で <strong>ショップID</strong> を確認し、下の「GMO API設定」セクションに入力してください。</>
+                    : <>アプリ内決済を使用するには、Square Developer Dashboard で <strong>Application ID</strong> を取得し、下の「Square API設定」セクションに入力してください。</>}
                 </p>
               </div>
 
-              {/* 3Dセキュア設定 — アカウント管理で制御 */}
-              <div className="mt-3 rounded-lg border border-gray-200 p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-gray-900">3Dセキュア認証（SCA）</p>
-                    <p className="text-[10px] text-gray-500 mt-0.5">
-                      下の「Square API設定」セクションでアカウントごとに設定できます
-                    </p>
+              {/* 3Dセキュア設定 — Square: アカウント管理で制御 / GMO: 常に有効 */}
+              {selected === "gmo" ? (
+                <div className="mt-3 rounded-lg border border-gray-200 p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-medium text-gray-900">3Dセキュア認証（SCA）</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">GMOでは3Dセキュア2.0が常に有効です</p>
+                    </div>
+                    <span className="px-2 py-0.5 text-[10px] font-medium rounded text-blue-700 bg-blue-100">常に有効</span>
                   </div>
-                  {(() => {
-                    const activeAcc = sqAccounts.find((a) => a.id === activeSqId);
-                    const enabled = activeAcc?.three_ds_enabled ?? false;
-                    return (
-                      <span className={`px-2 py-0.5 text-[10px] font-medium rounded ${
-                        enabled ? "text-blue-700 bg-blue-100" : "text-gray-500 bg-gray-100"
-                      }`}>
-                        {enabled ? "有効" : "無効"}
-                      </span>
-                    );
-                  })()}
                 </div>
-              </div>
+              ) : (
+                <div className="mt-3 rounded-lg border border-gray-200 p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-medium text-gray-900">3Dセキュア認証（SCA）</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">
+                        下の「Square API設定」セクションでアカウントごとに設定できます
+                      </p>
+                    </div>
+                    {(() => {
+                      const activeAcc = sqAccounts.find((a) => a.id === activeSqId);
+                      const enabled = activeAcc?.three_ds_enabled ?? false;
+                      return (
+                        <span className={`px-2 py-0.5 text-[10px] font-medium rounded ${
+                          enabled ? "text-blue-700 bg-blue-100" : "text-gray-500 bg-gray-100"
+                        }`}>
+                          {enabled ? "有効" : "無効"}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
