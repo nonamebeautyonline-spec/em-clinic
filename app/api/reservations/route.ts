@@ -1182,8 +1182,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: "db_error", detail: rpcError.message }, { status: 500 });
       }
 
-      // RPC が slot_full を返した場合
+      // RPC がエラーを返した場合（not_found: キャンセル済み/存在しない、slot_full: 定員超過）
       if (rpcResult && !rpcResult.ok) {
+        if (rpcResult.error === "not_found") {
+          console.log(`[Reservation] not_found on update: reserve_id=${reserveId} (キャンセル済みまたは存在しない)`);
+          return NextResponse.json({ ok: false, error: "not_found", message: "この予約は既にキャンセルされているか、存在しません。" }, { status: 404 });
+        }
         console.log(`[Reservation] slot_full on update: date=${newDate}, time=${newTime}, booked=${rpcResult.booked}, capacity=${rpcResult.capacity}`);
         return NextResponse.json({ ok: false, error: "slot_full", message: "この時間帯はすでに予約が埋まりました。別の時間帯をお選びください。", }, { status: 409 });
       }

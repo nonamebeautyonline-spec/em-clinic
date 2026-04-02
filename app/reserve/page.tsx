@@ -344,6 +344,11 @@ const ReserveInner: React.FC = () => {
             setSelectedSlot(null);
             return;
           }
+          if (data.error === "not_found") {
+            alert("この予約は既にキャンセルされています。マイページから新しい予約をお取りください。");
+            router.push("/mypage");
+            return;
+          }
           alert("予約の変更に失敗しました。時間をおいて再度お試しください。");
           return;
         }
