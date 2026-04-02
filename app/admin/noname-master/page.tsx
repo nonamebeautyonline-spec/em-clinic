@@ -987,7 +987,7 @@ export default function NonameMasterPage() {
                   <div className="bg-red-50 border border-red-200 rounded p-3">
                     <p className="text-sm text-red-800">
                       <strong>注意:</strong>{" "}
-                      Squareを通じてクレジットカードへの全額返金を実行します。この操作は取り消せません。
+                      クレジットカードへの全額返金を実行します。この操作は取り消せません。
                     </p>
                   </div>
                 </>
