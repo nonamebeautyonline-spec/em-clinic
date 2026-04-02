@@ -59,9 +59,9 @@ export function translateGmoError(errInfo: string | undefined): string {
   return "決済に失敗しました。時間をおいて再度お試しください。";
 }
 
-/** GMO OrderID生成（最大27文字） */
+/** GMO OrderID生成（最大27文字、半角英数字とハイフンのみ） */
 export function generateOrderId(): string {
-  return `ord_${Date.now().toString(36)}_${crypto.randomBytes(4).toString("hex")}`.slice(0, 27);
+  return `o${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}`.slice(0, 27);
 }
 
 /** 患者のGMO会員IDを確保（DB確認→なければ登録） */
