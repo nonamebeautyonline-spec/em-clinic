@@ -681,6 +681,19 @@ function PurchaseConfirmContent() {
           </p>
         </div>
 
+        {/* 決済処理中の注意表示 */}
+        {submitting && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-4 h-4 border-2 border-amber-300 border-t-amber-600 rounded-full animate-spin flex-shrink-0" />
+              <p className="text-[12px] font-semibold text-amber-800">決済処理中です</p>
+            </div>
+            <p className="text-[11px] text-amber-700 leading-relaxed">
+              完了するまでこの画面を閉じたり、戻るボタンを押さないでください。通常30秒ほどで完了します。
+            </p>
+          </div>
+        )}
+
         {/* 決済方法選択 */}
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-slate-900">決済方法を選択</h3>
