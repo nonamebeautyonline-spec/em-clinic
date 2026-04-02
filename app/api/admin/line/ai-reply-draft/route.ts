@@ -67,9 +67,8 @@ export async function POST(req: NextRequest) {
   if ("error" in parsed) return parsed.error;
   const { draft_id, action, modified_reply, reject_reason, reject_category, instruction } = parsed.data;
 
-  // 一括操作は別途ハンドリング（draft_id不要、関数末尾で処理）
-  if (action === "batch_approve" || action === "batch_reject") {
-    // 下のbatch処理ブロックに到達させる（単一操作をスキップ）
+  // draft_id不要のアクションはスキップ
+  if (action === "batch_approve" || action === "batch_reject" || action === "generate") {
     // eslint-disable-next-line no-empty
   } else {
     if (!draft_id) return badRequest("draft_idが必要です");
