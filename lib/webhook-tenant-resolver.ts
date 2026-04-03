@@ -94,20 +94,19 @@ export async function resolveLineTenantBySignature(
 ): Promise<string | null> {
   if (!rawBody || !signature) return null;
 
-  // messaging channel_secret と notify channel_secret の両方を取得
-  const messagingSecrets = await getAllTenantValues("line", "channel_secret");
+  // 全テナントの channel_secret / messaging_channel_secret / notify_channel_secret を取得
+  const oauthSecrets = await getAllTenantValues("line", "channel_secret");
+  const messagingSecrets = await getAllTenantValues("line", "messaging_channel_secret");
   const notifySecrets = await getAllTenantValues("line", "notify_channel_secret");
 
   // 全テナントのsecretを集約: tenantId → secret[]
   const tenantSecrets = new Map<string, string[]>();
 
-  for (const [tenantId, secret] of messagingSecrets) {
-    if (!tenantSecrets.has(tenantId)) tenantSecrets.set(tenantId, []);
-    tenantSecrets.get(tenantId)!.push(secret);
-  }
-  for (const [tenantId, secret] of notifySecrets) {
-    if (!tenantSecrets.has(tenantId)) tenantSecrets.set(tenantId, []);
-    tenantSecrets.get(tenantId)!.push(secret);
+  for (const secrets of [oauthSecrets, messagingSecrets, notifySecrets]) {
+    for (const [tenantId, secret] of secrets) {
+      if (!tenantSecrets.has(tenantId)) tenantSecrets.set(tenantId, []);
+      tenantSecrets.get(tenantId)!.push(secret);
+    }
   }
 
   for (const [tenantId, secrets] of tenantSecrets) {

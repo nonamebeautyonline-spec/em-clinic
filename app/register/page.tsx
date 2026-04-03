@@ -66,7 +66,7 @@ function Inner() {
     return null;
   };
 
-  // 送信 → 個人情報保存 → SMS認証ページへ
+  // 送信 → 個人情報保存 → マイページへ遷移
   const handleSubmit = async () => {
     const err = validate();
     if (err) { setError(err); return; }
@@ -91,8 +91,10 @@ function Inner() {
       }
 
       setDone(true);
-      // マイページへ遷移（tel未登録ならマイページ側で /mypage/init にリダイレクト）
-      setTimeout(() => router.push("/mypage"), 1500);
+      // window.locationでフルページナビゲーション（router.pushと違いフルリロード）
+      // fetchレスポンスのSet-CookieがブラウザのCookie jarに反映済みの状態で
+      // 新しいHTTPリクエストが飛ぶため、SSR側で確実にCookieを取得できる
+      setTimeout(() => { window.location.href = "/mypage"; }, 1500);
     } catch (e) {
       setError((e as Error)?.message || "エラーが発生しました。");
     } finally {

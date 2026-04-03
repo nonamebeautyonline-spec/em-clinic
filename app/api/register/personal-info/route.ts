@@ -262,6 +262,7 @@ export async function POST(req: NextRequest) {
     if (!patientId) {
       return serverError("患者IDの取得に失敗しました");
     }
+
     const res = NextResponse.json({ ok: true, patient_id: patientId });
 
     // JWT患者セッション Cookie
