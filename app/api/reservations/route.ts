@@ -277,6 +277,81 @@ function dayOfWeek(ymdStr: string) {
   return dt.getUTCDay(); // 0..6
 }
 
+// ★ アクティブな医師IDリストを取得
+async function getActiveDoctorIds(tenantId: string | null): Promise<string[]> {
+  const { data } = await strictWithTenant(
+    supabaseAdmin
+      .from("doctors")
+      .select("doctor_id")
+      .eq("is_active", true)
+      .order("sort_order"),
+    tenantId
+  );
+  return (data || []).map((d: { doctor_id: string }) => d.doctor_id);
+}
+
+// ★ 全アクティブ医師の予約枠を統合して返す（同じdate+timeのcountを合算）
+async function getAllDoctorsAvailability(
+  start: string,
+  end: string,
+  tenantId: string | null
+): Promise<{ date: string; time: string; count: number }[]> {
+  const doctorIds = await getActiveDoctorIds(tenantId);
+  if (doctorIds.length === 0) return [];
+
+  // 各医師のスケジュール・予約済み枠を並列取得
+  const perDoctor = await Promise.all(
+    doctorIds.map(async (docId) => {
+      const [booked, schedule] = await Promise.all([
+        getBookedSlotsFromDB(start, end, tenantId, docId),
+        getScheduleFromDB(docId, start, end, tenantId),
+      ]);
+      return buildAvailabilityRange(
+        start, end, schedule.weekly_rules, schedule.overrides, booked, docId
+      );
+    })
+  );
+
+  // 同じdate+timeのcountを合算
+  const merged = new Map<string, number>();
+  for (const slots of perDoctor) {
+    for (const s of slots) {
+      const key = `${s.date}|${s.time}`;
+      merged.set(key, (merged.get(key) || 0) + s.count);
+    }
+  }
+
+  const result: { date: string; time: string; count: number }[] = [];
+  merged.forEach((count, key) => {
+    const [date, time] = key.split("|");
+    result.push({ date, time, count });
+  });
+  return result;
+}
+
+// ★ 空き枠がある医師を自動選択（sort_order順に優先、全員満席ならnull）
+async function autoAssignDoctor(
+  date: string,
+  time: string,
+  tenantId: string | null
+): Promise<string | null> {
+  const doctorIds = await getActiveDoctorIds(tenantId);
+  if (doctorIds.length === 0) return null;
+
+  for (const docId of doctorIds) {
+    const [booked, schedule] = await Promise.all([
+      getBookedSlotsFromDB(date, date, tenantId, docId),
+      getScheduleFromDB(docId, date, date, tenantId),
+    ]);
+    const slots = buildAvailabilityRange(
+      date, date, schedule.weekly_rules, schedule.overrides, booked, docId
+    );
+    const slot = slots.find((s) => s.time === time);
+    if (slot && slot.count > 0) return docId;
+  }
+  return null;
+}
+
 // ★ DBから予約済み枠を取得（日時ごとの予約数を集計、医師別フィルタ対応）
 async function getBookedSlotsFromDB(
   start: string,
@@ -516,7 +591,8 @@ export async function GET(req: NextRequest) {
   const tenantId = resolveTenantIdOrThrow(req);
 
   try {
-    const doctorId = searchParams.get("doctor_id") || "dr_default";
+    const doctorIdParam = searchParams.get("doctor_id"); // nullなら全医師統合
+    const doctorId = doctorIdParam || "dr_default"; // 単一医師指定時のフォールバック
     const settings = await getReservationSettings(tenantId);
 
     // 予約枠一覧を返すモード（患者側用）
@@ -550,9 +626,8 @@ export async function GET(req: NextRequest) {
       const { data: doctors } = await strictWithTenant(
         supabaseAdmin
           .from("doctors")
-          .select("doctor_id, doctor_name, is_active, sort_order, color, specialties, photo_url, bio, display_in_booking")
+          .select("doctor_id, doctor_name, is_active, sort_order, color")
           .eq("is_active", true)
-          .eq("display_in_booking", true)
           .order("sort_order"),
         tenantId
       );
@@ -561,20 +636,19 @@ export async function GET(req: NextRequest) {
 
     // 単日（互換）
     if (date && !start && !end) {
-      // ★ 予約済み枠とスケジュールを並列でDBから取得
-      const [bookedSlots, scheduleData] = await Promise.all([
-        getBookedSlotsFromDB(date, date, tenantId, doctorId),
-        getScheduleFromDB(doctorId, date, date, tenantId),
-      ]);
-
-      const out = buildAvailabilityRange(
-        date,
-        date,
-        scheduleData.weekly_rules,
-        scheduleData.overrides,
-        bookedSlots,
-        doctorId
-      );
+      // ★ doctor_id未指定時は全アクティブ医師の枠を統合、指定時は1医師分
+      let out: { date: string; time: string; count: number }[];
+      if (!doctorIdParam) {
+        out = await getAllDoctorsAvailability(date, date, tenantId);
+      } else {
+        const [bookedSlots, scheduleData] = await Promise.all([
+          getBookedSlotsFromDB(date, date, tenantId, doctorId),
+          getScheduleFromDB(doctorId, date, date, tenantId),
+        ]);
+        out = buildAvailabilityRange(
+          date, date, scheduleData.weekly_rules, scheduleData.overrides, bookedSlots, doctorId
+        );
+      }
 
       // 翌月予約開放日チェック: 予約不可の日付の場合は空の枠を返す
       const bookable = await isDateBookable(date, tenantId, settings);
@@ -607,20 +681,19 @@ export async function GET(req: NextRequest) {
       return badRequest("start and end are required");
     }
 
-    // ★ 予約済み枠とスケジュールを並列でDBから取得
-    const [bookedSlots, scheduleData] = await Promise.all([
-      getBookedSlotsFromDB(start, end, tenantId, doctorId),
-      getScheduleFromDB(doctorId, start, end, tenantId),
-    ]);
-
-    const allSlots = buildAvailabilityRange(
-      start,
-      end,
-      scheduleData.weekly_rules,
-      scheduleData.overrides,
-      bookedSlots,
-      doctorId
-    );
+    // ★ doctor_id未指定時は全アクティブ医師の枠を統合、指定時は1医師分
+    let allSlots: { date: string; time: string; count: number }[];
+    if (!doctorIdParam) {
+      allSlots = await getAllDoctorsAvailability(start, end, tenantId);
+    } else {
+      const [bookedSlots, scheduleData] = await Promise.all([
+        getBookedSlotsFromDB(start, end, tenantId, doctorId),
+        getScheduleFromDB(doctorId, start, end, tenantId),
+      ]);
+      allSlots = buildAvailabilityRange(
+        start, end, scheduleData.weekly_rules, scheduleData.overrides, bookedSlots, doctorId
+      );
+    }
 
     // 翌月予約開放日チェック: 予約不可の日付の枠は count=0 にする
     // 日付ごとに予約可能かどうかをチェック（重複を避けるためキャッシュ）
@@ -690,7 +763,19 @@ export async function POST(req: NextRequest) {
       const date = validated.data.date || "";
       const time = validated.data.time || "";
       const pid = patientId; // JWT認証済みセッションのpatientIdのみ使用（bodyのpatient_idは無視）
-      const createDoctorId = validated.data.doctor_id || "dr_default";
+      // doctor_id未指定時は空き枠がある医師を自動選択
+      let createDoctorId = validated.data.doctor_id || "";
+      if (!createDoctorId) {
+        const assigned = await autoAssignDoctor(date, time, tenantId);
+        if (!assigned) {
+          return NextResponse.json({
+            ok: false,
+            error: "slot_full",
+            message: "この時間帯はすでに予約が埋まりました。別の時間帯をお選びください。",
+          }, { status: 409 });
+        }
+        createDoctorId = assigned;
+      }
       const createSlotId = validated.data.slot_id || null;
       const createCourseId = validated.data.course_id || null;
 
