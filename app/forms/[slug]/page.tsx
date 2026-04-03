@@ -253,13 +253,12 @@ export default function PublicFormPage() {
 
   // テナント設定（色味・ロゴ・クリニック名）
   const { data: mpSettings } = useSWR<{
-    colors?: { primary?: string; pageBg?: string };
-    content?: { clinicName?: string; logoUrl?: string };
+    config?: { colors?: { primary?: string; pageBg?: string }; content?: { clinicName?: string; logoUrl?: string } };
   }>("/api/mypage/settings", swrFetcher);
-  const primary = mpSettings?.colors?.primary || "#5B9BD5";
-  const pageBg = mpSettings?.colors?.pageBg || "#f0f0f0";
-  const clinicName = mpSettings?.content?.clinicName || "";
-  const logoUrl = mpSettings?.content?.logoUrl || "";
+  const primary = mpSettings?.config?.colors?.primary || "#5B9BD5";
+  const pageBg = mpSettings?.config?.colors?.pageBg || "#f0f0f0";
+  const clinicName = mpSettings?.config?.content?.clinicName || "";
+  const logoUrl = mpSettings?.config?.content?.logoUrl || "";
 
   useEffect(() => {
     const url = isPreview ? `/api/forms/${slug}?preview=1` : `/api/forms/${slug}`;

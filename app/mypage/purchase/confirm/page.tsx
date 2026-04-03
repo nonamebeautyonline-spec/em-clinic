@@ -146,8 +146,8 @@ function PurchaseConfirmContent() {
   }, [shipping.postalCode, searchZipcloud]);
 
   // テナント設定（クリニック名）
-  const { data: mpSettings } = useSWR<{ content?: { clinicName?: string } }>("/api/mypage/settings", swrFetcher, { revalidateOnFocus: false });
-  const clinicName = mpSettings?.content?.clinicName || "";
+  const { data: mpSettings } = useSWR<{ config?: { content?: { clinicName?: string } } }>("/api/mypage/settings", swrFetcher, { revalidateOnFocus: false });
+  const clinicName = mpSettings?.config?.content?.clinicName || "";
 
   // 前回の配送先情報を取得
   const { data: lastShippingData } = useSWR("/api/mypage/last-shipping", swrFetcher, {

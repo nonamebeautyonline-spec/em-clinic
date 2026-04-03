@@ -120,13 +120,12 @@ const ReserveInner: React.FC = () => {
 
   // テナント設定（色味・ロゴ・クリニック名）
   const { data: mpSettings } = useSWR<{
-    colors?: { primary?: string; pageBg?: string };
-    content?: { clinicName?: string; logoUrl?: string };
+    config?: { colors?: { primary?: string; pageBg?: string }; content?: { clinicName?: string; logoUrl?: string } };
   }>("/api/mypage/settings", swrFetcher);
-  const primary = mpSettings?.colors?.primary || "#ec4899";
-  const pageBg = mpSettings?.colors?.pageBg || "#FFF8FB";
-  const clinicName = mpSettings?.content?.clinicName || "";
-  const logoUrl = mpSettings?.content?.logoUrl || "";
+  const primary = mpSettings?.config?.colors?.primary || "#ec4899";
+  const pageBg = mpSettings?.config?.colors?.pageBg || "#FFF8FB";
+  const clinicName = mpSettings?.config?.content?.clinicName || "";
+  const logoUrl = mpSettings?.config?.content?.logoUrl || "";
 
   // 編集モード（日時変更）かどうか
   const isEdit = searchParams.get("edit") === "1";

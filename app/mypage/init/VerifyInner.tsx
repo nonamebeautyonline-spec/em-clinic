@@ -29,13 +29,12 @@ function Inner() {
 
   // テナント設定（色味・ロゴ・クリニック名）
   const { data: mpSettings } = useSWR<{
-    colors?: { primary?: string; primaryHover?: string; pageBg?: string };
-    content?: { clinicName?: string; logoUrl?: string };
+    config?: { colors?: { primary?: string; primaryHover?: string; pageBg?: string }; content?: { clinicName?: string; logoUrl?: string } };
   }>("/api/mypage/settings", swrFetcher);
-  const primary = mpSettings?.colors?.primary || "#ec4899";
-  const pageBg = mpSettings?.colors?.pageBg || "#FFF8FB";
-  const clinicName = mpSettings?.content?.clinicName || "";
-  const logoUrl = mpSettings?.content?.logoUrl || "";
+  const primary = mpSettings?.config?.colors?.primary || "#ec4899";
+  const pageBg = mpSettings?.config?.colors?.pageBg || "#FFF8FB";
+  const clinicName = mpSettings?.config?.content?.clinicName || "";
+  const logoUrl = mpSettings?.config?.content?.logoUrl || "";
 
   const [step, setStep] = useState<Step>("enterPhone");
   const [phone, setPhone] = useState("");
