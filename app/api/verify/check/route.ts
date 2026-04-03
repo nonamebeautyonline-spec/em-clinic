@@ -13,11 +13,10 @@ export async function POST(req: NextRequest) {
     if ("error" in parsed) return parsed.error;
     const { phone, code } = parsed.data;
 
-    // テナント解決 → DB優先で Twilio クレデンシャル取得
-    const tenantId = resolveTenantId(req);
-    const accountSid = await getSettingOrEnv("sms", "account_sid", "TWILIO_ACCOUNT_SID", tenantId ?? undefined);
-    const authToken = await getSettingOrEnv("sms", "auth_token", "TWILIO_AUTH_TOKEN", tenantId ?? undefined);
-    const verifySid = await getSettingOrEnv("sms", "verify_sid", "TWILIO_VERIFY_SID", tenantId ?? undefined);
+    // Twilioクレデンシャルは運営共通（テナントIDを渡さず取得）
+    const accountSid = await getSettingOrEnv("sms", "account_sid", "TWILIO_ACCOUNT_SID");
+    const authToken = await getSettingOrEnv("sms", "auth_token", "TWILIO_AUTH_TOKEN");
+    const verifySid = await getSettingOrEnv("sms", "verify_sid", "TWILIO_VERIFY_SID");
 
     if (!accountSid || !authToken || !verifySid) {
       console.error("[verify/check] Twilio credentials not configured");
