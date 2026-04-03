@@ -72,12 +72,6 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    // 新カラム（存在する場合のみ設定）
-    if (doctor.specialties !== undefined) record.specialties = doctor.specialties || [];
-    if (doctor.photo_url !== undefined) record.photo_url = doctor.photo_url || null;
-    if (doctor.bio !== undefined) record.bio = doctor.bio || null;
-    if (doctor.display_in_booking !== undefined) record.display_in_booking = doctor.display_in_booking !== false;
-
     const { error } = await supabaseAdmin
       .from("doctors")
       .upsert({ ...tenantPayload(tenantId), ...record }, { onConflict: "doctor_id" });
