@@ -47,6 +47,7 @@ interface Props {
   submitting?: boolean;
   threeDsEnabled?: boolean;
   verificationDetails?: VerificationDetails;
+  clinicName?: string;
 }
 
 export default function SquareCardForm({
@@ -59,6 +60,7 @@ export default function SquareCardForm({
   submitting,
   threeDsEnabled,
   verificationDetails,
+  clinicName,
 }: Props) {
   const cardRef = useRef<{
     attach: (container: HTMLElement) => Promise<void>;
@@ -199,7 +201,7 @@ export default function SquareCardForm({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         </svg>
         <p className="text-[10px] text-slate-400 leading-relaxed">
-          カード情報はSquare社の安全な環境で処理され、のなめビューティー上では保存されません。
+          カード情報はSquare社の安全な環境で処理され、{clinicName || "当サービス"}上では保存されません。
           PCI DSS準拠のセキュリティ基準で保護されています。
         </p>
       </div>

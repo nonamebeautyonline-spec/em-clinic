@@ -145,6 +145,10 @@ function PurchaseConfirmContent() {
     }
   }, [shipping.postalCode, searchZipcloud]);
 
+  // テナント設定（クリニック名）
+  const { data: mpSettings } = useSWR<{ content?: { clinicName?: string } }>("/api/mypage/settings", swrFetcher, { revalidateOnFocus: false });
+  const clinicName = mpSettings?.content?.clinicName || "";
+
   // 前回の配送先情報を取得
   const { data: lastShippingData } = useSWR("/api/mypage/last-shipping", swrFetcher, {
     revalidateOnFocus: false,
@@ -968,7 +972,7 @@ function PurchaseConfirmContent() {
                   <p className="text-[10px] text-slate-400 leading-relaxed px-1">
                     {sdkConfig?.provider === "gmo"
                       ? "カード情報はGMOペイメントゲートウェイ社の安全な環境で処理され、当サイト上では保存されません。PCI DSS準拠のセキュリティ基準で保護されています。"
-                      : "Square決済を使用しており、カード情報はのなめビューティー上では保存されません。カード情報は全てSquare社のセキュリティ基準（PCI DSS）に基づき安全に処理されます。"}
+                      : `Square決済を使用しており、カード情報は${clinicName || "当サービス"}上では保存されません。カード情報は全てSquare社のセキュリティ基準（PCI DSS）に基づき安全に処理されます。`}
                   </p>
                 </div>
               )}
@@ -1009,6 +1013,7 @@ function PurchaseConfirmContent() {
                         countryCode: "JP",
                       },
                     } : undefined}
+                    clinicName={clinicName}
                   />
                 ) : null
               )}

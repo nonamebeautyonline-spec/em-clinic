@@ -118,6 +118,16 @@ const ReserveInner: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // テナント設定（色味・ロゴ・クリニック名）
+  const { data: mpSettings } = useSWR<{
+    colors?: { primary?: string; pageBg?: string };
+    content?: { clinicName?: string; logoUrl?: string };
+  }>("/api/mypage/settings", swrFetcher);
+  const primary = mpSettings?.colors?.primary || "#ec4899";
+  const pageBg = mpSettings?.colors?.pageBg || "#FFF8FB";
+  const clinicName = mpSettings?.content?.clinicName || "";
+  const logoUrl = mpSettings?.content?.logoUrl || "";
+
   // 編集モード（日時変更）かどうか
   const isEdit = searchParams.get("edit") === "1";
   const editingReserveId = searchParams.get("reserveId") || "";
@@ -465,18 +475,12 @@ setTimeout(() => {
   }
 
   return (
-    <div className="min-h-screen bg-[#FFF8FB]">
+    <div className="min-h-screen" style={{ backgroundColor: pageBg }}>
       {/* ヘッダー */}
       <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b border-slate-200">
         <div className="mx-auto max-w-md px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Image
-              src="/images/company-name-v2.png"
-              alt="clinic logo"
-              width={150}
-              height={40}
-              className="object-contain"
-            />
+            {logoUrl ? <img src={logoUrl} alt={clinicName || "clinic logo"} className="h-10 object-contain" /> : clinicName ? <span className="text-base font-bold text-slate-800">{clinicName}</span> : <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />}
           </div>
           <Link href="/mypage" className="text-[12px] text-slate-500 hover:text-slate-700">
             マイページへ戻る

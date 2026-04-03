@@ -10,8 +10,8 @@ const notoSans = Noto_Sans_JP({
 });
 
 export const metadata: Metadata = {
-  title: "のなめビューティー | マイページ",
-  description: "のなめビューティー オンライン処方 マイページ",
+  title: "Lオペ | マイページ",
+  description: "オンライン処方 マイページ",
   icons: {
     icon: [
       { url: "/icon.png", sizes: "778x778", type: "image/png" },

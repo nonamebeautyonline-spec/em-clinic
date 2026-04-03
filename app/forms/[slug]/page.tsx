@@ -1,8 +1,15 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import useSWR from "swr";
 import { useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
+
+const swrFetcher = (url: string) =>
+  fetch(url, { credentials: "include" }).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  });
 import { evaluateDisplayConditions } from "@/lib/form-conditions";
 import type { DisplayConditions } from "@/lib/form-conditions";
 
@@ -244,6 +251,16 @@ export default function PublicFormPage() {
   const [done, setDone] = useState(false);
   const [thanksMessage, setThanksMessage] = useState("");
 
+  // テナント設定（色味・ロゴ・クリニック名）
+  const { data: mpSettings } = useSWR<{
+    colors?: { primary?: string; pageBg?: string };
+    content?: { clinicName?: string; logoUrl?: string };
+  }>("/api/mypage/settings", swrFetcher);
+  const primary = mpSettings?.colors?.primary || "#5B9BD5";
+  const pageBg = mpSettings?.colors?.pageBg || "#f0f0f0";
+  const clinicName = mpSettings?.content?.clinicName || "";
+  const logoUrl = mpSettings?.content?.logoUrl || "";
+
   useEffect(() => {
     const url = isPreview ? `/api/forms/${slug}?preview=1` : `/api/forms/${slug}`;
     fetch(url, { credentials: "include" })
@@ -344,10 +361,10 @@ export default function PublicFormPage() {
   // エラーページ
   if (pageError) {
     return (
-      <div className="min-h-screen bg-[#f0f0f0]">
+      <div className="min-h-screen" style={{ backgroundColor: pageBg }}>
         <header className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
           <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
-            <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />
+            {logoUrl ? <img src={logoUrl} alt={clinicName || "clinic logo"} className="h-10 object-contain" /> : clinicName ? <span className="text-base font-bold text-slate-800">{clinicName}</span> : <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />}
           </div>
         </header>
         <main className="mx-auto max-w-lg pb-10">
@@ -367,10 +384,10 @@ export default function PublicFormPage() {
   // 完了
   if (done) {
     return (
-      <div className="min-h-screen bg-[#f0f0f0]">
+      <div className="min-h-screen" style={{ backgroundColor: pageBg }}>
         <header className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
           <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
-            <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />
+            {logoUrl ? <img src={logoUrl} alt={clinicName || "clinic logo"} className="h-10 object-contain" /> : clinicName ? <span className="text-base font-bold text-slate-800">{clinicName}</span> : <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />}
           </div>
         </header>
         <main className="mx-auto max-w-lg pb-10">
@@ -390,7 +407,7 @@ export default function PublicFormPage() {
   if (!formData) return null;
 
   return (
-    <div className="min-h-screen bg-[#f0f0f0]">
+    <div className="min-h-screen" style={{ backgroundColor: pageBg }}>
       {/* プレビューバナー */}
       {isPreview && (
         <div className="bg-amber-500 text-white text-center py-2 text-sm font-medium sticky top-0 z-30">
@@ -465,7 +482,8 @@ export default function PublicFormPage() {
             type="button"
             onClick={handleSubmit}
             disabled={submitting}
-            className="w-full py-3.5 rounded-xl bg-[#5B9BD5] hover:bg-[#4A8BC5] text-white text-base font-semibold shadow-lg shadow-blue-200/50 disabled:opacity-60 transition-all"
+            className="w-full py-3.5 rounded-xl text-white text-base font-semibold shadow-lg disabled:opacity-60 transition-all"
+            style={{ backgroundColor: primary }}
           >
             {submitting ? (
               <span className="flex items-center justify-center gap-2">

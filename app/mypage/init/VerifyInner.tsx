@@ -2,9 +2,16 @@
 "use client";
 
 import React, { Suspense, useState } from "react";
+import useSWR from "swr";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
+const swrFetcher = (url: string) =>
+  fetch(url, { credentials: "include" }).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  });
 
 type Step = "enterPhone" | "enterCode";
 
@@ -19,6 +26,16 @@ function normalizePhone(raw: string) {
 
 function Inner() {
   const router = useRouter();
+
+  // テナント設定（色味・ロゴ・クリニック名）
+  const { data: mpSettings } = useSWR<{
+    colors?: { primary?: string; primaryHover?: string; pageBg?: string };
+    content?: { clinicName?: string; logoUrl?: string };
+  }>("/api/mypage/settings", swrFetcher);
+  const primary = mpSettings?.colors?.primary || "#ec4899";
+  const pageBg = mpSettings?.colors?.pageBg || "#FFF8FB";
+  const clinicName = mpSettings?.content?.clinicName || "";
+  const logoUrl = mpSettings?.content?.logoUrl || "";
 
   const [step, setStep] = useState<Step>("enterPhone");
   const [phone, setPhone] = useState("");
@@ -124,8 +141,8 @@ function Inner() {
         throw new Error("マイページとの紐付けに失敗しました。時間をおいて再度お試しください。");
       }
 
-      // pid cookie がセットされたはずなので /mypage へ
-      router.push("/mypage");
+      // pid cookie がセットされたはずなので /mypage へ（フルリロードでCookie確実反映）
+      window.location.href = "/mypage";
     } catch (e) {
       console.error(e);
       setError(
@@ -138,17 +155,11 @@ function Inner() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FFF8FB]">
+    <div className="min-h-screen" style={{ backgroundColor: pageBg }}>
       <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b border-slate-200">
         <div className="mx-auto max-w-md px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Image
-              src="/images/company-name-v2.png"
-              alt="clinic logo"
-              width={150}
-              height={40}
-              className="object-contain"
-            />
+            {logoUrl ? <img src={logoUrl} alt={clinicName || "clinic logo"} className="h-10 object-contain" /> : clinicName ? <span className="text-base font-bold text-slate-800">{clinicName}</span> : <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />}
           </div>
           <Link href="/mypage" className="text-[12px] text-slate-500 hover:text-slate-700">
             マイページへ戻る
@@ -167,9 +178,9 @@ function Inner() {
         </p>
 
         <div className="mt-5 flex items-center gap-2 text-[11px] text-slate-500">
-          <div className={`h-1 flex-1 rounded-full ${step !== "enterPhone" ? "bg-pink-500" : "bg-pink-200"}`} />
-          <div className={`h-1 flex-1 rounded-full ${step === "enterCode" ? "bg-pink-500" : "bg-pink-100"}`} />
-          <div className="h-1 flex-1 rounded-full bg-pink-100" />
+          <div className="h-1 flex-1 rounded-full" style={{ backgroundColor: step !== "enterPhone" ? primary : `${primary}40` }} />
+          <div className="h-1 flex-1 rounded-full" style={{ backgroundColor: step === "enterCode" ? primary : `${primary}20` }} />
+          <div className="h-1 flex-1 rounded-full" style={{ backgroundColor: `${primary}20` }} />
         </div>
 
         {error && (
@@ -186,7 +197,7 @@ function Inner() {
                 type="tel"
                 inputMode="tel"
                 autoComplete="tel"
-                className="mt-1 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-400"
+                className="mt-1 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:ring-1"
                 placeholder="例）09012345678"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
@@ -202,7 +213,8 @@ function Inner() {
               type="button"
               onClick={handleSendCode}
               disabled={sending}
-              className="mt-2 w-full rounded-full bg-pink-500 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              className="mt-2 w-full rounded-full py-2 text-sm font-semibold text-white disabled:opacity-60"
+              style={{ backgroundColor: primary }}
             >
               {sending ? "認証コードを送信中..." : "認証コードを送信する"}
             </button>
@@ -222,7 +234,7 @@ function Inner() {
                 type="text"
                 inputMode="numeric"
                 maxLength={10}
-                className="mt-1 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-400 tracking-[0.25em]"
+                className="mt-1 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:ring-1 tracking-[0.25em]"
                 placeholder="123456"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ""))}
@@ -233,7 +245,8 @@ function Inner() {
               type="button"
               onClick={handleVerifyCode}
               disabled={verifying}
-              className="mt-2 w-full rounded-full bg-pink-500 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              className="mt-2 w-full rounded-full py-2 text-sm font-semibold text-white disabled:opacity-60"
+              style={{ backgroundColor: primary }}
             >
               {verifying ? "認証中..." : "この番号を認証してマイページに進む"}
             </button>

@@ -19,6 +19,16 @@ function Inner() {
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
 
+  // テナント設定（色味・ロゴ・クリニック名）
+  const { data: mpSettings } = useSWR<{
+    colors?: { primary?: string; primaryHover?: string; primaryLight?: string; pageBg?: string };
+    content?: { clinicName?: string; logoUrl?: string };
+  }>("/api/mypage/settings", swrFetcher);
+  const primary = mpSettings?.colors?.primary || "#ec4899";
+  const pageBg = mpSettings?.colors?.pageBg || "#f0f0f0";
+  const clinicName = mpSettings?.content?.clinicName || "";
+  const logoUrl = mpSettings?.content?.logoUrl || "";
+
   // 初回登録済みチェック + LINE認証確認（SWR）
   const { data: checkData, isLoading: checking } = useSWR<{
     needsLineLogin?: boolean;
@@ -104,7 +114,7 @@ function Inner() {
 
   if (checking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f0f0f0]">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: pageBg }}>
         <p className="text-sm text-slate-500">読み込み中…</p>
       </div>
     );
@@ -112,10 +122,10 @@ function Inner() {
 
   if (regStatus === "needsVerify") {
     return (
-      <div className="min-h-screen bg-[#f0f0f0]">
+      <div className="min-h-screen" style={{ backgroundColor: pageBg }}>
         <header className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
           <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
-            <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />
+            {logoUrl ? <img src={logoUrl} alt={clinicName || "clinic logo"} className="h-10 object-contain" /> : clinicName ? <span className="text-base font-bold text-slate-800">{clinicName}</span> : <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />}
             <span className="text-[10px] text-slate-400">個人情報フォーム</span>
           </div>
         </header>
@@ -135,7 +145,8 @@ function Inner() {
             <button
               type="button"
               onClick={() => router.push("/mypage/init")}
-              className="mt-6 px-8 py-2.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white text-sm font-semibold shadow-lg shadow-pink-200/50 transition-all"
+              className="mt-6 px-8 py-2.5 rounded-xl text-white text-sm font-semibold shadow-lg transition-all"
+              style={{ backgroundColor: primary }}
             >
               電話番号認証へ進む
             </button>
@@ -147,10 +158,10 @@ function Inner() {
 
   if (regStatus === "complete") {
     return (
-      <div className="min-h-screen bg-[#f0f0f0]">
+      <div className="min-h-screen" style={{ backgroundColor: pageBg }}>
         <header className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
           <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
-            <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />
+            {logoUrl ? <img src={logoUrl} alt={clinicName || "clinic logo"} className="h-10 object-contain" /> : clinicName ? <span className="text-base font-bold text-slate-800">{clinicName}</span> : <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />}
             <span className="text-[10px] text-slate-400">個人情報フォーム</span>
           </div>
         </header>
@@ -170,7 +181,8 @@ function Inner() {
             <button
               type="button"
               onClick={() => router.push("/mypage")}
-              className="mt-6 px-8 py-2.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white text-sm font-semibold shadow-lg shadow-pink-200/50 transition-all"
+              className="mt-6 px-8 py-2.5 rounded-xl text-white text-sm font-semibold shadow-lg transition-all"
+              style={{ backgroundColor: primary }}
             >
               マイページへ
             </button>
@@ -182,10 +194,10 @@ function Inner() {
 
   if (done) {
     return (
-      <div className="min-h-screen bg-[#f0f0f0]">
+      <div className="min-h-screen" style={{ backgroundColor: pageBg }}>
         <header className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
           <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
-            <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />
+            {logoUrl ? <img src={logoUrl} alt={clinicName || "clinic logo"} className="h-10 object-contain" /> : clinicName ? <span className="text-base font-bold text-slate-800">{clinicName}</span> : <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />}
             <span className="text-[10px] text-slate-400">個人情報フォーム</span>
           </div>
         </header>
@@ -203,7 +215,8 @@ function Inner() {
             <button
               type="button"
               onClick={() => router.push("/mypage")}
-              className="mt-6 px-8 py-2.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white text-sm font-semibold shadow-lg shadow-pink-200/50 transition-all"
+              className="mt-6 px-8 py-2.5 rounded-xl text-white text-sm font-semibold shadow-lg transition-all"
+              style={{ backgroundColor: primary }}
             >
               マイページへ進む
             </button>
@@ -214,11 +227,11 @@ function Inner() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f0f0f0]">
+    <div className="min-h-screen" style={{ backgroundColor: pageBg }}>
       {/* ヘッダー */}
       <header className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
         <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
-          <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />
+          {logoUrl ? <img src={logoUrl} alt={clinicName || "clinic logo"} className="h-10 object-contain" /> : clinicName ? <span className="text-base font-bold text-slate-800">{clinicName}</span> : <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />}
           <span className="text-[10px] text-slate-400">個人情報フォーム</span>
         </div>
       </header>
@@ -235,10 +248,10 @@ function Inner() {
 
           {/* プログレスバー */}
           <div className="mt-4 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-pink-400 to-pink-500 rounded-full w-1/3" />
+            <div className="h-full rounded-full w-1/3" style={{ backgroundColor: primary }} />
           </div>
           <div className="flex justify-between mt-1 text-[10px] text-slate-400">
-            <span className="text-pink-500 font-medium">1. 個人情報入力</span>
+            <span className="font-medium" style={{ color: primary }}>1. 個人情報入力</span>
             <span>2. 電話番号認証</span>
             <span>3. 完了</span>
           </div>
@@ -375,7 +388,8 @@ function Inner() {
             type="button"
             onClick={handleSubmit}
             disabled={saving}
-            className="w-full py-3.5 rounded-xl bg-[#5B9BD5] hover:bg-[#4A8BC5] text-white text-base font-semibold shadow-lg shadow-blue-200/50 disabled:opacity-60 transition-all"
+            className="w-full py-3.5 rounded-xl text-white text-base font-semibold shadow-lg disabled:opacity-60 transition-all"
+            style={{ backgroundColor: primary }}
           >
             {saving ? (
               <span className="flex items-center justify-center gap-2">
