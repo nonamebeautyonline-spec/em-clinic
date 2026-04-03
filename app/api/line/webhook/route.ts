@@ -1582,32 +1582,18 @@ async function handleAiReplyPostback(
 // =================================================================
 export async function POST(req: NextRequest) {
   try {
-    // ---- 署名検証（tenantId解決前なので環境変数フォールバックで先行実施）----
+    // ---- 署名検証 + テナント解決（DB全テナントのSecretで署名を試行）----
     const rawBody = await req.text();
     const signature = req.headers.get("x-line-signature") || "";
 
-    const envSecrets = [
-      process.env.LINE_MESSAGING_API_CHANNEL_SECRET,
-      process.env.LINE_NOTIFY_CHANNEL_SECRET,
-    ].filter(Boolean) as string[];
-
-    if (envSecrets.length === 0) {
-      return NextResponse.json({ ok: false, error: "LINE_CHANNEL_SECRET missing" }, { status: 500 });
-    }
-
-    if (!verifyLineSignature(rawBody, signature, envSecrets)) {
-      return NextResponse.json({ ok: false, error: "invalid signature" }, { status: 401 });
-    }
-
-    // ---- tenantId解決 ----
-    // LINE webhookはLINEプラットフォームからの直接リクエストのためsubdomain解決不可。
-    // channel_secret ベースで署名検証→テナント逆引きする。
+    // DB全テナントのchannel_secretで署名検証→テナント逆引き
     let resolvedTenantId = resolveTenantId(req);
     if (!resolvedTenantId) {
       resolvedTenantId = await resolveLineTenantBySignature(rawBody, signature);
     }
+
     if (!resolvedTenantId) {
-      console.error("[line/webhook] テナントID解決失敗 — イベントを記録して終了");
+      console.error("[line/webhook] 署名検証失敗またはテナント解決不可");
       // webhook_eventsに失敗記録（取りこぼし防止）
       try {
         await supabaseAdmin.from("webhook_events").insert({
@@ -1619,21 +1605,10 @@ export async function POST(req: NextRequest) {
       } catch (e) {
         console.error("[line/webhook] 失敗記録エラー:", e);
       }
-      return NextResponse.json({ ok: true }); // LINEには常に200返却
+      return NextResponse.json({ ok: false, error: "invalid signature" }, { status: 401 });
     }
     const tenantId = resolvedTenantId;
     const tid = tenantId ?? undefined;
-
-    const messagingSecret = await getSettingOrEnv("line", "channel_secret", "LINE_MESSAGING_API_CHANNEL_SECRET", tid);
-    const notifySecret = await getSettingOrEnv("line", "notify_channel_secret", "LINE_NOTIFY_CHANNEL_SECRET", tid);
-    const LINE_CHANNEL_SECRETS = [messagingSecret, notifySecret].filter(Boolean) as string[];
-
-    // DB設定が環境変数と異なる場合、DB設定でも署名を再検証
-    const dbSecretsStr = LINE_CHANNEL_SECRETS.sort().join(",");
-    const envSecretsStr = [...envSecrets].sort().join(",");
-    if (dbSecretsStr !== envSecretsStr && !verifyLineSignature(rawBody, signature, LINE_CHANNEL_SECRETS)) {
-      return NextResponse.json({ ok: false, error: "invalid signature" }, { status: 401 });
-    }
 
     const LINE_ACCESS_TOKEN = (await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tid))
       || (await getSettingOrEnv("line", "notify_channel_access_token", "LINE_NOTIFY_CHANNEL_ACCESS_TOKEN", tid))
