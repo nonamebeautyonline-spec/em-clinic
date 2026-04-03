@@ -313,7 +313,7 @@ export async function POST(req: NextRequest) {
       const tenantSettings: { tenant_id: string; category: string; key: string; value: string }[] = [];
 
       // app_base_url（slugから自動生成）
-      tenantSettings.push({ tenant_id: tenantId, category: "general", key: "app_base_url", value: `https://${data.slug}.lope.jp` });
+      tenantSettings.push({ tenant_id: tenantId, category: "general", key: "app_base_url", value: `https://${data.slug}.l-ope.jp` });
 
       // LINE設定（指定された項目のみ投入）
       if (data.lineChannelId) tenantSettings.push({ tenant_id: tenantId, category: "line", key: "channel_id", value: data.lineChannelId });
