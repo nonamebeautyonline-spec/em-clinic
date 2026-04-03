@@ -1625,6 +1625,11 @@ export async function POST(req: NextRequest) {
       const groupId: string = ev?.source?.groupId || "";
       const lineUid: string = ev?.source?.userId || "";
 
+      // グループイベントのgroupId記録（管理グループID設定用）
+      if (sourceType === "group" && groupId) {
+        console.log(`[webhook] グループイベント検出: groupId=${groupId} type=${ev.type} tenant=${tenantId}`);
+      }
+
       // 冪等チェック（LINEリトライ時の重複処理防止）
       const lineEventId = (ev as Record<string, unknown>)?.webhookEventId as string | undefined;
       let idem: Awaited<ReturnType<typeof checkIdempotency>> | null = null;
