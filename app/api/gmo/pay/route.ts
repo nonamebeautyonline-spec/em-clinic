@@ -226,6 +226,7 @@ export async function POST(req: NextRequest) {
             addressDetail: shipping.addressDetail || "",
             phone: shipping.phone,
             email: shipping.email,
+            shippingOptions: shippingOptions || null,
           },
           ...tenantPayload(tenantId),
         });

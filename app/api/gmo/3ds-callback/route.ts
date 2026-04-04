@@ -53,7 +53,8 @@ export async function POST(req: NextRequest) {
     const orderId = pending.order_id;
     const tenantId = pending.tenant_id;
     const tid = tenantId ?? undefined;
-    const shipping = pending.shipping as { name: string; postalCode: string; address: string; addressDetail: string; phone: string; email: string } | null;
+    const shipping = pending.shipping as { name: string; postalCode: string; address: string; addressDetail: string; phone: string; email: string; shippingOptions?: { customSenderName?: string | null; itemNameCosmetics?: boolean; useHexidin?: boolean; postOfficeHold?: boolean; postOfficeName?: string | null } | null } | null;
+    const sOpts = shipping?.shippingOptions;
 
     // orders INSERT
     const finalPhone = shipping ? normalizeJPPhone(shipping.phone) : "";
@@ -81,6 +82,11 @@ export async function POST(req: NextRequest) {
         address_detail: shipping?.addressDetail || "",
         phone: finalPhone,
         email: shipping?.email || "",
+        custom_sender_name: sOpts?.customSenderName || null,
+        item_name_cosmetics: sOpts?.itemNameCosmetics || false,
+        use_hexidin: sOpts?.useHexidin || false,
+        post_office_hold: sOpts?.postOfficeHold || false,
+        post_office_name: sOpts?.postOfficeName || null,
         ...tenantPayload(tenantId),
       });
       if (insertErr) {
@@ -95,6 +101,11 @@ export async function POST(req: NextRequest) {
                 address_detail: shipping.addressDetail || "",
                 phone: finalPhone,
                 email: shipping.email,
+                custom_sender_name: sOpts?.customSenderName || null,
+                item_name_cosmetics: sOpts?.itemNameCosmetics || false,
+                use_hexidin: sOpts?.useHexidin || false,
+                post_office_hold: sOpts?.postOfficeHold || false,
+                post_office_name: sOpts?.postOfficeName || null,
               }).eq("id", orderId),
               tenantId,
             );
