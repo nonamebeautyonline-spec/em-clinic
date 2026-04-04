@@ -31,8 +31,18 @@ interface JapanPostConfig {
   packageType: string;
 }
 
+interface ShippingOptionsConfig {
+  allowCustomSender: boolean;
+  allowCosmeticsName: boolean;
+  allowHexidin: boolean;
+  allowPostOfficeHold: boolean;
+}
+
 interface ShippingConfig {
   defaultCarrier: "yamato" | "japanpost";
+  standardCutoffHour: number;
+  addressChangeCutoffHour: number;
+  options: ShippingOptionsConfig;
   yamato: YamatoConfig;
   japanpost: JapanPostConfig;
 }
@@ -160,6 +170,69 @@ export default function ShippingSettingsPage() {
               <div className="text-lg mb-1">{c === "yamato" ? "🚛" : "📮"}</div>
               {c === "yamato" ? "ヤマト運輸" : "日本郵便"}
             </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 締め時間設定 */}
+      <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm mb-4">
+        <h2 className="text-sm font-semibold text-gray-700 mb-3">発送締め時間</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">当日発送の締め時間</label>
+            <select
+              value={config.standardCutoffHour ?? 16}
+              onChange={e => setConfig({ ...config, standardCutoffHour: Number(e.target.value) })}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 bg-gray-50/50"
+            >
+              {Array.from({ length: 24 }, (_, i) => (
+                <option key={i} value={i}>{i}:00</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-0.5">この時刻までの決済を当日発送とします</p>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">住所変更可能時間</label>
+            <select
+              value={config.addressChangeCutoffHour ?? 16}
+              onChange={e => setConfig({ ...config, addressChangeCutoffHour: Number(e.target.value) })}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 bg-gray-50/50"
+            >
+              {Array.from({ length: 24 }, (_, i) => (
+                <option key={i} value={i}>{i}:00</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-0.5">発送当日のこの時刻まで住所変更可能</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 購入画面の発送オプション */}
+      <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm mb-4">
+        <h2 className="text-sm font-semibold text-gray-700 mb-3">購入画面の発送オプション</h2>
+        <p className="text-xs text-gray-400 mb-3">ONにすると購入画面で顧客が選択できるようになります</p>
+        <div className="space-y-3">
+          {([
+            { key: "allowCustomSender" as const, label: "差出人名の変更", desc: "顧客が個人名等で発送を希望できます" },
+            { key: "allowCosmeticsName" as const, label: "品名を「化粧品」に変更", desc: "九州宛は陸送注意表示、沖縄+冷蔵は不可" },
+            { key: "allowHexidin" as const, label: "同梱物をヘキシジンに変更", desc: "アルコールアレルギー対応（注射商品のみ表示）" },
+            { key: "allowPostOfficeHold" as const, label: "郵便局留め", desc: "郵便局名を入力して局留め発送を選択可能" },
+          ]).map(({ key, label, desc }) => (
+            <label key={key} className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={config.options?.[key] ?? false}
+                onChange={e => setConfig({
+                  ...config,
+                  options: { ...(config.options || {}), [key]: e.target.checked } as ShippingOptionsConfig,
+                })}
+                className="mt-0.5 w-4 h-4 rounded border-gray-300 accent-blue-600"
+              />
+              <div>
+                <span className="text-sm text-gray-800">{label}</span>
+                <p className="text-xs text-gray-400">{desc}</p>
+              </div>
+            </label>
           ))}
         </div>
       </div>

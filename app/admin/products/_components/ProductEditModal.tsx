@@ -21,6 +21,8 @@ type FormData = {
   parent_id: string;
   stock_alert_threshold: string;
   stock_alert_enabled: boolean;
+  shipping_delay_days: string;
+  cool_type: string;
 };
 
 const EMPTY_FORM: FormData = {
@@ -41,6 +43,8 @@ const EMPTY_FORM: FormData = {
   parent_id: "",
   stock_alert_threshold: "",
   stock_alert_enabled: false,
+  shipping_delay_days: "0",
+  cool_type: "",
 };
 
 type Props = {
@@ -86,6 +90,8 @@ export function ProductEditModal({
         parent_id: editingProduct.parent_id || "",
         stock_alert_threshold: editingProduct.stock_alert_threshold?.toString() || "",
         stock_alert_enabled: editingProduct.stock_alert_enabled ?? false,
+        shipping_delay_days: editingProduct.shipping_delay_days?.toString() || "0",
+        cool_type: editingProduct.cool_type || "",
       });
     } else {
       setForm(EMPTY_FORM);
@@ -129,6 +135,8 @@ export function ProductEditModal({
       parent_id: form.parent_id || null,
       stock_alert_threshold: form.stock_alert_threshold ? Number(form.stock_alert_threshold) : null,
       stock_alert_enabled: form.stock_alert_enabled,
+      shipping_delay_days: Number(form.shipping_delay_days) || 0,
+      cool_type: form.cool_type || null,
     };
 
     try {
@@ -423,6 +431,37 @@ export function ProductEditModal({
               rows={3}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 resize-none"
             />
+          </div>
+
+          {/* 発送設定 */}
+          <div className="border-t border-slate-100 pt-4">
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">発送設定</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">発送遅延日数</label>
+                <input
+                  type="number"
+                  value={form.shipping_delay_days}
+                  onChange={(e) => handleFormChange("shipping_delay_days", e.target.value)}
+                  min="0"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                />
+                <p className="text-xs text-slate-400 mt-1">0=通常便（当日発送）、10=予約便（10日後）</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">温度帯</label>
+                <select
+                  value={form.cool_type}
+                  onChange={(e) => handleFormChange("cool_type", e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                >
+                  <option value="">テナントデフォルト</option>
+                  <option value="normal">常温</option>
+                  <option value="chilled">冷蔵</option>
+                  <option value="frozen">冷凍</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
 
