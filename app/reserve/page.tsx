@@ -101,8 +101,8 @@ const isPastSlot = (dateStr: string, startTime: string) => {
 
 const getCellClass = (selected: boolean, disabled: boolean) => {
   if (disabled) return "text-slate-400 cursor-not-allowed";
-  if (selected) return "text-pink-700 font-bold";
-  return "text-pink-500 font-semibold";
+  if (selected) return "text-[var(--brand)] font-bold opacity-80";
+  return "text-[var(--brand)] font-semibold";
 };
 
 type PatientBasic = {
@@ -474,7 +474,7 @@ setTimeout(() => {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: pageBg }}>
+    <div className="min-h-screen" style={{ backgroundColor: pageBg, "--brand": primary, "--brand-light": `${primary}15` } as React.CSSProperties}>
       {/* ヘッダー */}
       <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b border-slate-200">
         <div className="mx-auto max-w-md px-4 py-3 flex items-center justify-between">
@@ -533,7 +533,7 @@ setTimeout(() => {
                       (done
                         ? "bg-emerald-500 text-white border-emerald-500"
                         : active
-                        ? "bg-pink-500 text-white border-pink-500"
+                        ? "bg-[var(--brand)] text-white border-[var(--brand)]"
                         : "bg-white text-slate-400 border-slate-200")
                     }
                   >
@@ -560,7 +560,7 @@ setTimeout(() => {
                         onClick={() => setSelectedReservationSlotId(slot.id)}
                         className={`w-full text-left px-4 py-3 rounded-xl border transition ${
                           selectedReservationSlotId === slot.id
-                            ? "border-pink-500 bg-pink-50 text-pink-700"
+                            ? "border-[var(--brand)] bg-[var(--brand-light)] text-[var(--brand)]"
                             : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                         }`}
                       >
@@ -583,7 +583,7 @@ setTimeout(() => {
                         onClick={() => setSelectedReservationCourseId(course.id)}
                         className={`w-full text-left px-4 py-3 rounded-xl border transition ${
                           selectedReservationCourseId === course.id
-                            ? "border-pink-500 bg-pink-50 text-pink-700"
+                            ? "border-[var(--brand)] bg-[var(--brand-light)] text-[var(--brand)]"
                             : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                         }`}
                       >
@@ -602,7 +602,7 @@ setTimeout(() => {
                   (reservationSlots.length > 0 && !selectedReservationSlotId) ||
                   (reservationCourses.length > 0 && !selectedReservationCourseId)
                 }
-                className="w-full py-3 rounded-xl bg-pink-500 text-white text-sm font-semibold hover:bg-pink-600 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                className="w-full py-3 rounded-xl bg-[var(--brand)] text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition"
               >
                 日時を選択する
               </button>
@@ -633,7 +633,7 @@ setTimeout(() => {
                             if (wd === 6) dateColor = "text-sky-500";
 
                             // ★ 土日を灰色にしない（管理画面に完全追従）
-                            const bgCls = isSelectedDay ? "bg-pink-50 border-pink-200" : "bg-white border-slate-100";
+                            const bgCls = isSelectedDay ? "bg-[var(--brand-light)] border-[var(--brand)]" : "bg-white border-slate-100";
 
                             return (
                               <button
@@ -734,7 +734,7 @@ setTimeout(() => {
                 </div>
               )}
 
-              <div className="bg-pink-50/70 rounded-2xl p-3 text-[14px] text-slate-800 space-y-1.5">
+              <div className="rounded-2xl p-3 text-[14px] text-slate-800 space-y-1.5" style={{ backgroundColor: `${primary}12` }}>
                 {isEdit && <p className="font-semibold text-slate-800">変更後の予約</p>}
                 {selectedReservationSlotId && (
                   <p>

@@ -70,7 +70,7 @@ function FieldRenderer({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
-  const inputCls = "w-full px-4 py-3 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/30 focus:border-pink-400 transition-all";
+  const inputCls = "w-full px-4 py-3 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--brand-ring)] focus:border-[var(--brand)] transition-all";
 
   switch (field.type) {
     case "heading_sm":
@@ -111,11 +111,11 @@ function FieldRenderer({
               key={i}
               onClick={() => onChange(opt)}
               className={`flex items-center gap-3 cursor-pointer px-4 py-2.5 rounded-lg border transition-all ${
-                value === opt ? "border-pink-400 bg-pink-50/50" : "border-slate-200 hover:border-slate-300"
+                value === opt ? "border-[var(--brand)] bg-[var(--brand-light)]" : "border-slate-200 hover:border-slate-300"
               }`}
             >
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${value === opt ? "border-pink-500" : "border-slate-300"}`}>
-                {value === opt && <div className="w-2.5 h-2.5 rounded-full bg-pink-500" />}
+              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${value === opt ? "border-[var(--brand)]" : "border-slate-300"}`}>
+                {value === opt && <div className="w-2.5 h-2.5 rounded-full bg-[var(--brand)]" />}
               </div>
               <span className="text-sm text-slate-800">{opt}</span>
             </label>
@@ -132,7 +132,7 @@ function FieldRenderer({
               <label
                 key={i}
                 className={`flex items-center gap-3 cursor-pointer px-4 py-2.5 rounded-lg border transition-all ${
-                  checked ? "border-pink-400 bg-pink-50/50" : "border-slate-200 hover:border-slate-300"
+                  checked ? "border-[var(--brand)] bg-[var(--brand-light)]" : "border-slate-200 hover:border-slate-300"
                 }`}
               >
                 <input
@@ -143,7 +143,7 @@ function FieldRenderer({
                     if (checked) onChange(arr.filter(v => v !== opt));
                     else onChange([...arr, opt]);
                   }}
-                  className="w-4 h-4 rounded border-slate-300 text-pink-500 focus:ring-pink-400"
+                  className="w-4 h-4 rounded border-slate-300 accent-[var(--brand)]"
                 />
                 <span className="text-sm text-slate-800">{opt}</span>
               </label>
@@ -352,7 +352,7 @@ export default function PublicFormPage() {
   if (!formData && !pageError) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f0f0f0]">
-        <div className="w-8 h-8 border-2 border-gray-200 border-t-pink-400 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-gray-200 border-t-[var(--brand)] rounded-full animate-spin" />
       </div>
     );
   }
@@ -360,7 +360,7 @@ export default function PublicFormPage() {
   // エラーページ
   if (pageError) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: pageBg }}>
+      <div className="min-h-screen" style={{ backgroundColor: pageBg, "--brand": primary, "--brand-light": `${primary}20`, "--brand-ring": `${primary}4d` } as React.CSSProperties}>
         <header className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
           <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
             {logoUrl ? <img src={logoUrl} alt={clinicName || "clinic logo"} className="h-10 object-contain" /> : clinicName ? <span className="text-base font-bold text-slate-800">{clinicName}</span> : <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />}
@@ -383,7 +383,7 @@ export default function PublicFormPage() {
   // 完了
   if (done) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: pageBg }}>
+      <div className="min-h-screen" style={{ backgroundColor: pageBg, "--brand": primary, "--brand-light": `${primary}20`, "--brand-ring": `${primary}4d` } as React.CSSProperties}>
         <header className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
           <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
             {logoUrl ? <img src={logoUrl} alt={clinicName || "clinic logo"} className="h-10 object-contain" /> : clinicName ? <span className="text-base font-bold text-slate-800">{clinicName}</span> : <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />}
@@ -406,7 +406,7 @@ export default function PublicFormPage() {
   if (!formData) return null;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: pageBg }}>
+    <div className="min-h-screen" style={{ backgroundColor: pageBg, "--brand": primary, "--brand-light": `${primary}20`, "--brand-ring": `${primary}4d` } as React.CSSProperties}>
       {/* プレビューバナー */}
       {isPreview && (
         <div className="bg-amber-500 text-white text-center py-2 text-sm font-medium sticky top-0 z-30">

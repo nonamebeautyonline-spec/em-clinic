@@ -226,7 +226,7 @@ function Inner() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: pageBg }}>
+    <div className="min-h-screen" style={{ backgroundColor: pageBg, "--brand": primary, "--brand-light": `${primary}20`, "--brand-ring": `${primary}4d` } as React.CSSProperties}>
       {/* ヘッダー */}
       <header className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
         <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
@@ -277,14 +277,14 @@ function Inner() {
                 value={sei}
                 onChange={(e) => setSei(e.target.value)}
                 placeholder="姓（例：山田）"
-                className="flex-1 min-w-0 px-3 py-3 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/30 focus:border-pink-400 transition-all"
+                className="flex-1 min-w-0 px-3 py-3 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--brand-ring)] focus:border-[var(--brand)] transition-all"
               />
               <input
                 type="text"
                 value={mei}
                 onChange={(e) => setMei(e.target.value)}
                 placeholder="名（例：太郎）"
-                className="flex-1 min-w-0 px-3 py-3 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/30 focus:border-pink-400 transition-all"
+                className="flex-1 min-w-0 px-3 py-3 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--brand-ring)] focus:border-[var(--brand)] transition-all"
               />
             </div>
           </div>
@@ -301,14 +301,14 @@ function Inner() {
                 value={seiKana}
                 onChange={(e) => setSeiKana(e.target.value)}
                 placeholder="セイ（例：ヤマダ）"
-                className={`flex-1 min-w-0 px-3 py-3 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 transition-all ${seiKana && !/^[ァ-ヶー]*$/.test(seiKana) ? "border-red-400 focus:ring-red-400/30" : "border-slate-300 focus:ring-pink-400/30 focus:border-pink-400"}`}
+                className={`flex-1 min-w-0 px-3 py-3 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 transition-all ${seiKana && !/^[ァ-ヶー]*$/.test(seiKana) ? "border-red-400 focus:ring-red-400/30" : "border-slate-300 focus:ring-[var(--brand-ring)] focus:border-[var(--brand)]"}`}
               />
               <input
                 type="text"
                 value={meiKana}
                 onChange={(e) => setMeiKana(e.target.value)}
                 placeholder="メイ（例：タロウ）"
-                className={`flex-1 min-w-0 px-3 py-3 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 transition-all ${meiKana && !/^[ァ-ヶー]*$/.test(meiKana) ? "border-red-400 focus:ring-red-400/30" : "border-slate-300 focus:ring-pink-400/30 focus:border-pink-400"}`}
+                className={`flex-1 min-w-0 px-3 py-3 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 transition-all ${meiKana && !/^[ァ-ヶー]*$/.test(meiKana) ? "border-red-400 focus:ring-red-400/30" : "border-slate-300 focus:ring-[var(--brand-ring)] focus:border-[var(--brand)]"}`}
               />
             </div>
             {(seiKana && !/^[ァ-ヶー]*$/.test(seiKana)) || (meiKana && !/^[ァ-ヶー]*$/.test(meiKana)) ? (
@@ -329,14 +329,15 @@ function Inner() {
                   onClick={() => setSex(option)}
                   className={`flex items-center gap-3 cursor-pointer px-4 py-2.5 rounded-lg border transition-all ${
                     sex === option
-                      ? "border-pink-400 bg-pink-50/50"
+                      ? ""
                       : "border-slate-200 hover:border-slate-300"
                   }`}
+                  style={sex === option ? { borderColor: primary, backgroundColor: `${primary}10` } : undefined}
                 >
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                    sex === option ? "border-pink-500" : "border-slate-300"
-                  }`}>
-                    {sex === option && <div className="w-2.5 h-2.5 rounded-full bg-pink-500" />}
+                    sex === option ? "" : "border-slate-300"
+                  }`} style={sex === option ? { borderColor: primary } : undefined}>
+                    {sex === option && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: primary }} />}
                   </div>
                   <span className="text-sm text-slate-800">{option}</span>
                 </label>
@@ -358,7 +359,7 @@ function Inner() {
                 maxLength={4}
                 value={birthYear}
                 onChange={(e) => setBirthYear(e.target.value.replace(/[^0-9]/g, ""))}
-                className="w-20 px-3 py-3 border border-slate-300 rounded-lg text-sm text-center bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/30 focus:border-pink-400"
+                className="w-20 px-3 py-3 border border-slate-300 rounded-lg text-sm text-center bg-white focus:outline-none focus:ring-2 focus:ring-[var(--brand-ring)] focus:border-[var(--brand)]"
               />
               <span className="text-sm text-slate-600">年</span>
               <input
@@ -367,7 +368,7 @@ function Inner() {
                 maxLength={2}
                 value={birthMonth}
                 onChange={(e) => setBirthMonth(e.target.value.replace(/[^0-9]/g, ""))}
-                className="w-14 px-3 py-3 border border-slate-300 rounded-lg text-sm text-center bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/30 focus:border-pink-400"
+                className="w-14 px-3 py-3 border border-slate-300 rounded-lg text-sm text-center bg-white focus:outline-none focus:ring-2 focus:ring-[var(--brand-ring)] focus:border-[var(--brand)]"
               />
               <span className="text-sm text-slate-600">月</span>
               <input
@@ -376,7 +377,7 @@ function Inner() {
                 maxLength={2}
                 value={birthDay}
                 onChange={(e) => setBirthDay(e.target.value.replace(/[^0-9]/g, ""))}
-                className="w-14 px-3 py-3 border border-slate-300 rounded-lg text-sm text-center bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/30 focus:border-pink-400"
+                className="w-14 px-3 py-3 border border-slate-300 rounded-lg text-sm text-center bg-white focus:outline-none focus:ring-2 focus:ring-[var(--brand-ring)] focus:border-[var(--brand)]"
               />
               <span className="text-sm text-slate-600">日</span>
             </div>
