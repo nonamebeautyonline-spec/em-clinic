@@ -31,6 +31,8 @@ type Product = {
   campaign_price: number | null;
   campaign_name: string | null;
   campaign_remaining: number | null;
+  category?: string;
+  cool_type?: "normal" | "chilled" | "frozen" | null;
 };
 
 type SdkConfig = {
@@ -233,15 +235,6 @@ function PurchaseConfirmContent() {
     && shipping.postalCode.replace(/[^0-9]/g, "") !== prevPostalCode.replace(/[^0-9]/g, "")
     && shipping.postalCode.replace(/[^0-9]/g, "").length === 7;
 
-  // 商品が注射（冷蔵）かどうかの判定
-  const isInjection = product?.category === "injection" || product?.cool_type === "chilled" || product?.cool_type === "frozen";
-  // 都道府県判定
-  const prefecture = autoAddress ? autoAddress.match(/^(北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)/)?.[0] || "" : "";
-  const isKyushu = ["福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県"].includes(prefecture);
-  const isOkinawa = prefecture === "沖縄県";
-  // 沖縄+冷蔵注射は化粧品名変更不可
-  const cosmeticsDisabled = isOkinawa && isInjection;
-
   // 決済リクエストのAbortController（タイムアウト時にfetch自体をキャンセル）
   const abortRef = useRef<AbortController | null>(null);
 
@@ -367,6 +360,14 @@ function PurchaseConfirmContent() {
     () => (codeParam ? products.find((p) => p.code === codeParam) ?? null : null),
     [codeParam, products],
   );
+
+  // 商品が注射（冷蔵）かどうかの判定
+  const isInjection = product?.category === "injection" || product?.cool_type === "chilled" || product?.cool_type === "frozen";
+  // 都道府県判定
+  const prefecture = autoAddress ? autoAddress.match(/^(北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)/)?.[0] || "" : "";
+  const isKyushu = ["福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県"].includes(prefecture);
+  const isOkinawa = prefecture === "沖縄県";
+  const cosmeticsDisabled = isOkinawa && isInjection;
 
   // 割引価格が有効期間内であれば適用した実効価格を算出（キャンペーン価格含む）
   const effectivePrice = useMemo(() => {
