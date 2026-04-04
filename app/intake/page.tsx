@@ -567,7 +567,15 @@ const runPidCheck = useCallback(async () => {
             {visibleFields.map((field) => {
               const val = answers[field.id];
               if (val === undefined || val === null || val === "") return null;
-              const displayVal = Array.isArray(val) ? val.join(", ") : String(val);
+              // optionsがある場合はvalueをlabelに変換して表示
+              const toLabel = (v: string) => {
+                if (!field.options?.length) return v;
+                const opt = field.options.find((o: { value?: string; label?: string }) =>
+                  (o.value ?? o.label) === v
+                );
+                return opt?.label || v;
+              };
+              const displayVal = Array.isArray(val) ? val.map(toLabel).join(", ") : toLabel(String(val));
               const fieldIndex = questionItems.indexOf(field);
               return (
                 <button
