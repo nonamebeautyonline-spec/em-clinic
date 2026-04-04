@@ -535,6 +535,53 @@ export default function CreateShippingListPage() {
     }
   };
 
+  // 日本郵便CSVエクスポート
+  const handleExportJapanPost = async () => {
+    const selectedItems = items.filter((item) => item.selected);
+    if (selectedItems.length === 0) {
+      alert("発送する注文を選択してください");
+      return;
+    }
+
+    setExporting(true);
+    setError("");
+
+    try {
+      const orderIds = selectedItems.map((item) => item.id);
+      const res = await fetch("/api/admin/shipping/export-japanpost", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_ids: orderIds }),
+      });
+
+      if (!res.ok) throw new Error(`CSV生成失敗 (${res.status})`);
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `japanpost_${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      // CSV出力成功 → 出力対象をグレーアウト
+      const exportedIds = new Set(orderIds);
+      setItems((prev) =>
+        prev.map((item) =>
+          exportedIds.has(item.id) ? { ...item, isListCreated: true } : item
+        )
+      );
+    } catch (err) {
+      console.error("JapanPost export error:", err);
+      setError(err instanceof Error ? err.message : "CSVエクスポートに失敗しました");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // ★ 行全体の背景色を取得（各用量×各本数の組み合わせごとに固有の色）
   const getRowColor = (item: ShippingItem): string => {
     // 主要な用量と本数を決定
@@ -884,6 +931,17 @@ export default function CreateShippingListPage() {
             }`}
           >
             {exporting ? "出力中..." : `📦 ヤマトB2 CSV出力（${selectedCount}件）`}
+          </button>
+          <button
+            onClick={handleExportJapanPost}
+            disabled={exporting || selectedCount === 0}
+            className={`px-6 py-2 rounded-lg font-medium ${
+              exporting || selectedCount === 0
+                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                : "bg-emerald-600 text-white hover:bg-emerald-700"
+            }`}
+          >
+            {exporting ? "出力中..." : `📮 日本郵便 CSV出力（${selectedCount}件）`}
           </button>
         </div>
       </div>
