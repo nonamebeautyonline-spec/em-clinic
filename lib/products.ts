@@ -22,6 +22,9 @@ export type Product = {
   stock_alert_threshold: number | null;
   stock_alert_enabled: boolean;
   field_id: string | null;
+  shipping_delay_days: number;
+  cool_type: "normal" | "chilled" | "frozen" | null;
+  shipping_item_name: string | null;
 };
 
 // テナントごとに商品が異なるためフォールバックは空（DB障害時は空配列を返す）
