@@ -21,6 +21,13 @@ interface Order {
   purchase_count: number;
   tracking_number: string;
   shipping_list_created_at: string | null;
+  // 発送オプション
+  custom_sender_name: string | null;
+  item_name_cosmetics: boolean;
+  use_hexidin: boolean;
+  post_office_hold: boolean;
+  post_office_name: string | null;
+  shipping_delay_days: number;
 }
 
 interface MergeableGroup {

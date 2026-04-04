@@ -950,6 +950,7 @@ function PurchaseConfirmContent() {
 
                 {/* 差出人名変更 */}
                 {shipOpts?.allowCustomSender && (
+                <>
                 <label className="flex items-start gap-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -971,6 +972,7 @@ function PurchaseConfirmContent() {
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[12px] text-slate-900 placeholder:text-slate-300"
                   />
                 )}
+                </>
                 )}
 
                 {/* 品名を化粧品に変更 */}
