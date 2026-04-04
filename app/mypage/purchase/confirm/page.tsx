@@ -83,6 +83,15 @@ function PurchaseConfirmContent() {
     error?: string;
   } | null>(null);
   const [couponChecking, setCouponChecking] = useState(false);
+
+  // 発送オプション
+  const [customSenderName, setCustomSenderName] = useState("");
+  const [useCustomSender, setUseCustomSender] = useState(false);
+  const [itemNameCosmetics, setItemNameCosmetics] = useState(false);
+  const [useHexidin, setUseHexidin] = useState(false);
+  const [postOfficeHold, setPostOfficeHold] = useState(false);
+  const [postOfficeName, setPostOfficeName] = useState("");
+
   const [shipping, setShipping] = useState<ShippingData>({
     name: "",
     postalCode: "",
@@ -146,8 +155,12 @@ function PurchaseConfirmContent() {
   }, [shipping.postalCode, searchZipcloud]);
 
   // テナント設定（クリニック名）
-  const { data: mpSettings } = useSWR<{ config?: { content?: { clinicName?: string } } }>("/api/mypage/settings", swrFetcher, { revalidateOnFocus: false });
+  const { data: mpSettings } = useSWR<{
+    config?: { content?: { clinicName?: string } };
+    shippingOptions?: { allowCustomSender?: boolean; allowCosmeticsName?: boolean; allowHexidin?: boolean; allowPostOfficeHold?: boolean };
+  }>("/api/mypage/settings", swrFetcher, { revalidateOnFocus: false });
   const clinicName = mpSettings?.config?.content?.clinicName || "";
+  const shipOpts = mpSettings?.shippingOptions;
 
   // 前回の配送先情報を取得
   const { data: lastShippingData } = useSWR("/api/mypage/last-shipping", swrFetcher, {
@@ -219,6 +232,15 @@ function PurchaseConfirmContent() {
   const postalChanged = usePrevShipping && prevPostalCode !== null
     && shipping.postalCode.replace(/[^0-9]/g, "") !== prevPostalCode.replace(/[^0-9]/g, "")
     && shipping.postalCode.replace(/[^0-9]/g, "").length === 7;
+
+  // 商品が注射（冷蔵）かどうかの判定
+  const isInjection = product?.category === "injection" || product?.cool_type === "chilled" || product?.cool_type === "frozen";
+  // 都道府県判定
+  const prefecture = autoAddress ? autoAddress.match(/^(北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)/)?.[0] || "" : "";
+  const isKyushu = ["福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県"].includes(prefecture);
+  const isOkinawa = prefecture === "沖縄県";
+  // 沖縄+冷蔵注射は化粧品名変更不可
+  const cosmeticsDisabled = isOkinawa && isInjection;
 
   // 決済リクエストのAbortController（タイムアウト時にfetch自体をキャンセル）
   const abortRef = useRef<AbortController | null>(null);
@@ -403,6 +425,13 @@ function PurchaseConfirmContent() {
           mode: modeParam,
           reorderId: reorderIdParam ?? null,
           couponCode: couponValidation?.valid ? couponCode.trim() : undefined,
+          shippingOptions: {
+            customSenderName: useCustomSender ? customSenderName : null,
+            itemNameCosmetics,
+            useHexidin,
+            postOfficeHold,
+            postOfficeName: postOfficeHold ? postOfficeName : null,
+          },
         }),
       });
 
@@ -444,6 +473,13 @@ function PurchaseConfirmContent() {
               reorderId: reorderIdParam ?? null,
               saveCard: true,
               shipping: { ...shipping, address: fullAddress, addressDetail },
+              shippingOptions: {
+                customSenderName: useCustomSender ? customSenderName : null,
+                itemNameCosmetics,
+                useHexidin,
+                postOfficeHold,
+                postOfficeName: postOfficeHold ? postOfficeName : null,
+              },
             }
           : {
               sourceId,
@@ -453,6 +489,13 @@ function PurchaseConfirmContent() {
               reorderId: reorderIdParam ?? null,
               saveCard: true,
               shipping: { ...shipping, address: fullAddress, addressDetail },
+              shippingOptions: {
+                customSenderName: useCustomSender ? customSenderName : null,
+                itemNameCosmetics,
+                useHexidin,
+                postOfficeHold,
+                postOfficeName: postOfficeHold ? postOfficeName : null,
+              },
             };
         const res = await fetch(payUrl, {
           method: "POST",
@@ -899,6 +942,108 @@ function PurchaseConfirmContent() {
                   </div>
                 </div>
               </div>
+
+              {/* ===== 発送オプション ===== */}
+              {(shipOpts?.allowCustomSender || shipOpts?.allowCosmeticsName || shipOpts?.allowHexidin || shipOpts?.allowPostOfficeHold) && (
+              <div className="space-y-3 border-t border-slate-100 pt-4">
+                <p className="text-[11px] font-medium text-slate-700">発送オプション</p>
+
+                {/* 差出人名変更 */}
+                {shipOpts?.allowCustomSender && (
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useCustomSender}
+                    onChange={(e) => {
+                      setUseCustomSender(e.target.checked);
+                      if (!e.target.checked) setCustomSenderName("");
+                    }}
+                    className="mt-0.5 w-4 h-4 rounded border-slate-300 accent-slate-600"
+                  />
+                  <span className="text-[11px] text-slate-700">差出人名を変更する</span>
+                </label>
+                {useCustomSender && (
+                  <input
+                    type="text"
+                    value={customSenderName}
+                    onChange={(e) => setCustomSenderName(e.target.value)}
+                    placeholder="差出人名を入力"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[12px] text-slate-900 placeholder:text-slate-300"
+                  />
+                )}
+                )}
+
+                {/* 品名を化粧品に変更 */}
+                {shipOpts?.allowCosmeticsName && (
+                <label className={`flex items-start gap-2 ${cosmeticsDisabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}>
+                  <input
+                    type="checkbox"
+                    checked={itemNameCosmetics}
+                    disabled={cosmeticsDisabled}
+                    onChange={(e) => setItemNameCosmetics(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-slate-300 accent-slate-600"
+                  />
+                  <div>
+                    <span className="text-[11px] text-slate-700">品名を「化粧品」に変更する</span>
+                    {cosmeticsDisabled && (
+                      <p className="text-[10px] text-red-500 mt-0.5">沖縄県への冷蔵注射は化粧品名での発送ができません</p>
+                    )}
+                    {itemNameCosmetics && isKyushu && !cosmeticsDisabled && (
+                      <p className="text-[10px] text-amber-600 mt-0.5">九州宛は陸送になるため、お届けが1〜2日遅れる場合があります</p>
+                    )}
+                  </div>
+                </label>
+                )}
+
+                {/* 同梱物変更（注射商品のみ） */}
+                {shipOpts?.allowHexidin && isInjection && (
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={useHexidin}
+                      onChange={(e) => setUseHexidin(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded border-slate-300 accent-slate-600"
+                    />
+                    <div>
+                      <span className="text-[11px] text-slate-700">同梱の消毒綿をヘキシジンに変更する</span>
+                      <p className="text-[10px] text-slate-400 mt-0.5">アルコールアレルギーのある方はこちらを選択してください</p>
+                    </div>
+                  </label>
+                )}
+
+                {/* 郵便局留め */}
+                {shipOpts?.allowPostOfficeHold && (
+                <>
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={postOfficeHold}
+                    onChange={(e) => {
+                      setPostOfficeHold(e.target.checked);
+                      if (!e.target.checked) setPostOfficeName("");
+                    }}
+                    className="mt-0.5 w-4 h-4 rounded border-slate-300 accent-slate-600"
+                  />
+                  <span className="text-[11px] text-slate-700">郵便局留めを希望する</span>
+                </label>
+                {postOfficeHold && (
+                  <div>
+                    <input
+                      type="text"
+                      value={postOfficeName}
+                      onChange={(e) => setPostOfficeName(e.target.value)}
+                      placeholder="受取郵便局名を入力（例: 渋谷郵便局）"
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[12px] text-slate-900 placeholder:text-slate-300"
+                    />
+                    {isInjection && (
+                      <p className="text-[10px] text-amber-600 mt-1">冷蔵便の場合はチルド対応の郵便局をご確認ください</p>
+                    )}
+                  </div>
+                )}
+                </>
+                )}
+              </div>
+              )}
 
               {/* 配送先未入力の案内 */}
               {!shippingValid && (

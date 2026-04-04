@@ -1,11 +1,18 @@
 // lib/shipping/types.ts — 配送キャリア抽象化
 export type CarrierType = "yamato" | "japanpost";
 
+export interface ShippingOptionsConfig {
+  allowCustomSender: boolean;      // 差出人名変更
+  allowCosmeticsName: boolean;     // 品名を化粧品に変更
+  allowHexidin: boolean;           // ヘキシジン変更（注射商品のみ）
+  allowPostOfficeHold: boolean;    // 郵便局留め
+}
+
 export interface ShippingConfig {
   defaultCarrier: CarrierType;
   standardCutoffHour: number;        // 通常便の当日発送締め時間（デフォルト16）
   addressChangeCutoffHour: number;   // 住所変更可能時間（デフォルト16）
-  allowPostOfficeHold: boolean;      // 郵便局留め許可
+  options: ShippingOptionsConfig;    // 購入画面の発送オプション表示制御
   yamato: YamatoConfig;
   japanpost: JapanPostConfig;
 }
@@ -51,7 +58,12 @@ export const DEFAULT_SHIPPING_CONFIG: ShippingConfig = {
   defaultCarrier: "yamato",
   standardCutoffHour: 16,
   addressChangeCutoffHour: 16,
-  allowPostOfficeHold: false,
+  options: {
+    allowCustomSender: false,
+    allowCosmeticsName: false,
+    allowHexidin: false,
+    allowPostOfficeHold: false,
+  },
   yamato: {
     senderName: "",
     senderPostal: "",

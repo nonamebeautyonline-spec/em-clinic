@@ -14,6 +14,7 @@ export async function getShippingConfig(tenantId?: string): Promise<ShippingConf
     return {
       ...DEFAULT_SHIPPING_CONFIG,
       ...parsed,
+      options: { ...DEFAULT_SHIPPING_CONFIG.options, ...parsed.options },
       yamato: { ...DEFAULT_SHIPPING_CONFIG.yamato, ...parsed.yamato },
       japanpost: { ...DEFAULT_SHIPPING_CONFIG.japanpost, ...parsed.japanpost },
     };
@@ -28,6 +29,7 @@ export async function setShippingConfig(config: Partial<ShippingConfig>, tenantI
   const merged = {
     ...current,
     ...config,
+    options: { ...current.options, ...(config.options || {}) },
     yamato: { ...current.yamato, ...(config.yamato || {}) },
     japanpost: { ...current.japanpost, ...(config.japanpost || {}) },
   };
