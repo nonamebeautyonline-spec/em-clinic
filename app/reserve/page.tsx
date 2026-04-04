@@ -120,9 +120,10 @@ const ReserveInner: React.FC = () => {
 
   // テナント設定（色味・ロゴ・クリニック名）
   const { data: mpSettings } = useSWR<{
-    config?: { colors?: { primary?: string; pageBg?: string }; content?: { clinicName?: string; logoUrl?: string } };
+    config?: { colors?: { primary?: string; primaryHover?: string; primaryLight?: string; pageBg?: string }; content?: { clinicName?: string; logoUrl?: string } };
   }>("/api/mypage/settings", swrFetcher);
   const primary = mpSettings?.config?.colors?.primary || "#ec4899";
+  const primaryLight = mpSettings?.config?.colors?.primaryLight || "#fdf2f8";
   const pageBg = mpSettings?.config?.colors?.pageBg || "#FFF8FB";
   const clinicName = mpSettings?.config?.content?.clinicName || "";
   const logoUrl = mpSettings?.config?.content?.logoUrl || "";
@@ -474,7 +475,7 @@ setTimeout(() => {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: pageBg, "--brand": primary, "--brand-light": `${primary}15` } as React.CSSProperties}>
+    <div className="min-h-screen" style={{ backgroundColor: pageBg, "--brand": primary, "--brand-light": primaryLight } as React.CSSProperties}>
       {/* ヘッダー */}
       <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b border-slate-200">
         <div className="mx-auto max-w-md px-4 py-3 flex items-center justify-between">
@@ -734,7 +735,7 @@ setTimeout(() => {
                 </div>
               )}
 
-              <div className="rounded-2xl p-3 text-[14px] text-slate-800 space-y-1.5" style={{ backgroundColor: `${primary}12` }}>
+              <div className="rounded-2xl p-3 text-[14px] text-slate-800 space-y-1.5" style={{ backgroundColor: `${primaryLight}b3` }}>
                 {isEdit && <p className="font-semibold text-slate-800">変更後の予約</p>}
                 {selectedReservationSlotId && (
                   <p>

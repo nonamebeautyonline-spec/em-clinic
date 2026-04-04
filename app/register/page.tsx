@@ -21,9 +21,11 @@ function Inner() {
 
   // テナント設定（色味・ロゴ・クリニック名）
   const { data: mpSettings } = useSWR<{
-    config?: { colors?: { primary?: string; pageBg?: string }; content?: { clinicName?: string; logoUrl?: string } };
+    config?: { colors?: { primary?: string; primaryHover?: string; primaryLight?: string; pageBg?: string }; content?: { clinicName?: string; logoUrl?: string } };
   }>("/api/mypage/settings", swrFetcher);
   const primary = mpSettings?.config?.colors?.primary || "#ec4899";
+  const primaryHover = mpSettings?.config?.colors?.primaryHover || "#db2777";
+  const primaryLight = mpSettings?.config?.colors?.primaryLight || "#fdf2f8";
   const pageBg = mpSettings?.config?.colors?.pageBg || "#f0f0f0";
   const clinicName = mpSettings?.config?.content?.clinicName || "";
   const logoUrl = mpSettings?.config?.content?.logoUrl || "";
@@ -226,7 +228,7 @@ function Inner() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: pageBg, "--brand": primary, "--brand-light": `${primary}20`, "--brand-ring": `${primary}4d` } as React.CSSProperties}>
+    <div className="min-h-screen" style={{ backgroundColor: pageBg, "--brand": primary, "--brand-hover": primaryHover, "--brand-light": primaryLight, "--brand-ring": `${primary}4d` } as React.CSSProperties}>
       {/* ヘッダー */}
       <header className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
         <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
@@ -332,7 +334,7 @@ function Inner() {
                       ? ""
                       : "border-slate-200 hover:border-slate-300"
                   }`}
-                  style={sex === option ? { borderColor: primary, backgroundColor: `${primary}10` } : undefined}
+                  style={sex === option ? { borderColor: primary, backgroundColor: `${primaryLight}80` } : undefined}
                 >
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
                     sex === option ? "" : "border-slate-300"

@@ -29,9 +29,10 @@ function Inner() {
 
   // テナント設定（色味・ロゴ・クリニック名）
   const { data: mpSettings } = useSWR<{
-    config?: { colors?: { primary?: string; primaryHover?: string; pageBg?: string }; content?: { clinicName?: string; logoUrl?: string } };
+    config?: { colors?: { primary?: string; primaryHover?: string; primaryLight?: string; pageBg?: string }; content?: { clinicName?: string; logoUrl?: string } };
   }>("/api/mypage/settings", swrFetcher);
   const primary = mpSettings?.config?.colors?.primary || "#ec4899";
+  const primaryLight = mpSettings?.config?.colors?.primaryLight || "#fdf2f8";
   const pageBg = mpSettings?.config?.colors?.pageBg || "#FFF8FB";
   const clinicName = mpSettings?.config?.content?.clinicName || "";
   const logoUrl = mpSettings?.config?.content?.logoUrl || "";
@@ -177,9 +178,9 @@ function Inner() {
         </p>
 
         <div className="mt-5 flex items-center gap-2 text-[11px] text-slate-500">
-          <div className="h-1 flex-1 rounded-full" style={{ backgroundColor: step !== "enterPhone" ? primary : `${primary}40` }} />
-          <div className="h-1 flex-1 rounded-full" style={{ backgroundColor: step === "enterCode" ? primary : `${primary}20` }} />
-          <div className="h-1 flex-1 rounded-full" style={{ backgroundColor: `${primary}20` }} />
+          <div className="h-1 flex-1 rounded-full" style={{ backgroundColor: step !== "enterPhone" ? primary : primaryLight }} />
+          <div className="h-1 flex-1 rounded-full" style={{ backgroundColor: step === "enterCode" ? primary : `${primaryLight}80` }} />
+          <div className="h-1 flex-1 rounded-full" style={{ backgroundColor: `${primaryLight}80` }} />
         </div>
 
         {error && (

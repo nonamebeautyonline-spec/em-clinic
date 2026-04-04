@@ -253,9 +253,10 @@ export default function PublicFormPage() {
 
   // テナント設定（色味・ロゴ・クリニック名）
   const { data: mpSettings } = useSWR<{
-    config?: { colors?: { primary?: string; pageBg?: string }; content?: { clinicName?: string; logoUrl?: string } };
+    config?: { colors?: { primary?: string; primaryLight?: string; pageBg?: string }; content?: { clinicName?: string; logoUrl?: string } };
   }>("/api/mypage/settings", swrFetcher);
   const primary = mpSettings?.config?.colors?.primary || "#5B9BD5";
+  const primaryLight = mpSettings?.config?.colors?.primaryLight || "#fdf2f8";
   const pageBg = mpSettings?.config?.colors?.pageBg || "#f0f0f0";
   const clinicName = mpSettings?.config?.content?.clinicName || "";
   const logoUrl = mpSettings?.config?.content?.logoUrl || "";
@@ -360,7 +361,7 @@ export default function PublicFormPage() {
   // エラーページ
   if (pageError) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: pageBg, "--brand": primary, "--brand-light": `${primary}20`, "--brand-ring": `${primary}4d` } as React.CSSProperties}>
+      <div className="min-h-screen" style={{ backgroundColor: pageBg, "--brand": primary, "--brand-light": `${primaryLight}80`, "--brand-ring": `${primary}4d` } as React.CSSProperties}>
         <header className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
           <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
             {logoUrl ? <img src={logoUrl} alt={clinicName || "clinic logo"} className="h-10 object-contain" /> : clinicName ? <span className="text-base font-bold text-slate-800">{clinicName}</span> : <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />}
@@ -383,7 +384,7 @@ export default function PublicFormPage() {
   // 完了
   if (done) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: pageBg, "--brand": primary, "--brand-light": `${primary}20`, "--brand-ring": `${primary}4d` } as React.CSSProperties}>
+      <div className="min-h-screen" style={{ backgroundColor: pageBg, "--brand": primary, "--brand-light": `${primaryLight}80`, "--brand-ring": `${primary}4d` } as React.CSSProperties}>
         <header className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
           <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
             {logoUrl ? <img src={logoUrl} alt={clinicName || "clinic logo"} className="h-10 object-contain" /> : clinicName ? <span className="text-base font-bold text-slate-800">{clinicName}</span> : <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />}
@@ -406,7 +407,7 @@ export default function PublicFormPage() {
   if (!formData) return null;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: pageBg, "--brand": primary, "--brand-light": `${primary}20`, "--brand-ring": `${primary}4d` } as React.CSSProperties}>
+    <div className="min-h-screen" style={{ backgroundColor: pageBg, "--brand": primary, "--brand-light": `${primaryLight}80`, "--brand-ring": `${primary}4d` } as React.CSSProperties}>
       {/* プレビューバナー */}
       {isPreview && (
         <div className="bg-amber-500 text-white text-center py-2 text-sm font-medium sticky top-0 z-30">
