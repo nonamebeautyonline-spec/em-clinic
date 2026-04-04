@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { getProductNamesMap } from "@/lib/products";
+import { getProducts } from "@/lib/products";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 
 interface OrderRow {
@@ -46,6 +46,12 @@ interface FormattedOrder {
   purchase_count: number;
   tracking_number: string;
   shipping_list_created_at: string | null;
+  custom_sender_name: string | null;
+  item_name_cosmetics: boolean;
+  use_hexidin: boolean;
+  post_office_hold: boolean;
+  post_office_name: string | null;
+  shipping_delay_days: number;
 }
 
 export async function GET(req: NextRequest) {
@@ -58,10 +64,16 @@ export async function GET(req: NextRequest) {
 
     const tenantId = resolveTenantIdOrThrow(req);
 
-    // ★ 商品名マップをDBから取得（productsテーブルは既にテナント対応済み）
-    const PRODUCT_NAMES = await getProductNamesMap(tenantId ?? undefined);
+    // ★ 商品情報をDBから取得
+    const allProducts = await getProducts(tenantId ?? undefined);
+    const PRODUCT_NAMES: Record<string, string> = {};
+    const PRODUCT_DELAY: Record<string, number> = {};
+    for (const p of allProducts) {
+      PRODUCT_NAMES[p.code] = p.title;
+      PRODUCT_DELAY[p.code] = p.shipping_delay_days || 0;
+    }
 
-    const selectCols = "id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at";
+    const selectCols = "id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at, custom_sender_name, item_name_cosmetics, use_hexidin, post_office_hold, post_office_name";
 
     // ★ 全ての未発送confirmed注文（カットオフなし・発送漏れも自動検出）
     const { data: ordersConfirmed, error: ordersConfirmedError } = await strictWithTenant(
@@ -154,6 +166,13 @@ export async function GET(req: NextRequest) {
         purchase_count: purchaseCountMap[order.patient_id] || 0,
         tracking_number: order.tracking_number || "",
         shipping_list_created_at: order.shipping_list_created_at || null,
+        // 発送オプション
+        custom_sender_name: order.custom_sender_name || null,
+        item_name_cosmetics: order.item_name_cosmetics || false,
+        use_hexidin: order.use_hexidin || false,
+        post_office_hold: order.post_office_hold || false,
+        post_office_name: order.post_office_name || null,
+        shipping_delay_days: PRODUCT_DELAY[order.product_code] || 0,
       };
     });
 

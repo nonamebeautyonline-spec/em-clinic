@@ -484,8 +484,26 @@ export default function ShippingPendingPage() {
                         {order.patient_id}
                       </button>
                     </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDisabled ? "text-slate-400" : "text-slate-900"}`}>
-                      {order.product_name}
+                    <td className={`px-6 py-4 text-sm ${isDisabled ? "text-slate-400" : "text-slate-900"}`}>
+                      <div>{order.product_name}</div>
+                      {/* 発送オプションバッジ */}
+                      <div className="flex flex-wrap gap-1 mt-0.5">
+                        {order.shipping_delay_days > 0 && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">{order.shipping_delay_days}日後発送</span>
+                        )}
+                        {order.custom_sender_name && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">差出人: {order.custom_sender_name}</span>
+                        )}
+                        {order.item_name_cosmetics && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">化粧品名</span>
+                        )}
+                        {order.use_hexidin && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">ヘキシジン</span>
+                        )}
+                        {order.post_office_hold && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">局留: {order.post_office_name || "未指定"}</span>
+                        )}
+                      </div>
                     </td>
                     <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDisabled ? "text-slate-400" : "text-slate-600"}`}>
                       {order.postal_code || "-"}
