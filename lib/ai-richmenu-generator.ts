@@ -358,7 +358,6 @@ export async function generateRichMenuImage(
     "general",
     "ANTHROPIC_API_KEY",
     "ANTHROPIC_API_KEY",
-    tenantId
   );
   if (!apiKey) {
     throw new Error("ANTHROPIC_API_KEY が未設定です");

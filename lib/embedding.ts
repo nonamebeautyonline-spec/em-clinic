@@ -17,7 +17,7 @@ const EMBEDDING_CACHE_TTL = 3600; // 1時間
 // OpenAI クライアント
 // =============================================================
 async function getOpenAIClient(tenantId?: string): Promise<OpenAI | null> {
-  const apiKey = (await getSettingOrEnv("general", "openai_api_key", "OPENAI_API_KEY", tenantId)) || "";
+  const apiKey = (await getSettingOrEnv("general", "openai_api_key", "OPENAI_API_KEY")) || "";
   if (!apiKey) {
     console.error("[Embedding] OPENAI_API_KEY 未設定");
     return null;
@@ -105,7 +105,7 @@ export async function rewriteQueryForSearch(
   }
 
   try {
-    const apiKey = (await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY", tenantId ?? undefined)) || "";
+    const apiKey = (await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY")) || "";
     if (!apiKey) return originalQuery;
 
     const client = new Anthropic({ apiKey });
@@ -330,7 +330,7 @@ export async function rerankExamples(
   }
 
   try {
-    const apiKey = (await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY", tenantId ?? undefined)) || "";
+    const apiKey = (await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY")) || "";
     if (!apiKey) {
       // フォールバック: RRFスコア順でtopKを返す
       return candidates.slice(0, topK).map(c => ({

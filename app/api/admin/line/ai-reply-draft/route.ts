@@ -157,7 +157,7 @@ export async function POST(req: NextRequest) {
 
     try {
       const tid = (draft.tenant_id as string | null) ?? undefined;
-      const apiKey = (await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY", tid)) || "";
+      const apiKey = (await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY")) || "";
       if (!apiKey) return serverError("APIキー未設定");
 
       const { data: settings } = await strictWithTenant(

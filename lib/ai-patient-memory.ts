@@ -146,7 +146,7 @@ export async function extractAndSaveMemory(params: {
   const { patientId, tenantId, messages, aiReply } = params;
 
   try {
-    const apiKey = await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY", tenantId ?? undefined);
+    const apiKey = await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY");
     if (!apiKey) return;
 
     const client = new Anthropic({ apiKey });

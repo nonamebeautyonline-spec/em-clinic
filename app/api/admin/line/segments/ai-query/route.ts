@@ -264,7 +264,6 @@ export async function POST(req: NextRequest) {
       "general",
       "anthropic_api_key",
       "ANTHROPIC_API_KEY",
-      tenantId || undefined,
     );
     if (!apiKey) {
       return serverError("ANTHROPIC_API_KEYが設定されていません");

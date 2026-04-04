@@ -656,7 +656,7 @@ export async function processAiReply(
 
   // 2. APIキーを取得
   log.push("step2: APIキー取得");
-  const apiKey = (await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY", tid)) || "";
+  const apiKey = (await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY")) || "";
   if (!apiKey) {
     log.push("skip: APIキー未設定");
     console.error("[AI Reply] ANTHROPIC_API_KEY 未設定");

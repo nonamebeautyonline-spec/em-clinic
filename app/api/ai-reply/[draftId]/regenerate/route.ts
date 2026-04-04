@@ -47,7 +47,7 @@ export async function POST(
 
   // APIキー取得
   const tenantId = draft.tenant_id ?? undefined;
-  const apiKey = (await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY", tenantId)) || "";
+  const apiKey = (await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY")) || "";
   if (!apiKey) {
     return serverError("APIキー未設定");
   }

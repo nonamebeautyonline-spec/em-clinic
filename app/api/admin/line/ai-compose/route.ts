@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
 
   // APIキー取得
   const tid = tenantId ?? undefined;
-  const apiKey = (await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY", tid)) || "";
+  const apiKey = (await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY")) || "";
   if (!apiKey) {
     return serverError("ANTHROPIC_API_KEY が未設定です");
   }

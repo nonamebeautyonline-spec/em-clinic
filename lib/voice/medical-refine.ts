@@ -45,7 +45,7 @@ export async function refineMedicalText(
   options?: RefineOptions
 ): Promise<RefineResult> {
   // API キー取得（DB → 環境変数フォールバック）
-  const apiKey = await getSettingOrEnv("general", "ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY", tenantId || undefined);
+  const apiKey = await getSettingOrEnv("general", "ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY");
   if (!apiKey) {
     // API キー未設定の場合は補正なしで返す
     return { refined: transcript, corrections: [], was_modified: false };
