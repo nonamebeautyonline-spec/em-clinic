@@ -169,6 +169,12 @@ function IntakePageInner() {
   // ★ テンプレート選択
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(urlTemplateId);
 
+  // テナント設定（予約制かどうか）
+  const { data: mpSettings } = useSWR<{
+    config?: { sections?: { showReserveButton?: boolean } };
+  }>("/api/mypage/settings", swrFetcher);
+  const showReserve = mpSettings?.config?.sections?.showReserveButton !== false;
+
   // アクティブフォーム一覧を取得（選択画面用）
   const { data: activeFormsData, isLoading: formsLoading } = useSWR<{ forms: ActiveForm[] }>(
     "/api/intake/active-forms",
@@ -346,23 +352,27 @@ const runPidCheck = useCallback(async () => {
           window.localStorage.setItem("has_intake", "1");
         }
 
-        // 予約済みならマイページへ、未予約なら予約ページへ
-        try {
-          const mpRes = await fetch("/api/mypage", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            cache: "no-store",
-            body: JSON.stringify({ refresh: true }),
-          });
-          const mpData = await mpRes.json().catch(() => ({}));
-          if (mpData.nextReservation) {
-            router.push("/mypage");
-            return;
+        // 予約制でないテナントはマイページへ、予約制なら予約ページへ
+        if (!showReserve) {
+          router.push("/mypage");
+        } else {
+          try {
+            const mpRes = await fetch("/api/mypage", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              cache: "no-store",
+              body: JSON.stringify({ refresh: true }),
+            });
+            const mpData = await mpRes.json().catch(() => ({}));
+            if (mpData.nextReservation) {
+              router.push("/mypage");
+              return;
+            }
+          } catch {
+            // エラー時はデフォルトで予約ページへ
           }
-        } catch {
-          // エラー時はデフォルトで予約ページへ
+          router.push("/reserve");
         }
-        router.push("/reserve");
       } catch (e) {
         console.error(e);
         alert("送信に失敗しました。時間をおいて再度お試しください。");
