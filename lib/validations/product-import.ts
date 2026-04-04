@@ -13,7 +13,7 @@ export const productImportSchema = z.object({
   products: z
     .array(productImportItemSchema)
     .min(1, "商品データが空です")
-    .max(500, "一度に500件まで"),
+    .max(1000, "一度に1000件まで"),
   duplicateStrategy: z.enum(["skip", "overwrite"]),
 });
 
