@@ -99,6 +99,50 @@ export function generateJapanPostCsv(orders: OrderData[], config: JapanPostConfi
   return rows.join("\r\n");
 }
 
+/** 発送オプション付きの注文データ */
+export interface OrderDataWithOptions extends OrderData {
+  customSenderName?: string | null;
+  itemNameCosmetics?: boolean;
+  useHexidin?: boolean;
+  postOfficeHold?: boolean;
+  postOfficeName?: string | null;
+  isKyushu?: boolean;
+}
+
+/** CSV生成（発送オプション対応版） */
+export function generateJapanPostCsvWithOptions(
+  orders: OrderDataWithOptions[],
+  config: JapanPostConfig,
+  shipDate: string,
+): string {
+  const rows: string[] = [];
+  rows.push(toCsvRow(JAPANPOST_HEADER));
+  for (const order of orders) {
+    // 品名決定: 化粧品 > 九州用品名 > デフォルト品名
+    let itemName = config.itemName;
+    if (order.itemNameCosmetics) {
+      itemName = "化粧品";
+    } else if (order.isKyushu && config.kyushuItemName) {
+      itemName = config.kyushuItemName;
+    }
+
+    // 差出人名: カスタム > テナントデフォルト
+    const senderName = order.customSenderName || config.senderName;
+
+    // 摘要欄にオプション情報を記載
+    const notes: string[] = [];
+    if (order.useHexidin) notes.push("ヘキシジン");
+    if (order.postOfficeHold && order.postOfficeName) notes.push(`局留: ${order.postOfficeName}`);
+
+    const overriddenConfig = { ...config, itemName, senderName };
+    const row = generateJapanPostRow(order, overriddenConfig, shipDate);
+    // 摘要欄（18番目=index 17）にオプション情報を追記
+    if (notes.length > 0) row[17] = notes.join(" / ");
+    rows.push(toCsvRow(row));
+  }
+  return rows.join("\r\n");
+}
+
 function toCsvRow(cols: string[]): string {
   return cols
     .map(cell => {

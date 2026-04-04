@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
-import { generateJapanPostCsv } from "@/lib/shipping/japanpost";
+import { generateJapanPostCsvWithOptions } from "@/lib/shipping/japanpost";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
     // 注文情報を取得
     const { data: orders, error: ordersError } = await strictWithTenant(
-      supabaseAdmin.from("orders").select("id, patient_id, shipping_name, shipping_postal, shipping_address, shipping_phone, shipping_email").in("id", orderIds),
+      supabaseAdmin.from("orders").select("id, patient_id, shipping_name, shipping_postal, shipping_address, shipping_phone, shipping_email, custom_sender_name, item_name_cosmetics, use_hexidin, post_office_hold, post_office_name").in("id", orderIds),
       tenantId
     );
 
@@ -45,6 +45,11 @@ export async function POST(req: NextRequest) {
     // CSV用データ
     const csvData = orders.map((order) => {
       const pt = patientMap.get(order.patient_id);
+
+      // 品名判定: 化粧品変更 → 「化粧品」、九州宛 → kyushuItemName、それ以外 → デフォルト
+      const addr = order.shipping_address || "";
+      const isKyushu = /^(福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県)/.test(addr);
+
       return {
         payment_id: order.id,
         name: order.shipping_name || pt?.name || "",
@@ -52,6 +57,13 @@ export async function POST(req: NextRequest) {
         address: order.shipping_address || "",
         email: order.shipping_email || "",
         phone: order.shipping_phone || pt?.tel || "",
+        // 発送オプション
+        customSenderName: order.custom_sender_name || null,
+        itemNameCosmetics: order.item_name_cosmetics || false,
+        useHexidin: order.use_hexidin || false,
+        postOfficeHold: order.post_office_hold || false,
+        postOfficeName: order.post_office_name || null,
+        isKyushu,
       };
     });
 
@@ -61,7 +73,7 @@ export async function POST(req: NextRequest) {
 
     // 日本郵便設定を取得してCSV生成
     const jpConfig = await getJapanPostConfig(tenantId ?? undefined);
-    const csv = generateJapanPostCsv(csvData, jpConfig, shipDate);
+    const csv = generateJapanPostCsvWithOptions(csvData, jpConfig, shipDate);
 
     logAudit(req, "shipping.export_japanpost", "shipping", "export");
     return new NextResponse(csv, {

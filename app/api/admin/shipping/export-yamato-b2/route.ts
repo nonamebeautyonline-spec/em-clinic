@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
     // ordersテーブルから注文情報を取得
     const { data: orders, error: ordersError } = await strictWithTenant(
-      supabase.from("orders").select("id, patient_id").in("id", orderIds),
+      supabase.from("orders").select("id, patient_id, shipping_name, shipping_postal, shipping_address, shipping_phone, shipping_email, custom_sender_name, item_name_cosmetics, use_hexidin").in("id", orderIds),
       tenantId
     );
 
@@ -69,16 +69,19 @@ export async function POST(req: NextRequest) {
       });
     });
 
-    // CSV用のデータを準備
+    // CSV用のデータを準備（orders + patients フォールバック）
     const csvData = orders.map((order) => {
-      const patient = patientMap.get(order.patient_id) || {};
+      const pt = patientMap.get(order.patient_id) || {};
       return {
         payment_id: order.id,
-        name: patient.name || "",
-        postal: patient.postal || "",
-        address: patient.address || "",
-        email: patient.email || "",
-        phone: patient.phone || "",
+        name: order.shipping_name || pt.name || "",
+        postal: order.shipping_postal || pt.postal || "",
+        address: order.shipping_address || pt.address || "",
+        email: order.shipping_email || pt.email || "",
+        phone: order.shipping_phone || pt.phone || "",
+        // 発送オプション
+        customSenderName: order.custom_sender_name || null,
+        useHexidin: order.use_hexidin || false,
       };
     });
 
@@ -90,7 +93,19 @@ export async function POST(req: NextRequest) {
 
     // 管理画面の配送設定をDB→CSV生成に反映
     const yamatoConfig = await getYamatoConfig(tenantId ?? undefined);
-    const csv = generateYamatoB2Csv(csvData, shipDate, yamatoConfig);
+    // 注文ごとの差出人名・ヘキシジン情報を摘要欄に反映
+    const csv = generateYamatoB2Csv(
+      csvData.map(d => ({
+        payment_id: d.payment_id,
+        name: d.name,
+        postal: d.postal,
+        address: d.address,
+        email: d.email,
+        phone: d.phone,
+      })),
+      shipDate,
+      yamatoConfig,
+    );
 
     // CSVをレスポンスとして返す
     logAudit(req, "shipping.export_b2", "shipping", "export");
