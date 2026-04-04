@@ -64,7 +64,13 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({ ok: true, definition: data });
+  // fieldsがJSON文字列の場合はパース（DB保存形式の差異吸収）
+  const definition = { ...data };
+  if (typeof definition.fields === "string") {
+    try { definition.fields = JSON.parse(definition.fields); } catch { /* そのまま */ }
+  }
+
+  return NextResponse.json({ ok: true, definition });
 }
 
 // 問診フォーム定義更新

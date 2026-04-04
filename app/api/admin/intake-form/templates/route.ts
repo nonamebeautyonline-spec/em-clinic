@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     id: t.id,
     name: t.name,
     is_active: t.is_active,
-    field_count: Array.isArray(t.fields) ? (t.fields as unknown[]).length : 0,
+    field_count: Array.isArray(t.fields) ? (t.fields as unknown[]).length : typeof t.fields === "string" ? (() => { try { return JSON.parse(t.fields as string).length; } catch { return 0; } })() : 0,
     created_at: t.created_at,
     updated_at: t.updated_at,
   }));
