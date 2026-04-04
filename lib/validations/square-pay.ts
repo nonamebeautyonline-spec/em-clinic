@@ -16,6 +16,13 @@ export const inlinePaySchema = z.object({
     phone: z.string().min(1),
     email: z.string().email(),
   }),
+  shippingOptions: z.object({
+    customSenderName: z.string().nullable().optional(),
+    itemNameCosmetics: z.boolean().optional().default(false),
+    useHexidin: z.boolean().optional().default(false),
+    postOfficeHold: z.boolean().optional().default(false),
+    postOfficeName: z.string().nullable().optional(),
+  }).optional(),
 });
 
 export type InlinePayInput = z.infer<typeof inlinePaySchema>;

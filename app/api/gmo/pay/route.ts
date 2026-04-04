@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
 
     const parsed = await parseBody(req, gmoInlinePaySchema);
     if ("error" in parsed) return parsed.error;
-    const { token, useSavedCard, productCode, mode, patientId, reorderId, saveCard, shipping } = parsed.data;
+    const { token, useSavedCard, productCode, mode, patientId, reorderId, saveCard, shipping, shippingOptions } = parsed.data;
 
     // トークンか保存カードのいずれかが必要
     if (!useSavedCard && !token) {
@@ -266,6 +266,11 @@ export async function POST(req: NextRequest) {
         address_detail: shipping.addressDetail || "",
         phone: finalPhone,
         email: shipping.email,
+        custom_sender_name: shippingOptions?.customSenderName || null,
+        item_name_cosmetics: shippingOptions?.itemNameCosmetics || false,
+        use_hexidin: shippingOptions?.useHexidin || false,
+        post_office_hold: shippingOptions?.postOfficeHold || false,
+        post_office_name: shippingOptions?.postOfficeName || null,
         ...tenantPayload(tenantId),
       });
       if (insertErr) {
@@ -279,6 +284,11 @@ export async function POST(req: NextRequest) {
               address_detail: shipping.addressDetail || "",
               phone: finalPhone,
               email: shipping.email,
+              custom_sender_name: shippingOptions?.customSenderName || null,
+              item_name_cosmetics: shippingOptions?.itemNameCosmetics || false,
+              use_hexidin: shippingOptions?.useHexidin || false,
+              post_office_hold: shippingOptions?.postOfficeHold || false,
+              post_office_name: shippingOptions?.postOfficeName || null,
             }).eq("id", orderId),
             tenantId,
           );

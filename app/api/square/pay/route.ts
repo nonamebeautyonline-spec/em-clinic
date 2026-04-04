@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     const parsed = await parseBody(req, inlinePaySchema);
     if ("error" in parsed) return parsed.error;
-    const { sourceId, productCode, mode, patientId, reorderId, saveCard, shipping } = parsed.data;
+    const { sourceId, productCode, mode, patientId, reorderId, saveCard, shipping, shippingOptions } = parsed.data;
 
     // 住所の都道府県重複チェック（最終防衛）
     if (shipping?.address && hasAddressDuplication(shipping.address)) {
@@ -204,6 +204,11 @@ export async function POST(req: NextRequest) {
       address_detail: shipping.addressDetail || "",
       phone: finalPhone,
       email: shipping.email,
+      custom_sender_name: shippingOptions?.customSenderName || null,
+      item_name_cosmetics: shippingOptions?.itemNameCosmetics || false,
+      use_hexidin: shippingOptions?.useHexidin || false,
+      post_office_hold: shippingOptions?.postOfficeHold || false,
+      post_office_name: shippingOptions?.postOfficeName || null,
     };
     try {
       const { error: insertErr } = await supabaseAdmin.from("orders").insert({
@@ -223,6 +228,11 @@ export async function POST(req: NextRequest) {
               address_detail: shipping.addressDetail || "",
               phone: finalPhone,
               email: shipping.email,
+              custom_sender_name: shippingOptions?.customSenderName || null,
+              item_name_cosmetics: shippingOptions?.itemNameCosmetics || false,
+              use_hexidin: shippingOptions?.useHexidin || false,
+              post_office_hold: shippingOptions?.postOfficeHold || false,
+              post_office_name: shippingOptions?.postOfficeName || null,
             }).eq("id", paymentId),
             tenantId,
           );
