@@ -24,25 +24,27 @@ export async function POST(req: NextRequest) {
     if ("error" in parsed) return parsed.error;
     const { patient_id, password, reason, delete_intake, delete_reservation } = parsed.data;
 
-    // パスワード再確認: 現在のユーザーのパスワードハッシュを取得して検証
-    const adminUserId = await getAdminUserId(req);
-    if (!adminUserId) {
-      return unauthorized();
-    }
+    // パスワード再確認（指定された場合のみ）
+    if (password) {
+      const adminUserId = await getAdminUserId(req);
+      if (!adminUserId) {
+        return unauthorized();
+      }
 
-    const { data: adminUser, error: adminFetchError } = await supabaseAdmin
-      .from("admin_users")
-      .select("password_hash")
-      .eq("id", adminUserId)
-      .single();
+      const { data: adminUser, error: adminFetchError } = await supabaseAdmin
+        .from("admin_users")
+        .select("password_hash")
+        .eq("id", adminUserId)
+        .single();
 
-    if (adminFetchError || !adminUser?.password_hash) {
-      return unauthorized();
-    }
+      if (adminFetchError || !adminUser?.password_hash) {
+        return unauthorized();
+      }
 
-    const passwordMatch = await bcrypt.compare(password, adminUser.password_hash);
-    if (!passwordMatch) {
-      return NextResponse.json({ ok: false, error: "パスワードが一致しません" }, { status: 403 });
+      const passwordMatch = await bcrypt.compare(password, adminUser.password_hash);
+      if (!passwordMatch) {
+        return NextResponse.json({ ok: false, error: "パスワードが一致しません" }, { status: 403 });
+      }
     }
 
     const results: {
