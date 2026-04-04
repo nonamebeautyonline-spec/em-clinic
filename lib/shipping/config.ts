@@ -1,6 +1,6 @@
 // lib/shipping/config.ts — 配送設定のDB読み書き
 import { getSetting, setSetting } from "@/lib/settings";
-import { DEFAULT_SHIPPING_CONFIG, type ShippingConfig, type YamatoConfig } from "./types";
+import { DEFAULT_SHIPPING_CONFIG, type ShippingConfig, type YamatoConfig, type JapanPostConfig } from "./types";
 
 const SETTING_KEY = "shipping_config";
 
@@ -38,4 +38,10 @@ export async function setShippingConfig(config: Partial<ShippingConfig>, tenantI
 export async function getYamatoConfig(tenantId?: string): Promise<YamatoConfig> {
   const config = await getShippingConfig(tenantId);
   return config.yamato;
+}
+
+/** 日本郵便設定のみ取得（フォーマッター向け） */
+export async function getJapanPostConfig(tenantId?: string): Promise<JapanPostConfig> {
+  const config = await getShippingConfig(tenantId);
+  return config.japanpost;
 }
