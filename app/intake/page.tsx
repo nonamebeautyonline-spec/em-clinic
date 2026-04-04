@@ -568,11 +568,27 @@ const runPidCheck = useCallback(async () => {
               const val = answers[field.id];
               if (val === undefined || val === null || val === "") return null;
               const displayVal = Array.isArray(val) ? val.join(", ") : String(val);
+              const fieldIndex = questionItems.indexOf(field);
               return (
-                <div key={field.id} className="border-b border-gray-100 pb-2">
-                  <p className="text-xs text-gray-500">{field.label}</p>
-                  <p className="text-sm text-gray-900 mt-0.5">{displayVal}</p>
-                </div>
+                <button
+                  key={field.id}
+                  type="button"
+                  onClick={() => {
+                    setCurrentIndex(fieldIndex);
+                    setShowConfirm(false);
+                  }}
+                  className="w-full text-left border-b border-gray-100 pb-2 hover:bg-gray-50 rounded px-1 -mx-1 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-gray-500">{field.label}</p>
+                      <p className="text-sm text-gray-900 mt-0.5">{displayVal}</p>
+                    </div>
+                    <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </div>
+                </button>
               );
             })}
           </div>
@@ -582,7 +598,7 @@ const runPidCheck = useCallback(async () => {
 
         <footer className="fixed bottom-0 left-0 right-0 bg-white border-t px-4 py-3 flex gap-3">
           <button
-            onClick={() => { setShowConfirm(false); setLegalAgreed(false); }}
+            onClick={() => { setShowConfirm(false); }}
             className="flex-1 rounded-full border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 bg-white active:bg-gray-100"
           >
             戻る
