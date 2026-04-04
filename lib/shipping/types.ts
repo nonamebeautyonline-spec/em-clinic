@@ -3,6 +3,9 @@ export type CarrierType = "yamato" | "japanpost";
 
 export interface ShippingConfig {
   defaultCarrier: CarrierType;
+  standardCutoffHour: number;        // 通常便の当日発送締め時間（デフォルト16）
+  addressChangeCutoffHour: number;   // 住所変更可能時間（デフォルト16）
+  allowPostOfficeHold: boolean;      // 郵便局留め許可
   yamato: YamatoConfig;
   japanpost: JapanPostConfig;
 }
@@ -46,6 +49,9 @@ export interface OrderData {
 /** デフォルト設定 */
 export const DEFAULT_SHIPPING_CONFIG: ShippingConfig = {
   defaultCarrier: "yamato",
+  standardCutoffHour: 16,
+  addressChangeCutoffHour: 16,
+  allowPostOfficeHold: false,
   yamato: {
     senderName: "",
     senderPostal: "",
