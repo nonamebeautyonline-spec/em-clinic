@@ -22,6 +22,11 @@ interface OrderRow {
   email: string | null;
   created_at: string;
   shipping_list_created_at: string | null;
+  custom_sender_name: string | null;
+  item_name_cosmetics: boolean;
+  use_hexidin: boolean;
+  post_office_hold: boolean;
+  post_office_name: string | null;
 }
 
 interface PatientRow {
