@@ -6,7 +6,6 @@ import useSWR from "swr";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import LegalSection from "./_components/LegalSection";
 
 // SWRProviderのスコープ外（患者向けページ）なのでfetcherを明示指定
 const swrFetcher = (url: string) =>
@@ -161,7 +160,6 @@ const ReserveInner: React.FC = () => {
   // slotsByDate, loadingSlots, slotsError はSWRで管理
   const [booking, setBooking] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [agreed, setAgreed] = useState(false);
 
   // ★ 予約枠・コース選択
   const [selectedReservationSlotId, setSelectedReservationSlotId] = useState<string | null>(null);
@@ -766,10 +764,6 @@ setTimeout(() => {
                   : "予約内容をご確認のうえ、「予約を確定する」ボタンを押してください。"}
               </p>
 
-              {!isEdit && (
-                <LegalSection agreed={agreed} onAgree={setAgreed} />
-              )}
-
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -782,11 +776,11 @@ setTimeout(() => {
                 <button
                   type="button"
                   onClick={handleConfirm}
-                  disabled={booking || (!isEdit && !agreed)}
+                  disabled={booking}
                   className={`
                     flex-1 h-11 rounded-2xl text-[13px] font-semibold shadow-sm
                     ${
-                      booking || (!isEdit && !agreed)
+                      booking
 ? "bg-gray-400 text-white cursor-not-allowed"
                         : "bg-blue-600 text-white active:scale-[0.98] active:bg-blue-700"
                     }

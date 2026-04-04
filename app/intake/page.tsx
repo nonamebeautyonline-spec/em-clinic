@@ -4,6 +4,7 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
+import LegalSection from "@/app/reserve/_components/LegalSection";
 import type { IntakeFormField, IntakeFormSettings } from "@/lib/intake-form-defaults";
 import { DEFAULT_INTAKE_FIELDS, DEFAULT_INTAKE_SETTINGS } from "@/lib/intake-form-defaults";
 
@@ -157,6 +158,8 @@ function IntakePageInner() {
 
   const [blocked, setBlocked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [legalAgreed, setLegalAgreed] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   // 入力不足などフォーム内の軽いエラー
   const [inlineError, setInlineError] = useState<string | null>(null);
@@ -245,6 +248,12 @@ function IntakePageInner() {
 
   const progressPercent = ((currentIndex + 1) / total) * 100;
 
+  // 確認画面用: 表示対象のフィールド一覧
+  const visibleFields = useMemo(
+    () => questionItems.filter((f) => isVisible(f)),
+    [questionItems, answers], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
   const goToMypage = () => {
     router.push("/mypage");
   };
@@ -317,74 +326,74 @@ const runPidCheck = useCallback(async () => {
     const nextIndex = getNextIndex(currentIndex);
     const isLast = nextIndex >= total;
 
-    // 最終送信
+    // 最終問の次 → 確認画面を表示
     if (isLast) {
-      if (submitting) return;
-      setSubmitting(true);
-
-      try {
-        const res = await fetch("/api/intake", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          cache: "no-store",
-          body: JSON.stringify({
-            type: "intake",
-            answers,
-            field_id: fieldId || undefined,
-            template_id: selectedTemplateId || formData?.templateId || undefined,
-            submittedAt: new Date().toISOString(),
-          }),
-        });
-
-        // 未連携（patient_id cookie無し）など
-        if (res.status === 401) {
-          alert("患者情報が取得できませんでした。マイページからやり直してください。");
-          router.push("/mypage");
-          return;
-        }
-
-        if (!res.ok) throw new Error("failed");
-        const data = await res.json().catch(() => ({} as Record<string, unknown>));
-        if (!data.ok) throw new Error("failed");
-
-        // 問診済みフラグ（真偽値だけ）
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem("has_intake", "1");
-        }
-
-        // 予約制でないテナントはマイページへ、予約制なら予約ページへ
-        if (!showReserve) {
-          router.push("/mypage");
-        } else {
-          try {
-            const mpRes = await fetch("/api/mypage", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              cache: "no-store",
-              body: JSON.stringify({ refresh: true }),
-            });
-            const mpData = await mpRes.json().catch(() => ({}));
-            if (mpData.nextReservation) {
-              router.push("/mypage");
-              return;
-            }
-          } catch {
-            // エラー時はデフォルトで予約ページへ
-          }
-          router.push("/reserve");
-        }
-      } catch (e) {
-        console.error(e);
-        alert("送信に失敗しました。時間をおいて再度お試しください。");
-      } finally {
-        setSubmitting(false);
-      }
-
+      setShowConfirm(true);
+      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
     // 次の設問へ
     setCurrentIndex(nextIndex);
+  };
+
+  // 確認画面から送信
+  const handleConfirmSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+
+    try {
+      const res = await fetch("/api/intake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({
+          type: "intake",
+          answers,
+          field_id: fieldId || undefined,
+          template_id: selectedTemplateId || formData?.templateId || undefined,
+          submittedAt: new Date().toISOString(),
+        }),
+      });
+
+      if (res.status === 401) {
+        alert("患者情報が取得できませんでした。マイページからやり直してください。");
+        router.push("/mypage");
+        return;
+      }
+
+      if (!res.ok) throw new Error("failed");
+      const data = await res.json().catch(() => ({} as Record<string, unknown>));
+      if (!data.ok) throw new Error("failed");
+
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("has_intake", "1");
+      }
+
+      if (!showReserve) {
+        router.push("/mypage");
+      } else {
+        try {
+          const mpRes = await fetch("/api/mypage", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+            body: JSON.stringify({ refresh: true }),
+          });
+          const mpData = await mpRes.json().catch(() => ({}));
+          if (mpData.nextReservation) {
+            router.push("/mypage");
+            return;
+          }
+        } catch {}
+        router.push("/reserve");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("送信に失敗しました。時間をおいて再度お試しください。");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handlePrev = () => {
@@ -534,6 +543,63 @@ const runPidCheck = useCallback(async () => {
             className="w-full rounded-full bg-blue-600 px-3 py-2 text-sm font-medium text-white active:bg-blue-700"
           >
             マイページに戻る
+          </button>
+        </footer>
+      </div>
+    );
+  }
+
+  // 確認画面
+  if (showConfirm) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <header className="bg-white border-b px-4 py-3 flex items-center justify-between">
+          <h1 className="text-lg font-semibold">回答内容の確認</h1>
+        </header>
+
+        <div className="h-1.5 bg-gray-200">
+          <div className="h-1.5 bg-blue-500 w-full" />
+        </div>
+
+        <main className="flex-1 px-4 py-6 space-y-4 pb-32">
+          <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
+            <p className="text-sm text-gray-600">以下の内容で問診を送信します。内容をご確認ください。</p>
+            {visibleFields.map((field) => {
+              const val = answers[field.id];
+              if (val === undefined || val === null || val === "") return null;
+              const displayVal = Array.isArray(val) ? val.join(", ") : String(val);
+              return (
+                <div key={field.id} className="border-b border-gray-100 pb-2">
+                  <p className="text-xs text-gray-500">{field.label}</p>
+                  <p className="text-sm text-gray-900 mt-0.5">{displayVal}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          <LegalSection agreed={legalAgreed} onAgree={setLegalAgreed} />
+        </main>
+
+        <footer className="fixed bottom-0 left-0 right-0 bg-white border-t px-4 py-3 flex gap-3">
+          <button
+            onClick={() => { setShowConfirm(false); setLegalAgreed(false); }}
+            className="flex-1 rounded-full border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 bg-white active:bg-gray-100"
+          >
+            戻る
+          </button>
+          <button
+            onClick={handleConfirmSubmit}
+            disabled={submitting || !legalAgreed}
+            className={`flex-1 rounded-full px-3 py-2 text-sm font-medium text-white ${
+              submitting || !legalAgreed ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 active:bg-blue-700"
+            }`}
+          >
+            {submitting ? (
+              <div className="flex items-center justify-center gap-2">
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                送信中…
+              </div>
+            ) : "同意して送信する"}
           </button>
         </footer>
       </div>
