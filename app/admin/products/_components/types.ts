@@ -31,6 +31,9 @@ export type Product = {
   parent_id: string | null;
   stock_alert_threshold: number | null;
   stock_alert_enabled: boolean;
+  shipping_delay_days: number;
+  cool_type: "normal" | "chilled" | "frozen" | null;
+  shipping_item_name: string | null;
 };
 
 export type DragItem = {
