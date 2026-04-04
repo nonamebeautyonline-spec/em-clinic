@@ -1,7 +1,7 @@
 // app/api/intake/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
-import { invalidateDashboardCache } from "@/lib/redis";
+import { invalidateDashboardCache, invalidateFriendsListCache } from "@/lib/redis";
 import { supabase, supabaseAdmin } from "@/lib/supabase";
 import { verifyPatientSession } from "@/lib/patient-session";
 import { normalizeJPPhone } from "@/lib/phone";
@@ -240,6 +240,30 @@ export async function POST(req: NextRequest) {
 
     // ★ キャッシュ削除（問診送信時）
     await invalidateDashboardCache(patientId);
+
+    // ★ 問診完了イベントをmessage_logに記録（トーク画面に表示）
+    try {
+      const { data: ptForLog } = await strictWithTenant(
+        supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
+        tenantId
+      );
+      if (ptForLog?.line_id) {
+        await supabaseAdmin.from("message_log").insert({
+          ...tenantPayload(tenantId),
+          patient_id: patientId,
+          line_uid: ptForLog.line_id,
+          event_type: "system",
+          message_type: "event",
+          content: "問診に回答しました",
+          status: "received",
+          direction: "incoming",
+        });
+        // friends-list キャッシュ無効化
+        invalidateFriendsListCache(tenantId || "00000000-0000-0000-0000-000000000001").catch(() => {});
+      }
+    } catch (logErr) {
+      console.error("[intake] message_log insert error (non-blocking):", logErr);
+    }
 
     // ★ LINE_仮レコードが残っていたら統合して削除
     // line_id で直接検索し、同じ line_id を持つ LINE_ 患者を全てクリーンアップ
