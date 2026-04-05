@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
     return {
       code: p.code,
       title: p.title,
+      drug_name: p.drug_name,
       dosage: p.dosage,
       duration_months: p.duration_months,
       quantity: p.quantity,
@@ -38,6 +39,9 @@ export async function GET(req: NextRequest) {
       discount_price: p.discount_price,
       discount_until: p.discount_until,
       field_id: p.field_id,
+      category: p.category,
+      cool_type: p.cool_type,
+      shipping_delay_days: p.shipping_delay_days,
       campaign_price: campaign ? effectivePrice : null,
       campaign_name: campaign?.name || null,
       campaign_remaining: campaign?.max_uses != null ? Math.max(0, campaign.max_uses - ((campaign as { used_count?: number }).used_count || 0)) : null,

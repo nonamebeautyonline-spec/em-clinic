@@ -32,6 +32,7 @@ const THEME_CLASSES: Record<string, { section: string; badge: string }> = {
 interface DbProduct {
   code: string;
   title: string;
+  drug_name?: string;
   dosage: string | null;
   duration_months: number | null;
   quantity: number | null;
@@ -169,7 +170,7 @@ function PurchasePageInner() {
       ? config.groups.filter((g) => !g.fieldId || g.fieldId === selectedFieldId)
       : config.groups;
 
-    return [...groups]
+    const sections = [...groups]
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((group) => ({
         group,
@@ -178,6 +179,40 @@ function PurchasePageInner() {
           .filter((p): p is DbProduct => p != null),
       }))
       .filter((s) => s.products.length > 0);
+
+    // フォールバック: グループ設定にマッチする商品がない場合、DB商品を薬剤名で自動グループ化
+    if (sections.length === 0 && filteredProducts.length > 0) {
+      const CATEGORY_THEMES: Record<string, string> = {
+        injection: "blue", oral: "emerald", pill: "pink",
+        supplement: "amber", fee: "slate",
+      };
+      const drugMap = new Map<string, DbProduct[]>();
+      for (const p of filteredProducts) {
+        // fee（再送料等）は購入画面に表示しない
+        if (p.category === "fee") continue;
+        const key = p.drug_name || p.title.split(/\s/)[0] || "その他";
+        if (!drugMap.has(key)) drugMap.set(key, []);
+        drugMap.get(key)!.push(p);
+      }
+      let sortIdx = 0;
+      for (const [drugName, prods] of drugMap) {
+        const cat = prods[0]?.category || "oral";
+        sections.push({
+          group: {
+            id: `auto-${drugName}`,
+            badgeLabel: drugName,
+            displayName: drugName,
+            description: `${prods.length}プラン`,
+            colorTheme: CATEGORY_THEMES[cat] || "blue",
+            sortOrder: sortIdx++,
+            productCodes: prods.map(p => p.code),
+          },
+          products: prods,
+        });
+      }
+    }
+
+    return sections;
   }, [config.groups, filteredProducts, multiFieldEnabled, selectedFieldId]);
 
   // flow === "reorder" なら再処方モード
