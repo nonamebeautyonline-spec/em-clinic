@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
     id: t.id,
     name: t.name,
     is_active: t.is_active,
+    field_id: t.field_id || null,
     field_count: Array.isArray(t.fields) ? (t.fields as unknown[]).length : typeof t.fields === "string" ? (() => { try { return JSON.parse(t.fields as string).length; } catch { return 0; } })() : 0,
     created_at: t.created_at,
     updated_at: t.updated_at,
@@ -86,7 +87,7 @@ export async function PATCH(req: NextRequest) {
 
   const tenantId = resolveTenantIdOrThrow(req);
 
-  let body: { id?: string; name?: string } = {};
+  let body: { id?: string; name?: string; field_id?: string | null } = {};
   try {
     body = await req.json();
   } catch {
@@ -96,14 +97,17 @@ export async function PATCH(req: NextRequest) {
   if (!body.id)
     return badRequest("テンプレートIDが必要です");
 
-  const name = body.name?.trim();
-  if (!name)
-    return badRequest("問診フォーム名を入力してください");
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (body.name?.trim()) updates.name = body.name.trim();
+  if (body.field_id !== undefined) updates.field_id = body.field_id || null;
+
+  if (!updates.name && body.field_id === undefined)
+    return badRequest("更新内容がありません");
 
   const { error } = await strictWithTenant(
     supabaseAdmin
       .from("intake_form_definitions")
-      .update({ name, updated_at: new Date().toISOString() })
+      .update(updates)
       .eq("id", body.id),
     tenantId,
   );

@@ -19,9 +19,16 @@ interface TemplateItem {
   id: string;
   name: string;
   is_active: boolean;
+  field_id: string | null;
   field_count: number;
   created_at: string;
   updated_at: string;
+}
+
+interface MedicalField {
+  id: string;
+  name: string;
+  is_active: boolean;
 }
 
 // ============================================================
@@ -324,10 +331,33 @@ function TemplateListView({
 }) {
   const { data: templatesData, isLoading } = useSWR<{ ok: boolean; templates: TemplateItem[] }>(TEMPLATES_KEY);
   const templates = templatesData?.templates ?? [];
+  const { data: fieldsData } = useSWR<{ fields: MedicalField[]; multiFieldEnabled: boolean }>("/api/admin/medical-fields");
+  const medicalFields = fieldsData?.fields ?? [];
+  const multiFieldEnabled = fieldsData?.multiFieldEnabled ?? false;
   const [showCreate, setShowCreate] = useState(false);
   const [showDuplicate, setShowDuplicate] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+
+  // 分野変更
+  const handleFieldChange = async (templateId: string, fieldId: string | null) => {
+    try {
+      const res = await fetch("/api/admin/intake-form/templates", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ id: templateId, field_id: fieldId }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        await mutate(TEMPLATES_KEY);
+      } else {
+        alert("分野の変更に失敗しました");
+      }
+    } catch {
+      alert("分野の変更に失敗しました");
+    }
+  };
 
   // 新規作成
   const handleCreate = async () => {
@@ -487,6 +517,20 @@ function TemplateListView({
                       更新: {new Date(t.updated_at || t.created_at).toLocaleDateString("ja-JP")}
                     </span>
                   </div>
+                  {multiFieldEnabled && medicalFields.length > 0 && (
+                    <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
+                      <select
+                        value={t.field_id || ""}
+                        onChange={(e) => handleFieldChange(t.id, e.target.value || null)}
+                        className="text-[11px] px-2 py-1 border border-gray-200 rounded-lg text-gray-600 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="">分野未設定</option>
+                        {medicalFields.filter(f => f.is_active).map(f => (
+                          <option key={f.id} value={f.id}>{f.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1.5 ml-4 flex-shrink-0">
                   <a

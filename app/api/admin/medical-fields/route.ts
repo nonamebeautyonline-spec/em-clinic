@@ -5,22 +5,26 @@ import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, tenantPayload, strictWithTenant } from "@/lib/tenant";
 import { logAudit } from "@/lib/audit";
+import { isMultiFieldEnabled } from "@/lib/medical-fields";
 
 /** GET: テナントの全分野一覧（非アクティブ含む） */
 export async function GET(req: NextRequest) {
   if (!(await verifyAdminAuth(req))) return unauthorized();
   const tenantId = resolveTenantIdOrThrow(req);
 
-  const { data, error } = await strictWithTenant(
-    supabaseAdmin
-      .from("medical_fields")
-      .select("*")
-      .order("sort_order", { ascending: true }),
-    tenantId
-  );
+  const [{ data, error }, multiFieldEnabled] = await Promise.all([
+    strictWithTenant(
+      supabaseAdmin
+        .from("medical_fields")
+        .select("*")
+        .order("sort_order", { ascending: true }),
+      tenantId
+    ),
+    isMultiFieldEnabled(tenantId),
+  ]);
 
   if (error) return serverError(error.message);
-  return NextResponse.json({ ok: true, fields: data ?? [] });
+  return NextResponse.json({ ok: true, fields: data ?? [], multiFieldEnabled });
 }
 
 /** POST: 分野を新規作成 */
