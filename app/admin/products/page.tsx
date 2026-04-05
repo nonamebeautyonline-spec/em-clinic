@@ -560,6 +560,21 @@ export default function ProductsPage() {
   };
 
   // ─── 商品操作（Optimistic UI） ───
+  const handleDeleteProduct = async (product: Product) => {
+    const ok = await confirm({ title: "商品削除", message: `「${product.title}」を削除しますか？`, variant: "danger", confirmLabel: "削除する" });
+    if (!ok) return;
+    try {
+      const res = await fetch(`/api/admin/products?id=${product.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("削除に失敗しました");
+      await mutate(PRODUCTS_KEY);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "削除に失敗しました");
+    }
+  };
+
   const handleToggleActive = async (product: Product) => {
     const newActive = !product.is_active;
     await mutate(
@@ -645,6 +660,12 @@ export default function ProductsPage() {
             : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
           onClick: () => handleToggleActive(product),
           danger: product.is_active,
+        },
+        {
+          label: "削除",
+          icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
+          onClick: () => handleDeleteProduct(product),
+          danger: true,
         },
       ],
     });
