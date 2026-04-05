@@ -355,11 +355,29 @@ function PurchaseConfirmContent() {
 
   const codeParam = searchParams.get("code");
   const modeParam = searchParams.get("mode") as Mode | null;
+  const isCartMode = searchParams.get("cart") === "1";
+
+  // カートモード: localStorageからカート情報取得
+  const [cartItems, setCartItems] = useState<{ code: string; title: string; price: number; qty: number; coolType: string | null }[]>([]);
+  useEffect(() => {
+    if (isCartMode) {
+      try {
+        const raw = localStorage.getItem("lope_cart");
+        if (raw) setCartItems(JSON.parse(raw));
+      } catch { /* ignore */ }
+    }
+  }, [isCartMode]);
 
   const product = useMemo(
     () => (codeParam ? products.find((p) => p.code === codeParam) ?? null : null),
     [codeParam, products],
   );
+
+  // カートモード: 配送料・合計計算
+  const cartSubtotal = useMemo(() => cartItems.reduce((sum, i) => sum + i.price * i.qty, 0), [cartItems]);
+  const cartHasCool = useMemo(() => cartItems.some(i => i.coolType === "chilled" || i.coolType === "frozen"), [cartItems]);
+  const cartShippingFee = cartItems.length > 0 ? (cartHasCool ? 3000 : 550) : 0;
+  const cartTotal = cartSubtotal + cartShippingFee;
 
   // 商品が注射（冷蔵）かどうかの判定
   const isInjection = product?.category === "injection" || product?.cool_type === "chilled" || product?.cool_type === "frozen";
@@ -457,7 +475,8 @@ function PurchaseConfirmContent() {
   // inline決済: /api/square/pay を呼ぶ共通処理
   const submitInlinePayment = useCallback(
     async (sourceId: string) => {
-      if (!product || !patientId || !shippingValid) return;
+      if ((!product && !isCartMode) || !patientId || !shippingValid) return;
+      if (isCartMode && cartItems.length === 0) return;
       startSubmitting();
       setError(null);
 
@@ -465,38 +484,42 @@ function PurchaseConfirmContent() {
         const isGmo = sdkConfig?.provider === "gmo";
         const payUrl = isGmo ? "/api/gmo/pay" : "/api/square/pay";
         const isSavedCard = isGmo && sourceId === "__saved_card__";
+        const shippingPayload = { ...shipping, address: fullAddress, addressDetail };
+        const shippingOpts = {
+          customSenderName: useCustomSender ? customSenderName : null,
+          itemNameCosmetics,
+          useHexidin,
+          postOfficeHold,
+          postOfficeName: postOfficeHold ? postOfficeName : null,
+        };
+
+        // カートモード: cartItemsを送信
+        const cartPayload = isCartMode ? {
+          cartItems: cartItems.map(i => ({ code: i.code, qty: i.qty })),
+        } : {
+          productCode: product!.code,
+        };
+
         const payBody = isGmo
           ? {
               ...(isSavedCard ? { useSavedCard: true } : { token: sourceId }),
-              productCode: product.code,
-              mode: modeParam,
+              ...cartPayload,
+              mode: modeParam || "current",
               patientId,
               reorderId: reorderIdParam ?? null,
               saveCard: true,
-              shipping: { ...shipping, address: fullAddress, addressDetail },
-              shippingOptions: {
-                customSenderName: useCustomSender ? customSenderName : null,
-                itemNameCosmetics,
-                useHexidin,
-                postOfficeHold,
-                postOfficeName: postOfficeHold ? postOfficeName : null,
-              },
+              shipping: shippingPayload,
+              shippingOptions: shippingOpts,
             }
           : {
               sourceId,
-              productCode: product.code,
-              mode: modeParam,
+              ...cartPayload,
+              mode: modeParam || "current",
               patientId,
               reorderId: reorderIdParam ?? null,
               saveCard: true,
-              shipping: { ...shipping, address: fullAddress, addressDetail },
-              shippingOptions: {
-                customSenderName: useCustomSender ? customSenderName : null,
-                itemNameCosmetics,
-                useHexidin,
-                postOfficeHold,
-                postOfficeName: postOfficeHold ? postOfficeName : null,
-              },
+              shipping: shippingPayload,
+              shippingOptions: shippingOpts,
             };
         const res = await fetch(payUrl, {
           method: "POST",
@@ -516,7 +539,11 @@ function PurchaseConfirmContent() {
         }
 
         if (!res.ok) throw new Error((data.message || data.error) || "決済に失敗しました");
-        router.push(`/mypage/purchase/complete?code=${product.code}`);
+        // カートモード: 決済完了後にカートクリア
+        if (isCartMode) {
+          try { localStorage.removeItem("lope_cart"); } catch { /* ignore */ }
+        }
+        router.push(`/mypage/purchase/complete?code=${isCartMode ? "cart" : product!.code}`);
       } catch (e) {
         // AbortErrorの場合はタイムアウトハンドラで処理済み
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -526,7 +553,7 @@ function PurchaseConfirmContent() {
         setCardFormKey((k) => k + 1);
       }
     },
-    [product, patientId, modeParam, reorderIdParam, shipping, fullAddress, shippingValid, router, startSubmitting, stopSubmitting],
+    [product, patientId, modeParam, reorderIdParam, shipping, fullAddress, shippingValid, router, startSubmitting, stopSubmitting, isCartMode, cartItems],
   );
 
   // 新規カードの nonce 受取
@@ -564,7 +591,8 @@ function PurchaseConfirmContent() {
     );
   }
 
-  if (!codeParam || !product || !modeParam || !isValidMode) {
+  // カートモード以外: 商品情報のバリデーション
+  if (!isCartMode && (!codeParam || !product || !modeParam || !isValidMode)) {
     return (
       <div className="min-h-screen bg-slate-50">
         <div className="mx-auto max-w-md px-4 py-6">
@@ -579,6 +607,20 @@ function PurchaseConfirmContent() {
             className="mt-4 inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-1.5 text-[11px] font-medium text-white"
           >
             プラン選択画面に戻る
+          </button>
+        </div>
+      </div>
+    );
+  }
+  // カートモード: カートが空ならエラー
+  if (isCartMode && cartItems.length === 0) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="mx-auto max-w-md px-4 py-6">
+          <h1 className="text-lg font-semibold text-slate-900 mb-2">カートが空です</h1>
+          <p className="text-sm text-slate-600">商品を選択してからお進みください。</p>
+          <button type="button" onClick={handleBack} className="mt-4 inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-1.5 text-[11px] font-medium text-white">
+            商品選択に戻る
           </button>
         </div>
       </div>
@@ -605,22 +647,49 @@ function PurchaseConfirmContent() {
       {/* コンテンツ */}
       <div className="mx-auto max-w-md px-4 pb-6 pt-4 space-y-4">
         {/* プラン情報カード */}
+        {isCartMode ? (
+          <div className="rounded-2xl border border-blue-200 bg-white shadow-sm px-4 py-3.5">
+            <div className="text-xs font-semibold text-slate-700 mb-2">注文内容</div>
+            <div className="space-y-2">
+              {cartItems.map((item) => (
+                <div key={item.code} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-800">{item.title} {item.qty > 1 ? `×${item.qty}` : ""}</span>
+                  <span className="font-medium text-slate-900">¥{(item.price * item.qty).toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-slate-100 mt-3 pt-2 space-y-1">
+              <div className="flex justify-between text-[11px] text-slate-500">
+                <span>商品小計</span>
+                <span>¥{cartSubtotal.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-[11px] text-slate-500">
+                <span>配送料（{cartHasCool ? "クール便" : "常温便"}）</span>
+                <span>¥{cartShippingFee.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm font-bold text-slate-900 pt-1">
+                <span>合計</span>
+                <span>¥{cartTotal.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        ) : (
         <div className="rounded-2xl border border-pink-200 bg-white shadow-sm px-4 py-3.5">
           <div className="flex items-start justify-between gap-2">
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold text-slate-900">{product.title}</span>
+                <span className="text-xs font-semibold text-slate-900">{product!.title}</span>
               </div>
               <p className="mt-1 text-[11px] text-slate-600">
-                {product.dosage && `${product.dosage}/`}{product.duration_months && `${product.duration_months}ヶ月分`}{product.quantity && `（全${product.quantity}本）`}/週1回
+                {product!.dosage && `${product!.dosage}/`}{product!.duration_months && `${product!.duration_months}ヶ月分`}{product!.quantity && `（全${product!.quantity}本）`}/週1回
               </p>
-              {product.campaign_name && !campaignEnded && (
+              {product!.campaign_name && !campaignEnded && (
                 <div className="mt-1 flex items-center gap-1.5">
                   <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-700 rounded">
-                    {product.campaign_name}
+                    {product!.campaign_name}
                   </span>
-                  {product.campaign_remaining != null && (
-                    <span className="text-[10px] text-orange-600">残り{product.campaign_remaining}個</span>
+                  {product!.campaign_remaining != null && (
+                    <span className="text-[10px] text-orange-600">残り{product!.campaign_remaining}個</span>
                   )}
                 </div>
               )}
@@ -637,13 +706,14 @@ function PurchaseConfirmContent() {
               <div className="text-lg font-semibold text-slate-900">
                 ¥{effectivePrice.toLocaleString()}
               </div>
-              {product.campaign_price != null && product.campaign_price < product.price && !campaignEnded && (
-                <div className="text-[10px] text-slate-400 line-through">¥{product.price.toLocaleString()}</div>
+              {product!.campaign_price != null && product!.campaign_price < product!.price && !campaignEnded && (
+                <div className="text-[10px] text-slate-400 line-through">¥{product!.price.toLocaleString()}</div>
               )}
               <div className="mt-0.5 text-[10px] text-slate-400">税込/送料込み</div>
             </div>
           </div>
         </div>
+        )}
 
         {/* クーポンコード入力 */}
         {sdkConfig?.showCoupon && <div className="rounded-2xl border border-slate-200 bg-white shadow-sm px-4 py-3">

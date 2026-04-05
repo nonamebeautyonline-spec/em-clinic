@@ -14,16 +14,20 @@ type ConsultationType =
   | "in_person"
   | "online_and_in_person";
 
+type KarteMode = "reservation" | "intake_completion";
+
 interface ConsultationConfig {
   type: ConsultationType;
   lineCallUrl: string;
   reorderRequiresReservation: boolean;
+  karteMode: KarteMode;
 }
 
 const DEFAULT_CONFIG: ConsultationConfig = {
   type: "online_all",
   lineCallUrl: "",
   reorderRequiresReservation: false,
+  karteMode: "reservation",
 };
 
 const CONSULTATION_TYPE_OPTIONS: { value: ConsultationType; label: string; description: string }[] = [
@@ -62,6 +66,7 @@ export default function ConsultationSection({ onToast }: ConsultationSectionProp
         type: (s.type || prev.type) as ConsultationType,
         lineCallUrl: s.line_call_url || prev.lineCallUrl,
         reorderRequiresReservation: s.reorder_requires_reservation === "true",
+        karteMode: (s.karte_mode as KarteMode) || prev.karteMode,
       }));
     }
     setConfigInitialized(true);
@@ -90,6 +95,12 @@ export default function ConsultationSection({ onToast }: ConsultationSectionProp
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ category: "consultation", key: "reorder_requires_reservation", value: config.reorderRequiresReservation ? "true" : "false" }),
+        }),
+        fetch("/api/admin/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ category: "consultation", key: "karte_mode", value: config.karteMode }),
         }),
       ];
       const results = await Promise.all(promises);
@@ -250,6 +261,60 @@ export default function ConsultationSection({ onToast }: ConsultationSectionProp
                 ONの場合: 患者が再処方を申請する際、過去の予約履歴（canceled以外）が確認されます。予約・診察歴がない場合、申請はブロックされ「先に予約を取得してください」と案内されます。
               </p>
             </div>
+          </div>
+        </div>
+        {/* カルテモード設定 */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h3 className="text-sm font-bold text-gray-800">カルテモード</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              簡易カルテ・本カルテに患者を表示する基準を設定します
+            </p>
+          </div>
+          <div className="p-5 space-y-2">
+            {([
+              { value: "reservation" as const, label: "予約ベース", description: "予約のある患者のみカルテに表示（従来の動作）" },
+              { value: "intake_completion" as const, label: "問診完了ベース", description: "問診完了した患者を予約なしでカルテに表示" },
+            ]).map(opt => (
+              <label
+                key={opt.value}
+                className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                  config.karteMode === opt.value
+                    ? "bg-blue-50 border border-blue-200"
+                    : "hover:bg-gray-50 border border-transparent"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="karteMode"
+                  value={opt.value}
+                  checked={config.karteMode === opt.value}
+                  onChange={(e) => setConfig(prev => ({ ...prev, karteMode: e.target.value as KarteMode }))}
+                  className="mt-0.5 accent-blue-600"
+                />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{opt.label}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{opt.description}</p>
+                </div>
+              </label>
+            ))}
+            <div className="mt-3 bg-blue-50 border border-blue-100 rounded-lg p-3">
+              <p className="text-xs text-blue-800 leading-relaxed">
+                <strong>予約ベース:</strong> 患者が予約を取得後、予約日に簡易カルテ・本カルテへ表示されます。予約制のクリニック向けです。
+              </p>
+              <p className="text-xs text-blue-800 leading-relaxed mt-1.5">
+                <strong>問診完了ベース:</strong> 患者が問診を送信した時点で、予約なしで簡易カルテ・本カルテに自動表示されます。
+                スタッフが通話フォームを送信→Dr診察→決済フォーム送信、という予約なしのフローに対応します。
+              </p>
+            </div>
+            {config.karteMode === "intake_completion" && (
+              <div className="mt-2 bg-amber-50 border border-amber-100 rounded-lg p-3">
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  この設定を有効にすると、患者が問診を完了した時点で簡易カルテと本カルテに自動で問診内容が入ります。
+                  予約の作成は不要になります。
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

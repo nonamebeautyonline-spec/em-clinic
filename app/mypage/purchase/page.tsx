@@ -1,11 +1,13 @@
 // app/mypage/purchase/page.tsx — 購入画面（DB設定連動）
 "use client";
 
-import React, { useMemo, Suspense } from "react";
+import React, { useMemo, useCallback, Suspense } from "react";
 import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { PurchaseConfig, PurchaseGroup } from "@/lib/purchase/types";
 import { DEFAULT_PURCHASE_CONFIG } from "@/lib/purchase/types";
+import { type CartItem, getCart, addToCart, removeFromCart, clearCart, getCartSubtotal, getCartItemCount } from "@/lib/purchase/cart";
+import { calculateShippingFee } from "@/lib/purchase/shipping-fee";
 
 // SWRProviderのスコープ外なのでfetcher明示指定
 const swrFetcher = (url: string) =>
@@ -36,6 +38,9 @@ interface DbProduct {
   price: number;
   discount_price: number | null;
   discount_until: string | null;
+  cool_type?: "normal" | "chilled" | "frozen" | null;
+  category?: string;
+  shipping_delay_days?: number;
 }
 
 interface FieldsResponse {
@@ -87,6 +92,66 @@ function PurchasePageInner() {
     [settingsData]
   );
 
+  // 実効価格（割引対応）
+  const getEffectivePrice = useCallback((p: DbProduct) => {
+    if (p.discount_price != null && p.discount_until) {
+      const until = new Date(p.discount_until);
+      if (until > new Date()) return p.discount_price;
+    }
+    return p.price;
+  }, []);
+
+  // カートモード判定
+  const cartMode = config.cartMode ?? false;
+  const multiSelectEnabled = config.multiSelectEnabled ?? false;
+
+  // カートState
+  const [cart, setCart] = React.useState<CartItem[]>([]);
+  React.useEffect(() => { if (cartMode) setCart(getCart()); }, [cartMode]);
+
+  const handleAddToCart = useCallback((p: DbProduct) => {
+    if (!multiSelectEnabled) {
+      // 単一選択モード: カートをクリアして1商品のみ
+      clearCart();
+      const newCart = addToCart({
+        code: p.code,
+        title: p.title,
+        price: getEffectivePrice(p),
+        coolType: p.cool_type ?? null,
+      });
+      setCart(newCart);
+    } else {
+      const newCart = addToCart({
+        code: p.code,
+        title: p.title,
+        price: getEffectivePrice(p),
+        coolType: p.cool_type ?? null,
+      });
+      setCart(newCart);
+    }
+  }, [multiSelectEnabled]);
+
+  const handleRemoveFromCart = useCallback((code: string) => {
+    const newCart = removeFromCart(code);
+    setCart(newCart);
+  }, []);
+
+  const handleClearCart = useCallback(() => {
+    clearCart();
+    setCart([]);
+  }, []);
+
+  const handleCartCheckout = useCallback(() => {
+    if (cart.length === 0) return;
+    router.push("/mypage/purchase/confirm?cart=1");
+  }, [cart, router]);
+
+  const cartSubtotal = useMemo(() => getCartSubtotal(cart), [cart]);
+  const cartShippingFee = useMemo(() => calculateShippingFee(cart), [cart]);
+  const cartTotal = cartSubtotal + cartShippingFee;
+  const cartItemCount = useMemo(() => getCartItemCount(cart), [cart]);
+  const isInCart = useCallback((code: string) => cart.some(c => c.code === code), [cart]);
+
   const allProducts = useMemo<(DbProduct & { field_id?: string | null })[]>(
     () => productsData?.products ?? [],
     [productsData]
@@ -130,15 +195,6 @@ function PurchasePageInner() {
   // 再処方用：再処方申請確認ページへ
   const handleReorder = (product: DbProduct) => {
     router.push(`/mypage/purchase/reorder?code=${product.code}`);
-  };
-
-  // 実効価格（割引対応）
-  const getEffectivePrice = (p: DbProduct) => {
-    if (p.discount_price != null && p.discount_until) {
-      const until = new Date(p.discount_until);
-      if (until > new Date()) return p.discount_price;
-    }
-    return p.price;
   };
 
   // ローディング
@@ -256,7 +312,7 @@ function PurchasePageInner() {
                             ¥{effectivePrice.toLocaleString()}
                           </div>
                           <div className="mt-0.5 text-[10px] text-slate-400">
-                            税込／送料込み
+                            {cartMode ? "税込（配送料別）" : "税込／送料込み"}
                           </div>
                         </div>
                       </div>
@@ -270,6 +326,24 @@ function PurchasePageInner() {
                           >
                             {config.reorderButtonLabel}
                           </button>
+                        ) : cartMode ? (
+                          isInCart(p.code) ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFromCart(p.code)}
+                              className="w-full rounded-full bg-slate-200 text-slate-600 py-1.5 text-[11px] font-semibold"
+                            >
+                              カートから削除
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleAddToCart(p)}
+                              className="w-full rounded-full bg-blue-500 text-white py-1.5 text-[11px] font-semibold"
+                            >
+                              カートに追加
+                            </button>
+                          )
                         ) : (
                           <button
                             type="button"
@@ -293,7 +367,54 @@ function PurchasePageInner() {
             {config.footerNote}
           </p>
         )}
+
+        {/* カートモード時: 下部の余白（フローティングバー分） */}
+        {cartMode && cart.length > 0 && <div className="h-28" />}
       </div>
+
+      {/* カートモード: フローティングカートバー */}
+      {cartMode && cart.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-20 bg-white border-t border-slate-200 shadow-lg">
+          <div className="mx-auto max-w-md px-4 py-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm text-slate-700">
+                <span className="font-semibold">{cartItemCount}点</span>の商品
+              </div>
+              <button
+                type="button"
+                onClick={handleClearCart}
+                className="text-[11px] text-slate-400 underline"
+              >
+                カートを空にする
+              </button>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+              {cart.map((item) => (
+                <span key={item.code} className="bg-slate-100 rounded px-1.5 py-0.5 truncate max-w-[150px]">
+                  {item.title}
+                </span>
+              ))}
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[11px] text-slate-500">
+                  商品: ¥{cartSubtotal.toLocaleString()} + 配送料: ¥{cartShippingFee.toLocaleString()}
+                </div>
+                <div className="text-lg font-bold text-slate-900">
+                  合計 ¥{cartTotal.toLocaleString()}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCartCheckout}
+                className="rounded-full bg-blue-600 text-white px-6 py-2.5 text-sm font-semibold shadow-md"
+              >
+                決済に進む
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

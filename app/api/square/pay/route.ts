@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     const parsed = await parseBody(req, inlinePaySchema);
     if ("error" in parsed) return parsed.error;
-    const { sourceId, productCode, mode, patientId, reorderId, saveCard, shipping, shippingOptions } = parsed.data;
+    const { sourceId, productCode, cartItems, mode, patientId, reorderId, saveCard, isFirstPurchase, shipping, shippingOptions } = parsed.data;
 
     // 住所の都道府県重複チェック（最終防衛）
     if (shipping?.address && hasAddressDuplication(shipping.address)) {
@@ -62,30 +62,48 @@ export async function POST(req: NextRequest) {
       return tooManyRequests("決済リクエストが多すぎます。しばらくしてから再度お試しください。");
     }
 
-    // 分散ロック: 同一患者・同一商品の同時決済を防止（120秒TTL）
-    const lock = await acquireLock(`square-pay:${patientId}:${productCode}`, 120);
+    // 分散ロック: 同一患者の同時決済を防止（120秒TTL）
+    const lockKey = cartItems?.length ? `square-pay:${patientId}:cart` : `square-pay:${patientId}:${productCode}`;
+    const lock = await acquireLock(lockKey, 120);
     if (!lock.acquired) {
       return conflict("決済処理中です。しばらくお待ちください。");
     }
 
     try {
-    // 二重決済防止: 直近5分以内の同一患者・同一商品の注文チェック
-    const { data: recentOrder } = await withTenant(
-      supabaseAdmin
-        .from("orders")
-        .select("id")
-        .eq("patient_id", patientId)
-        .eq("product_code", productCode)
-        .gte("paid_at", new Date(Date.now() - 300_000).toISOString())
-        .limit(1),
-      tenantId,
-    ).maybeSingle();
+    // カート解決: 商品取得 + 金額計算
+    const { resolveCart } = await import("@/lib/purchase/resolve-cart");
+    const cart = await resolveCart(tenantId ?? "00000000-0000-0000-0000-000000000001", productCode, cartItems);
+    const isCartMode = !!(cartItems && cartItems.length > 0);
+    const effectiveProductCode = cart.productCode;
+
+    // 二重決済防止: 直近5分以内の同一患者の注文チェック
+    const dupCheckQuery = isCartMode
+      ? withTenant(
+          supabaseAdmin
+            .from("orders")
+            .select("id")
+            .eq("patient_id", patientId)
+            .not("order_items", "is", null)
+            .gte("paid_at", new Date(Date.now() - 300_000).toISOString())
+            .limit(1),
+          tenantId,
+        )
+      : withTenant(
+          supabaseAdmin
+            .from("orders")
+            .select("id")
+            .eq("patient_id", patientId)
+            .eq("product_code", effectiveProductCode)
+            .gte("paid_at", new Date(Date.now() - 300_000).toISOString())
+            .limit(1),
+          tenantId,
+        );
+    const { data: recentOrder } = await dupCheckQuery.maybeSingle();
     if (recentOrder) {
       return conflict("直前に同じ決済が処理されています。マイページで注文状況をご確認ください。");
     }
 
     // NG患者チェック（既存 checkout と同じロジック）
-    // マルチ分野モード: 商品の field_id で NG 判定を分離
     let ngQuery = withTenant(
       supabaseAdmin
         .from("intake")
@@ -98,7 +116,7 @@ export async function POST(req: NextRequest) {
     );
     const multiField = tenantId ? await isMultiFieldEnabled(tenantId) : false;
     if (multiField) {
-      const productForField = await getProductByCode(productCode, tid);
+      const productForField = await getProductByCode(effectiveProductCode, tid);
       if (productForField?.field_id) {
         ngQuery = ngQuery.eq("field_id", productForField.field_id);
       }
@@ -108,8 +126,8 @@ export async function POST(req: NextRequest) {
       return forbidden("処方不可と判定されているため、決済できません。再度診察予約をお取りください。");
     }
 
-    // 商品取得
-    const product = await getProductByCode(productCode, tid);
+    // 単一モード後方互換: product オブジェクト
+    const product = await getProductByCode(effectiveProductCode, tid);
     if (!product) {
       return badRequest("無効な商品コードです");
     }
@@ -160,18 +178,20 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 冪等性キー: 患者+商品+分単位で生成（Square側の最終防御）
-    // 主防御はRedisロック+DB5分チェック。冪等キーは短めにして正当な再試行を許容
+    // 決済金額: カートモードなら合計金額、単一モードなら商品価格
+    const payAmount = isCartMode ? cart.totalAmount : product.price;
+
+    // 冪等性キー: 患者+金額+分単位で生成（Square側の最終防御）
     const idempotencyKey = crypto
       .createHash("sha256")
-      .update(`${patientId}:${productCode}:${Math.floor(Date.now() / 60000)}`)
+      .update(`${patientId}:${payAmount}:${Math.floor(Date.now() / 60000)}`)
       .digest("base64url")
       .substring(0, 45);
 
     // Payments API 実行
     const payResult = await createSquarePayment(baseUrl, accessToken, {
       sourceId: paySourceId,
-      amount: product.price,
+      amount: payAmount,
       locationId,
       note: paymentNote,
       customerId,
@@ -188,11 +208,11 @@ export async function POST(req: NextRequest) {
     // orders INSERT を最優先（webhookが先にINSERTすると配送情報が消失するため）
     const finalPhone = normalizeJPPhone(shipping.phone);
     const postalFormatted = (() => { const d = shipping.postalCode.replace(/[^0-9]/g, ""); return d.length === 7 ? `${d.slice(0, 3)}-${d.slice(3)}` : shipping.postalCode; })();
-    const orderData = {
+    const orderData: Record<string, unknown> = {
       patient_id: patientId,
-      product_code: productCode,
-      product_name: product.title,
-      amount: product.price,
+      product_code: cart.productCode,
+      product_name: cart.productName,
+      amount: payAmount,
       paid_at: payment.created_at || new Date().toISOString(),
       shipping_status: "pending" as const,
       payment_status: "COMPLETED",
@@ -209,6 +229,12 @@ export async function POST(req: NextRequest) {
       use_hexidin: shippingOptions?.useHexidin || false,
       post_office_hold: shippingOptions?.postOfficeHold || false,
       post_office_name: shippingOptions?.postOfficeName || null,
+      // カートモード拡張
+      ...(isCartMode ? {
+        order_items: cart.items.map(i => ({ code: i.code, title: i.title, price: i.price, qty: i.qty })),
+        shipping_fee: cart.shippingFee,
+        is_first_purchase: isFirstPurchase || false,
+      } : {}),
     };
     try {
       const { error: insertErr } = await supabaseAdmin.from("orders").insert({

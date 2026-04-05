@@ -15,6 +15,7 @@ export function useDoctorList() {
   const [rows, setRows] = useState<IntakeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [karteMode, setKarteMode] = useState<"reservation" | "intake_completion">("reservation");
 
   const todayIso = new Date().toISOString().slice(0, 10);
   const [selectedDate, setSelectedDate] = useState<string>(todayIso);
@@ -67,6 +68,8 @@ export function useDoctorList() {
         newRows = res;
       } else if (res.ok) {
         newRows = res.rows || [];
+        // APIからカルテモードを取得
+        if (res.karteMode) setKarteMode(res.karteMode);
       } else {
         setErrorMsg(res.error || "一覧取得に失敗しました");
         setLoading(false);
@@ -250,6 +253,7 @@ export function useDoctorList() {
     callFormSentIds,
     setCallFormSentIds,
     lineCallEnabled,
+    karteMode,
     fetchList,
     handleDateSelect,
     updateRowLocal,

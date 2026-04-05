@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
 
     const parsed = await parseBody(req, gmoInlinePaySchema);
     if ("error" in parsed) return parsed.error;
-    const { token, useSavedCard, productCode, mode, patientId, reorderId, saveCard, shipping, shippingOptions } = parsed.data;
+    const { token, useSavedCard, productCode, cartItems, mode, patientId, reorderId, saveCard, isFirstPurchase, shipping, shippingOptions } = parsed.data;
 
     // トークンか保存カードのいずれかが必要
     if (!useSavedCard && !token) {
@@ -68,24 +68,35 @@ export async function POST(req: NextRequest) {
       return tooManyRequests("決済リクエストが多すぎます。しばらくしてから再度お試しください。");
     }
 
+    // カート解決: 商品取得 + 金額計算
+    const { resolveCart } = await import("@/lib/purchase/resolve-cart");
+    const cart = await resolveCart(tenantId ?? "00000000-0000-0000-0000-000000000001", productCode, cartItems);
+    const isCartMode = !!(cartItems && cartItems.length > 0);
+    const effectiveProductCode = cart.productCode;
+
     // 分散ロック
-    const lock = await acquireLock(`gmo-pay:${patientId}:${productCode}`, 120);
+    const lockKey = isCartMode ? `gmo-pay:${patientId}:cart` : `gmo-pay:${patientId}:${effectiveProductCode}`;
+    const lock = await acquireLock(lockKey, 120);
     if (!lock.acquired) {
       return conflict("決済処理中です。しばらくお待ちください。");
     }
 
     try {
     // 二重決済防止
-    const { data: recentOrder } = await withTenant(
-      supabaseAdmin
-        .from("orders")
-        .select("id")
-        .eq("patient_id", patientId)
-        .eq("product_code", productCode)
-        .gte("paid_at", new Date(Date.now() - 300_000).toISOString())
-        .limit(1),
-      tenantId,
-    ).maybeSingle();
+    const dupCheckQuery = isCartMode
+      ? withTenant(
+          supabaseAdmin.from("orders").select("id").eq("patient_id", patientId)
+            .not("order_items", "is", null)
+            .gte("paid_at", new Date(Date.now() - 300_000).toISOString()).limit(1),
+          tenantId,
+        )
+      : withTenant(
+          supabaseAdmin.from("orders").select("id").eq("patient_id", patientId)
+            .eq("product_code", effectiveProductCode)
+            .gte("paid_at", new Date(Date.now() - 300_000).toISOString()).limit(1),
+          tenantId,
+        );
+    const { data: recentOrder } = await dupCheckQuery.maybeSingle();
     if (recentOrder) {
       return conflict("直前に同じ決済が処理されています。マイページで注文状況をご確認ください。");
     }
@@ -103,7 +114,7 @@ export async function POST(req: NextRequest) {
     );
     const multiField = tenantId ? await isMultiFieldEnabled(tenantId) : false;
     if (multiField) {
-      const productForField = await getProductByCode(productCode, tid);
+      const productForField = await getProductByCode(effectiveProductCode, tid);
       if (productForField?.field_id) {
         ngQuery = ngQuery.eq("field_id", productForField.field_id);
       }
@@ -113,11 +124,14 @@ export async function POST(req: NextRequest) {
       return forbidden("処方不可と判定されているため、決済できません。再度診察予約をお取りください。");
     }
 
-    // 商品取得
-    const product = await getProductByCode(productCode, tid);
+    // 単一モード後方互換
+    const product = await getProductByCode(effectiveProductCode, tid);
     if (!product) {
       return badRequest("無効な商品コードです");
     }
+
+    // 決済金額
+    const payAmount = isCartMode ? cart.totalAmount : product.price;
 
     // 3DS認証後の戻りURL
     const origin = req.headers.get("origin") || req.nextUrl.origin;
@@ -135,9 +149,9 @@ export async function POST(req: NextRequest) {
       payResult = await createGmoPaymentWithSavedCard({
         memberId,
         cardSeq: savedCard.cardSeq,
-        amount: product.price,
+        amount: payAmount,
         patientId,
-        productCode,
+        productCode: effectiveProductCode,
         mode,
         reorderId: reorderId ?? undefined,
         tenantId,
@@ -155,9 +169,9 @@ export async function POST(req: NextRequest) {
             payResult = await createGmoPaymentWithSavedCard({
               memberId,
               cardSeq,
-              amount: product.price,
+              amount: payAmount,
               patientId,
-              productCode,
+              productCode: effectiveProductCode,
               mode,
               reorderId: reorderId ?? undefined,
               tenantId,
@@ -167,9 +181,9 @@ export async function POST(req: NextRequest) {
             // カード保存失敗 → トークンで直接決済（カード保存は諦める）
             payResult = await createGmoPayment({
               token: token!,
-              amount: product.price,
+              amount: payAmount,
               patientId,
-              productCode,
+              productCode: effectiveProductCode,
               mode,
               reorderId: reorderId ?? undefined,
               tenantId,
@@ -180,9 +194,9 @@ export async function POST(req: NextRequest) {
           console.error("[gmo/pay] saveCard before payment failed, fallback to token:", e);
           payResult = await createGmoPayment({
             token: token!,
-            amount: product.price,
+            amount: payAmount,
             patientId,
-            productCode,
+            productCode: effectiveProductCode,
             mode,
             reorderId: reorderId ?? undefined,
             tenantId,
@@ -193,9 +207,9 @@ export async function POST(req: NextRequest) {
         // カード保存不要 → トークンで直接決済
         payResult = await createGmoPayment({
           token: token!,
-          amount: product.price,
+          amount: payAmount,
           patientId,
-          productCode,
+          productCode: effectiveProductCode,
           mode,
           reorderId: reorderId ?? undefined,
           tenantId,
@@ -213,9 +227,9 @@ export async function POST(req: NextRequest) {
           access_id: payResult.accessId,
           access_pass: payResult.accessPass,
           patient_id: patientId,
-          product_code: productCode,
+          product_code: cart.productCode,
           product_name: product.title,
-          amount: product.price,
+          amount: payAmount,
           mode: mode || null,
           reorder_id: reorderId || null,
           nonce: pendingNonce,
@@ -253,9 +267,9 @@ export async function POST(req: NextRequest) {
       const { error: insertErr } = await supabaseAdmin.from("orders").insert({
         id: orderId,
         patient_id: patientId,
-        product_code: productCode,
-        product_name: product.title,
-        amount: product.price,
+        product_code: cart.productCode,
+        product_name: cart.productName,
+        amount: payAmount,
         paid_at: new Date().toISOString(),
         shipping_status: "pending" as const,
         payment_status: "COMPLETED",
@@ -272,6 +286,12 @@ export async function POST(req: NextRequest) {
         use_hexidin: shippingOptions?.useHexidin || false,
         post_office_hold: shippingOptions?.postOfficeHold || false,
         post_office_name: shippingOptions?.postOfficeName || null,
+        // カートモード拡張
+        ...(isCartMode ? {
+          order_items: cart.items.map(i => ({ code: i.code, title: i.title, price: i.price, qty: i.qty })),
+          shipping_fee: cart.shippingFee,
+          is_first_purchase: isFirstPurchase || false,
+        } : {}),
         ...tenantPayload(tenantId),
       });
       if (insertErr) {
@@ -310,9 +330,9 @@ export async function POST(req: NextRequest) {
         // reorder paidマーク + カルテ自動作成
         if (reorderId) {
           await markReorderPaid(reorderId, patientId, tenantId);
-          if (patientId && productCode) {
+          if (patientId && effectiveProductCode) {
             try {
-              await createReorderPaymentKarte(patientId, productCode, new Date().toISOString(), undefined, tid);
+              await createReorderPaymentKarte(patientId, effectiveProductCode, new Date().toISOString(), undefined, tid);
             } catch (e) {
               console.error("[gmo/pay] karte error:", e);
             }
@@ -342,7 +362,7 @@ export async function POST(req: NextRequest) {
                 },
                 paymentMethod: "credit_card",
                 productName: product.title,
-                amount: product.price,
+                amount: payAmount,
                 tenantId: tid,
               });
             }

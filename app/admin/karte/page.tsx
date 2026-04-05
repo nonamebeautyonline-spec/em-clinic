@@ -222,11 +222,20 @@ export default function KartePage() {
   const [callFormSending, setCallFormSending] = useState(false);
   const [callFormSentPatients, setCallFormSentPatients] = useState<Set<string>>(new Set());
   // 診察モード設定（SWR）
-  const { data: consultData } = useSWR<{ settings: { type?: string } }>("/api/admin/settings?category=consultation");
+  const { data: consultData } = useSWR<{ settings: { type?: string; karte_mode?: string } }>("/api/admin/settings?category=consultation");
   const lineCallEnabled = useMemo(() => {
     const t = consultData?.settings?.type || "online_all";
     return t !== "online_phone" && t !== "in_person";
   }, [consultData]);
+  const karteMode = (consultData?.settings?.karte_mode || "reservation") as "reservation" | "intake_completion";
+
+  // --- intake_completion モード: intake/list APIから取得 ---
+  type IntakeListRow = { patient_id: string; patient_name?: string; name?: string; status?: string; note?: string; reserved_date?: string; reserved_time?: string; call_status?: string; created_at?: string; [key: string]: unknown };
+  const INTAKE_LIST_KEY = karteMode === "intake_completion" && (viewMode === "today" || viewMode === "new")
+    ? `/api/intake/list?from=${todayJST}&to=${todayJST}`
+    : null;
+  const { data: intakeListData, isLoading: intakeListLoading } = useSWR<{ ok: boolean; rows: IntakeListRow[] }>(INTAKE_LIST_KEY);
+  const intakeListRows = intakeListData?.rows ?? [];
 
 
   // === 検索モード ===
@@ -616,7 +625,7 @@ export default function KartePage() {
                   viewMode === "today" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                本日の予約
+                {karteMode === "intake_completion" ? "本日の問診" : "本日の予約"}
               </button>
               <button
                 onClick={() => { setViewMode("new"); closeDetail(); }}
@@ -624,7 +633,7 @@ export default function KartePage() {
                   viewMode === "new" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                新規予約
+                {karteMode === "intake_completion" ? "全件" : "新規予約"}
               </button>
               <button
                 onClick={() => { setViewMode("search"); closeDetail(); }}
@@ -637,13 +646,19 @@ export default function KartePage() {
             </div>
           </div>
 
-          {/* 本日の予約モード: 日付表示 */}
+          {/* 本日の予約/問診モード: 日付表示 */}
           {viewMode === "today" && (
             <div className="mt-4 flex items-center gap-3">
-              <span className="text-sm text-gray-600">{getTodayJST()} の予約患者</span>
-              <span className="text-xs text-gray-400">({todayItems.length}件)</span>
+              <span className="text-sm text-gray-600">
+                {karteMode === "intake_completion"
+                  ? `${getTodayJST()} の問診完了患者`
+                  : `${getTodayJST()} の予約患者`}
+              </span>
+              <span className="text-xs text-gray-400">
+                ({karteMode === "intake_completion" ? intakeListRows.length : todayItems.length}件)
+              </span>
               <button
-                onClick={() => mutate(TODAY_KEY)}
+                onClick={() => mutate(karteMode === "intake_completion" ? INTAKE_LIST_KEY : TODAY_KEY)}
                 className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors"
               >
                 更新
@@ -651,13 +666,19 @@ export default function KartePage() {
             </div>
           )}
 
-          {/* 新規予約モード: 日付表示 */}
+          {/* 新規予約/全件モード: 日付表示 */}
           {viewMode === "new" && (
             <div className="mt-4 flex items-center gap-3">
-              <span className="text-sm text-gray-600">{getTodayJST()} に入った予約</span>
-              <span className="text-xs text-gray-400">({newItems.length}件)</span>
+              <span className="text-sm text-gray-600">
+                {karteMode === "intake_completion"
+                  ? `${getTodayJST()} の問診完了（全件）`
+                  : `${getTodayJST()} に入った予約`}
+              </span>
+              <span className="text-xs text-gray-400">
+                ({karteMode === "intake_completion" ? intakeListRows.length : newItems.length}件)
+              </span>
               <button
-                onClick={() => mutate(NEW_KEY)}
+                onClick={() => mutate(karteMode === "intake_completion" ? INTAKE_LIST_KEY : NEW_KEY)}
                 className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors"
               >
                 更新
@@ -712,8 +733,94 @@ export default function KartePage() {
       </div>
 
       <div className="max-w-7xl mx-auto p-4 md:p-5 space-y-5">
-        {/* === 本日の予約モード: テーブル === */}
-        {viewMode === "today" && !selectedPatientId && (
+        {/* === intake_completion モード: today/new共通テーブル === */}
+        {karteMode === "intake_completion" && (viewMode === "today" || viewMode === "new") && !selectedPatientId && (
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">問診日時</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">氏名</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">電話番号</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">ステータス</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">通話状態</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">メモ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {intakeListLoading ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
+                        <div className="flex items-center justify-center gap-2">
+                          <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          読み込み中...
+                        </div>
+                      </td>
+                    </tr>
+                  ) : intakeListRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
+                        問診完了した患者はいません
+                      </td>
+                    </tr>
+                  ) : (
+                    intakeListRows.map((row, idx) => {
+                      const st = (String(row.status || "")).toUpperCase();
+                      const examStatus = st === "OK"
+                        ? { label: "診察済", color: "bg-emerald-50 text-emerald-700 border-emerald-200" }
+                        : st === "NG"
+                        ? { label: "NG", color: "bg-rose-50 text-rose-700 border-rose-200" }
+                        : { label: "診察前", color: "bg-amber-50 text-amber-700 border-amber-200" };
+                      const callSt = String(row.call_status || "");
+                      const callLabel = callSt === "call_form_sent" ? "通話フォーム送信済"
+                        : (callSt === "no_answer" || callSt === "no_answer_sent") ? "不通"
+                        : "-";
+                      return (
+                        <tr
+                          key={idx}
+                          onClick={() => loadBundle(row.patient_id)}
+                          className="hover:bg-gray-50 cursor-pointer transition-colors"
+                        >
+                          <td className="px-4 py-3 text-gray-800 font-medium whitespace-nowrap text-xs">
+                            {row.created_at ? formatFullDateTimeJST(row.created_at) : "-"}
+                          </td>
+                          <td className="px-4 py-3 text-gray-900 font-medium whitespace-nowrap">
+                            {row.patient_name || row.name || "-"}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
+                            {row.tel ? formatTel(String(row.tel)) : "-"}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${examStatus.color}`}>
+                              {examStatus.label}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
+                            {callLabel}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {row.note ? (
+                              <span className="text-xs text-amber-600">あり</span>
+                            ) : (
+                              <span className="text-xs text-gray-300">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* === 本日の予約モード: テーブル（reservationモード） === */}
+        {karteMode === "reservation" && viewMode === "today" && !selectedPatientId && (
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -796,8 +903,8 @@ export default function KartePage() {
           </div>
         )}
 
-        {/* === 新規予約モード: テーブル === */}
-        {viewMode === "new" && !selectedPatientId && (
+        {/* === 新規予約モード: テーブル（reservationモード） === */}
+        {karteMode === "reservation" && viewMode === "new" && !selectedPatientId && (
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

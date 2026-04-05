@@ -178,10 +178,13 @@ export function AppointmentCard({
           className="flex-1 cursor-pointer"
           onClick={() => onOpenDetail(row)}
         >
-          {reservedDateDisp && timeRangeLabel && (
-            <div className="text-sm font-semibold text-pink-600 mb-1">
-              予約日時　{reservedDateDisp} {timeRangeLabel}
-              {occupancyLabel}
+          {reservedDateDisp && (
+            <div className={`text-sm font-semibold mb-1 ${
+              String(pick(row, ["_karte_mode"])) === "intake_completion" ? "text-blue-600" : "text-pink-600"
+            }`}>
+              {String(pick(row, ["_karte_mode"])) === "intake_completion"
+                ? `問診完了　${reservedDateDisp} ${reservedTime || ""}`
+                : `予約日時　${reservedDateDisp} ${timeRangeLabel}${occupancyLabel}`}
             </div>
           )}
 

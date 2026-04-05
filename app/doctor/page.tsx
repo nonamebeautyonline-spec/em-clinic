@@ -61,14 +61,22 @@ export default function DoctorPage() {
         handleDateSelect={list.handleDateSelect}
       />
 
-      <p className="text-[11px] text-slate-400">
-        ※ 赤いラインは現在の時間帯を示します。枠がオレンジのカードは診察時間を過ぎてもステータス未設定（遅延）です。
-      </p>
+      {list.karteMode === "intake_completion" ? (
+        <p className="text-[11px] text-blue-500">
+          ※ 問診完了ベースモード — 問診を完了した患者が自動で表示されます
+        </p>
+      ) : (
+        <p className="text-[11px] text-slate-400">
+          ※ 赤いラインは現在の時間帯を示します。枠がオレンジのカードは診察時間を過ぎてもステータス未設定（遅延）です。
+        </p>
+      )}
 
       <div className="space-y-3 mt-2">
         {list.visibleRows.length === 0 && (
           <p className="text-sm text-slate-500">
-            選択した条件に該当する予約はありません。
+            {list.karteMode === "intake_completion"
+              ? "選択した日に問診完了した患者はいません。"
+              : "選択した条件に該当する予約はありません。"}
           </p>
         )}
 

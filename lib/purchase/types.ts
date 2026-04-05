@@ -40,6 +40,10 @@ export interface PurchaseConfig {
   reorderButtonLabel: string;
   groups: PurchaseGroup[];
   reorderConfirm: ReorderConfirmConfig;
+  /** カート式UIを有効にするか（デフォルト: false = 従来の単一商品選択） */
+  cartMode?: boolean;
+  /** 複数商品の同時選択を許可するか（cartMode=trueの場合のみ有効） */
+  multiSelectEnabled?: boolean;
 }
 
 /** デフォルト設定（現在のハードコード値と一致） */

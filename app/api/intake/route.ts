@@ -352,28 +352,36 @@ export async function POST(req: NextRequest) {
     }
 
     // ★ 問診後リマインダー登録（ビジネスルール）
+    // intake_completionモード（予約なし）ではリマインダー不要（スキップ）
     try {
-      const rules = await getBusinessRules(tenantId ?? undefined);
-      if (rules.intakeReminderHours > 0 && patientId && !patientId.startsWith("LINE_")) {
-        const remindAt = new Date(Date.now() + rules.intakeReminderHours * 60 * 60 * 1000).toISOString();
-        // line_id を取得
-        const { data: ptData } = await strictWithTenant(
-          supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
-          tenantId
-        );
-        if (ptData?.line_id) {
-          await supabaseAdmin.from("scheduled_messages").insert({
-            tenant_id: tenantId || null,
-            patient_id: patientId,
-            line_uid: ptData.line_id,
-            message_content: "問診のご回答ありがとうございます。まだ予約がお済みでない場合は、マイページより予約をお取りください。",
-            message_type: "text",
-            scheduled_at: remindAt,
-            status: "scheduled",
-            created_by: "intake_reminder",
-          });
-          console.log(`[intake] Reminder scheduled at ${remindAt} for patient=${patientId}`);
+      const { getSetting: getSettingForReminder } = await import("@/lib/settings");
+      const karteMode = (await getSettingForReminder("consultation", "karte_mode", tenantId ?? undefined)) || "reservation";
+
+      if (karteMode === "reservation") {
+        // 予約制のみリマインダー送信
+        const rules = await getBusinessRules(tenantId ?? undefined);
+        if (rules.intakeReminderHours > 0 && patientId && !patientId.startsWith("LINE_")) {
+          const remindAt = new Date(Date.now() + rules.intakeReminderHours * 60 * 60 * 1000).toISOString();
+          const { data: ptData } = await strictWithTenant(
+            supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
+            tenantId
+          );
+          if (ptData?.line_id) {
+            await supabaseAdmin.from("scheduled_messages").insert({
+              tenant_id: tenantId || null,
+              patient_id: patientId,
+              line_uid: ptData.line_id,
+              message_content: "問診のご回答ありがとうございます。まだ予約がお済みでない場合は、マイページより予約をお取りください。",
+              message_type: "text",
+              scheduled_at: remindAt,
+              status: "scheduled",
+              created_by: "intake_reminder",
+            });
+            console.log(`[intake] Reminder scheduled at ${remindAt} for patient=${patientId}`);
+          }
         }
+      } else {
+        console.log(`[intake] Skipping reminder (karteMode=${karteMode})`);
       }
     } catch (reminderErr) {
       console.error("[intake] Reminder registration error (non-blocking):", reminderErr);
