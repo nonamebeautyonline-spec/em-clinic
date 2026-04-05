@@ -20,19 +20,21 @@ export async function POST(req: NextRequest) {
     if ("error" in parsed) return parsed.error;
     const reserveId = parsed.data.reserveId.trim();
     const callStatus = (parsed.data.callStatus || "").trim();
+    const isIntakeId = reserveId.startsWith("intake_");
+    const intakeIdNum = isIntakeId ? reserveId.replace("intake_", "") : null;
 
     const updatedAt = new Date().toISOString();
 
-    const { error: supabaseError } = await withTenant(
-      supabaseAdmin
-        .from("intake")
-        .update({
-          call_status: callStatus,
-          call_status_updated_at: updatedAt,
-        })
-        .eq("reserve_id", reserveId),
-      tenantId
-    );
+    const updateQuery = isIntakeId
+      ? withTenant(
+          supabaseAdmin.from("intake").update({ call_status: callStatus, call_status_updated_at: updatedAt }).eq("id", intakeIdNum!),
+          tenantId
+        )
+      : withTenant(
+          supabaseAdmin.from("intake").update({ call_status: callStatus, call_status_updated_at: updatedAt }).eq("reserve_id", reserveId),
+          tenantId
+        );
+    const { error: supabaseError } = await updateQuery;
 
     if (supabaseError) {
       console.error("[doctor/callstatus] Supabase update failed:", supabaseError);
@@ -48,13 +50,11 @@ export async function POST(req: NextRequest) {
         const rules = await getBusinessRules(tenantId ?? undefined);
         if (rules.notifyNoAnswer) {
           // intakeからpatient_idを取得
-          const { data: intakeRow } = await withTenant(
-            supabaseAdmin
-              .from("intake")
-              .select("patient_id")
-              .eq("reserve_id", reserveId),
-            tenantId
-          ).then(r => ({ data: (r.data as { patient_id: string }[] | null)?.[0] ?? null }));
+          const intakePatientQuery = isIntakeId
+            ? withTenant(supabaseAdmin.from("intake").select("patient_id").eq("id", intakeIdNum!), tenantId)
+            : withTenant(supabaseAdmin.from("intake").select("patient_id").eq("reserve_id", reserveId), tenantId);
+          const { data: intakeRow } = await intakePatientQuery
+            .then(r => ({ data: (r.data as { patient_id: string }[] | null)?.[0] ?? null }));
 
           if (intakeRow?.patient_id) {
             // patientsからline_idを取得
@@ -87,13 +87,10 @@ export async function POST(req: NextRequest) {
 
               // 送信成功時は call_status を no_answer_sent に更新 + 対応マーク「不通」設定
               if (notifySent) {
-                await withTenant(
-                  supabaseAdmin
-                    .from("intake")
-                    .update({ call_status: "no_answer_sent" })
-                    .eq("reserve_id", reserveId),
-                  tenantId
-                );
+                const sentUpdateQuery = isIntakeId
+                  ? withTenant(supabaseAdmin.from("intake").update({ call_status: "no_answer_sent" }).eq("id", intakeIdNum!), tenantId)
+                  : withTenant(supabaseAdmin.from("intake").update({ call_status: "no_answer_sent" }).eq("reserve_id", reserveId), tenantId);
+                await sentUpdateQuery;
 
                 // 対応マークを「不通」に変更
                 try {

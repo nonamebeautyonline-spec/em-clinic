@@ -70,13 +70,17 @@ export async function POST(req: NextRequest) {
     // call_status 更新（reserveIdがある場合）
     if (reserveId) {
       const updatedAt = new Date().toISOString();
-      await withTenant(
-        supabaseAdmin
-          .from("intake")
-          .update({ call_status: "call_form_sent", call_status_updated_at: updatedAt })
-          .eq("reserve_id", reserveId),
-        tenantId
-      );
+      const isIntakeId = reserveId.startsWith("intake_");
+      const callFormQuery = isIntakeId
+        ? withTenant(
+            supabaseAdmin.from("intake").update({ call_status: "call_form_sent", call_status_updated_at: updatedAt }).eq("id", reserveId.replace("intake_", "")),
+            tenantId
+          )
+        : withTenant(
+            supabaseAdmin.from("intake").update({ call_status: "call_form_sent", call_status_updated_at: updatedAt }).eq("reserve_id", reserveId),
+            tenantId
+          );
+      await callFormQuery;
     }
 
     return NextResponse.json({ ok: true });

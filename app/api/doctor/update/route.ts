@@ -33,14 +33,21 @@ export async function POST(req: NextRequest) {
     console.log(`[doctor/update] Processing: reserveId=${reserveId}, status=${status}`);
 
     // ★ Step 1: intakeテーブルからpatient_idを取得
-    const { data: intakeData, error: intakeQueryError } = await withTenant(
-      supabaseAdmin
-        .from("intake")
-        .select("patient_id")
-        .eq("reserve_id", reserveId)
-        .single(),
-      tenantId
-    );
+    // intake_completionモード: reserveIdが "intake_XXXXX" 形式の場合はintake.idで検索
+    const isIntakeId = reserveId.startsWith("intake_");
+    const intakeIdNum = isIntakeId ? reserveId.replace("intake_", "") : null;
+
+    const intakeQuery = isIntakeId
+      ? withTenant(
+          supabaseAdmin.from("intake").select("id, patient_id").eq("id", intakeIdNum!).single(),
+          tenantId
+        )
+      : withTenant(
+          supabaseAdmin.from("intake").select("id, patient_id").eq("reserve_id", reserveId).single(),
+          tenantId
+        );
+
+    const { data: intakeData, error: intakeQueryError } = await intakeQuery;
 
     if (intakeQueryError || !intakeData) {
       console.error("[doctor/update] Intake not found:", { reserveId, error: intakeQueryError });
@@ -48,11 +55,12 @@ export async function POST(req: NextRequest) {
     }
 
     const patientId = intakeData.patient_id;
+    const intakeId = intakeData.id;
 
     // ★ Step 2: DB先行書き込み（intakeテーブルとreservationsテーブル）
     const [intakeResult, reservationResult] = await Promise.allSettled([
       // 2a. intakeテーブルを更新（status, note, call_statusクリア）
-      // ステータスOK/NG設定時は call_status もクリア（不通→診察済で表示が残る問題の防止）
+      // intake_completionモード: idで更新、通常モード: reserve_idで更新
       withTenant(
         supabaseAdmin
           .from("intake")
@@ -61,22 +69,24 @@ export async function POST(req: NextRequest) {
             note: note || null,
             call_status: null,
           })
-          .eq("reserve_id", reserveId),
+          .eq("id", intakeId),
         tenantId
       ),
 
-      // 2b. reservationsテーブルのstatus, note, prescription_menuも更新
-      withTenant(
-        supabaseAdmin
-          .from("reservations")
-          .update({
-            status: status || "pending",
-            note: note || null,
-            prescription_menu: prescriptionMenu || null,
-          })
-          .eq("reserve_id", reserveId),
-        tenantId
-      ),
+      // 2b. reservationsテーブルのstatus, note, prescription_menuも更新（intake_completionモードではスキップ）
+      isIntakeId
+        ? Promise.resolve({ error: null })
+        : withTenant(
+            supabaseAdmin
+              .from("reservations")
+              .update({
+                status: status || "pending",
+                note: note || null,
+                prescription_menu: prescriptionMenu || null,
+              })
+              .eq("reserve_id", reserveId),
+            tenantId
+          ),
     ]);
 
     // intakeの更新が失敗したらエラー
