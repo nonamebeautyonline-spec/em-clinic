@@ -69,6 +69,8 @@ export interface DashboardContextValue {
 
   // マルチ分野モード
   multiFieldEnabled: boolean;
+  selectedFieldId: string | null;
+  setSelectedFieldId: (id: string | null) => void;
 
   // 導出値
   displayReorder: ReorderItem | null;

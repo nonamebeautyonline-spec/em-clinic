@@ -66,6 +66,7 @@ export function OrdersSection() {
     displayReorderStatus,
     productLabels,
     multiFieldEnabled,
+    selectedFieldId,
   } = useDashboardContext();
 
   if (!mpSections.showOrders) return null;
@@ -85,9 +86,10 @@ export function OrdersSection() {
   const canPurchaseInitial =
     showInitialPurchase && (ordersFlags?.canPurchaseCurrentCourse ?? true);
 
-  // 注文：アクティブ分だけ表示
+  // 注文：アクティブ分だけ表示（分野フィルタ対応）
   const visibleOrders = activeOrders
     .filter(isActiveOrder)
+    .filter((o) => !selectedFieldId || (o as Order & { fieldId?: string }).fieldId === selectedFieldId)
     .slice()
     .sort(
       (a, b) =>

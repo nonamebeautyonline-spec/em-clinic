@@ -4,6 +4,7 @@ import React, { useCallback, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 
 import {
   DashboardProvider,
@@ -37,7 +38,16 @@ export default function PatientDashboardInner() {
     );
   }
 
-  const { data, mpColors, mpSections, mpContent, mpLabels, hasIntake, intakeStatus, reorders, multiFieldEnabled } = contextValue;
+  const { data, mpColors, mpSections, mpContent, mpLabels, hasIntake, intakeStatus, reorders, multiFieldEnabled, selectedFieldId, setSelectedFieldId } = contextValue;
+
+  // 分野一覧取得（マルチ分野モード時のみ）
+  const swrFetcher = useCallback((url: string) => fetch(url, { credentials: "include" }).then(r => r.json()), []);
+  const { data: fieldsData } = useSWR<{ fields: { id: string; name: string; color_theme: string }[] }>(
+    multiFieldEnabled ? "/api/mypage/medical-fields" : null,
+    swrFetcher,
+    { revalidateOnFocus: false }
+  );
+  const fieldOptions = fieldsData?.fields ?? [];
   const { patient, nextReservation, history, ordersFlags } = data;
   const hasHistory = history.length > 0;
   const isNG = intakeStatus === "NG";
@@ -164,7 +174,7 @@ export default function PatientDashboardInner() {
               disabled={!canPurchaseInitial}
               onClick={() => {
                 if (!canPurchaseInitial) return;
-                router.push("/mypage/purchase");
+                router.push(`/mypage/purchase${selectedFieldId ? `?fieldId=${selectedFieldId}` : ""}`);
               }}
               className={
                 "mt-3 block w-full rounded-xl text-center py-3 text-base font-semibold " +
@@ -177,6 +187,40 @@ export default function PatientDashboardInner() {
             </button>
           )}
         </div>
+        )}
+
+        {/* 分野タブ（マルチ分野モード時のみ） */}
+        {multiFieldEnabled && fieldOptions.length > 1 && (
+          <div className="mx-auto max-w-4xl px-4 mt-3">
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              <button
+                onClick={() => setSelectedFieldId(null)}
+                className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
+                  selectedFieldId === null
+                    ? "bg-[var(--mp-primary)] text-white"
+                    : "bg-white text-slate-600 border border-slate-200"
+                }`}
+              >
+                すべて
+              </button>
+              {fieldOptions.map((f) => {
+                const isActive = selectedFieldId === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => setSelectedFieldId(f.id)}
+                    className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
+                      isActive
+                        ? "bg-[var(--mp-primary)] text-white"
+                        : "bg-white text-slate-600 border border-slate-200"
+                    }`}
+                  >
+                    {f.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         )}
 
         {/* 本文 */}

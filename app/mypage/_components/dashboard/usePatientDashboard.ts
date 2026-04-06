@@ -63,6 +63,18 @@ export function usePatientDashboard(): {
   const [cancelingReorder, setCancelingReorder] = useState(false);
   const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
   const [multiFieldEnabled, setMultiFieldEnabled] = useState(false);
+  const [selectedFieldId, setSelectedFieldId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("lope_selected_field") || null;
+  });
+  // localStorageに選択分野を記憶
+  const handleSetSelectedFieldId = useCallback((id: string | null) => {
+    setSelectedFieldId(id);
+    if (typeof window !== "undefined") {
+      if (id) localStorage.setItem("lope_selected_field", id);
+      else localStorage.removeItem("lope_selected_field");
+    }
+  }, []);
 
   // マイページ設定をSWRで取得
   const { data: settingsData } = useSWR("/api/mypage/settings", swrFetcher, {
@@ -523,6 +535,8 @@ export function usePatientDashboard(): {
         showToast,
         productLabels,
         multiFieldEnabled,
+        selectedFieldId,
+        setSelectedFieldId: handleSetSelectedFieldId,
         displayReorder,
         displayReorderStatus,
       }

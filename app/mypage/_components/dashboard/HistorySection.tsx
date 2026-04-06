@@ -38,11 +38,13 @@ export function HistorySection() {
     handleShowAllHistory,
     productLabels,
     multiFieldEnabled,
+    selectedFieldId,
   } = useDashboardContext();
 
   if (!mpSections.showHistory) return null;
 
   const orderHistoryAll = (data.orders ?? [])
+    .filter((o) => !selectedFieldId || (o as typeof o & { fieldId?: string }).fieldId === selectedFieldId)
     .slice()
     .sort((a, b) => getTimeSafe(b.paidAt) - getTimeSafe(a.paidAt));
 
