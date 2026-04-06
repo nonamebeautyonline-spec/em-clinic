@@ -330,47 +330,112 @@ function PurchasePageInner() {
 
       {/* カートモード: フローティングカートバー */}
       {cartMode && cart.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-20 bg-white border-t border-slate-200 shadow-lg">
-          <div className="mx-auto max-w-md px-4 py-3">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm text-slate-700">
-                <span className="font-semibold">{cartItemCount}点</span>の商品
-              </div>
-              <button
-                type="button"
-                onClick={handleClearCart}
-                className="text-[11px] text-slate-400 underline"
-              >
-                カートを空にする
-              </button>
+        <CartFloatingBar
+          cart={cart}
+          cartItemCount={cartItemCount}
+          cartSubtotal={cartSubtotal}
+          cartShippingFee={cartShippingFee}
+          cartTotal={cartTotal}
+          onRemove={handleRemoveFromCart}
+          onClear={handleClearCart}
+          onCheckout={handleCartCheckout}
+        />
+      )}
+    </div>
+  );
+}
+
+// カートフローティングバー（展開可能なカート詳細表示）
+function CartFloatingBar({
+  cart, cartItemCount, cartSubtotal, cartShippingFee, cartTotal,
+  onRemove, onClear, onCheckout,
+}: {
+  cart: CartItem[];
+  cartItemCount: number;
+  cartSubtotal: number;
+  cartShippingFee: number;
+  cartTotal: number;
+  onRemove: (code: string) => void;
+  onClear: () => void;
+  onCheckout: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-20 bg-white border-t border-slate-200 shadow-lg">
+      <div className="mx-auto max-w-md px-4 py-3">
+        {/* ヘッダー: タップで展開/折りたたみ */}
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="w-full flex items-center justify-between mb-2"
+        >
+          <div className="flex items-center gap-2">
+            <div className="text-sm text-slate-700">
+              <span className="font-semibold">{cartItemCount}点</span>の商品
             </div>
-            <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
-              {cart.map((item) => (
-                <span key={item.code} className="bg-slate-100 rounded px-1.5 py-0.5 truncate max-w-[150px]">
-                  {item.title}
-                </span>
-              ))}
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[11px] text-slate-500">
-                  商品: ¥{cartSubtotal.toLocaleString()} + 配送料: ¥{cartShippingFee.toLocaleString()}
+            <svg
+              className={`w-4 h-4 text-slate-400 transition-transform ${expanded ? "rotate-180" : ""}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+            </svg>
+          </div>
+          <span
+            onClick={(e) => { e.stopPropagation(); onClear(); }}
+            className="text-[11px] text-slate-400 underline"
+          >
+            カートを空にする
+          </span>
+        </button>
+
+        {/* 展開時: カート内容詳細 */}
+        {expanded && (
+          <div className="border-t border-slate-100 pt-2 pb-2 mb-2 max-h-[40vh] overflow-y-auto space-y-2">
+            {cart.map((item) => (
+              <div key={item.code} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
+                <div className="min-w-0 flex-1 mr-2">
+                  <div className="text-xs font-medium text-slate-800 truncate">{item.title}</div>
+                  <div className="text-[11px] text-slate-500">
+                    ¥{item.price.toLocaleString()} {item.qty > 1 ? `× ${item.qty}` : ""}
+                  </div>
                 </div>
-                <div className="text-lg font-bold text-slate-900">
-                  合計 ¥{cartTotal.toLocaleString()}
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-sm font-semibold text-slate-900">
+                    ¥{(item.price * item.qty).toLocaleString()}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onRemove(item.code)}
+                    className="w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-xs hover:bg-rose-100 hover:text-rose-600 transition"
+                  >
+                    ×
+                  </button>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleCartCheckout}
-                className="rounded-full bg-blue-600 text-white px-6 py-2.5 text-sm font-semibold shadow-md"
-              >
-                決済に進む
-              </button>
+            ))}
+          </div>
+        )}
+
+        {/* 合計・決済ボタン */}
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-[11px] text-slate-500">
+              商品 ¥{cartSubtotal.toLocaleString()} + 送料 ¥{cartShippingFee.toLocaleString()}
+            </div>
+            <div className="text-lg font-bold text-slate-900">
+              合計 ¥{cartTotal.toLocaleString()}
             </div>
           </div>
+          <button
+            type="button"
+            onClick={onCheckout}
+            className="rounded-full bg-blue-600 text-white px-6 py-2.5 text-sm font-semibold shadow-md"
+          >
+            決済に進む
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
