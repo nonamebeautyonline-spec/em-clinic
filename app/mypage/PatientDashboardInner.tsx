@@ -15,9 +15,21 @@ import {
   HistorySection,
 } from "./_components/dashboard";
 
+// SWRProviderのスコープ外なのでfetcher明示指定
+const fieldsFetcher = (url: string) => fetch(url, { credentials: "include" }).then(r => r.json());
+
 export default function PatientDashboardInner() {
   const router = useRouter();
   const { loading, error, contextValue } = usePatientDashboard();
+
+  // フックは早期returnの前に呼ぶ（React Hooksルール）
+  const multiFieldEnabled = contextValue?.multiFieldEnabled ?? false;
+  const { data: fieldsData } = useSWR<{ fields: { id: string; name: string; color_theme: string }[] }>(
+    multiFieldEnabled ? "/api/mypage/medical-fields" : null,
+    fieldsFetcher,
+    { revalidateOnFocus: false }
+  );
+  const fieldOptions = fieldsData?.fields ?? [];
 
   if (loading) {
     return (
@@ -38,16 +50,7 @@ export default function PatientDashboardInner() {
     );
   }
 
-  const { data, mpColors, mpSections, mpContent, mpLabels, hasIntake, intakeStatus, reorders, multiFieldEnabled, selectedFieldId, setSelectedFieldId } = contextValue;
-
-  // 分野一覧取得（マルチ分野モード時のみ）
-  const swrFetcher = useCallback((url: string) => fetch(url, { credentials: "include" }).then(r => r.json()), []);
-  const { data: fieldsData } = useSWR<{ fields: { id: string; name: string; color_theme: string }[] }>(
-    multiFieldEnabled ? "/api/mypage/medical-fields" : null,
-    swrFetcher,
-    { revalidateOnFocus: false }
-  );
-  const fieldOptions = fieldsData?.fields ?? [];
+  const { data, mpColors, mpSections, mpContent, mpLabels, hasIntake, intakeStatus, reorders, selectedFieldId, setSelectedFieldId } = contextValue;
   const { patient, nextReservation, history, ordersFlags } = data;
   const hasHistory = history.length > 0;
   const isNG = intakeStatus === "NG";
