@@ -158,10 +158,10 @@ function PurchasePageInner() {
     [productsData]
   );
 
-  // マルチ分野モード: 選択分野の商品のみフィルタ
+  // マルチ分野モード: 選択分野の商品のみフィルタ（field_id未設定の商品は全分野で表示）
   const filteredProducts = useMemo(() => {
     if (!multiFieldEnabled || !selectedFieldId) return allProducts;
-    return allProducts.filter((p) => p.field_id === selectedFieldId);
+    return allProducts.filter((p) => !p.field_id || p.field_id === selectedFieldId);
   }, [multiFieldEnabled, selectedFieldId, allProducts]);
 
   // グループごとに商品を紐付け（マルチ分野モード: fieldIdでもフィルタ）
