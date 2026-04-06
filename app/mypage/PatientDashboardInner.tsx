@@ -127,10 +127,12 @@ export default function PatientDashboardInner() {
             ) : (
               <>
                 <Link
-                  href="/intake"
+                  href={`/intake${selectedFieldId ? `?fieldId=${selectedFieldId}` : ""}`}
                   className="block w-full rounded-xl text-white text-center py-3 text-base font-semibold shadow-sm transition bg-[var(--mp-primary)] hover:bg-[var(--mp-hover)]"
                 >
-                  {mpLabels.intakeButtonLabel}
+                  {multiFieldEnabled && selectedFieldId
+                    ? `${fieldOptions.find(f => f.id === selectedFieldId)?.name || ""} の問診に回答する`
+                    : mpLabels.intakeButtonLabel}
                 </Link>
                 <p className="mt-1 text-[11px] text-slate-500">
                   {mpLabels.intakeNoteText}
