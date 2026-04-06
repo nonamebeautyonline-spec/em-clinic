@@ -341,6 +341,16 @@ function TemplateListView({
 
   // 分野変更
   const handleFieldChange = async (templateId: string, fieldId: string | null) => {
+    // 楽観的UI更新: 即座にローカルstateを変更
+    mutate(TEMPLATES_KEY, (current: { ok: boolean; templates: TemplateItem[] } | undefined) => {
+      if (!current) return current;
+      return {
+        ...current,
+        templates: current.templates.map((t: TemplateItem) =>
+          t.id === templateId ? { ...t, field_id: fieldId } : t
+        ),
+      };
+    }, false);
     try {
       const res = await fetch("/api/admin/intake-form/templates", {
         method: "PATCH",
@@ -349,13 +359,13 @@ function TemplateListView({
         body: JSON.stringify({ id: templateId, field_id: fieldId }),
       });
       const data = await res.json();
-      if (data.ok) {
-        await mutate(TEMPLATES_KEY);
-      } else {
+      if (!data.ok) {
         alert("分野の変更に失敗しました");
+        await mutate(TEMPLATES_KEY); // 失敗時はサーバーから再取得
       }
     } catch {
       alert("分野の変更に失敗しました");
+      await mutate(TEMPLATES_KEY);
     }
   };
 
