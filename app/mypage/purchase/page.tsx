@@ -137,6 +137,10 @@ function PurchasePageInner() {
     setCart(newCart);
   }, []);
 
+  // flow === "reorder" なら再処方モード（handleCartCheckoutより前に定義）
+  const flow = searchParams.get("flow");
+  const isReorderFlow = flow === "reorder";
+
   const handleClearCart = useCallback(() => {
     clearCart();
     setCart([]);
@@ -144,8 +148,12 @@ function PurchasePageInner() {
 
   const handleCartCheckout = useCallback(() => {
     if (cart.length === 0) return;
-    router.push("/mypage/purchase/confirm?cart=1");
-  }, [cart, router]);
+    if (isReorderFlow) {
+      router.push("/mypage/purchase/reorder?cart=1");
+    } else {
+      router.push("/mypage/purchase/confirm?cart=1");
+    }
+  }, [cart, router, isReorderFlow]);
 
   const cartSubtotal = useMemo(() => getCartSubtotal(cart), [cart]);
   const cartShippingFee = useMemo(() => calculateShippingFee(cart), [cart]);
@@ -224,10 +232,6 @@ function PurchasePageInner() {
 
     return sections;
   }, [config.groups, filteredProducts, multiFieldEnabled, selectedFieldId]);
-
-  // flow === "reorder" なら再処方モード
-  const flow = searchParams.get("flow");
-  const isReorderFlow = flow === "reorder";
 
   const pageTitle = isReorderFlow ? config.reorderTitle : config.pageTitle;
   const description = isReorderFlow ? config.reorderDescription : config.description;
@@ -524,7 +528,7 @@ function ProductGroupSection({
           </div>
         </div>
         <div className="mt-2">
-          {isReorderFlow ? (
+          {isReorderFlow && !cartMode ? (
             <button type="button" onClick={() => onReorder(p)}
               className="w-full rounded-full bg-pink-500 text-white py-1.5 text-[11px] font-semibold">
               {reorderLabel}
