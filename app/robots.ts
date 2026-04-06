@@ -15,7 +15,7 @@ export default function robots(): MetadataRoute.Robots {
     "/reserve/",
     "/questionnaire/",
     "/repair/",
-    "/_next/",
+    "/_next/image",
   ];
 
   // LP・コラムのみ許可するパス（AIクローラー向け）
