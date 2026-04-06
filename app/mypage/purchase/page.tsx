@@ -1,7 +1,7 @@
 // app/mypage/purchase/page.tsx — 購入画面（DB設定連動）
 "use client";
 
-import React, { useMemo, useCallback, Suspense } from "react";
+import React, { useMemo, useCallback, useState, Suspense } from "react";
 import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { PurchaseConfig, PurchaseGroup } from "@/lib/purchase/types";
@@ -180,34 +180,44 @@ function PurchasePageInner() {
       }))
       .filter((s) => s.products.length > 0);
 
-    // フォールバック: グループ設定にマッチする商品がない場合、DB商品を薬剤名で自動グループ化
+    // フォールバック: グループ設定にマッチする商品がない場合、DB商品を薬剤名+用量で自動グループ化
     if (sections.length === 0 && filteredProducts.length > 0) {
       const CATEGORY_THEMES: Record<string, string> = {
         injection: "blue", oral: "emerald", pill: "pink",
         supplement: "amber", fee: "slate",
       };
+      // 薬剤名+用量でグループ化（例: マンジャロ 2.5mg, マンジャロ 5mg）
+      const groupKey = (p: DbProduct) => {
+        const drug = p.drug_name || p.title.split(/\s/)[0] || "その他";
+        return p.dosage ? `${drug} ${p.dosage}` : drug;
+      };
       const drugMap = new Map<string, DbProduct[]>();
       for (const p of filteredProducts) {
-        // fee（再送料等）は購入画面に表示しない
         if (p.category === "fee") continue;
-        const key = p.drug_name || p.title.split(/\s/)[0] || "その他";
+        const key = groupKey(p);
         if (!drugMap.has(key)) drugMap.set(key, []);
         drugMap.get(key)!.push(p);
       }
       let sortIdx = 0;
-      for (const [drugName, prods] of drugMap) {
+      for (const [label, prods] of drugMap) {
         const cat = prods[0]?.category || "oral";
+        // 期間でソート → 同一期間内は通常便(delay=0)→予約便の順
+        const sorted = prods.slice().sort((a, b) => {
+          const dm = (a.duration_months ?? 0) - (b.duration_months ?? 0);
+          if (dm !== 0) return dm;
+          return (a.shipping_delay_days ?? 0) - (b.shipping_delay_days ?? 0);
+        });
         sections.push({
           group: {
-            id: `auto-${drugName}`,
-            badgeLabel: drugName,
-            displayName: drugName,
-            description: `${prods.length}プラン`,
+            id: `auto-${label}`,
+            badgeLabel: prods[0]?.dosage || label,
+            displayName: label,
+            description: `${sorted.length}プラン`,
             colorTheme: CATEGORY_THEMES[cat] || "blue",
             sortOrder: sortIdx++,
-            productCodes: prods.map(p => p.code),
+            productCodes: sorted.map(p => p.code),
           },
-          products: prods,
+          products: sorted,
         });
       }
     }
@@ -290,112 +300,23 @@ function PurchasePageInner() {
 
       {/* コンテンツ */}
       <div className="mx-auto max-w-md px-4 pb-6 pt-3 space-y-6">
-        {groupedSections.map(({ group, products }) => {
-          const theme = THEME_CLASSES[group.colorTheme] ?? THEME_CLASSES.blue;
-
-          return (
-            <section key={group.id} className="space-y-3">
-              <div className={`rounded-xl border-l-4 px-3 py-2.5 ${theme.section}`}>
-                <div className="flex items-center gap-2">
-                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold text-white ${theme.badge}`}>
-                    {group.badgeLabel}
-                  </span>
-                  <h2 className="text-base font-bold text-slate-900">
-                    {group.displayName}
-                  </h2>
-                </div>
-                <p className="mt-1 text-[11px] text-slate-600 ml-0.5">
-                  {group.description}／{products.length}プラン
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                {products.map((p) => {
-                  const effectivePrice = getEffectivePrice(p);
-                  const hasDiscount = effectivePrice < p.price;
-
-                  return (
-                    <div
-                      key={p.code}
-                      className="w-full rounded-2xl border border-slate-100 px-4 py-3.5 bg-white shadow-sm transition active:scale-[0.99]"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-semibold text-slate-900">
-                              {p.title}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-[11px] text-slate-500">
-                            {p.duration_months
-                              ? `${p.duration_months}ヶ月分`
-                              : ""}
-                            {p.quantity
-                              ? `（全${p.quantity}本）`
-                              : ""}
-                            {p.duration_months || p.quantity ? "／週1回" : ""}
-                          </p>
-                        </div>
-                        <div className="text-right whitespace-nowrap">
-                          <div className="text-[11px] text-slate-400">料金</div>
-                          {hasDiscount && (
-                            <div className="text-[10px] text-slate-400 line-through">
-                              ¥{p.price.toLocaleString()}
-                            </div>
-                          )}
-                          <div className={`text-base font-semibold ${hasDiscount ? "text-pink-600" : "text-slate-900"}`}>
-                            ¥{effectivePrice.toLocaleString()}
-                          </div>
-                          <div className="mt-0.5 text-[10px] text-slate-400">
-                            {cartMode ? "税込（配送料別）" : "税込／送料込み"}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-3">
-                        {isReorderFlow ? (
-                          <button
-                            type="button"
-                            onClick={() => handleReorder(p)}
-                            className="w-full rounded-full bg-pink-500 text-white py-1.5 text-[11px] font-semibold disabled:opacity-60"
-                          >
-                            {config.reorderButtonLabel}
-                          </button>
-                        ) : cartMode ? (
-                          isInCart(p.code) ? (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveFromCart(p.code)}
-                              className="w-full rounded-full bg-slate-200 text-slate-600 py-1.5 text-[11px] font-semibold"
-                            >
-                              カートから削除
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleAddToCart(p)}
-                              className="w-full rounded-full bg-blue-500 text-white py-1.5 text-[11px] font-semibold"
-                            >
-                              カートに追加
-                            </button>
-                          )
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleCheckout(p)}
-                            className="w-full rounded-full bg-pink-500 text-white py-1.5 text-[11px] font-semibold disabled:opacity-60"
-                          >
-                            {config.checkoutButtonLabel}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })}
+        {groupedSections.map(({ group, products }) => (
+          <ProductGroupSection
+            key={group.id}
+            group={group}
+            products={products}
+            cartMode={cartMode}
+            isReorderFlow={isReorderFlow}
+            isInCart={isInCart}
+            getEffectivePrice={getEffectivePrice}
+            onAddToCart={handleAddToCart}
+            onRemoveFromCart={handleRemoveFromCart}
+            onCheckout={handleCheckout}
+            onReorder={handleReorder}
+            checkoutLabel={config.checkoutButtonLabel}
+            reorderLabel={config.reorderButtonLabel}
+          />
+        ))}
 
         {config.footerNote && (
           <p className="mt-4 text-[10px] text-slate-400 leading-relaxed whitespace-pre-line">
@@ -451,6 +372,175 @@ function PurchasePageInner() {
         </div>
       )}
     </div>
+  );
+}
+
+// 商品グループセクション（期間別・配送タイプ別の整理表示対応）
+function ProductGroupSection({
+  group, products, cartMode, isReorderFlow, isInCart, getEffectivePrice,
+  onAddToCart, onRemoveFromCart, onCheckout, onReorder, checkoutLabel, reorderLabel,
+}: {
+  group: PurchaseGroup;
+  products: DbProduct[];
+  cartMode: boolean;
+  isReorderFlow: boolean;
+  isInCart: (code: string) => boolean;
+  getEffectivePrice: (p: DbProduct) => number;
+  onAddToCart: (p: DbProduct) => void;
+  onRemoveFromCart: (code: string) => void;
+  onCheckout: (p: DbProduct) => void;
+  onReorder: (p: DbProduct) => void;
+  checkoutLabel: string;
+  reorderLabel: string;
+}) {
+  const theme = THEME_CLASSES[group.colorTheme] ?? THEME_CLASSES.blue;
+  const [showMore, setShowMore] = useState(false);
+
+  // 自動グループ（フォールバック）かつ期間・配送タイプがある商品の場合、期間別表示
+  const isAutoGroup = group.id.startsWith("auto-");
+  const hasDuration = products.some(p => p.duration_months != null && p.duration_months > 0);
+  const hasShippingVariants = products.some(p => (p.shipping_delay_days ?? 0) > 0);
+  const useDurationView = isAutoGroup && hasDuration;
+
+  // 期間別にグループ化
+  const durationGroups = useMemo(() => {
+    if (!useDurationView) return null;
+    const map = new Map<number, DbProduct[]>();
+    const noDuration: DbProduct[] = [];
+    for (const p of products) {
+      if (p.duration_months != null && p.duration_months > 0) {
+        if (!map.has(p.duration_months)) map.set(p.duration_months, []);
+        map.get(p.duration_months)!.push(p);
+      } else {
+        noDuration.push(p);
+      }
+    }
+    const sorted = [...map.entries()].sort((a, b) => a[0] - b[0]);
+    return { byDuration: sorted, noDuration };
+  }, [products, useDurationView]);
+
+  // 3ヶ月以下 / 4ヶ月以上に分割
+  const DEFAULT_VISIBLE_MONTHS = 3;
+  const visibleDurations = durationGroups?.byDuration.filter(([m]) => m <= DEFAULT_VISIBLE_MONTHS) ?? [];
+  const moreDurations = durationGroups?.byDuration.filter(([m]) => m > DEFAULT_VISIBLE_MONTHS) ?? [];
+  const hasMoreDurations = moreDurations.length > 0;
+
+  // 商品カードレンダラー
+  const renderProductCard = (p: DbProduct, compact = false) => {
+    const effectivePrice = getEffectivePrice(p);
+    const hasDiscount = effectivePrice < p.price;
+    const isStd = (p.shipping_delay_days ?? 0) === 0;
+    const shippingLabel = hasShippingVariants ? (isStd ? "通常便" : "予約便") : null;
+
+    return (
+      <div
+        key={p.code}
+        className={`w-full rounded-2xl border border-slate-100 bg-white shadow-sm transition active:scale-[0.99] ${compact ? "px-3 py-2.5" : "px-4 py-3.5"}`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {shippingLabel && (
+              <span className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                isStd ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"
+              }`}>
+                {shippingLabel}
+              </span>
+            )}
+            <span className="text-xs font-semibold text-slate-900 truncate">{p.title}</span>
+          </div>
+          <div className="text-right whitespace-nowrap shrink-0">
+            {hasDiscount && (
+              <span className="text-[10px] text-slate-400 line-through mr-1">¥{p.price.toLocaleString()}</span>
+            )}
+            <span className={`text-sm font-bold ${hasDiscount ? "text-pink-600" : "text-slate-900"}`}>
+              ¥{effectivePrice.toLocaleString()}
+            </span>
+            <span className="text-[9px] text-slate-400 ml-0.5">{cartMode ? "税別送料別" : ""}</span>
+          </div>
+        </div>
+        <div className="mt-2">
+          {isReorderFlow ? (
+            <button type="button" onClick={() => onReorder(p)}
+              className="w-full rounded-full bg-pink-500 text-white py-1.5 text-[11px] font-semibold">
+              {reorderLabel}
+            </button>
+          ) : cartMode ? (
+            isInCart(p.code) ? (
+              <button type="button" onClick={() => onRemoveFromCart(p.code)}
+                className="w-full rounded-full bg-slate-200 text-slate-600 py-1.5 text-[11px] font-semibold">
+                カートから削除
+              </button>
+            ) : (
+              <button type="button" onClick={() => onAddToCart(p)}
+                className="w-full rounded-full bg-blue-500 text-white py-1.5 text-[11px] font-semibold">
+                カートに追加
+              </button>
+            )
+          ) : (
+            <button type="button" onClick={() => onCheckout(p)}
+              className="w-full rounded-full bg-pink-500 text-white py-1.5 text-[11px] font-semibold">
+              {checkoutLabel}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <section className="space-y-3">
+      <div className={`rounded-xl border-l-4 px-3 py-2.5 ${theme.section}`}>
+        <div className="flex items-center gap-2">
+          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold text-white ${theme.badge}`}>
+            {group.badgeLabel}
+          </span>
+          <h2 className="text-base font-bold text-slate-900">{group.displayName}</h2>
+        </div>
+        <p className="mt-1 text-[11px] text-slate-600 ml-0.5">
+          {group.description}
+        </p>
+      </div>
+
+      {useDurationView ? (
+        <div className="space-y-4">
+          {/* 期間なし商品 */}
+          {durationGroups?.noDuration.map(p => renderProductCard(p))}
+
+          {/* 1-3ヶ月（デフォルト表示） */}
+          {visibleDurations.map(([months, prods]) => (
+            <div key={months}>
+              <div className="text-[11px] font-semibold text-slate-500 mb-1.5 pl-1">{months}ヶ月</div>
+              <div className="space-y-2">
+                {prods.map(p => renderProductCard(p, true))}
+              </div>
+            </div>
+          ))}
+
+          {/* 4ヶ月以上（折りたたみ） */}
+          {hasMoreDurations && !showMore && (
+            <button
+              type="button"
+              onClick={() => setShowMore(true)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-[11px] font-semibold text-slate-500 hover:bg-slate-100 transition"
+            >
+              {DEFAULT_VISIBLE_MONTHS + 1}ヶ月以上を表示（{moreDurations.reduce((s, [, p]) => s + p.length, 0)}プラン）
+            </button>
+          )}
+          {showMore && moreDurations.map(([months, prods]) => (
+            <div key={months}>
+              <div className="text-[11px] font-semibold text-slate-500 mb-1.5 pl-1">{months}ヶ月</div>
+              <div className="space-y-2">
+                {prods.map(p => renderProductCard(p, true))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {products.map(p => renderProductCard(p))}
+        </div>
+      )}
+    </section>
   );
 }
 
