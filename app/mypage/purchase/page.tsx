@@ -672,7 +672,7 @@ function ProductGroupSection({
             <span className={`text-sm font-bold ${hasDiscount ? "text-pink-600" : "text-slate-900"}`}>
               ¥{effectivePrice.toLocaleString()}
             </span>
-            <span className="text-[9px] text-slate-400 ml-0.5">{cartMode ? "税別送料別" : ""}</span>
+            <span className="text-[9px] text-slate-400 ml-0.5">{cartMode ? "税込・送料別" : "税込"}</span>
           </div>
         </div>
         <div className="mt-2">
