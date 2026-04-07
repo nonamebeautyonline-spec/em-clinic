@@ -33,9 +33,11 @@ export default function NonameMasterPage() {
   const [savingTracking, setSavingTracking] = useState<Record<string, boolean>>({});
   const [paymentMethod, setPaymentMethod] = useState<"all" | "credit_card" | "bank_transfer">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "unshipped" | "shipped" | "refund_cancel">("all");
+  const [pidSearch, setPidSearch] = useState("");
+  const [pidFilter, setPidFilter] = useState("");
 
   const offset = (page - 1) * limit;
-  const ordersKey = `/api/admin/noname-master?limit=${limit}&offset=${offset}&payment_method=${paymentMethod}&status=${statusFilter}`;
+  const ordersKey = `/api/admin/noname-master?limit=${limit}&offset=${offset}&payment_method=${paymentMethod}&status=${statusFilter}${pidFilter ? `&patient_id=${pidFilter}` : ""}`;
   const { data: ordersData, error: ordersError, isLoading, isValidating, mutate: mutateOrders } = useSWR<{ orders: Order[]; total: number; refund_summary?: { count: number; totalAmount: number } | null }>(ordersKey, { keepPreviousData: true });
   const orders = ordersData?.orders || [];
   const totalCount = ordersData?.total || 0;
@@ -369,6 +371,31 @@ export default function NonameMasterPage() {
       <div className="mb-4 flex flex-col gap-3">
         <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex flex-col gap-2">
+          {/* 患者ID検索 */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 w-16 shrink-0">患者ID</span>
+            <form
+              onSubmit={(e) => { e.preventDefault(); setPidFilter(pidSearch.trim()); setPage(1); }}
+              className="flex items-center gap-1"
+            >
+              <input
+                type="text"
+                value={pidSearch}
+                onChange={(e) => setPidSearch(e.target.value)}
+                placeholder="患者IDを入力"
+                className="px-3 py-1 text-sm border border-slate-300 rounded-lg w-48 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              />
+              <button type="submit" className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">検索</button>
+              {pidFilter && (
+                <button
+                  type="button"
+                  onClick={() => { setPidSearch(""); setPidFilter(""); setPage(1); }}
+                  className="px-3 py-1 text-sm bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300"
+                >解除</button>
+              )}
+            </form>
+            {pidFilter && <span className="text-xs text-blue-600 font-medium">PID: {pidFilter} で絞り込み中</span>}
+          </div>
           {/* 決済方法フィルター */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-500 w-16 shrink-0">決済方法</span>

@@ -44,6 +44,13 @@ export async function GET(req: NextRequest) {
       tenantId
     );
 
+    // 患者IDフィルター
+    const pidFilter = searchParams.get("patient_id") || "";
+    if (pidFilter) {
+      countQuery = countQuery.eq("patient_id", pidFilter);
+      dataQuery = dataQuery.eq("patient_id", pidFilter);
+    }
+
     // 決済方法フィルター
     if (paymentMethod === "credit_card") {
       countQuery = countQuery.eq("payment_method", "credit_card");
