@@ -2,7 +2,8 @@
 // ?fieldId=xxx で分野別商品のみ返す（マルチ分野モード時）
 import { NextRequest, NextResponse } from "next/server";
 import { getProducts } from "@/lib/products";
-import { resolveTenantId } from "@/lib/tenant";
+import { supabaseAdmin } from "@/lib/supabase";
+import { resolveTenantId, strictWithTenant } from "@/lib/tenant";
 import { isMultiFieldEnabled } from "@/lib/medical-fields";
 import { getActiveCampaigns, applyCampaignPrice } from "@/lib/pricing";
 
@@ -40,6 +41,7 @@ export async function GET(req: NextRequest) {
       discount_until: p.discount_until,
       field_id: p.field_id,
       category: p.category,
+      category_id: p.category_id,
       cool_type: p.cool_type,
       shipping_delay_days: p.shipping_delay_days,
       campaign_price: campaign ? effectivePrice : null,
@@ -48,5 +50,18 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  return NextResponse.json({ products: items });
+  // フォルダ一覧取得（購入画面のアコーディオン用）
+  let folders: { id: string; name: string; parent_id: string | null; sort_order: number }[] = [];
+  if (tenantId) {
+    const { data } = await strictWithTenant(
+      supabaseAdmin
+        .from("product_categories")
+        .select("id, name, parent_id, sort_order")
+        .order("sort_order"),
+      tenantId
+    );
+    folders = (data ?? []) as typeof folders;
+  }
+
+  return NextResponse.json({ products: items, folders });
 }

@@ -41,7 +41,15 @@ interface DbProduct {
   discount_until: string | null;
   cool_type?: "normal" | "chilled" | "frozen" | null;
   category?: string;
+  category_id?: string | null;
   shipping_delay_days?: number;
+}
+
+interface ProductFolder {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  sort_order: number;
 }
 
 interface FieldsResponse {
@@ -81,7 +89,7 @@ function PurchasePageInner() {
     swrFetcher,
     { revalidateOnFocus: false }
   );
-  const { data: productsData } = useSWR<{ products: (DbProduct & { field_id?: string | null })[] }>(
+  const { data: productsData } = useSWR<{ products: (DbProduct & { field_id?: string | null })[]; folders?: ProductFolder[] }>(
     "/api/mypage/products",
     swrFetcher,
     { revalidateOnFocus: false }
@@ -161,6 +169,7 @@ function PurchasePageInner() {
     () => productsData?.products ?? [],
     [productsData]
   );
+  const folders = useMemo(() => productsData?.folders ?? [], [productsData]);
 
   // マルチ分野モード: 選択分野の商品のみフィルタ（field_id未設定の商品は全分野で表示）
   const filteredProducts = useMemo(() => {
@@ -184,45 +193,93 @@ function PurchasePageInner() {
       }))
       .filter((s) => s.products.length > 0);
 
-    // フォールバック: グループ設定にマッチする商品がない場合、DB商品を薬剤名+用量で自動グループ化
+    // フォールバック: グループ設定にマッチする商品がない場合
+    // フォルダ構造があればフォルダベース、なければdrug_nameベースで自動グループ化
     if (sections.length === 0 && filteredProducts.length > 0) {
       const CATEGORY_THEMES: Record<string, string> = {
         injection: "blue", oral: "emerald", pill: "pink",
         supplement: "amber", fee: "slate",
       };
-      // 薬剤名+用量でグループ化（例: マンジャロ 2.5mg, マンジャロ 5mg）
-      const groupKey = (p: DbProduct) => {
-        const drug = p.drug_name || p.title.split(/\s/)[0] || "その他";
-        return p.dosage ? `${drug} ${p.dosage}` : drug;
-      };
-      const drugMap = new Map<string, DbProduct[]>();
-      for (const p of filteredProducts) {
-        if (p.category === "fee") continue;
-        const key = groupKey(p);
-        if (!drugMap.has(key)) drugMap.set(key, []);
-        drugMap.get(key)!.push(p);
-      }
-      let sortIdx = 0;
-      for (const [label, prods] of drugMap) {
-        const cat = prods[0]?.category || "oral";
-        // 期間でソート → 同一期間内は通常便(delay=0)→予約便の順
-        const sorted = prods.slice().sort((a, b) => {
-          const dm = (a.duration_months ?? 0) - (b.duration_months ?? 0);
-          if (dm !== 0) return dm;
-          return (a.shipping_delay_days ?? 0) - (b.shipping_delay_days ?? 0);
-        });
-        sections.push({
-          group: {
-            id: `auto-${label}`,
-            badgeLabel: prods[0]?.dosage || label,
-            displayName: label,
-            description: `${sorted.length}プラン`,
-            colorTheme: CATEGORY_THEMES[cat] || "blue",
-            sortOrder: sortIdx++,
-            productCodes: sorted.map(p => p.code),
-          },
-          products: sorted,
-        });
+
+      // フォルダベース: サブフォルダ（parent_id != null）を薬剤名グループとして使用
+      const subFolders = folders.filter(f => f.parent_id !== null).sort((a, b) => a.sort_order - b.sort_order);
+      const hasFolders = subFolders.length > 0;
+
+      if (hasFolders) {
+        // フォルダ→商品マッピング
+        let sortIdx = 0;
+        for (const folder of subFolders) {
+          const folderProducts = filteredProducts.filter(p => p.category_id === folder.id);
+          if (folderProducts.length === 0) continue;
+          const cat = folderProducts[0]?.category || "oral";
+          // 用量でサブグループ化
+          const dosageMap = new Map<string, DbProduct[]>();
+          for (const p of folderProducts) {
+            const key = p.dosage || "";
+            if (!dosageMap.has(key)) dosageMap.set(key, []);
+            dosageMap.get(key)!.push(p);
+          }
+          for (const [dosage, prods] of dosageMap) {
+            const label = dosage ? `${folder.name} ${dosage}` : folder.name;
+            const sorted = prods.slice().sort((a, b) => {
+              const dm = (a.duration_months ?? 0) - (b.duration_months ?? 0);
+              if (dm !== 0) return dm;
+              return (a.shipping_delay_days ?? 0) - (b.shipping_delay_days ?? 0);
+            });
+            sections.push({
+              group: {
+                id: `auto-${folder.id}-${dosage}`,
+                badgeLabel: dosage || folder.name,
+                displayName: label,
+                description: `${sorted.length}プラン`,
+                colorTheme: CATEGORY_THEMES[cat] || "blue",
+                sortOrder: sortIdx++,
+                productCodes: sorted.map(p => p.code),
+                _folderName: folder.name,
+              } as PurchaseGroup & { _folderName: string },
+              products: sorted,
+            });
+          }
+        }
+        // フォルダ未紐付けの商品（fee除く）
+        const unassigned = filteredProducts.filter(p => !p.category_id && p.category !== "fee");
+        if (unassigned.length > 0) {
+          const sorted = unassigned.slice().sort((a, b) => a.title.localeCompare(b.title));
+          sections.push({
+            group: {
+              id: "auto-unassigned",
+              badgeLabel: "その他",
+              displayName: "その他",
+              description: `${sorted.length}プラン`,
+              colorTheme: "blue",
+              sortOrder: 9999,
+              productCodes: sorted.map(p => p.code),
+            },
+            products: sorted,
+          });
+        }
+      } else {
+        // フォルダなし: drug_nameベースで自動グループ化（従来ロジック）
+        const drugMap = new Map<string, DbProduct[]>();
+        for (const p of filteredProducts) {
+          if (p.category === "fee") continue;
+          const key = p.dosage ? `${p.drug_name || "その他"} ${p.dosage}` : (p.drug_name || "その他");
+          if (!drugMap.has(key)) drugMap.set(key, []);
+          drugMap.get(key)!.push(p);
+        }
+        let sortIdx = 0;
+        for (const [label, prods] of drugMap) {
+          const cat = prods[0]?.category || "oral";
+          const sorted = prods.slice().sort((a, b) => {
+            const dm = (a.duration_months ?? 0) - (b.duration_months ?? 0);
+            if (dm !== 0) return dm;
+            return (a.shipping_delay_days ?? 0) - (b.shipping_delay_days ?? 0);
+          });
+          sections.push({
+            group: { id: `auto-${label}`, badgeLabel: prods[0]?.dosage || label, displayName: label, description: `${sorted.length}プラン`, colorTheme: CATEGORY_THEMES[cat] || "blue", sortOrder: sortIdx++, productCodes: sorted.map(p => p.code) },
+            products: sorted,
+          });
+        }
       }
     }
 
@@ -300,23 +357,19 @@ function PurchasePageInner() {
 
       {/* コンテンツ */}
       <div className="mx-auto max-w-md px-4 pb-6 pt-3 space-y-6">
-        {groupedSections.map(({ group, products }) => (
-          <ProductGroupSection
-            key={group.id}
-            group={group}
-            products={products}
-            cartMode={cartMode}
-            isReorderFlow={isReorderFlow}
-            isInCart={isInCart}
-            getEffectivePrice={getEffectivePrice}
-            onAddToCart={handleAddToCart}
-            onRemoveFromCart={handleRemoveFromCart}
-            onCheckout={handleCheckout}
-            onReorder={handleReorder}
-            checkoutLabel={config.checkoutButtonLabel}
-            reorderLabel={config.reorderButtonLabel}
-          />
-        ))}
+        <DrugAccordionView
+          sections={groupedSections}
+          cartMode={cartMode}
+          isReorderFlow={isReorderFlow}
+          isInCart={isInCart}
+          getEffectivePrice={getEffectivePrice}
+          onAddToCart={handleAddToCart}
+          onRemoveFromCart={handleRemoveFromCart}
+          onCheckout={handleCheckout}
+          onReorder={handleReorder}
+          checkoutLabel={config.checkoutButtonLabel}
+          reorderLabel={config.reorderButtonLabel}
+        />
 
         {config.footerNote && (
           <p className="mt-4 text-[10px] text-slate-400 leading-relaxed whitespace-pre-line">
@@ -343,6 +396,102 @@ function PurchasePageInner() {
         />
       )}
     </div>
+  );
+}
+
+// 薬剤名アコーディオン → 用量グループ → 期間・配送タイプ の3階層表示
+function DrugAccordionView({
+  sections, cartMode, isReorderFlow, isInCart, getEffectivePrice,
+  onAddToCart, onRemoveFromCart, onCheckout, onReorder, checkoutLabel, reorderLabel,
+}: {
+  sections: { group: PurchaseGroup; products: DbProduct[] }[];
+  cartMode: boolean;
+  isReorderFlow: boolean;
+  isInCart: (code: string) => boolean;
+  getEffectivePrice: (p: DbProduct) => number;
+  onAddToCart: (p: DbProduct) => void;
+  onRemoveFromCart: (code: string) => void;
+  onCheckout: (p: DbProduct) => void;
+  onReorder: (p: DbProduct) => void;
+  checkoutLabel: string;
+  reorderLabel: string;
+}) {
+  const [openDrug, setOpenDrug] = useState<string | null>(null);
+
+  // _folderName でグループ化（アコーディオン見出し）
+  const drugGroups = useMemo(() => {
+    const map = new Map<string, { group: PurchaseGroup; products: DbProduct[] }[]>();
+    for (const section of sections) {
+      const folderName = (section.group as PurchaseGroup & { _folderName?: string })._folderName || section.group.displayName;
+      if (!map.has(folderName)) map.set(folderName, []);
+      map.get(folderName)!.push(section);
+    }
+    return [...map.entries()];
+  }, [sections]);
+
+  // 薬剤名が1つだけ → アコーディオンなしで直接表示
+  const singleDrug = drugGroups.length === 1;
+
+  return (
+    <>
+      {drugGroups.map(([drugName, subSections]) => {
+        const isOpen = singleDrug || openDrug === drugName;
+        const hasMultipleDosages = subSections.length > 1;
+        const theme = THEME_CLASSES[subSections[0].group.colorTheme] ?? THEME_CLASSES.blue;
+
+        return (
+          <div key={drugName}>
+            {/* 薬剤名見出し（アコーディオン） */}
+            {!singleDrug && (
+              <button
+                type="button"
+                onClick={() => setOpenDrug(isOpen ? null : drugName)}
+                className={`w-full rounded-xl border-l-4 px-4 py-3 flex items-center justify-between transition-colors ${theme.section}`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold text-white ${theme.badge}`}>
+                    {drugName}
+                  </span>
+                  <span className="text-[11px] text-slate-500">
+                    {subSections.reduce((s, sec) => s + sec.products.length, 0)}プラン
+                  </span>
+                </div>
+                <svg
+                  className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            )}
+
+            {/* 用量グループ（展開時） */}
+            {isOpen && (
+              <div className={`space-y-3 ${singleDrug ? "" : "mt-2 ml-2"}`}>
+                {subSections.map(({ group, products }) => (
+                  <ProductGroupSection
+                    key={group.id}
+                    group={group}
+                    products={products}
+                    cartMode={cartMode}
+                    isReorderFlow={isReorderFlow}
+                    isInCart={isInCart}
+                    getEffectivePrice={getEffectivePrice}
+                    onAddToCart={onAddToCart}
+                    onRemoveFromCart={onRemoveFromCart}
+                    onCheckout={onCheckout}
+                    onReorder={onReorder}
+                    checkoutLabel={checkoutLabel}
+                    reorderLabel={reorderLabel}
+                    compact={!singleDrug && hasMultipleDosages}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
   );
 }
 
@@ -445,7 +594,7 @@ function CartFloatingBar({
 // 商品グループセクション（期間別・配送タイプ別の整理表示対応）
 function ProductGroupSection({
   group, products, cartMode, isReorderFlow, isInCart, getEffectivePrice,
-  onAddToCart, onRemoveFromCart, onCheckout, onReorder, checkoutLabel, reorderLabel,
+  onAddToCart, onRemoveFromCart, onCheckout, onReorder, checkoutLabel, reorderLabel, compact,
 }: {
   group: PurchaseGroup;
   products: DbProduct[];
@@ -459,6 +608,7 @@ function ProductGroupSection({
   onReorder: (p: DbProduct) => void;
   checkoutLabel: string;
   reorderLabel: string;
+  compact?: boolean;
 }) {
   const theme = THEME_CLASSES[group.colorTheme] ?? THEME_CLASSES.blue;
   const [showMore, setShowMore] = useState(false);
