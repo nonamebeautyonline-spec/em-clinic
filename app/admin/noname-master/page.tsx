@@ -583,8 +583,8 @@ export default function NonameMasterPage() {
                         {order.patient_id}
                       </button>
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-slate-900">
-                      {order.product_name}
+                    <td className="px-3 py-2 text-sm text-slate-900 max-w-[200px] truncate whitespace-nowrap" title={order.product_name?.replace(/\n/g, " ")}>
+                      {order.product_name?.replace(/\n/g, " ")}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-right text-slate-900">
                       {order.amount ? `¥${order.amount.toLocaleString()}` : "-"}

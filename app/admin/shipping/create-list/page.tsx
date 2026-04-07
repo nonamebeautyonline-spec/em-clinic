@@ -88,6 +88,10 @@ export default function CreateShippingListPage() {
   const tableRef = useRef<HTMLTableElement>(null);
   const [dataInitialized, setDataInitialized] = useState(false);
 
+  // デフォルト配送業者を取得
+  const { data: shippingConfig } = useSWR<{ defaultCarrier?: "yamato" | "japanpost" }>("/api/admin/shipping/config");
+  const defaultCarrier = shippingConfig?.defaultCarrier || "yamato";
+
   const { data: pendingData, error: pendingError, isLoading: loading, isValidating } = useSWR<{
     orders: PendingOrder[];
     mergeableGroups: { patient_id: string; patient_name: string; postal_code?: string; count: number; orders?: PendingOrder[] }[];
@@ -640,7 +644,7 @@ export default function CreateShippingListPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">発送リスト</h1>
         <p className="text-slate-600 text-sm mt-1">
-          発送する注文を選択・編集して、ヤマトB2 CSV（送り状）を出力します
+          発送する注文を選択・編集して、CSV（送り状）を出力します
         </p>
       </div>
 
@@ -921,28 +925,32 @@ export default function CreateShippingListPage() {
           >
             {exporting ? "作成中..." : `🔗 共有リンク（${selectedCount}件）`}
           </button>
-          <button
-            onClick={handleExportYamatoB2}
-            disabled={exporting || selectedCount === 0}
-            className={`px-6 py-2 rounded-lg font-medium ${
-              exporting || selectedCount === 0
-                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                : "bg-blue-600 text-white hover:bg-blue-700"
-            }`}
-          >
-            {exporting ? "出力中..." : `📦 ヤマトB2 CSV出力（${selectedCount}件）`}
-          </button>
-          <button
-            onClick={handleExportJapanPost}
-            disabled={exporting || selectedCount === 0}
-            className={`px-6 py-2 rounded-lg font-medium ${
-              exporting || selectedCount === 0
-                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                : "bg-emerald-600 text-white hover:bg-emerald-700"
-            }`}
-          >
-            {exporting ? "出力中..." : `📮 日本郵便 CSV出力（${selectedCount}件）`}
-          </button>
+          {defaultCarrier === "yamato" && (
+            <button
+              onClick={handleExportYamatoB2}
+              disabled={exporting || selectedCount === 0}
+              className={`px-6 py-2 rounded-lg font-medium ${
+                exporting || selectedCount === 0
+                  ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
+            >
+              {exporting ? "出力中..." : `📦 ヤマトB2 CSV出力（${selectedCount}件）`}
+            </button>
+          )}
+          {defaultCarrier === "japanpost" && (
+            <button
+              onClick={handleExportJapanPost}
+              disabled={exporting || selectedCount === 0}
+              className={`px-6 py-2 rounded-lg font-medium ${
+                exporting || selectedCount === 0
+                  ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                  : "bg-emerald-600 text-white hover:bg-emerald-700"
+              }`}
+            >
+              {exporting ? "出力中..." : `📮 日本郵便 CSV出力（${selectedCount}件）`}
+            </button>
+          )}
         </div>
       </div>
 
