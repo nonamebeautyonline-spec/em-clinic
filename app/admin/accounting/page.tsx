@@ -800,7 +800,7 @@ function DailyBarChart({ data }: DailyBarChartProps) {
                   )}
                   {squareHeight > 0 && (
                     <div
-                      className="w-full bg-claude-parchment0"
+                      className="w-full bg-blue-500 rounded-t-sm"
                       style={{ height: `${squareHeight}%`, minHeight: squareHeight > 0 ? "2px" : 0 }}
                     />
                   )}
@@ -825,7 +825,7 @@ function DailyBarChart({ data }: DailyBarChartProps) {
         </div>
         <div className="flex justify-center gap-6 mt-4 text-xs">
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-claude-parchment0 rounded-sm"></div>
+            <div className="w-3 h-3 bg-blue-500 rounded-sm"></div>
             <span className="text-claude-olive">カード</span>
           </div>
           <div className="flex items-center gap-1">
