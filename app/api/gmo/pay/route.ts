@@ -361,7 +361,7 @@ export async function POST(req: NextRequest) {
                   email: shipping.email,
                 },
                 paymentMethod: "credit_card",
-                productName: product.title,
+                productName: isCartMode ? cart.productName : product.title,
                 amount: payAmount,
                 tenantId: tid,
               });
