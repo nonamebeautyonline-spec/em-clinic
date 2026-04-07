@@ -226,7 +226,7 @@ export default function AccountingPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       {/* 日次サマリー */}
-      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-[15px] font-semibold text-claude-near-black">日別サマリー</h2>
           <input
@@ -279,7 +279,7 @@ export default function AccountingPage() {
       </div>
 
       {/* 月次サマリー */}
-      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-[15px] font-semibold text-claude-near-black">月次サマリー</h2>
           <select
@@ -330,7 +330,7 @@ export default function AccountingPage() {
       </div>
 
       {/* カスタムサマリー — ダッシュボード風（日付範囲指定） */}
-      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-5 gap-3">
           <h2 className="text-[15px] font-semibold text-claude-near-black">カスタムサマリー</h2>
           <div className="flex items-center gap-2 flex-wrap">
@@ -475,14 +475,14 @@ export default function AccountingPage() {
       </div>
 
       {/* 日別売上グラフ */}
-      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6 overflow-visible">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 overflow-visible">
         <h2 className="text-[15px] font-semibold text-claude-near-black mb-5">日別売上</h2>
         <DailyBarChart data={dailyData} />
       </div>
 
       {/* 新規処方 vs 再処方 */}
       {dailyData.some(d => d.firstCount > 0 || d.reorderCount > 0) && (
-        <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6 overflow-visible">
+        <div className="bg-white rounded-2xl border border-slate-100 p-6 overflow-visible">
           <h2 className="text-[15px] font-semibold text-claude-near-black mb-5">新規処方 vs 再処方（日別件数）</h2>
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div className="p-4 rounded-2xl bg-emerald-50/60 text-center">
@@ -527,7 +527,7 @@ export default function AccountingPage() {
       )}
 
       {/* 売上分析 */}
-      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-[15px] font-semibold text-claude-near-black">売上分析</h2>
           <button

@@ -64,7 +64,7 @@ export default function LTVWidget() {
 
   if (isLoading) {
     return (
-      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6 animate-pulse">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 animate-pulse">
         <div className="h-4 w-32 bg-claude-parchment rounded mb-4" />
         <div className="h-64 bg-claude-parchment rounded" />
       </div>
@@ -73,7 +73,7 @@ export default function LTVWidget() {
 
   if (error) {
     return (
-      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-md font-bold text-claude-near-black mb-4">LTV分析</h3>
         <div className="flex items-center justify-center h-48 text-red-500 text-sm">{error instanceof Error ? error.message : "エラーが発生しました"}</div>
       </div>
@@ -82,7 +82,7 @@ export default function LTVWidget() {
 
   if (!data) {
     return (
-      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-md font-bold text-claude-near-black mb-4">LTV分析</h3>
         <div className="flex items-center justify-center h-48 text-claude-stone text-sm">
           データがありません
@@ -94,7 +94,7 @@ export default function LTVWidget() {
   return (
     <div className="space-y-6">
       {/* LTV概要 */}
-      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-md font-bold text-claude-near-black mb-4">LTV分析</h3>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -163,7 +163,7 @@ export default function LTVWidget() {
 
       {/* セグメント別LTV */}
       {data.segments.length > 0 && (
-        <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+        <div className="bg-white rounded-2xl border border-slate-100 p-6">
           <h3 className="text-md font-bold text-claude-near-black mb-4">セグメント別LTV</h3>
           <div className="space-y-3">
             {data.segments.map((seg) => (

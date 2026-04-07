@@ -112,7 +112,7 @@ export default function KPITargetWidget() {
 
   if (loading) {
     return (
-      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6 animate-pulse">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 animate-pulse">
         <div className="h-4 w-48 bg-claude-sand rounded mb-4" />
         <div className="space-y-4">
           <div className="h-16 bg-claude-parchment rounded" />
@@ -125,7 +125,7 @@ export default function KPITargetWidget() {
 
   return (
     <>
-      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         {/* ヘッダー */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -181,7 +181,7 @@ export default function KPITargetWidget() {
                     const val = actuals[mt];
                     if (val == null) return null;
                     return (
-                      <div key={mt} className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-3">
+                      <div key={mt} className="bg-white rounded-2xl border border-slate-100 p-3">
                         <div className="text-xs text-claude-olive">{config.label}</div>
                         <div className="text-lg font-bold text-claude-near-black mt-1">
                           {config.format(val)}

@@ -122,7 +122,7 @@ export default function SegmentWidget() {
 
   if (loading) {
     return (
-      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-md font-bold text-claude-near-black mb-4">
           セグメント分布
         </h3>
@@ -135,7 +135,7 @@ export default function SegmentWidget() {
 
   if (error) {
     return (
-      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-md font-bold text-claude-near-black mb-4">
           セグメント分布
         </h3>
@@ -148,7 +148,7 @@ export default function SegmentWidget() {
 
   if (total === 0 || chartData.length === 0) {
     return (
-      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-md font-bold text-claude-near-black mb-4">
           セグメント分布
         </h3>
@@ -176,7 +176,7 @@ export default function SegmentWidget() {
   }
 
   return (
-    <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+    <div className="bg-white rounded-2xl border border-slate-100 p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-md font-bold text-claude-near-black">セグメント分布</h3>
         <span className="text-xs text-claude-olive">合計 {total}人</span>

@@ -106,7 +106,7 @@ export default function CohortWidget() {
   // ローディング
   if (isLoading) {
     return (
-      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6 animate-pulse">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 animate-pulse">
         <div className="h-4 w-48 bg-claude-parchment rounded mb-4" />
         <div className="h-64 bg-claude-parchment rounded" />
       </div>
@@ -116,7 +116,7 @@ export default function CohortWidget() {
   // エラー
   if (error) {
     return (
-      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-lg font-bold text-claude-near-black mb-2">コホート分析</h3>
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
           {error instanceof Error ? error.message : "エラーが発生しました"}
@@ -128,7 +128,7 @@ export default function CohortWidget() {
   // データなし
   if (filteredData.length === 0) {
     return (
-      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-lg font-bold text-claude-near-black mb-2">コホート分析</h3>
         <p className="text-claude-olive text-sm">コホートデータがありません</p>
       </div>
@@ -137,7 +137,7 @@ export default function CohortWidget() {
 
   return (
     <div
-      className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6"
+      className="bg-white rounded-2xl border border-slate-100 p-6"
       ref={containerRef}
       style={{ position: "relative" }}
     >

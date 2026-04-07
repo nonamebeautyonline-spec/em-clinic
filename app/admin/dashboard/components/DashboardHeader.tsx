@@ -59,7 +59,7 @@ export function DashboardHeader({
         <div className="relative" ref={widgetMenuRef}>
           <button
             onClick={() => setShowWidgetMenu((prev: boolean) => !prev)}
-            className="p-2 bg-claude-ivory border border-claude-border-cream rounded-xl text-claude-stone hover:text-claude-charcoal hover:border-claude-ring-warm transition-colors"
+            className="p-2 bg-white border border-slate-100 rounded-xl text-claude-stone hover:text-claude-charcoal hover:border-claude-ring-warm transition-colors"
             aria-label="ウィジェット設定"
             title="ウィジェット表示設定"
           >
@@ -70,7 +70,7 @@ export function DashboardHeader({
           </button>
 
           {showWidgetMenu && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-claude-ivory border border-claude-border-cream rounded-xl shadow-whisper z-50 py-2 max-h-[70vh] overflow-y-auto">
+            <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-100 rounded-xl shadow-whisper z-50 py-2 max-h-[70vh] overflow-y-auto">
               <div className="px-3 py-2 border-b border-claude-border-cream">
                 <span className="text-xs font-semibold text-claude-stone uppercase tracking-wider">
                   KPIカード
@@ -149,14 +149,14 @@ export function DashboardHeader({
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="px-3 py-2 bg-claude-ivory border border-claude-border-cream rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-claude-terracotta/30"
+              className="px-3 py-2 bg-white border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-claude-terracotta/30"
             />
             <span className="text-claude-stone">〜</span>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="px-3 py-2 bg-claude-ivory border border-claude-border-cream rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-claude-terracotta/30"
+              className="px-3 py-2 bg-white border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-claude-terracotta/30"
             />
           </>
         )}

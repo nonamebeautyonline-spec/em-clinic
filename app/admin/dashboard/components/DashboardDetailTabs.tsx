@@ -11,7 +11,7 @@ const SegmentWidget = dynamic(
 
 function SegmentWidgetSkeleton() {
   return (
-    <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6 animate-pulse">
+    <div className="bg-white rounded-2xl border border-slate-100 p-6 animate-pulse">
       <div className="h-4 w-32 bg-claude-sand rounded mb-4" />
       <div className="h-48 bg-claude-parchment rounded" />
     </div>
@@ -27,7 +27,7 @@ interface DashboardDetailTabsProps {
 
 export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSettings }: DashboardDetailTabsProps) {
   return (
-    <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream">
+    <div className="bg-white rounded-2xl border border-slate-100">
       <div className="border-b border-claude-border-cream px-4 pt-4">
         <nav className="flex gap-1">
           <TabButton
@@ -151,7 +151,7 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
         {activeTab === "revenue" && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-5">
+              <div className="bg-white rounded-2xl border border-slate-100 p-5">
                 <div className="text-xs font-medium text-claude-stone mb-1">純売上</div>
                 <div className="text-xs text-claude-stone mb-2">返金後の金額</div>
                 <div className="text-2xl font-bold text-claude-near-black">
@@ -161,7 +161,7 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
               <StatCard label="総売上" value={`¥${(stats?.revenue.gross || 0).toLocaleString()}`} />
               <StatCard label="カード決済" value={`¥${(stats?.revenue.square || 0).toLocaleString()}`} />
               <StatCard label="銀行振込" value={`¥${(stats?.revenue.bankTransfer || 0).toLocaleString()}`} />
-              <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-5">
+              <div className="bg-white rounded-2xl border border-slate-100 p-5">
                 <div className="text-xs font-medium text-claude-error mb-2">返金</div>
                 <div className="text-2xl font-bold text-claude-error">
                   -¥{(stats?.revenue.refunded || 0).toLocaleString()}

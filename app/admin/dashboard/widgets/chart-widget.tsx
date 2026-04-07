@@ -221,7 +221,7 @@ export default function ChartWidget({
   // データがない場合の表示
   if (!hasData && !trendLoading) {
     return (
-      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
         <h3 className="text-md font-bold text-claude-near-black mb-4">売上推移</h3>
         <div className="flex items-center justify-center h-48 text-claude-stone text-sm">
           表示期間のデータがありません
@@ -236,7 +236,7 @@ export default function ChartWidget({
     <div className="space-y-6">
       {/* 売上推移エリアチャート */}
       {showRevenueChart && (
-        <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+        <div className="bg-white rounded-2xl border border-slate-100 p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <h3 className="text-md font-bold text-claude-near-black">
@@ -355,7 +355,7 @@ export default function ChartWidget({
 
       {/* 新規 vs 再処方 バーチャート（日別のみ表示） */}
       {showOrderChart && granularity === "daily" && (
-        <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+        <div className="bg-white rounded-2xl border border-slate-100 p-6">
           <h3 className="text-md font-bold text-claude-near-black mb-4">
             新規処方 vs 再処方（日別件数）
           </h3>

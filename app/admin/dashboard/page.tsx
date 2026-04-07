@@ -30,7 +30,7 @@ const PieChartsWidget = dynamic(
 // ウィジェット読み込み中のスケルトン
 function ChartWidgetSkeleton() {
   return (
-    <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6 animate-pulse">
+    <div className="bg-white rounded-2xl border border-slate-100 p-6 animate-pulse">
       <div className="h-4 w-32 bg-claude-sand rounded mb-4" />
       <div className="h-64 bg-claude-parchment rounded" />
     </div>
