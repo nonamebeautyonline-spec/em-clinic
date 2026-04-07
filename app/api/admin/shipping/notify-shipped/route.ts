@@ -104,6 +104,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const patients = await getTodayShippedPatients(tenantId);
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     let sent = 0;
     let failed = 0;
     let noUid = 0;
@@ -212,6 +214,23 @@ export async function POST(req: NextRequest) {
           }
 
           await Promise.allSettled(sideEffects);
+
+          // 送信成功時にnotify_shipped_atフラグを更新
+          if (sendOk) {
+            try {
+              await strictWithTenant(
+                supabaseAdmin.from("orders")
+                  .update({ notify_shipped_at: new Date().toISOString() })
+                  .eq("shipping_date", today)
+                  .eq("patient_id", p.patient_id)
+                  .is("notify_shipped_at", null),
+                tenantId
+              );
+            } catch (e) {
+              console.error(`[notify-shipped] notify_shipped_at更新失敗:`, e);
+            }
+          }
+
           return sendOk;
         })
       );

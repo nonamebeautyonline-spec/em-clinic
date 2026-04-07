@@ -57,6 +57,9 @@ export default function TrackingNumberPage() {
   const [fileDialogOpen, setFileDialogOpen] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
 
+  // 通知未送信の発送済み注文数
+  const [unnotifiedCount, setUnnotifiedCount] = useState(0);
+
   // 発送通知一斉送信
   const [notifyPreview, setNotifyPreview] = useState<{ patients: { patient_id: string; patient_name: string; line_id: string | null; is_blocked?: boolean }[]; summary: { total: number; sendable: number; no_uid: number; blocked?: number } } | null>(null);
   const [notifyLoading, setNotifyLoading] = useState(false);
@@ -95,6 +98,7 @@ export default function TrackingNumberPage() {
           notFound: data.summary.withoutTracking,
         },
       });
+      setUnnotifiedCount(data.unnotifiedCount || 0);
     } catch (err) {
       console.error("Load today shipped error:", err);
       setError(
@@ -343,6 +347,7 @@ export default function TrackingNumberPage() {
       const data = await res.json();
       setNotifyResult(data);
       setShowNotifyConfirm(false);
+      setUnnotifiedCount(0);
     } catch (err) {
       alert(err instanceof Error ? err.message : "送信に失敗しました");
     } finally {
@@ -467,6 +472,44 @@ export default function TrackingNumberPage() {
           </ul>
         </div>
       </div>
+
+      {/* 通知未送信の発送済み注文がある場合、常に通知カードを表示 */}
+      {unnotifiedCount > 0 && !result && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-amber-900">
+                📬 発送通知が未送信の注文があります（{unnotifiedCount}件）
+              </h3>
+              <p className="mt-1 text-xs text-amber-700">
+                本日発送済みで追跡番号が付与されていますが、まだ発送通知が送信されていません
+              </p>
+            </div>
+            <button
+              onClick={handleNotifyPreview}
+              disabled={notifyLoading}
+              className="ml-4 shrink-0 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 disabled:opacity-50 transition"
+            >
+              {notifyLoading ? "読込中..." : "送信対象を確認"}
+            </button>
+          </div>
+
+          {/* 通知送信結果（カード内に表示） */}
+          {notifyResult && (
+            <div className="mt-3 p-3 bg-white rounded border border-amber-200">
+              <p className="text-sm font-medium text-green-900">送信完了</p>
+              <div className="mt-1 flex flex-wrap gap-4 text-xs">
+                <span className="text-green-700">送信成功: <strong>{notifyResult.sent}</strong></span>
+                {notifyResult.failed > 0 && <span className="text-red-600">失敗: <strong>{notifyResult.failed}</strong></span>}
+                {(notifyResult.blocked ?? 0) > 0 && <span className="text-orange-600">ブロック中: <strong>{notifyResult.blocked}</strong></span>}
+                {notifyResult.no_uid > 0 && <span className="text-slate-500">LINE未連携: <strong>{notifyResult.no_uid}</strong></span>}
+                {(notifyResult.mark_updated ?? 0) > 0 && <span className="text-orange-600">マーク→処方ずみ: <strong>{notifyResult.mark_updated}</strong></span>}
+                {(notifyResult.menu_switched ?? 0) > 0 && <span className="text-blue-600">メニュー→処方後: <strong>{notifyResult.menu_switched}</strong></span>}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
