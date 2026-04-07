@@ -16,6 +16,8 @@ export default function robots(): MetadataRoute.Robots {
     "/questionnaire/",
     "/repair/",
     "/_next/image",
+    "/*opengraph-image",
+    "/*twitter-image",
   ];
 
   // LP・コラムのみ許可するパス（AIクローラー向け）
