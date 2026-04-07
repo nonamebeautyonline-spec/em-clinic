@@ -161,39 +161,13 @@ export async function POST(req: NextRequest) {
       // 新規トークンで決済
       // GMOトークンは1回限りなので、カード保存する場合は先にSaveCardしてから保存済みカードで決済
       if (saveCard && token) {
-        try {
-          const cardSeq = await saveGmoCard(patientId, token, tenantId);
-          if (cardSeq) {
-            // 保存成功 → 保存済みカードで決済実行
-            const memberId = await ensureGmoMember(patientId, tenantId);
-            payResult = await createGmoPaymentWithSavedCard({
-              memberId,
-              cardSeq,
-              amount: payAmount,
-              patientId,
-              productCode: effectiveProductCode,
-              mode,
-              reorderId: reorderId ?? undefined,
-              tenantId,
-              retUrl: tdsRetUrl,
-            });
-          } else {
-            // カード保存失敗 → トークンで直接決済（カード保存は諦める）
-            payResult = await createGmoPayment({
-              token: token!,
-              amount: payAmount,
-              patientId,
-              productCode: effectiveProductCode,
-              mode,
-              reorderId: reorderId ?? undefined,
-              tenantId,
-              retUrl: tdsRetUrl,
-            });
-          }
-        } catch (e) {
-          console.error("[gmo/pay] saveCard before payment failed, fallback to token:", e);
-          payResult = await createGmoPayment({
-            token: token!,
+        const cardSeq = await saveGmoCard(patientId, token, tenantId);
+        if (cardSeq) {
+          // 保存成功 → 保存済みカードで決済実行
+          const memberId = await ensureGmoMember(patientId, tenantId);
+          payResult = await createGmoPaymentWithSavedCard({
+            memberId,
+            cardSeq,
             amount: payAmount,
             patientId,
             productCode: effectiveProductCode,
@@ -202,6 +176,10 @@ export async function POST(req: NextRequest) {
             tenantId,
             retUrl: tdsRetUrl,
           });
+        } else {
+          // カード保存失敗 → トークンはSaveCardで消費済みのため再利用不可
+          // フロントにエラーを返し、ユーザーに再入力してもらう
+          payResult = { ok: false, error: "カード情報の登録に失敗しました。別のカードをお試しいただくか、再度入力してください。" };
         }
       } else {
         // カード保存不要 → トークンで直接決済
@@ -228,7 +206,7 @@ export async function POST(req: NextRequest) {
           access_pass: payResult.accessPass,
           patient_id: patientId,
           product_code: cart.productCode,
-          product_name: product.title,
+          product_name: isCartMode ? cart.productName : product.title,
           amount: payAmount,
           mode: mode || null,
           reorder_id: reorderId || null,
@@ -379,7 +357,7 @@ export async function POST(req: NextRequest) {
         );
         try {
           const { processAutoGrant } = await import("@/lib/point-auto-grant");
-          await processAutoGrant(tenantId || "", patientId, orderId, product.price);
+          await processAutoGrant(tenantId || "", patientId, orderId, payAmount);
         } catch (e) {
           console.error("[gmo/pay] point auto-grant failed:", e);
         }

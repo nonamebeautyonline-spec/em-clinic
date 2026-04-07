@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
 
     // payment_note（既存webhook互換）
     const noteParts: string[] = [`PID:${patientId}`];
-    let productPart = `Product:${productCode}`;
+    let productPart = `Product:${isCartMode ? cart.items.map(i => i.code).join("+") : effectiveProductCode}`;
     if (mode) productPart += ` (${mode})`;
     noteParts.push(productPart);
     if (reorderId) noteParts.push(`Reorder:${reorderId}`);
