@@ -231,7 +231,7 @@ function PurchasePageInner() {
                 id: `auto-${folder.id}-${dosage}`,
                 badgeLabel: dosage || folder.name,
                 displayName: label,
-                description: `${sorted.length}プラン`,
+                description: "",
                 colorTheme: CATEGORY_THEMES[cat] || "blue",
                 sortOrder: sortIdx++,
                 productCodes: sorted.map(p => p.code),
@@ -250,7 +250,7 @@ function PurchasePageInner() {
               id: "auto-unassigned",
               badgeLabel: "その他",
               displayName: "その他",
-              description: `${sorted.length}プラン`,
+              description: "",
               colorTheme: "blue",
               sortOrder: 9999,
               productCodes: sorted.map(p => p.code),
@@ -276,7 +276,7 @@ function PurchasePageInner() {
             return (a.shipping_delay_days ?? 0) - (b.shipping_delay_days ?? 0);
           });
           sections.push({
-            group: { id: `auto-${label}`, badgeLabel: prods[0]?.dosage || label, displayName: label, description: `${sorted.length}プラン`, colorTheme: CATEGORY_THEMES[cat] || "blue", sortOrder: sortIdx++, productCodes: sorted.map(p => p.code) },
+            group: { id: `auto-${label}`, badgeLabel: prods[0]?.dosage || label, displayName: label, description: "", colorTheme: CATEGORY_THEMES[cat] || "blue", sortOrder: sortIdx++, productCodes: sorted.map(p => p.code) },
             products: sorted,
           });
         }
@@ -452,9 +452,7 @@ function DrugAccordionView({
                   <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold text-white ${theme.badge}`}>
                     {drugName}
                   </span>
-                  <span className="text-[11px] text-slate-500">
-                    {subSections.reduce((s, sec) => s + sec.products.length, 0)}プラン
-                  </span>
+                  <span className="text-[11px] text-slate-500" />
                 </div>
                 <svg
                   className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
@@ -663,7 +661,7 @@ function ProductGroupSection({
                 {shippingLabel}
               </span>
             )}
-            <span className="text-xs font-semibold text-slate-900 truncate">{p.title}</span>
+            <span className="text-xs font-semibold text-slate-900">{p.title}</span>
           </div>
           <div className="text-right whitespace-nowrap shrink-0">
             {hasDiscount && (
@@ -713,9 +711,11 @@ function ProductGroupSection({
           </span>
           <h2 className="text-base font-bold text-slate-900">{group.displayName}</h2>
         </div>
-        <p className="mt-1 text-[11px] text-slate-600 ml-0.5">
-          {group.description}
-        </p>
+        {group.description && (
+          <p className="mt-1 text-[11px] text-slate-600 ml-0.5">
+            {group.description}
+          </p>
+        )}
       </div>
 
       {useDurationView ? (
