@@ -536,11 +536,14 @@ export default function NonameMasterPage() {
                   </td>
                 </tr>
               ) : (
-                orders.map((order) => (
-                  <tr key={order.id} className={`hover:bg-slate-50 ${order.is_overdue ? "bg-red-50 border-l-4 border-l-red-500" : ""}`}>
+                orders.map((order) => {
+                  const isRefundOrCancelled = !!(order.refund_status && order.refund_status !== "FAILED") || order.status === "cancelled";
+                  const showOverdue = order.is_overdue && !isRefundOrCancelled;
+                  return (
+                  <tr key={order.id} className={`hover:bg-slate-50 ${isRefundOrCancelled ? "opacity-50" : showOverdue ? "bg-red-50 border-l-4 border-l-red-500" : ""}`}>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-slate-900">
                       <div className="flex items-center gap-2">
-                        {order.is_overdue && (
+                        {showOverdue && (
                           <span className="px-2 py-0.5 text-xs font-bold rounded bg-red-600 text-white">
                             漏れ
                           </span>
@@ -825,7 +828,8 @@ export default function NonameMasterPage() {
                       )}
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
