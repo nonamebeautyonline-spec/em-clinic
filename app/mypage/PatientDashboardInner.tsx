@@ -73,34 +73,33 @@ export default function PatientDashboardInner() {
 
         {/* ヘッダー */}
         <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b border-slate-200">
-          <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
               {mpContent.logoUrl && (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={mpContent.logoUrl} alt={mpContent.clinicName || ""} className="h-10 object-contain" />
+                <img src={mpContent.logoUrl} alt={mpContent.clinicName || ""} className="h-10 shrink-0 object-contain" />
               )}
               {mpContent.clinicName && (
                 mpContent.clinicNameImageUrl
                   ? /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={mpContent.clinicNameImageUrl} alt={mpContent.clinicName} className="h-8 object-contain" />
-                  : <span className="text-lg font-bold" style={{ color: 'var(--mp-primary)' }}>{mpContent.clinicName}</span>
+                    <img src={mpContent.clinicNameImageUrl} alt={mpContent.clinicName} className="h-8 shrink-0 object-contain" />
+                  : <span className="text-sm font-bold truncate" style={{ color: 'var(--mp-primary)' }}>{mpContent.clinicName}</span>
               )}
               {!mpContent.logoUrl && !mpContent.clinicName && (
                 <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />
               )}
             </div>
 
-            <button className="flex items-center gap-3">
+            <div className="flex items-center gap-2 shrink-0">
               <div className="text-right">
-                <div className="text-sm font-semibold text-slate-800">
+                <div className="text-xs font-semibold text-slate-800">
                   {patient.displayName} さん
                 </div>
-                <div className="text-[11px] text-slate-500">
-                  Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` : "—"}
+                <div className="text-[10px] text-slate-500">
+                  PID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` : "—"}
                 </div>
               </div>
-              <div className="w-9 h-9 rounded-full bg-slate-200" />
-            </button>
+            </div>
           </div>
         </header>
 
