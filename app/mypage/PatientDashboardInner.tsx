@@ -77,12 +77,12 @@ export default function PatientDashboardInner() {
             <div className="flex items-center gap-2 min-w-0">
               {mpContent.logoUrl && (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={mpContent.logoUrl} alt={mpContent.clinicName || ""} className="h-10 shrink-0 object-contain" />
+                <img src={mpContent.logoUrl} alt={mpContent.clinicName || ""} className="h-8 shrink-0 object-contain max-w-[120px]" />
               )}
               {mpContent.clinicName && (
                 mpContent.clinicNameImageUrl
                   ? /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={mpContent.clinicNameImageUrl} alt={mpContent.clinicName} className="h-8 shrink-0 object-contain" />
+                    <img src={mpContent.clinicNameImageUrl} alt={mpContent.clinicName} className="h-6 shrink-0 object-contain max-w-[140px]" />
                   : <span className="text-sm font-bold truncate" style={{ color: 'var(--mp-primary)' }}>{mpContent.clinicName}</span>
               )}
               {!mpContent.logoUrl && !mpContent.clinicName && (
@@ -90,13 +90,13 @@ export default function PatientDashboardInner() {
               )}
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-3 shrink-0">
               <div className="text-right">
-                <div className="text-xs font-semibold text-slate-800">
+                <div className="text-sm font-semibold text-slate-800">
                   {patient.displayName} さん
                 </div>
-                <div className="text-[10px] text-slate-500">
-                  PID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` : "—"}
+                <div className="text-[11px] text-slate-500">
+                  Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` : "—"}
                 </div>
               </div>
             </div>
