@@ -42,24 +42,24 @@ function ConversionTooltip({ active, payload, label }: { active?: boolean; paylo
   if (!data) return null;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-sm">
-      <p className="font-semibold text-slate-900 mb-2">{label}</p>
+    <div className="bg-claude-ivory border border-claude-border-warm rounded-lg shadow-lg p-3 text-sm">
+      <p className="font-heading text-claude-near-black mb-2">{label}</p>
       <div className="space-y-1">
         <div className="flex justify-between gap-4">
-          <span className="text-slate-600">新規患者:</span>
+          <span className="text-claude-olive">新規患者:</span>
           <span className="font-medium">{data.newPatients}人</span>
         </div>
         <div className="flex justify-between gap-4">
-          <span className="text-slate-600">再診患者:</span>
+          <span className="text-claude-olive">再診患者:</span>
           <span className="font-medium">{data.returnedPatients}人</span>
         </div>
         <div className="flex justify-between gap-4">
-          <span className="text-slate-600">転換率:</span>
+          <span className="text-claude-olive">転換率:</span>
           <span className="font-bold text-blue-600">{data.conversionRate}%</span>
         </div>
         {data.avgDaysToReturn !== null && (
           <div className="flex justify-between gap-4">
-            <span className="text-slate-600">平均再診日数:</span>
+            <span className="text-claude-olive">平均再診日数:</span>
             <span className="font-medium">{data.avgDaysToReturn}日</span>
           </div>
         )}
@@ -73,17 +73,17 @@ export default function ConversionWidget() {
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-100 p-6 animate-pulse">
-        <div className="h-4 w-48 bg-slate-50 rounded mb-4" />
-        <div className="h-64 bg-slate-50 rounded" />
+      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6 animate-pulse">
+        <div className="h-4 w-48 bg-claude-parchment rounded mb-4" />
+        <div className="h-64 bg-claude-parchment rounded" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-100 p-6">
-        <h3 className="text-md font-bold text-slate-900 mb-4">初診→再診転換率</h3>
+      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+        <h3 className="text-md font-heading text-claude-near-black mb-4">初診→再診転換率</h3>
         <div className="flex items-center justify-center h-48 text-red-500 text-sm">{error instanceof Error ? error.message : "エラーが発生しました"}</div>
       </div>
     );
@@ -91,9 +91,9 @@ export default function ConversionWidget() {
 
   if (!data || data.cohorts.length === 0) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-100 p-6">
-        <h3 className="text-md font-bold text-slate-900 mb-4">初診→再診転換率</h3>
-        <div className="flex items-center justify-center h-48 text-slate-400 text-sm">
+      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+        <h3 className="text-md font-heading text-claude-near-black mb-4">初診→再診転換率</h3>
+        <div className="flex items-center justify-center h-48 text-claude-stone text-sm">
           データがありません
         </div>
       </div>
@@ -105,19 +105,19 @@ export default function ConversionWidget() {
       ? "text-yellow-600" : "text-red-600";
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-6">
+    <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-md font-bold text-slate-900">初診→再診転換率</h3>
+        <h3 className="text-md font-heading text-claude-near-black">初診→再診転換率</h3>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <div className="text-xs text-slate-500">全体転換率</div>
+            <div className="text-xs text-claude-olive">全体転換率</div>
             <div className={`text-2xl font-bold ${rateColor}`}>
               {data.overall.conversionRate}%
             </div>
           </div>
           <div className="text-right">
-            <div className="text-xs text-slate-500">再診</div>
-            <div className="text-sm font-medium text-slate-900">
+            <div className="text-xs text-claude-olive">再診</div>
+            <div className="text-sm font-medium text-claude-near-black">
               {data.overall.totalReturned} / {data.overall.totalNew}人
             </div>
           </div>

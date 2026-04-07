@@ -30,9 +30,9 @@ const PieChartsWidget = dynamic(
 // ウィジェット読み込み中のスケルトン
 function ChartWidgetSkeleton() {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-6 animate-pulse">
-      <div className="h-4 w-32 bg-slate-100 rounded mb-4" />
-      <div className="h-64 bg-slate-50 rounded" />
+    <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6 animate-pulse">
+      <div className="h-4 w-32 bg-claude-sand rounded mb-4" />
+      <div className="h-64 bg-claude-parchment rounded" />
     </div>
   );
 }
@@ -115,10 +115,10 @@ export default function EnhancedDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-claude-parchment flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-slate-900 border-t-transparent"></div>
-          <p className="mt-4 text-slate-400">読み込み中...</p>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-claude-terracotta border-t-transparent"></div>
+          <p className="mt-4 text-claude-stone">読み込み中...</p>
         </div>
       </div>
     );

@@ -51,15 +51,15 @@ function SegmentTooltip({ active, payload }: { active?: boolean; payload?: { pay
   const data = payload[0].payload as SegmentData;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-sm">
+    <div className="bg-claude-ivory border border-claude-border-warm rounded-lg shadow-lg p-3 text-sm">
       <div className="flex items-center gap-2 mb-1">
         <span
           className="inline-block w-3 h-3 rounded-full"
           style={{ backgroundColor: data.color }}
         />
-        <span className="font-semibold text-slate-900">{data.name}</span>
+        <span className="font-heading text-claude-near-black">{data.name}</span>
       </div>
-      <p className="text-slate-600">{data.value}人</p>
+      <p className="text-claude-olive">{data.value}人</p>
     </div>
   );
 }
@@ -122,8 +122,8 @@ export default function SegmentWidget() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-100 p-6">
-        <h3 className="text-md font-bold text-slate-900 mb-4">
+      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+        <h3 className="text-md font-heading text-claude-near-black mb-4">
           セグメント分布
         </h3>
         <div className="flex items-center justify-center h-48">
@@ -135,8 +135,8 @@ export default function SegmentWidget() {
 
   if (error) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-100 p-6">
-        <h3 className="text-md font-bold text-slate-900 mb-4">
+      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+        <h3 className="text-md font-heading text-claude-near-black mb-4">
           セグメント分布
         </h3>
         <div className="flex items-center justify-center h-48 text-red-500 text-sm">
@@ -148,11 +148,11 @@ export default function SegmentWidget() {
 
   if (total === 0 || chartData.length === 0) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-100 p-6">
-        <h3 className="text-md font-bold text-slate-900 mb-4">
+      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+        <h3 className="text-md font-heading text-claude-near-black mb-4">
           セグメント分布
         </h3>
-        <div className="flex flex-col items-center justify-center h-48 text-slate-400 text-sm gap-2">
+        <div className="flex flex-col items-center justify-center h-48 text-claude-stone text-sm gap-2">
           <span>セグメントデータがありません</span>
           <button
             onClick={async () => {
@@ -176,10 +176,10 @@ export default function SegmentWidget() {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-6">
+    <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-md font-bold text-slate-900">セグメント分布</h3>
-        <span className="text-xs text-slate-500">合計 {total}人</span>
+        <h3 className="text-md font-heading text-claude-near-black">セグメント分布</h3>
+        <span className="text-xs text-claude-olive">合計 {total}人</span>
       </div>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
@@ -204,7 +204,7 @@ export default function SegmentWidget() {
               wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
               iconType="circle"
               formatter={(value: string) => (
-                <span className="text-slate-700">{value}</span>
+                <span className="text-claude-charcoal">{value}</span>
               )}
             />
           </PieChart>
@@ -223,15 +223,15 @@ export default function SegmentWidget() {
                   className="inline-block w-2.5 h-2.5 rounded-full"
                   style={{ backgroundColor: SEGMENT_CONFIG[seg].color }}
                 />
-                <span className="text-sm text-slate-700">
+                <span className="text-sm text-claude-charcoal">
                   {SEGMENT_CONFIG[seg].label}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-slate-900">
+                <span className="text-sm font-medium text-claude-near-black">
                   {count}人
                 </span>
-                <span className="text-xs text-slate-400 w-10 text-right">
+                <span className="text-xs text-claude-stone w-10 text-right">
                   {pct}%
                 </span>
               </div>

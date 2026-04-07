@@ -52,7 +52,7 @@ function LoadingFallback() {
     <div className="p-6 max-w-4xl mx-auto">
       <div className="text-center py-12">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
-        <p className="mt-4 text-slate-600">読み込み中...</p>
+        <p className="mt-4 text-claude-olive">読み込み中...</p>
       </div>
     </div>
   );
@@ -141,20 +141,20 @@ function AccountingStatementContent() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push("/admin/accounting")}
-            className="text-slate-600 hover:text-slate-900"
+            className="text-claude-olive hover:text-claude-near-black"
           >
             ← 戻る
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">月次収支表</h1>
-            <p className="text-slate-600 text-sm mt-1">損益計算書</p>
+            <h1 className="text-2xl font-heading text-claude-near-black">月次収支表</h1>
+            <p className="text-claude-olive text-sm mt-1">損益計算書</p>
           </div>
         </div>
         <div className="flex items-center gap-4">
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 border border-claude-ring-warm rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-claude-terracotta"
           >
             {monthOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -164,7 +164,7 @@ function AccountingStatementContent() {
           </select>
           <button
             onClick={() => window.print()}
-            className="px-4 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-100"
+            className="px-4 py-2 border border-claude-ring-warm rounded-lg text-sm hover:bg-claude-sand"
           >
             印刷
           </button>
@@ -174,14 +174,14 @@ function AccountingStatementContent() {
       {loading ? (
         <div className="text-center py-12">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
-          <p className="mt-4 text-slate-600">読み込み中...</p>
+          <p className="mt-4 text-claude-olive">読み込み中...</p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow print:shadow-none">
+        <div className="bg-claude-ivory rounded-lg shadow print:shadow-none">
           {/* タイトル */}
           <div className="text-center py-6 border-b">
-            <h2 className="text-xl font-bold text-slate-900">損益計算書</h2>
-            <p className="text-slate-600 mt-1">{formatMonthLabel(selectedMonth)}</p>
+            <h2 className="text-xl font-heading text-claude-near-black">損益計算書</h2>
+            <p className="text-claude-olive mt-1">{formatMonthLabel(selectedMonth)}</p>
           </div>
 
           {/* 収支表本体 */}
@@ -280,23 +280,23 @@ function AccountingStatementContent() {
 
           {/* 参考情報 */}
           {costData && (
-            <div className="p-6 border-t bg-slate-50 print:hidden">
-              <h3 className="text-sm font-bold text-slate-700 mb-3">参考データ（システム自動計算）</h3>
+            <div className="p-6 border-t bg-claude-parchment print:hidden">
+              <h3 className="text-sm font-bold text-claude-charcoal mb-3">参考データ（システム自動計算）</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
-                  <div className="text-slate-500">注文数</div>
+                  <div className="text-claude-olive">注文数</div>
                   <div className="font-medium">{costData.orderCount}件</div>
                 </div>
                 <div>
-                  <div className="text-slate-500">カード売上</div>
+                  <div className="text-claude-olive">カード売上</div>
                   <div className="font-medium">{formatYen(costData.cardRevenue)}</div>
                 </div>
                 <div>
-                  <div className="text-slate-500">カード手数料(3.6%)</div>
+                  <div className="text-claude-olive">カード手数料(3.6%)</div>
                   <div className="font-medium">{formatYen(costData.processingFee)}</div>
                 </div>
                 <div>
-                  <div className="text-slate-500">薬品原価（計算値）</div>
+                  <div className="text-claude-olive">薬品原価（計算値）</div>
                   <div className="font-medium">{formatYen(costData.totalCost)}</div>
                 </div>
               </div>
@@ -306,8 +306,8 @@ function AccountingStatementContent() {
           {/* メモ */}
           {data?.notes && (
             <div className="p-6 border-t">
-              <h3 className="text-sm font-bold text-slate-700 mb-2">メモ</h3>
-              <p className="text-sm text-slate-600 whitespace-pre-wrap">{data.notes}</p>
+              <h3 className="text-sm font-bold text-claude-charcoal mb-2">メモ</h3>
+              <p className="text-sm text-claude-olive whitespace-pre-wrap">{data.notes}</p>
             </div>
           )}
         </div>
@@ -324,7 +324,7 @@ function StatementSection({ title }: StatementSectionProps) {
   return (
     <tr>
       <td colSpan={2} className="pt-6 pb-2">
-        <div className="text-sm font-bold text-slate-700 border-b border-slate-200 pb-1">
+        <div className="text-sm font-bold text-claude-charcoal border-b border-claude-border-warm pb-1">
           {title}
         </div>
       </td>
@@ -360,7 +360,7 @@ function StatementRow({
 
   return (
     <tr
-      className={`${highlight ? "bg-blue-50" : ""} ${isFinal ? "border-t-2 border-slate-900" : ""}`}
+      className={`${highlight ? "bg-claude-parchment" : ""} ${isFinal ? "border-t-2 border-claude-near-black" : ""}`}
     >
       <td
         className={`py-2 ${isSubtotal ? "pl-4" : isTotal ? "" : "pl-8"} ${
@@ -368,11 +368,11 @@ function StatementRow({
         }`}
       >
         {label}
-        {note && <span className="text-xs text-slate-500 ml-2">{note}</span>}
+        {note && <span className="text-xs text-claude-olive ml-2">{note}</span>}
       </td>
       <td
         className={`py-2 text-right ${isTotal || isSubtotal ? "font-bold" : ""} ${
-          value < 0 ? "text-red-600" : ""
+          value < 0 ? "text-claude-error" : ""
         }`}
       >
         ¥{formatValue(value)}

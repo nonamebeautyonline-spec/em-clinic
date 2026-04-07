@@ -78,7 +78,7 @@ function LoadingFallback() {
     <div className="p-6 max-w-4xl mx-auto">
       <div className="text-center py-12">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
-        <p className="mt-4 text-slate-600">読み込み中...</p>
+        <p className="mt-4 text-claude-olive">読み込み中...</p>
       </div>
     </div>
   );
@@ -189,19 +189,19 @@ function AccountingInputContent() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push("/admin/accounting")}
-            className="text-slate-600 hover:text-slate-900"
+            className="text-claude-olive hover:text-claude-near-black"
           >
             ← 戻る
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">月次詳細入力</h1>
-            <p className="text-slate-600 text-sm mt-1">売上原価・経費の入力</p>
+            <h1 className="text-2xl font-heading text-claude-near-black">月次詳細入力</h1>
+            <p className="text-claude-olive text-sm mt-1">売上原価・経費の入力</p>
           </div>
         </div>
         <select
           value={selectedMonth}
           onChange={(e) => setSelectedMonth(e.target.value)}
-          className="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-4 py-2 border border-claude-ring-warm rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-claude-terracotta"
         >
           {monthOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -214,7 +214,7 @@ function AccountingInputContent() {
       {loading ? (
         <div className="text-center py-12">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
-          <p className="mt-4 text-slate-600">読み込み中...</p>
+          <p className="mt-4 text-claude-olive">読み込み中...</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -223,8 +223,8 @@ function AccountingInputContent() {
             <div
               className={`p-4 rounded-lg ${
                 message.type === "success"
-                  ? "bg-green-50 text-green-800 border border-green-200"
-                  : "bg-red-50 text-red-800 border border-red-200"
+                  ? "bg-claude-sand text-emerald-700 border border-claude-border-warm"
+                  : "bg-red-50 text-claude-error border border-red-200"
               }`}
             >
               {message.text}
@@ -233,31 +233,31 @@ function AccountingInputContent() {
 
           {/* 自動計算データ（参考値） */}
           {costData && (
-            <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
+            <div className="bg-claude-parchment rounded-lg p-6 border border-claude-border-warm">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-blue-900">システム自動計算（参考値）</h2>
                 <button
                   onClick={applyCostData}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                  className="px-4 py-2 bg-claude-terracotta text-white rounded-lg hover:bg-claude-coral text-sm"
                 >
                   下の入力欄に反映
                 </button>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
-                  <div className="text-blue-600">総売上</div>
+                  <div className="text-claude-terracotta">総売上</div>
                   <div className="font-bold text-blue-900">{formatYen(costData.totalRevenue)}</div>
                 </div>
                 <div>
-                  <div className="text-blue-600">薬品原価</div>
+                  <div className="text-claude-terracotta">薬品原価</div>
                   <div className="font-bold text-blue-900">{formatYen(costData.totalCost)}</div>
                 </div>
                 <div>
-                  <div className="text-blue-600">カード手数料(3.6%)</div>
+                  <div className="text-claude-terracotta">カード手数料(3.6%)</div>
                   <div className="font-bold text-blue-900">{formatYen(costData.processingFee)}</div>
                 </div>
                 <div>
-                  <div className="text-blue-600">注文数</div>
+                  <div className="text-claude-terracotta">注文数</div>
                   <div className="font-bold text-blue-900">{costData.orderCount}件</div>
                 </div>
               </div>
@@ -265,8 +265,8 @@ function AccountingInputContent() {
           )}
 
           {/* 売上セクション */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-bold text-slate-900 mb-4 border-b pb-2">売上</h2>
+          <div className="bg-claude-ivory rounded-lg shadow p-6">
+            <h2 className="text-lg font-heading text-claude-near-black mb-4 border-b pb-2">売上</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <InputField
                 label="純売上高"
@@ -277,8 +277,8 @@ function AccountingInputContent() {
           </div>
 
           {/* 売上原価セクション */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-bold text-slate-900 mb-4 border-b pb-2">売上原価</h2>
+          <div className="bg-claude-ivory rounded-lg shadow p-6">
+            <h2 className="text-lg font-heading text-claude-near-black mb-4 border-b pb-2">売上原価</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <InputField
                 label="薬品仕入高"
@@ -295,8 +295,8 @@ function AccountingInputContent() {
           </div>
 
           {/* 販売費及び一般管理費セクション */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-bold text-slate-900 mb-4 border-b pb-2">販売費及び一般管理費</h2>
+          <div className="bg-claude-ivory rounded-lg shadow p-6">
+            <h2 className="text-lg font-heading text-claude-near-black mb-4 border-b pb-2">販売費及び一般管理費</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <InputField
                 label="販管人件費"
@@ -387,12 +387,12 @@ function AccountingInputContent() {
           </div>
 
           {/* メモ */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-bold text-slate-900 mb-4 border-b pb-2">メモ</h2>
+          <div className="bg-claude-ivory rounded-lg shadow p-6">
+            <h2 className="text-lg font-heading text-claude-near-black mb-4 border-b pb-2">メモ</h2>
             <textarea
               value={formData.notes}
               onChange={(e) => handleNotesChange(e.target.value)}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-claude-ring-warm rounded-lg focus:outline-none focus:ring-2 focus:ring-claude-terracotta"
               rows={3}
               placeholder="備考など"
             />
@@ -402,14 +402,14 @@ function AccountingInputContent() {
           <div className="flex justify-end gap-4">
             <button
               onClick={() => router.push("/admin/accounting")}
-              className="px-6 py-3 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100"
+              className="px-6 py-3 border border-claude-ring-warm rounded-lg text-claude-charcoal hover:bg-claude-sand"
             >
               キャンセル
             </button>
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="px-6 py-3 bg-claude-terracotta text-white rounded-lg hover:bg-claude-coral disabled:opacity-50"
             >
               {saving ? "保存中..." : "保存する"}
             </button>
@@ -430,17 +430,17 @@ interface InputFieldProps {
 function InputField({ label, value, onChange, hint }: InputFieldProps) {
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1">
+      <label className="block text-sm font-medium text-claude-charcoal mb-1">
         {label}
-        {hint && <span className="text-xs text-slate-400 ml-2">({hint})</span>}
+        {hint && <span className="text-xs text-claude-stone ml-2">({hint})</span>}
       </label>
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">¥</span>
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-claude-stone">¥</span>
         <input
           type="text"
           value={value === 0 ? "" : value.toLocaleString()}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-right"
+          className="w-full pl-8 pr-4 py-2 border border-claude-ring-warm rounded-lg focus:outline-none focus:ring-2 focus:ring-claude-terracotta text-right"
           placeholder="0"
         />
       </div>

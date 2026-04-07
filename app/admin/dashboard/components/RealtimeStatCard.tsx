@@ -13,25 +13,25 @@ interface RealtimeStatCardProps {
 export function RealtimeStatCard({ label, value, unit, subText, icon, color, connected }: RealtimeStatCardProps) {
   const colorMap = {
     emerald: {
-      bg: "bg-emerald-50",
-      border: "border-emerald-200",
-      iconBg: "bg-emerald-100 text-emerald-600",
-      value: "text-emerald-700",
+      bg: "bg-claude-ivory",
+      border: "border-claude-border-warm",
+      iconBg: "bg-claude-sand text-claude-charcoal",
+      value: "text-claude-near-black",
       pulse: "bg-emerald-500",
     },
     blue: {
-      bg: "bg-blue-50",
-      border: "border-blue-200",
-      iconBg: "bg-blue-100 text-blue-600",
-      value: "text-blue-700",
-      pulse: "bg-blue-500",
+      bg: "bg-claude-ivory",
+      border: "border-claude-border-warm",
+      iconBg: "bg-claude-sand text-claude-charcoal",
+      value: "text-claude-near-black",
+      pulse: "bg-claude-terracotta",
     },
     violet: {
-      bg: "bg-violet-50",
-      border: "border-violet-200",
-      iconBg: "bg-violet-100 text-violet-600",
-      value: "text-violet-700",
-      pulse: "bg-violet-500",
+      bg: "bg-claude-ivory",
+      border: "border-claude-border-warm",
+      iconBg: "bg-claude-sand text-claude-charcoal",
+      value: "text-claude-near-black",
+      pulse: "bg-claude-coral",
     },
   };
   const c = colorMap[color];
@@ -49,13 +49,13 @@ export function RealtimeStatCard({ label, value, unit, subText, icon, color, con
         {icon}
       </div>
       <div>
-        <div className="text-xs font-medium text-slate-500">{label}</div>
-        <div className={`text-2xl font-bold ${c.value}`}>
+        <div className="text-xs font-medium text-claude-olive">{label}</div>
+        <div className={`text-2xl font-heading ${c.value}`}>
           {value.toLocaleString()}
-          <span className="text-sm font-normal text-slate-400 ml-1">{unit}</span>
+          <span className="text-sm font-normal text-claude-stone ml-1">{unit}</span>
         </div>
         {subText && (
-          <div className="text-[11px] text-slate-400 mt-0.5">{subText}</div>
+          <div className="text-[11px] text-claude-stone mt-0.5">{subText}</div>
         )}
       </div>
     </div>

@@ -36,10 +36,10 @@ type PeriodFilter = "6" | "12" | "all";
 function getCellColor(rate: number): string {
   if (rate >= 80) return "bg-green-600 text-white";
   if (rate >= 60) return "bg-green-400 text-white";
-  if (rate >= 40) return "bg-yellow-400 text-slate-900";
+  if (rate >= 40) return "bg-yellow-400 text-claude-near-black";
   if (rate >= 20) return "bg-orange-400 text-white";
   if (rate > 0) return "bg-red-400 text-white";
-  return "bg-slate-100 text-slate-400";
+  return "bg-claude-sand text-claude-stone";
 }
 
 /** リテンション率に応じたセル背景色（インラインスタイル用） */
@@ -106,9 +106,9 @@ export default function CohortWidget() {
   // ローディング
   if (isLoading) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-100 p-6 animate-pulse">
-        <div className="h-4 w-48 bg-slate-50 rounded mb-4" />
-        <div className="h-64 bg-slate-50 rounded" />
+      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6 animate-pulse">
+        <div className="h-4 w-48 bg-claude-parchment rounded mb-4" />
+        <div className="h-64 bg-claude-parchment rounded" />
       </div>
     );
   }
@@ -116,8 +116,8 @@ export default function CohortWidget() {
   // エラー
   if (error) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-100 p-6">
-        <h3 className="text-lg font-bold text-slate-900 mb-2">コホート分析</h3>
+      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+        <h3 className="text-lg font-heading text-claude-near-black mb-2">コホート分析</h3>
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
           {error instanceof Error ? error.message : "エラーが発生しました"}
         </div>
@@ -128,30 +128,30 @@ export default function CohortWidget() {
   // データなし
   if (filteredData.length === 0) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-100 p-6">
-        <h3 className="text-lg font-bold text-slate-900 mb-2">コホート分析</h3>
-        <p className="text-slate-500 text-sm">コホートデータがありません</p>
+      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
+        <h3 className="text-lg font-heading text-claude-near-black mb-2">コホート分析</h3>
+        <p className="text-claude-olive text-sm">コホートデータがありません</p>
       </div>
     );
   }
 
   return (
     <div
-      className="bg-white rounded-2xl border border-slate-100 p-6"
+      className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6"
       ref={containerRef}
       style={{ position: "relative" }}
     >
       {/* ヘッダー */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-bold text-slate-900">コホート分析</h3>
-          <p className="text-xs text-slate-500 mt-1">
+          <h3 className="text-lg font-heading text-claude-near-black">コホート分析</h3>
+          <p className="text-xs text-claude-olive mt-1">
             月別初回購入コホートのリテンション率
           </p>
         </div>
 
         {/* 期間選択 */}
-        <div className="flex gap-1 bg-slate-50 rounded-lg p-1">
+        <div className="flex gap-1 bg-claude-parchment rounded-lg p-1">
           {(
             [
               { value: "6", label: "6ヶ月" },
@@ -164,8 +164,8 @@ export default function CohortWidget() {
               onClick={() => setPeriod(opt.value)}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                 period === opt.value
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "bg-claude-ivory text-claude-near-black shadow-sm"
+                  : "text-claude-olive hover:text-claude-charcoal"
               }`}
             >
               {opt.label}
@@ -179,16 +179,16 @@ export default function CohortWidget() {
         <table className="w-full text-xs border-collapse">
           <thead>
             <tr>
-              <th className="text-left p-2 font-semibold text-slate-600 whitespace-nowrap sticky left-0 bg-white z-10">
+              <th className="text-left p-2 font-semibold text-claude-olive whitespace-nowrap sticky left-0 bg-claude-ivory z-10">
                 登録月
               </th>
-              <th className="p-2 font-semibold text-slate-600 whitespace-nowrap">
+              <th className="p-2 font-semibold text-claude-olive whitespace-nowrap">
                 人数
               </th>
               {Array.from({ length: maxOffset + 1 }, (_, i) => (
                 <th
                   key={i}
-                  className="p-2 font-semibold text-slate-600 whitespace-nowrap text-center"
+                  className="p-2 font-semibold text-claude-olive whitespace-nowrap text-center"
                 >
                   {i === 0 ? "初月" : `${i}ヶ月後`}
                 </th>
@@ -197,13 +197,13 @@ export default function CohortWidget() {
           </thead>
           <tbody>
             {filteredData.map((row) => (
-              <tr key={row.month} className="border-t border-slate-100">
+              <tr key={row.month} className="border-t border-claude-border-cream">
                 {/* 登録月 */}
-                <td className="p-2 font-medium text-slate-700 whitespace-nowrap sticky left-0 bg-white z-10">
+                <td className="p-2 font-medium text-claude-charcoal whitespace-nowrap sticky left-0 bg-claude-ivory z-10">
                   {formatMonthLabel(row.month)}
                 </td>
                 {/* コホート人数 */}
-                <td className="p-2 text-center text-slate-600 font-medium">
+                <td className="p-2 text-center text-claude-olive font-medium">
                   {row.size}人
                 </td>
                 {/* リテンション率セル */}
@@ -214,7 +214,7 @@ export default function CohortWidget() {
                   if (!ret) {
                     return (
                       <td key={i} className="p-1">
-                        <div className="w-full h-8 rounded bg-slate-50" />
+                        <div className="w-full h-8 rounded bg-claude-parchment" />
                       </td>
                     );
                   }
@@ -240,7 +240,7 @@ export default function CohortWidget() {
       </div>
 
       {/* 凡例 */}
-      <div className="mt-4 flex items-center gap-2 text-xs text-slate-500">
+      <div className="mt-4 flex items-center gap-2 text-xs text-claude-olive">
         <span>低</span>
         <div className="flex gap-0.5">
           {[
@@ -264,25 +264,25 @@ export default function CohortWidget() {
       {/* ツールチップ */}
       {tooltip && (
         <div
-          className="absolute z-50 bg-white border border-slate-200 rounded-lg shadow-lg p-3 pointer-events-none"
+          className="absolute z-50 bg-claude-ivory border border-claude-border-warm rounded-lg shadow-lg p-3 pointer-events-none"
           style={{
             left: Math.min(tooltip.x + 12, (containerRef.current?.clientWidth || 400) - 220),
             top: tooltip.y - 80,
           }}
         >
-          <div className="text-sm font-semibold text-slate-900 mb-1">
+          <div className="text-sm font-heading text-claude-near-black mb-1">
             {formatMonthLabel(tooltip.cohortMonth)} コホート
           </div>
-          <div className="space-y-1 text-xs text-slate-600">
+          <div className="space-y-1 text-xs text-claude-olive">
             <div className="flex justify-between gap-4">
               <span>コホート人数:</span>
-              <span className="font-medium text-slate-900">
+              <span className="font-medium text-claude-near-black">
                 {tooltip.cohortSize}人
               </span>
             </div>
             <div className="flex justify-between gap-4">
               <span>経過:</span>
-              <span className="font-medium text-slate-900">
+              <span className="font-medium text-claude-near-black">
                 {tooltip.monthOffset === 0
                   ? "初月"
                   : `${tooltip.monthOffset}ヶ月後`}
@@ -290,13 +290,13 @@ export default function CohortWidget() {
             </div>
             <div className="flex justify-between gap-4">
               <span>アクティブ人数:</span>
-              <span className="font-medium text-slate-900">
+              <span className="font-medium text-claude-near-black">
                 {tooltip.activeCount}人
               </span>
             </div>
             <div className="flex justify-between gap-4">
               <span>リテンション率:</span>
-              <span className="font-bold text-slate-900">
+              <span className="font-heading text-claude-near-black">
                 {tooltip.rate}%
               </span>
             </div>

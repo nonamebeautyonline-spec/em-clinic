@@ -84,7 +84,7 @@ export default function KPITargetWidget() {
   };
 
   const getTextColor = (rate: number | null): string => {
-    if (rate == null) return "text-slate-500";
+    if (rate == null) return "text-claude-olive";
     if (rate >= 100) return "text-green-600";
     if (rate >= 75) return "text-blue-600";
     if (rate >= 50) return "text-yellow-600";
@@ -112,12 +112,12 @@ export default function KPITargetWidget() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-100 p-6 animate-pulse">
-        <div className="h-4 w-48 bg-slate-100 rounded mb-4" />
+      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6 animate-pulse">
+        <div className="h-4 w-48 bg-claude-sand rounded mb-4" />
         <div className="space-y-4">
-          <div className="h-16 bg-slate-50 rounded" />
-          <div className="h-16 bg-slate-50 rounded" />
-          <div className="h-16 bg-slate-50 rounded" />
+          <div className="h-16 bg-claude-parchment rounded" />
+          <div className="h-16 bg-claude-parchment rounded" />
+          <div className="h-16 bg-claude-parchment rounded" />
         </div>
       </div>
     );
@@ -125,28 +125,28 @@ export default function KPITargetWidget() {
 
   return (
     <>
-      <div className="bg-white rounded-2xl border border-slate-100 p-6">
+      <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
         {/* ヘッダー */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <h3 className="text-lg font-bold text-slate-900">KPI目標 vs 実績</h3>
+            <h3 className="text-lg font-heading text-claude-near-black">KPI目標 vs 実績</h3>
             {/* 月ナビゲーション */}
             <div className="flex items-center gap-1">
               <button
                 onClick={() => navigateMonth(-1)}
-                className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                className="p-1 text-claude-stone hover:text-claude-olive transition-colors"
                 aria-label="前月"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              <span className="text-sm font-medium text-slate-600 min-w-[100px] text-center">
+              <span className="text-sm font-medium text-claude-olive min-w-[100px] text-center">
                 {formatYearMonth(yearMonth)}
               </span>
               <button
                 onClick={() => navigateMonth(1)}
-                className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                className="p-1 text-claude-stone hover:text-claude-olive transition-colors"
                 aria-label="翌月"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -157,7 +157,7 @@ export default function KPITargetWidget() {
           </div>
           <button
             onClick={() => setShowModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-claude-olive bg-claude-sand rounded-lg hover:bg-slate-200 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -168,22 +168,22 @@ export default function KPITargetWidget() {
 
         {/* KPI一覧 */}
         {targets.length === 0 ? (
-          <div className="text-center py-8 text-slate-400">
+          <div className="text-center py-8 text-claude-stone">
             <p className="text-sm">目標が未設定です</p>
             <p className="text-xs mt-1">「目標設定」ボタンから設定してください</p>
             {/* 目標未設定でも実績だけ表示 */}
             {Object.keys(actuals).length > 0 && (
               <div className="mt-6 text-left">
-                <h4 className="text-sm font-semibold text-slate-600 mb-3">今月の実績</h4>
+                <h4 className="text-sm font-semibold text-claude-olive mb-3">今月の実績</h4>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {ALL_METRIC_TYPES.map((mt) => {
                     const config = METRIC_CONFIG[mt];
                     const val = actuals[mt];
                     if (val == null) return null;
                     return (
-                      <div key={mt} className="bg-white rounded-2xl border border-slate-100 p-3">
-                        <div className="text-xs text-slate-500">{config.label}</div>
-                        <div className="text-lg font-bold text-slate-900 mt-1">
+                      <div key={mt} className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-3">
+                        <div className="text-xs text-claude-olive">{config.label}</div>
+                        <div className="text-lg font-heading text-claude-near-black mt-1">
                           {config.format(val)}
                         </div>
                       </div>
@@ -207,11 +207,11 @@ export default function KPITargetWidget() {
               return (
                 <div key={target.id} className="group">
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-sm font-medium text-slate-700">
+                    <span className="text-sm font-medium text-claude-charcoal">
                       {config.label}
                     </span>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-slate-500">
+                      <span className="text-xs text-claude-olive">
                         {target.actual_value != null
                           ? config.format(target.actual_value)
                           : "---"}{" "}
@@ -225,7 +225,7 @@ export default function KPITargetWidget() {
                     </div>
                   </div>
                   {/* プログレスバー */}
-                  <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                  <div className="w-full bg-claude-sand rounded-full h-2.5 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${getProgressColor(rate)}`}
                       style={{ width: `${progressWidth}%` }}
@@ -340,18 +340,18 @@ function KPITargetModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-claude-ivory rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
         {/* ヘッダー */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200">
+        <div className="flex items-center justify-between p-6 border-b border-claude-border-warm">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">KPI目標設定</h2>
-            <p className="text-sm text-slate-500 mt-0.5">
+            <h2 className="text-lg font-heading text-claude-near-black">KPI目標設定</h2>
+            <p className="text-sm text-claude-olive mt-0.5">
               {formatYearMonth(yearMonth)}の目標
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 transition-colors rounded-lg hover:bg-slate-100"
+            className="p-2 text-claude-stone hover:text-claude-olive transition-colors rounded-lg hover:bg-claude-sand"
             aria-label="閉じる"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -372,7 +372,7 @@ function KPITargetModal({
             const config = METRIC_CONFIG[mt];
             return (
               <div key={mt}>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-claude-charcoal mb-1">
                   {config.label}
                 </label>
                 <div className="relative">
@@ -385,9 +385,9 @@ function KPITargetModal({
                       setValues((prev) => ({ ...prev, [mt]: e.target.value }))
                     }
                     placeholder={`目標${config.label}を入力`}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-claude-ring-warm rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-claude-stone">
                     {config.unit}
                   </span>
                 </div>
@@ -397,10 +397,10 @@ function KPITargetModal({
         </div>
 
         {/* フッター */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200">
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-claude-border-warm">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-claude-charcoal bg-claude-sand rounded-lg hover:bg-slate-200 transition-colors"
           >
             キャンセル
           </button>

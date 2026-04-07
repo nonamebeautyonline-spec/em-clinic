@@ -46,12 +46,12 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: { paylo
   if (!active || !payload || payload.length === 0) return null;
   const data = payload[0].payload;
   return (
-    <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-sm">
+    <div className="bg-claude-ivory border border-claude-border-warm rounded-lg shadow-lg p-3 text-sm">
       <div className="flex items-center gap-2">
         <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: data.color }} />
-        <span className="font-semibold text-slate-900">{data.name}</span>
+        <span className="font-heading text-claude-near-black">{data.name}</span>
       </div>
-      <div className="mt-1 text-slate-600">
+      <div className="mt-1 text-claude-olive">
         {data.value.toLocaleString()}人
         {data.percent !== undefined && ` (${(data.percent * 100).toFixed(1)}%)`}
       </div>
@@ -70,12 +70,12 @@ function PaymentTooltip({ active, payload, creditCardAmount, bankTransferAmount 
   const data = payload[0].payload;
   const amount = data.name === "銀行振込" ? bankTransferAmount : creditCardAmount;
   return (
-    <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-sm">
+    <div className="bg-claude-ivory border border-claude-border-warm rounded-lg shadow-lg p-3 text-sm">
       <div className="flex items-center gap-2">
         <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: data.color }} />
-        <span className="font-semibold text-slate-900">{data.name}</span>
+        <span className="font-heading text-claude-near-black">{data.name}</span>
       </div>
-      <div className="mt-1 space-y-0.5 text-slate-600">
+      <div className="mt-1 space-y-0.5 text-claude-olive">
         <div>{data.value.toLocaleString()}件{data.percent !== undefined && ` (${(data.percent * 100).toFixed(1)}%)`}</div>
         <div>¥{amount.toLocaleString()}</div>
       </div>
@@ -107,8 +107,8 @@ function ChartLegend({ items, unit = "人" }: { items: { name: string; value: nu
       {items.map((item, i) => (
         <div key={i} className="flex items-center gap-1">
           <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-          <span className="text-slate-600">{item.name}</span>
-          <span className="text-slate-400 font-medium">{item.value.toLocaleString()}{unit}</span>
+          <span className="text-claude-olive">{item.name}</span>
+          <span className="text-claude-stone font-medium">{item.value.toLocaleString()}{unit}</span>
         </div>
       ))}
     </div>
@@ -123,13 +123,13 @@ function PieChartCard({ title, subtitle, children, isEmpty }: {
   isEmpty?: boolean;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-4 flex flex-col h-[360px]">
+    <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-4 flex flex-col h-[360px]">
       <div className="mb-1 shrink-0">
-        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-        {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
+        <h3 className="text-sm font-heading text-claude-near-black">{title}</h3>
+        {subtitle && <p className="text-xs text-claude-olive mt-0.5">{subtitle}</p>}
       </div>
       {isEmpty ? (
-        <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
+        <div className="flex-1 flex items-center justify-center text-claude-stone text-sm">
           データがありません
         </div>
       ) : (
@@ -146,9 +146,9 @@ export default function PieChartsWidget() {
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[0, 1, 2].map(i => (
-          <div key={i} className="bg-white rounded-2xl border border-slate-100 p-4 animate-pulse h-[360px]">
-            <div className="h-4 w-32 bg-slate-50 rounded mb-4" />
-            <div className="h-52 bg-slate-50 rounded" />
+          <div key={i} className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-4 animate-pulse h-[360px]">
+            <div className="h-4 w-32 bg-claude-parchment rounded mb-4" />
+            <div className="h-52 bg-claude-parchment rounded" />
           </div>
         ))}
       </div>

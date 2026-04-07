@@ -20,7 +20,7 @@ const PUBLIC_PATHS = ["/admin/login", "/admin/forgot-password", "/admin/reset-pa
 
 // ロゴコンポーネント（業種に応じたプロダクト名を表示）
 function LogoMark({ compact, industry = "clinic" }: { compact?: boolean; industry?: Industry }) {
-  const gradientClass = "bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent";
+  const gradientClass = "bg-gradient-to-r from-claude-coral to-claude-terracotta bg-clip-text text-transparent";
   const productName = PRODUCT_NAMES[industry] || PRODUCT_NAMES.clinic;
   // "Lオペ for CLINIC" → suffix = "for CLINIC", "Lオペ" → suffix = ""
   const suffix = productName.replace("Lオペ", "").trim();
@@ -291,10 +291,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // 認証チェック中またはリダイレクト中
   if (loading || !isAuthenticated) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-claude-parchment flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
-          <p className="mt-4 text-slate-600">読み込み中...</p>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-claude-terracotta border-t-transparent"></div>
+          <p className="mt-4 text-claude-olive">読み込み中...</p>
         </div>
       </div>
     );
@@ -309,12 +309,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <SWRProvider>
     <FeaturesProvider>
-    <div className="h-dvh bg-slate-50 flex overflow-hidden">
+    <div className="h-dvh bg-claude-parchment flex overflow-hidden">
       {/* モバイル用ハンバーガーボタン（トークページでは非表示：専用タブナビを使用） */}
       {pathname !== "/admin/line/talk" && (
         <button
           onClick={() => setIsMobileMenuOpen(true)}
-          className="md:hidden fixed top-4 left-4 z-40 p-2 bg-slate-900 text-white rounded-lg shadow-lg"
+          className="md:hidden fixed top-4 left-4 z-40 p-2 bg-claude-near-black text-claude-ivory rounded-lg shadow-whisper"
           aria-label="メニューを開く"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -332,13 +332,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             onClick={() => setIsMobileMenuOpen(false)}
           />
           {/* メニューパネル */}
-          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-slate-900 text-white flex flex-col">
+          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-claude-near-black text-claude-warm-silver flex flex-col">
             {/* ヘッダー */}
-            <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+            <div className="p-4 border-b border-claude-dark-surface flex items-center justify-between">
               <LogoMark industry={industry} />
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="p-2 hover:bg-slate-800 rounded"
+                className="p-2 hover:bg-claude-dark-surface rounded"
                 aria-label="メニューを閉じる"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -370,10 +370,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               ))}
             </nav>
             {/* ログアウト */}
-            <div className="p-4 border-t border-slate-700">
+            <div className="p-4 border-t border-claude-dark-surface">
               <button
                 onClick={handleLogout}
-                className="w-full py-2 px-4 bg-slate-800 hover:bg-slate-700 rounded flex items-center justify-center gap-2 text-sm"
+                className="w-full py-2 px-4 bg-claude-dark-surface hover:bg-claude-dark-warm rounded flex items-center justify-center gap-2 text-sm"
               >
                 <span>ログアウト</span>
                 <span>🚪</span>
@@ -387,16 +387,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <aside
         className={`hidden md:flex ${
           isSidebarOpen ? "w-64" : "w-20"
-        } bg-slate-900 text-white transition-all duration-300 flex-col h-screen sticky top-0`}
+        } bg-claude-near-black text-claude-warm-silver transition-all duration-300 flex-col h-screen sticky top-0`}
       >
         {/* ロゴ・トグル */}
-        <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+        <div className="p-4 border-b border-claude-dark-surface flex items-center justify-between">
           {isSidebarOpen ? (
             <>
               <LogoMark industry={industry} />
               <button
                 onClick={() => setIsSidebarOpen(false)}
-                className="p-2 hover:bg-slate-800 rounded"
+                className="p-2 hover:bg-claude-dark-surface rounded"
               >
                 ◀
               </button>
@@ -404,7 +404,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           ) : (
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="p-2 hover:bg-slate-800 rounded mx-auto"
+              className="p-2 hover:bg-claude-dark-surface rounded mx-auto"
             >
               <LogoMark compact />
             </button>
@@ -735,10 +735,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
 
         {/* ログアウト */}
-        <div className="p-4 border-t border-slate-700">
+        <div className="p-4 border-t border-claude-dark-surface">
           <button
             onClick={handleLogout}
-            className="w-full py-2 px-4 bg-slate-800 hover:bg-slate-700 rounded flex items-center justify-center gap-2 text-sm"
+            className="w-full py-2 px-4 bg-claude-dark-surface hover:bg-claude-dark-warm rounded flex items-center justify-center gap-2 text-sm"
           >
             {isSidebarOpen && <span>ログアウト</span>}
             <span>🚪</span>
@@ -750,10 +750,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <main className={`flex-1 min-h-0 relative ${pathname === "/admin/line/talk" || pathname === "/admin/line/flex-builder" ? "overflow-hidden" : "overflow-y-auto"}`}>
         {/* ページ遷移時のローディングオーバーレイ */}
         {isPageTransitioning && (
-          <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-50 flex items-start justify-center pt-20">
-            <div className="bg-white rounded-xl shadow-lg px-6 py-4 flex items-center gap-3">
-              <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
-              <span className="text-sm text-slate-600">読み込み中...</span>
+          <div className="absolute inset-0 bg-claude-ivory/60 backdrop-blur-[2px] z-50 flex items-start justify-center pt-20">
+            <div className="bg-claude-ivory rounded-xl shadow-whisper px-6 py-4 flex items-center gap-3">
+              <div className="w-5 h-5 border-2 border-claude-ring-warm border-t-claude-charcoal rounded-full animate-spin" />
+              <span className="text-sm text-claude-olive">読み込み中...</span>
             </div>
           </div>
         )}
@@ -791,8 +791,8 @@ function MenuItem({ href, icon, label, isOpen, isActive, badge, alert: showAlert
     <Link
       href={href}
       scroll={false}
-      className={`w-full px-4 py-2 flex items-center gap-2.5 hover:bg-slate-800 transition-colors ${
-        isActive ? "bg-slate-800 border-l-4 border-blue-500" : ""
+      className={`w-full px-4 py-2 flex items-center gap-2.5 hover:bg-claude-dark-surface transition-colors ${
+        isActive ? "bg-claude-dark-surface border-l-4 border-claude-terracotta" : ""
       }`}
     >
       <span className="text-base relative">
@@ -851,8 +851,8 @@ function MobileMenuItem({ href, icon, label, isActive, onClick, badge, alert: sh
       href={href}
       scroll={false}
       onClick={onClick}
-      className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-colors ${
-        isActive ? "bg-slate-800 border-l-4 border-blue-500" : ""
+      className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-claude-dark-surface transition-colors ${
+        isActive ? "bg-claude-dark-surface border-l-4 border-claude-terracotta" : ""
       }`}
     >
       <span className="text-lg">{icon}</span>
@@ -881,7 +881,7 @@ function MenuSection({ label, isOpen }: MenuSectionProps) {
 
   return (
     <div className="px-4 py-2 mt-4 mb-2">
-      <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</h2>
+      <h2 className="text-xs font-semibold text-claude-stone uppercase tracking-wider">{label}</h2>
     </div>
   );
 }

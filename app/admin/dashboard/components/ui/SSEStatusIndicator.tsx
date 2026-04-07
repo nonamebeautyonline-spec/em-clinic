@@ -9,17 +9,17 @@ export function SSEStatusIndicator({ status }: SSEStatusIndicatorProps) {
     connected: {
       dotClass: "bg-emerald-400",
       label: "リアルタイム",
-      containerClass: "text-emerald-600 bg-emerald-50",
+      containerClass: "text-emerald-700 bg-emerald-50",
     },
     connecting: {
-      dotClass: "bg-amber-400 animate-pulse",
+      dotClass: "bg-claude-coral animate-pulse",
       label: "再接続中...",
-      containerClass: "text-amber-600 bg-amber-50",
+      containerClass: "text-claude-coral bg-claude-sand",
     },
     disconnected: {
-      dotClass: "bg-slate-300",
+      dotClass: "bg-claude-stone",
       label: "オフライン",
-      containerClass: "text-slate-400 bg-slate-50",
+      containerClass: "text-claude-stone bg-claude-sand",
     },
   };
 

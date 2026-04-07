@@ -13,25 +13,25 @@ interface RealtimeStatCardProps {
 export function RealtimeStatCard({ label, value, unit, subText, icon, color, connected }: RealtimeStatCardProps) {
   const colorMap = {
     emerald: {
-      iconBg: "bg-emerald-50 text-emerald-600",
+      iconBg: "bg-claude-sand text-claude-charcoal",
       pulse: "bg-emerald-500",
       accent: "text-emerald-600",
     },
     blue: {
-      iconBg: "bg-blue-50 text-blue-600",
-      pulse: "bg-blue-500",
-      accent: "text-blue-600",
+      iconBg: "bg-claude-sand text-claude-charcoal",
+      pulse: "bg-claude-terracotta",
+      accent: "text-claude-terracotta",
     },
     violet: {
-      iconBg: "bg-violet-50 text-violet-600",
-      pulse: "bg-violet-500",
-      accent: "text-violet-600",
+      iconBg: "bg-claude-sand text-claude-charcoal",
+      pulse: "bg-claude-coral",
+      accent: "text-claude-coral",
     },
   };
   const c = colorMap[color];
 
   return (
-    <div className="relative bg-white border border-slate-100 rounded-2xl p-4 flex items-center gap-4 hover:shadow-md hover:shadow-slate-100 transition-all duration-200">
+    <div className="relative bg-claude-ivory border border-claude-border-cream rounded-2xl p-4 flex items-center gap-4 shadow-ring-warm hover:shadow-whisper transition-all duration-200">
       {connected && (
         <span className="absolute top-3 right-3 flex h-2 w-2">
           <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${c.pulse} opacity-75`} />
@@ -42,13 +42,13 @@ export function RealtimeStatCard({ label, value, unit, subText, icon, color, con
         {icon}
       </div>
       <div>
-        <p className="text-[11px] font-medium text-slate-400">{label}</p>
-        <p className="text-2xl font-bold text-slate-800">
+        <p className="text-[11px] font-medium text-claude-stone">{label}</p>
+        <p className="text-2xl font-heading text-claude-near-black">
           {value.toLocaleString()}
-          <span className="text-sm font-normal text-slate-400 ml-1">{unit}</span>
+          <span className="text-sm font-normal text-claude-stone ml-1">{unit}</span>
         </p>
         {subText && (
-          <p className="text-[11px] text-slate-400 mt-0.5">{subText}</p>
+          <p className="text-[11px] text-claude-stone mt-0.5">{subText}</p>
         )}
       </div>
     </div>

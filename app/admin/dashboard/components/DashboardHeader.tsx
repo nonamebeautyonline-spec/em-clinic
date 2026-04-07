@@ -46,8 +46,8 @@ export function DashboardHeader({
     <div className="mb-8 flex items-center justify-between">
       <div className="flex items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">ダッシュボード</h1>
-          <p className="text-slate-400 text-sm mt-0.5">{rangeLabelJa}の運営指標</p>
+          <h1 className="text-2xl font-heading text-claude-near-black">ダッシュボード</h1>
+          <p className="text-claude-stone text-sm mt-0.5">{rangeLabelJa}の運営指標</p>
         </div>
         {dateRange === "today" && (
           <SSEStatusIndicator status={sseStatus} />
@@ -59,7 +59,7 @@ export function DashboardHeader({
         <div className="relative" ref={widgetMenuRef}>
           <button
             onClick={() => setShowWidgetMenu((prev: boolean) => !prev)}
-            className="p-2 bg-white border border-slate-100 rounded-xl text-slate-400 hover:text-slate-600 hover:border-slate-300 transition-colors"
+            className="p-2 bg-claude-ivory border border-claude-border-cream rounded-xl text-claude-stone hover:text-claude-charcoal hover:border-claude-ring-warm transition-colors"
             aria-label="ウィジェット設定"
             title="ウィジェット表示設定"
           >
@@ -70,9 +70,9 @@ export function DashboardHeader({
           </button>
 
           {showWidgetMenu && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-100 rounded-xl shadow-lg z-50 py-2 max-h-[70vh] overflow-y-auto">
-              <div className="px-3 py-2 border-b border-slate-100">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <div className="absolute right-0 top-full mt-2 w-56 bg-claude-ivory border border-claude-border-cream rounded-xl shadow-whisper z-50 py-2 max-h-[70vh] overflow-y-auto">
+              <div className="px-3 py-2 border-b border-claude-border-cream">
+                <span className="text-xs font-semibold text-claude-stone uppercase tracking-wider">
                   KPIカード
                 </span>
               </div>
@@ -91,18 +91,18 @@ export function DashboardHeader({
                 { key: "kpi_today_paid" as const, label: "本日の決済" },
                 { key: "kpi_bank_transfer" as const, label: "銀行振込状況" },
               ]).map(({ key, label }) => (
-                <label key={key} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer">
+                <label key={key} className="flex items-center gap-3 px-3 py-2 hover:bg-claude-sand cursor-pointer">
                   <input
                     type="checkbox"
                     checked={widgetSettings[key]}
                     onChange={() => toggleWidget(key)}
-                    className="rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                    className="rounded border-claude-ring-warm text-claude-near-black focus:ring-claude-terracotta"
                   />
-                  <span className="text-sm text-slate-600">{label}</span>
+                  <span className="text-sm text-claude-olive">{label}</span>
                 </label>
               ))}
-              <div className="px-3 py-2 border-t border-b border-slate-100 mt-1">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <div className="px-3 py-2 border-t border-b border-claude-border-cream mt-1">
+                <span className="text-xs font-semibold text-claude-stone uppercase tracking-wider">
                   チャート・タブ
                 </span>
               </div>
@@ -112,14 +112,14 @@ export function DashboardHeader({
                 { key: "segmentChart" as const, label: "セグメント分布" },
                 { key: "conversionChart" as const, label: "初診→再診転換率" },
               ]).map(({ key, label }) => (
-                <label key={key} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer">
+                <label key={key} className="flex items-center gap-3 px-3 py-2 hover:bg-claude-sand cursor-pointer">
                   <input
                     type="checkbox"
                     checked={widgetSettings[key]}
                     onChange={() => toggleWidget(key)}
-                    className="rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                    className="rounded border-claude-ring-warm text-claude-near-black focus:ring-claude-terracotta"
                   />
-                  <span className="text-sm text-slate-600">{label}</span>
+                  <span className="text-sm text-claude-olive">{label}</span>
                 </label>
               ))}
             </div>
@@ -127,15 +127,15 @@ export function DashboardHeader({
         </div>
 
         {/* 日付範囲セグメントコントロール */}
-        <div className="flex bg-slate-100 rounded-xl p-1">
+        <div className="flex bg-claude-sand rounded-xl p-1">
           {rangeOptions.map((opt) => (
             <button
               key={opt.value}
               onClick={() => setDateRange(opt.value)}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                 dateRange === opt.value
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "bg-claude-ivory text-claude-near-black shadow-ring-warm"
+                  : "text-claude-stone hover:text-claude-charcoal"
               }`}
             >
               {opt.label}
@@ -149,14 +149,14 @@ export function DashboardHeader({
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="px-3 py-2 bg-white border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+              className="px-3 py-2 bg-claude-ivory border border-claude-border-cream rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-claude-terracotta/30"
             />
-            <span className="text-slate-300">〜</span>
+            <span className="text-claude-stone">〜</span>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="px-3 py-2 bg-white border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+              className="px-3 py-2 bg-claude-ivory border border-claude-border-cream rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-claude-terracotta/30"
             />
           </>
         )}

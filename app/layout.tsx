@@ -1,12 +1,18 @@
 // app/layout.tsx
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
-import { Noto_Sans_JP } from "next/font/google";
+import { Noto_Sans_JP, Noto_Serif_JP } from "next/font/google";
 import LayoutTransition from "./layoutTransition";
 
 const notoSans = Noto_Sans_JP({
   subsets: ["latin"],
   weight: ["300", "400", "500", "700"],
+});
+
+const notoSerif = Noto_Serif_JP({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-serif",
 });
 
 export const metadata: Metadata = {
@@ -38,7 +44,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body
-        className={`${notoSans.className} bg-[#F9FAFB] text-slate-900 antialiased`}
+        className={`${notoSans.className} ${notoSerif.variable} bg-[#F9FAFB] text-slate-900 antialiased`}
       >
         <LayoutTransition>{children}</LayoutTransition>
       </body>

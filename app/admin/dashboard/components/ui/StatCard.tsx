@@ -5,9 +5,9 @@ export interface StatCardProps {
 
 export function StatCard({ label, value }: StatCardProps) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-5">
-      <p className="text-[11px] font-medium text-slate-400 mb-1.5">{label}</p>
-      <p className="text-xl font-bold text-slate-800">{value}</p>
+    <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-5">
+      <p className="text-[11px] font-medium text-claude-stone mb-1.5">{label}</p>
+      <p className="text-xl font-heading text-claude-near-black">{value}</p>
     </div>
   );
 }
