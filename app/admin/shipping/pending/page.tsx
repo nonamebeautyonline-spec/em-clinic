@@ -489,8 +489,8 @@ export default function ShippingPendingPage() {
                         {order.patient_id}
                       </button>
                     </td>
-                    <td className={`px-6 py-4 text-sm ${isDisabled ? "text-slate-400" : "text-slate-900"}`}>
-                      <div>{order.product_name}</div>
+                    <td className={`px-6 py-4 text-sm whitespace-nowrap ${isDisabled ? "text-slate-400" : "text-slate-900"}`}>
+                      <div>{order.product_name?.replace(/\n/g, " ")}</div>
                       {/* 発送オプションバッジ */}
                       <div className="flex flex-wrap gap-1 mt-0.5">
                         {order.shipping_delay_days > 0 && (
