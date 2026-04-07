@@ -58,7 +58,7 @@ function verifyGmoSignature(params: URLSearchParams, shopPass: string): boolean 
 }
 
 export async function GET() {
-  return new NextResponse("ok", { status: 200 });
+  return new Response("0", { status: 200, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 }
 
 export async function POST(req: Request) {
@@ -89,7 +89,7 @@ export async function POST(req: Request) {
       } catch (e) {
         console.error("[gmo/webhook] 失敗記録エラー:", e);
       }
-      return new NextResponse("ok", { status: 200 });
+      return new Response("0", { status: 200, headers: { "Content-Type": "text/plain; charset=utf-8" } });
     }
     const tid = tenantId ?? undefined;
 
@@ -144,11 +144,12 @@ export async function POST(req: Request) {
     const idempotencyKey = `${accessId || orderId}_${status}`;
     idem = await checkIdempotency("gmo", idempotencyKey, tenantId, { orderId, status, amount, patientId, productCode, reorderId, productName: clientField2 });
     if (idem.duplicate) {
-      return new NextResponse("ok", { status: 200 });
+      return new Response("0", { status: 200, headers: { "Content-Type": "text/plain; charset=utf-8" } });
     }
 
-    // 業務ロジック（リプレイ可能なハンドラに委譲）
-    await processGmoEvent({
+    // 業務ロジックはfire-and-forget（GMO結果通知の10秒タイムアウト対策）
+    const idemRef = idem;
+    processGmoEvent({
       status,
       orderId,
       amount,
@@ -160,15 +161,19 @@ export async function POST(req: Request) {
       couponId,
       campaignId,
       tenantId,
+    }).then(() => idemRef.markCompleted()).catch((err) => {
+      const e = err instanceof Error ? err : null;
+      console.error("[gmo/webhook] processGmoEvent error:", e?.stack || e?.message || err);
+      idemRef.markFailed(e?.message || "unknown error").catch(() => {});
+      notifyWebhookFailure("gmo", "unknown", err, tenantId ?? undefined).catch(() => {});
     });
 
-    await idem.markCompleted();
-    return new NextResponse("ok", { status: 200 });
+    return new Response("0", { status: 200, headers: { "Content-Type": "text/plain; charset=utf-8" } });
   } catch (err) {
     const e = err instanceof Error ? err : null;
     console.error("[gmo/webhook] handler error:", e?.stack || e?.message || err);
     await idem?.markFailed(e?.message || "unknown error");
     notifyWebhookFailure("gmo", "unknown", err, tenantId ?? undefined).catch(() => {});
-    return new NextResponse("ok", { status: 200 });
+    return new Response("0", { status: 200, headers: { "Content-Type": "text/plain; charset=utf-8" } });
   }
 }
