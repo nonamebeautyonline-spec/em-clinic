@@ -6,7 +6,24 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
   },
   async redirects() {
-    return [];
+    return [
+      // 旧カテゴリスラッグ → 新カテゴリスラッグ（/lp→/clinic変換より先に処理）
+      { source: "/lp/column/category/case-studies", destination: "/clinic/column/category/line-dx", permanent: true },
+      { source: "/lp/column/category/guide", destination: "/clinic/column/category/line-dx", permanent: true },
+      { source: "/lp/column/category/improvement", destination: "/clinic/column/category/line-dx", permanent: true },
+      { source: "/lp/column/category/operation", destination: "/clinic/column/category/line-dx", permanent: true },
+      { source: "/lp/column/category/opening", destination: "/clinic/column/category/management", permanent: true },
+      { source: "/lp/column/category/evidence", destination: "/clinic/column/category/medication", permanent: true },
+      { source: "/lp/column/category/revenue", destination: "/clinic/column/category/self-pay-revenue", permanent: true },
+      // 旧 /lp → /clinic 301リダイレクト（SEO正規URL移行強化）
+      // middlewareでも処理しているが、next.config の redirects は
+      // Vercel Edge で静的処理されGoogleに確実に301を返す
+      {
+        source: "/lp/:path*",
+        destination: "/clinic/:path*",
+        permanent: true,
+      },
+    ];
   },
   async headers() {
     return [
