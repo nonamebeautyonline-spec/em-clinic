@@ -75,11 +75,17 @@ export default function PatientDashboardInner() {
         <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b border-slate-200">
           <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {mpContent.logoUrl ? (
-                <Image src={mpContent.logoUrl} alt="clinic logo" width={150} height={40} className="object-contain" />
-              ) : mpContent.clinicName ? (
-                <span className="text-lg font-bold" style={{ color: 'var(--mp-primary)' }}>{mpContent.clinicName}</span>
-              ) : (
+              {mpContent.logoUrl && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={mpContent.logoUrl} alt={mpContent.clinicName || ""} className="h-10 object-contain" />
+              )}
+              {mpContent.clinicName && (
+                mpContent.clinicNameImageUrl
+                  ? /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={mpContent.clinicNameImageUrl} alt={mpContent.clinicName} className="h-8 object-contain" />
+                  : <span className="text-lg font-bold" style={{ color: 'var(--mp-primary)' }}>{mpContent.clinicName}</span>
+              )}
+              {!mpContent.logoUrl && !mpContent.clinicName && (
                 <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />
               )}
             </div>

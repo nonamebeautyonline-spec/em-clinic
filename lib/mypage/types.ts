@@ -27,6 +27,7 @@ export interface MypageSectionConfig {
 export interface MypageContentConfig {
   clinicName: string;          // ヘッダーに表示するクリニック名（空ならロゴ優先）
   logoUrl: string;             // ヘッダーロゴURL（空なら既存画像）
+  clinicNameImageUrl?: string; // クリニック名画像URL（テキストの代わりに画像表示）
   supportMessage: string;      // サポートセクション本文
   supportUrl: string;          // LINE問い合わせURL
   supportButtonLabel: string;  // 問い合わせボタンラベル

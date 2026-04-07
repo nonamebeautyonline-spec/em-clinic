@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
+    const uploadType = (formData.get("type") as string) || "logo";
 
     if (!file) return badRequest("ファイルが必要です");
     if (file.size > MAX_SIZE) return badRequest("ファイルサイズは2MB以下にしてください");
@@ -33,7 +34,8 @@ export async function POST(req: NextRequest) {
     await ensureBucket();
 
     const ext = file.name.split(".").pop() || "png";
-    const path = `${tenantId}/logo.${ext}`;
+    const fileName = uploadType === "clinic-name" ? "clinic-name" : "logo";
+    const path = `${tenantId}/${fileName}.${ext}`;
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const { error: uploadError } = await supabaseAdmin.storage

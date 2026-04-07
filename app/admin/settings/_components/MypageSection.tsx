@@ -30,6 +30,7 @@ interface MypageSectionConfig {
 interface MypageContentConfig {
   clinicName: string;
   logoUrl: string;
+  clinicNameImageUrl?: string;
   supportMessage: string;
   supportUrl: string;
   supportButtonLabel: string;
@@ -309,6 +310,48 @@ export default function MypageSection({ onToast }: Props) {
                 <input type="text" value={config.content.clinicName} onChange={(e) => updateContent("clinicName", e.target.value)}
                   placeholder="空欄の場合はロゴ画像を表示"
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">クリニック名画像（テキストの代わりに画像で表示）</label>
+                <div className="flex items-center gap-3">
+                  <input type="url" value={config.content.clinicNameImageUrl || ""} onChange={(e) => updateContent("clinicNameImageUrl", e.target.value)}
+                    placeholder="URLを入力 または画像をアップロード"
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                  <label className="shrink-0 px-3 py-2 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 cursor-pointer transition-colors">
+                    アップロード
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/svg+xml"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 2 * 1024 * 1024) { onToast("2MB以下のファイルを選択してください", "error"); return; }
+                        const fd = new FormData();
+                        fd.append("file", file);
+                        fd.append("type", "clinic-name");
+                        try {
+                          const res = await fetch("/api/admin/upload-logo", { method: "POST", credentials: "include", body: fd });
+                          const data = await res.json();
+                          if (data.ok && data.url) {
+                            updateContent("clinicNameImageUrl", data.url);
+                            onToast("クリニック名画像をアップロードしました", "success");
+                          } else {
+                            onToast(data.message || "アップロードに失敗しました", "error");
+                          }
+                        } catch { onToast("アップロードに失敗しました", "error"); }
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+                {config.content.clinicNameImageUrl && (
+                  <div className="mt-2 p-2 bg-gray-50 rounded-lg inline-block">
+                    <img src={config.content.clinicNameImageUrl} alt="クリニック名プレビュー" className="h-8 object-contain"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  </div>
+                )}
+                <p className="text-[10px] text-gray-400 mt-1">設定するとクリニック名テキストの代わりにこの画像を表示します</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">ヘッダーロゴ</label>
