@@ -457,7 +457,19 @@ export async function POST(req: NextRequest) {
             }).join("\n");
           }
 
-          const notifyProductLabel = reorderProduct?.title || productCode;
+          // カートモード（カンマ区切り）の場合は各商品名を取得して結合
+          let notifyProductLabel: string;
+          if (productCode.includes(",")) {
+            const codes = productCode.split(",");
+            const names: string[] = [];
+            for (const code of codes) {
+              const p = await getProductByCode(code.trim(), tenantId);
+              names.push(p?.title || code);
+            }
+            notifyProductLabel = names.join("、");
+          } else {
+            notifyProductLabel = reorderProduct?.title || productCode;
+          }
           await sendReorderNotification(patientId, patientName, productCode, notifyProductLabel, reorderNumber, history, LINE_NOTIFY_TOKEN, LINE_ADMIN_GROUP_ID);
 
           // 自動承認された場合はその旨も通知
