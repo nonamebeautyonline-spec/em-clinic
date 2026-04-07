@@ -60,9 +60,10 @@ export async function GET(req: NextRequest) {
     // エントリを作成
     const entries = orders.map((order: { id: string; patient_id: string; tracking_number: string | null }) => ({
       payment_id: order.id,
+      patient_id: order.patient_id,
       patient_name: patientNameMap[order.patient_id] || "",
       tracking_number: order.tracking_number || "",
-      matched: !!order.tracking_number, // 追跡番号がある場合はmatched
+      matched: !!order.tracking_number,
     }));
 
     const withTracking = entries.filter((e) => e.tracking_number).length;

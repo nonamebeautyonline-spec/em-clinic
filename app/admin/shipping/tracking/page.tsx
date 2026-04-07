@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from "react";
 
 interface TrackingEntry {
   payment_id: string;
+  patient_id: string;
   patient_name: string;
   tracking_number: string;
   matched: boolean;
@@ -606,6 +607,9 @@ export default function TrackingNumberPage() {
                       Payment ID
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      患者ID
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                       患者名
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
@@ -626,6 +630,9 @@ export default function TrackingNumberPage() {
                       <tr key={entry.payment_id} className={`${rowColor} hover:brightness-95`}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-blue-600">
                           {entry.payment_id}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-600">
+                          {entry.patient_id || "-"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-medium">
                           {entry.patient_name}

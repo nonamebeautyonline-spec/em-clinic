@@ -210,6 +210,7 @@ export async function POST(req: NextRequest) {
     // クライアントが期待する形式に変換
     const entries = updates.map((u) => ({
       payment_id: u.paymentId,
+      patient_id: u.order?.patient_id || "",
       patient_name: u.order?.patient_name || "",
       tracking_number: u.trackingNumber,
       matched: u.order !== null,
