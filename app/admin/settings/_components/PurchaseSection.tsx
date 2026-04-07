@@ -38,6 +38,8 @@ interface PurchaseConfig {
   reorderButtonLabel: string;
   groups: PurchaseGroup[];
   reorderConfirm: ReorderConfirmConfig;
+  cartMode?: boolean;
+  multiSelectEnabled?: boolean;
 }
 
 interface Product {
@@ -113,7 +115,7 @@ const DEFAULT_CONFIG: PurchaseConfig = {
 };
 
 // --- テキスト設定フィールド定義 ---
-const TEXT_FIELDS: { key: keyof Omit<PurchaseConfig, "groups" | "reorderConfirm">; label: string; type: "text" | "textarea" }[] = [
+const TEXT_FIELDS: { key: keyof Omit<PurchaseConfig, "groups" | "reorderConfirm" | "cartMode" | "multiSelectEnabled">; label: string; type: "text" | "textarea" }[] = [
   { key: "pageTitle", label: "ページタイトル（初回購入）", type: "text" },
   { key: "reorderTitle", label: "ページタイトル（再処方）", type: "text" },
   { key: "description", label: "説明文（初回購入）", type: "textarea" },
@@ -147,7 +149,7 @@ export default function PurchaseSection({ onToast }: Props) {
   const categories = swrData?.categories ?? [];
 
   // テキストフィールド更新
-  const updateText = (key: keyof Omit<PurchaseConfig, "groups" | "reorderConfirm">, value: string) => {
+  const updateText = (key: keyof Omit<PurchaseConfig, "groups" | "reorderConfirm" | "cartMode" | "multiSelectEnabled">, value: string) => {
     setConfig(prev => ({ ...prev, [key]: value }));
   };
 
@@ -327,6 +329,59 @@ export default function PurchaseSection({ onToast }: Props) {
                   )}
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* カートモード設定 */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h3 className="text-sm font-bold text-gray-800">カートモード</h3>
+              <p className="text-xs text-gray-500 mt-0.5">複数商品をカートに追加して一括決済・一括再処方申請を可能にします</p>
+            </div>
+            <div className="p-5 space-y-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={config.cartMode ?? false}
+                  onClick={() => setConfig(prev => ({ ...prev, cartMode: !prev.cartMode }))}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    config.cartMode ? "bg-blue-600" : "bg-gray-300"
+                  }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    config.cartMode ? "translate-x-6" : "translate-x-1"
+                  }`} />
+                </button>
+                <span className="text-sm text-gray-700">
+                  {config.cartMode ? "カートモード ON" : "カートモード OFF（1商品ずつ決済）"}
+                </span>
+              </label>
+              {config.cartMode && (
+                <label className="flex items-center gap-3 cursor-pointer ml-2">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={config.multiSelectEnabled ?? false}
+                    onClick={() => setConfig(prev => ({ ...prev, multiSelectEnabled: !prev.multiSelectEnabled }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      config.multiSelectEnabled ? "bg-blue-600" : "bg-gray-300"
+                    }`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      config.multiSelectEnabled ? "translate-x-6" : "translate-x-1"
+                    }`} />
+                  </button>
+                  <span className="text-sm text-gray-700">
+                    {config.multiSelectEnabled ? "複数商品選択 ON" : "複数商品選択 OFF（カート内は1商品のみ）"}
+                  </span>
+                </label>
+              )}
+              <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+                <p className="text-xs text-blue-800 leading-relaxed">
+                  マルチ分野モードが有効な場合は自動でカートモード・複数選択が有効になります。
+                </p>
+              </div>
             </div>
           </div>
 
