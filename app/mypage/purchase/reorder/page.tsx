@@ -115,11 +115,17 @@ function ReorderContent() {
 
     try {
       if (isCartMode) {
-        // カートモード: 各商品を順次申請
-        for (const item of cartItemsState) {
-          await submitSingle(item.code);
+        // カートモード: 複数商品を1回のAPI呼び出しでまとめて申請
+        const res = await fetch("/api/reorder/apply", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ productCodes: cartItemsState.map(i => i.code) }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || json.ok === false) {
+          throw new Error(json.message || json.error || "再処方申請の送信に失敗しました。");
         }
-        // カートクリア
         try { localStorage.removeItem("lope_cart"); } catch { /* ignore */ }
       } else {
         await submitSingle(product!.code);

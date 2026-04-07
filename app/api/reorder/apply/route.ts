@@ -196,7 +196,10 @@ export async function POST(req: NextRequest) {
 
     const parsed = await parseBody(req, reorderApplySchema);
     if ("error" in parsed) return parsed.error;
-    const { productCode } = parsed.data;
+    // カートモード: productCodes配列 → カンマ区切りで product_code に保存
+    const productCode = parsed.data.productCodes?.length
+      ? parsed.data.productCodes.join(",")
+      : parsed.data.productCode || "";
 
     // ★ NG患者は再処方申請不可（statusがnullのレコードを除外）
     // マルチ分野モード: 商品の field_id で NG 判定を分離
@@ -253,8 +256,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ★ 重複申請チェック: pending or confirmed の申請があれば拒否
-    const { data: existingReorder, error: checkError } = await strictWithTenant(
+    // ★ 重複申請チェック: confirmed（承認済み・決済待ち）はブロック、pendingは自動キャンセル
+    const { data: existingReorders, error: checkError } = await strictWithTenant(
       supabaseAdmin
         .from("reorders")
         .select("id, status, product_code")
@@ -262,18 +265,30 @@ export async function POST(req: NextRequest) {
         .in("status", ["pending", "confirmed"]),
       tenantId
     )
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("created_at", { ascending: false });
 
     if (checkError) {
       console.error("[reorder/apply] Duplicate check error:", checkError);
       return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
     }
 
-    if (existingReorder) {
-      console.log(`[reorder/apply] Duplicate blocked: patient=${patientId}, existing status=${existingReorder.status}`);
-      return NextResponse.json({ ok: false, error: "duplicate_pending", message: "すでに処理中の再処方申請があります。キャンセルまたは決済完了後に再度お申し込みください。" }, { status: 400 });
+    // confirmed（承認済み・決済待ち）があればブロック
+    const confirmedReorder = existingReorders?.find(r => r.status === "confirmed");
+    if (confirmedReorder) {
+      console.log(`[reorder/apply] Blocked: confirmed reorder exists for patient=${patientId}`);
+      return NextResponse.json({ ok: false, error: "duplicate_confirmed", message: "承認済みの再処方申請があります。決済完了後に再度お申し込みください。" }, { status: 400 });
+    }
+
+    // pending（未承認）は自動キャンセル → 新規申請で上書き
+    const pendingReorders = existingReorders?.filter(r => r.status === "pending") ?? [];
+    if (pendingReorders.length > 0) {
+      for (const pr of pendingReorders) {
+        await strictWithTenant(
+          supabaseAdmin.from("reorders").update({ status: "canceled" }).eq("id", pr.id),
+          tenantId
+        );
+        console.log(`[reorder/apply] Auto-canceled pending reorder: id=${pr.id}, product=${pr.product_code}`);
+      }
     }
 
     // ★ ビジネスルール取得
