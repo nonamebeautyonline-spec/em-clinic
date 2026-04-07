@@ -213,7 +213,7 @@ export default function EnhancedDashboard() {
 
       {/* 円グラフ（患者ファネル・処方内訳・決済方法） */}
       <div className="mb-6">
-        <PieChartsWidget />
+        <PieChartsWidget dateRange={dateRange} startDate={startDate} endDate={endDate} />
       </div>
 
       {/* KPIカード（ドラッグ並び替え対応） */}

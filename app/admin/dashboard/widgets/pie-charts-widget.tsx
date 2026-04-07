@@ -139,8 +139,30 @@ function PieChartCard({ title, subtitle, children, isEmpty }: {
   );
 }
 
-export default function PieChartsWidget() {
-  const { data, error, isLoading } = useSWR<PieChartData>("/api/admin/dashboard-pie-charts");
+const RANGE_LABELS: Record<string, string> = {
+  today: "本日",
+  yesterday: "昨日",
+  this_week: "今週",
+  last_week: "先週",
+  this_month: "今月",
+  last_month: "先月",
+  custom: "期間内",
+};
+
+interface PieChartsWidgetProps {
+  dateRange?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export default function PieChartsWidget({ dateRange = "this_month", startDate, endDate }: PieChartsWidgetProps) {
+  const params = new URLSearchParams({ range: dateRange });
+  if (dateRange === "custom" && startDate && endDate) {
+    params.set("start", startDate);
+    params.set("end", endDate);
+  }
+  const { data, error, isLoading } = useSWR<PieChartData>(`/api/admin/dashboard-pie-charts?${params}`);
+  const rangeLabel = RANGE_LABELS[dateRange] || "今月";
 
   if (isLoading) {
     return (
@@ -234,7 +256,7 @@ export default function PieChartsWidget() {
 
       {/* 2. 今月の新規処方 vs 再処方 */}
       <PieChartCard
-        title="今月の処方内訳"
+        title={`${rangeLabel}の処方内訳`}
         subtitle={`合計${prescriptionTotal.toLocaleString()}人`}
         isEmpty={prescriptionTotal === 0}
       >
@@ -264,7 +286,7 @@ export default function PieChartsWidget() {
 
       {/* 3. 今月の決済方法内訳 */}
       <PieChartCard
-        title="今月の決済方法"
+        title={`${rangeLabel}の決済方法`}
         subtitle={`${paymentTotal.toLocaleString()}件 / ¥${totalAmount.toLocaleString()}`}
         isEmpty={paymentTotal === 0}
       >
