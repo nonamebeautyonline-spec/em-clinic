@@ -53,7 +53,7 @@ function DistributionTooltip({ active, payload, label }: { active?: boolean; pay
   if (!active || !payload || payload.length === 0) return null;
   return (
     <div className="bg-claude-ivory border border-claude-border-warm rounded-lg shadow-lg p-3 text-sm">
-      <p className="font-heading text-claude-near-black mb-1">{label}</p>
+      <p className="font-bold text-claude-near-black mb-1">{label}</p>
       <p className="text-claude-olive">{payload[0].value}人</p>
     </div>
   );
@@ -74,7 +74,7 @@ export default function LTVWidget() {
   if (error) {
     return (
       <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
-        <h3 className="text-md font-heading text-claude-near-black mb-4">LTV分析</h3>
+        <h3 className="text-md font-bold text-claude-near-black mb-4">LTV分析</h3>
         <div className="flex items-center justify-center h-48 text-red-500 text-sm">{error instanceof Error ? error.message : "エラーが発生しました"}</div>
       </div>
     );
@@ -83,7 +83,7 @@ export default function LTVWidget() {
   if (!data) {
     return (
       <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
-        <h3 className="text-md font-heading text-claude-near-black mb-4">LTV分析</h3>
+        <h3 className="text-md font-bold text-claude-near-black mb-4">LTV分析</h3>
         <div className="flex items-center justify-center h-48 text-claude-stone text-sm">
           データがありません
         </div>
@@ -95,30 +95,30 @@ export default function LTVWidget() {
     <div className="space-y-6">
       {/* LTV概要 */}
       <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
-        <h3 className="text-md font-heading text-claude-near-black mb-4">LTV分析</h3>
+        <h3 className="text-md font-bold text-claude-near-black mb-4">LTV分析</h3>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-claude-ivory rounded-2xl p-3 border border-claude-border-cream">
             <div className="text-xs text-claude-stone mb-1">平均LTV</div>
-            <div className="text-lg font-heading text-claude-near-black">
+            <div className="text-lg font-bold text-claude-near-black">
               ¥{data.overview.avgLTV.toLocaleString()}
             </div>
           </div>
           <div className="bg-claude-ivory rounded-2xl p-3 border border-claude-border-cream">
             <div className="text-xs text-claude-olive mb-1">中央値LTV</div>
-            <div className="text-lg font-heading text-claude-near-black">
+            <div className="text-lg font-bold text-claude-near-black">
               ¥{data.overview.medianLTV.toLocaleString()}
             </div>
           </div>
           <div className="bg-claude-ivory rounded-2xl p-3 border border-claude-border-cream">
             <div className="text-xs text-claude-stone mb-1">上位10% 平均</div>
-            <div className="text-lg font-heading text-claude-near-black">
+            <div className="text-lg font-bold text-claude-near-black">
               ¥{data.overview.top10AvgLTV.toLocaleString()}
             </div>
           </div>
           <div className="bg-claude-ivory rounded-2xl p-3 border border-claude-border-cream">
             <div className="text-xs text-claude-olive mb-1">対象患者数</div>
-            <div className="text-lg font-heading text-claude-near-black">
+            <div className="text-lg font-bold text-claude-near-black">
               {data.overview.totalPatients}人
             </div>
           </div>
@@ -164,7 +164,7 @@ export default function LTVWidget() {
       {/* セグメント別LTV */}
       {data.segments.length > 0 && (
         <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
-          <h3 className="text-md font-heading text-claude-near-black mb-4">セグメント別LTV</h3>
+          <h3 className="text-md font-bold text-claude-near-black mb-4">セグメント別LTV</h3>
           <div className="space-y-3">
             {data.segments.map((seg) => (
               <div key={seg.segment} className="flex items-center justify-between p-3 border-b border-claude-border-cream last:border-b-0">
@@ -181,7 +181,7 @@ export default function LTVWidget() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-heading text-claude-near-black">
+                  <div className="text-sm font-bold text-claude-near-black">
                     ¥{seg.avgLTV.toLocaleString()}
                   </div>
                   <div className="text-xs text-claude-olive">

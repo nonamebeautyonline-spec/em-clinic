@@ -43,7 +43,7 @@ export function RealtimeStatCard({ label, value, unit, subText, icon, color, con
       </div>
       <div>
         <p className="text-[11px] font-medium text-claude-stone">{label}</p>
-        <p className="text-2xl font-heading text-claude-near-black">
+        <p className="text-2xl font-bold text-claude-near-black">
           {value.toLocaleString()}
           <span className="text-sm font-normal text-claude-stone ml-1">{unit}</span>
         </p>

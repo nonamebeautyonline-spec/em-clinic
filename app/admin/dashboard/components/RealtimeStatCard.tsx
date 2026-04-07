@@ -50,7 +50,7 @@ export function RealtimeStatCard({ label, value, unit, subText, icon, color, con
       </div>
       <div>
         <div className="text-xs font-medium text-claude-olive">{label}</div>
-        <div className={`text-2xl font-heading ${c.value}`}>
+        <div className={`text-2xl font-bold ${c.value}`}>
           {value.toLocaleString()}
           <span className="text-sm font-normal text-claude-stone ml-1">{unit}</span>
         </div>

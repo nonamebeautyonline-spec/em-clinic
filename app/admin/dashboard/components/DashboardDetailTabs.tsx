@@ -59,14 +59,14 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* 売上 */}
               <div>
-                <h3 className="text-sm font-heading text-claude-near-black mb-4">売上</h3>
+                <h3 className="text-sm font-bold text-claude-near-black mb-4">売上</h3>
                 <div className="space-y-1">
                   <div className="flex items-center justify-between py-3 border-b border-claude-border-cream">
                     <div>
                       <span className="text-sm font-medium text-claude-near-black">純売上</span>
                       <div className="text-xs text-claude-stone">返金後の金額</div>
                     </div>
-                    <span className="text-xl font-heading text-claude-near-black">
+                    <span className="text-xl font-bold text-claude-near-black">
                       ¥{(stats?.revenue.total || 0).toLocaleString()}
                     </span>
                   </div>
@@ -79,17 +79,17 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
 
               {/* 銀行振込状況 */}
               <div>
-                <h3 className="text-sm font-heading text-claude-near-black mb-4">銀行振込状況</h3>
+                <h3 className="text-sm font-bold text-claude-near-black mb-4">銀行振込状況</h3>
                 <div className="space-y-1">
                   <div className="flex items-center justify-between py-3 border-b border-claude-border-cream">
                     <span className="text-sm text-claude-olive">入金待ち</span>
-                    <span className="text-xl font-heading text-claude-coral">
+                    <span className="text-xl font-bold text-claude-coral">
                       {stats?.bankTransfer.pending || 0}
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-3 border-b border-claude-border-cream last:border-b-0">
                     <span className="text-sm text-claude-olive">確認済み</span>
-                    <span className="text-xl font-heading text-emerald-600">
+                    <span className="text-xl font-bold text-emerald-600">
                       {stats?.bankTransfer.confirmed || 0}
                     </span>
                   </div>
@@ -98,7 +98,7 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
 
               {/* クイック統計 */}
               <div>
-                <h3 className="text-sm font-heading text-claude-near-black mb-4">その他統計</h3>
+                <h3 className="text-sm font-bold text-claude-near-black mb-4">その他統計</h3>
                 <div className="space-y-1">
                   <StatRow label="リピート率" value={`${stats?.patients.repeatRate || 0}%`} />
                   <StatRow label="総患者数" value={`${stats?.patients.total || 0}人`} />
@@ -114,7 +114,7 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
         {activeTab === "reservations" && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h3 className="text-sm font-heading text-claude-near-black mb-4">予約</h3>
+              <h3 className="text-sm font-bold text-claude-near-black mb-4">予約</h3>
               <div className="space-y-1">
                 <StatRow label="総予約数" value={`${stats?.reservations.total || 0}件`} />
                 <StatRow label="診察済み" value={`${stats?.reservations.completed || 0}件`} />
@@ -128,7 +128,7 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
             </div>
 
             <div>
-              <h3 className="text-sm font-heading text-claude-near-black mb-4">配送</h3>
+              <h3 className="text-sm font-bold text-claude-near-black mb-4">配送</h3>
               <div className="space-y-1">
                 <StatRow label="総配送数" value={`${stats?.shipping.total || 0}件`} />
                 <StatRow label="新規" value={`${stats?.shipping.first || 0}件`} />
@@ -154,7 +154,7 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
               <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-5">
                 <div className="text-xs font-medium text-claude-stone mb-1">純売上</div>
                 <div className="text-xs text-claude-stone mb-2">返金後の金額</div>
-                <div className="text-2xl font-heading text-claude-near-black">
+                <div className="text-2xl font-bold text-claude-near-black">
                   ¥{(stats?.revenue.total || 0).toLocaleString()}
                 </div>
               </div>
@@ -163,7 +163,7 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
               <StatCard label="銀行振込" value={`¥${(stats?.revenue.bankTransfer || 0).toLocaleString()}`} />
               <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-5">
                 <div className="text-xs font-medium text-claude-error mb-2">返金</div>
-                <div className="text-2xl font-heading text-claude-error">
+                <div className="text-2xl font-bold text-claude-error">
                   -¥{(stats?.revenue.refunded || 0).toLocaleString()}
                 </div>
                 <div className="text-xs text-claude-stone mt-1">{stats?.revenue.refundCount || 0}件</div>
@@ -171,7 +171,7 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
             </div>
 
             <div>
-              <h3 className="text-sm font-heading text-claude-near-black mb-4">商品別売上</h3>
+              <h3 className="text-sm font-bold text-claude-near-black mb-4">商品別売上</h3>
               <div className="space-y-1">
                 {stats?.products.map((product) => (
                   <div
@@ -183,7 +183,7 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
                       <div className="text-xs text-claude-stone">{product.code}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-heading text-claude-near-black">
+                      <div className="text-sm font-bold text-claude-near-black">
                         ¥{product.revenue.toLocaleString()}
                       </div>
                       <div className="text-xs text-claude-stone">{product.count}件</div>
@@ -199,7 +199,7 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div>
-                <h3 className="text-sm font-heading text-claude-near-black mb-4">患者統計</h3>
+                <h3 className="text-sm font-bold text-claude-near-black mb-4">患者統計</h3>
                 <div className="space-y-1">
                   <StatRow label="総患者数" value={`${stats?.patients.total || 0}人`} />
                   <StatRow label="アクティブ患者" value={`${stats?.patients.active || 0}人`} />
@@ -213,7 +213,7 @@ export function DashboardDetailTabs({ stats, activeTab, setActiveTab, widgetSett
               </div>
 
               <div>
-                <h3 className="text-sm font-heading text-claude-near-black mb-4">エンゲージメント</h3>
+                <h3 className="text-sm font-bold text-claude-near-black mb-4">エンゲージメント</h3>
                 <div className="space-y-1">
                   <StatRow label="LINE登録者" value={`${stats?.kpi.lineRegisteredCount || 0}人`} />
                   <StatRow

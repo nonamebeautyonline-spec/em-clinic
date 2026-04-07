@@ -117,7 +117,7 @@ export default function CohortWidget() {
   if (error) {
     return (
       <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
-        <h3 className="text-lg font-heading text-claude-near-black mb-2">コホート分析</h3>
+        <h3 className="text-lg font-bold text-claude-near-black mb-2">コホート分析</h3>
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
           {error instanceof Error ? error.message : "エラーが発生しました"}
         </div>
@@ -129,7 +129,7 @@ export default function CohortWidget() {
   if (filteredData.length === 0) {
     return (
       <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
-        <h3 className="text-lg font-heading text-claude-near-black mb-2">コホート分析</h3>
+        <h3 className="text-lg font-bold text-claude-near-black mb-2">コホート分析</h3>
         <p className="text-claude-olive text-sm">コホートデータがありません</p>
       </div>
     );
@@ -144,7 +144,7 @@ export default function CohortWidget() {
       {/* ヘッダー */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-heading text-claude-near-black">コホート分析</h3>
+          <h3 className="text-lg font-bold text-claude-near-black">コホート分析</h3>
           <p className="text-xs text-claude-olive mt-1">
             月別初回購入コホートのリテンション率
           </p>
@@ -270,7 +270,7 @@ export default function CohortWidget() {
             top: tooltip.y - 80,
           }}
         >
-          <div className="text-sm font-heading text-claude-near-black mb-1">
+          <div className="text-sm font-bold text-claude-near-black mb-1">
             {formatMonthLabel(tooltip.cohortMonth)} コホート
           </div>
           <div className="space-y-1 text-xs text-claude-olive">
@@ -296,7 +296,7 @@ export default function CohortWidget() {
             </div>
             <div className="flex justify-between gap-4">
               <span>リテンション率:</span>
-              <span className="font-heading text-claude-near-black">
+              <span className="font-bold text-claude-near-black">
                 {tooltip.rate}%
               </span>
             </div>

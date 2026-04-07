@@ -57,7 +57,7 @@ function SegmentTooltip({ active, payload }: { active?: boolean; payload?: { pay
           className="inline-block w-3 h-3 rounded-full"
           style={{ backgroundColor: data.color }}
         />
-        <span className="font-heading text-claude-near-black">{data.name}</span>
+        <span className="font-bold text-claude-near-black">{data.name}</span>
       </div>
       <p className="text-claude-olive">{data.value}人</p>
     </div>
@@ -123,7 +123,7 @@ export default function SegmentWidget() {
   if (loading) {
     return (
       <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
-        <h3 className="text-md font-heading text-claude-near-black mb-4">
+        <h3 className="text-md font-bold text-claude-near-black mb-4">
           セグメント分布
         </h3>
         <div className="flex items-center justify-center h-48">
@@ -136,7 +136,7 @@ export default function SegmentWidget() {
   if (error) {
     return (
       <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
-        <h3 className="text-md font-heading text-claude-near-black mb-4">
+        <h3 className="text-md font-bold text-claude-near-black mb-4">
           セグメント分布
         </h3>
         <div className="flex items-center justify-center h-48 text-red-500 text-sm">
@@ -149,7 +149,7 @@ export default function SegmentWidget() {
   if (total === 0 || chartData.length === 0) {
     return (
       <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
-        <h3 className="text-md font-heading text-claude-near-black mb-4">
+        <h3 className="text-md font-bold text-claude-near-black mb-4">
           セグメント分布
         </h3>
         <div className="flex flex-col items-center justify-center h-48 text-claude-stone text-sm gap-2">
@@ -178,7 +178,7 @@ export default function SegmentWidget() {
   return (
     <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-md font-heading text-claude-near-black">セグメント分布</h3>
+        <h3 className="text-md font-bold text-claude-near-black">セグメント分布</h3>
         <span className="text-xs text-claude-olive">合計 {total}人</span>
       </div>
       <div className="h-64">

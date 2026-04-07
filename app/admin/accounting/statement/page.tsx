@@ -146,7 +146,7 @@ function AccountingStatementContent() {
             ← 戻る
           </button>
           <div>
-            <h1 className="text-2xl font-heading text-claude-near-black">月次収支表</h1>
+            <h1 className="text-2xl font-bold text-claude-near-black">月次収支表</h1>
             <p className="text-claude-olive text-sm mt-1">損益計算書</p>
           </div>
         </div>
@@ -180,7 +180,7 @@ function AccountingStatementContent() {
         <div className="bg-claude-ivory rounded-lg shadow print:shadow-none">
           {/* タイトル */}
           <div className="text-center py-6 border-b">
-            <h2 className="text-xl font-heading text-claude-near-black">損益計算書</h2>
+            <h2 className="text-xl font-bold text-claude-near-black">損益計算書</h2>
             <p className="text-claude-olive mt-1">{formatMonthLabel(selectedMonth)}</p>
           </div>
 

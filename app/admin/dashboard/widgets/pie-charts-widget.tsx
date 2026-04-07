@@ -49,7 +49,7 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: { paylo
     <div className="bg-claude-ivory border border-claude-border-warm rounded-lg shadow-lg p-3 text-sm">
       <div className="flex items-center gap-2">
         <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: data.color }} />
-        <span className="font-heading text-claude-near-black">{data.name}</span>
+        <span className="font-bold text-claude-near-black">{data.name}</span>
       </div>
       <div className="mt-1 text-claude-olive">
         {data.value.toLocaleString()}人
@@ -73,7 +73,7 @@ function PaymentTooltip({ active, payload, creditCardAmount, bankTransferAmount 
     <div className="bg-claude-ivory border border-claude-border-warm rounded-lg shadow-lg p-3 text-sm">
       <div className="flex items-center gap-2">
         <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: data.color }} />
-        <span className="font-heading text-claude-near-black">{data.name}</span>
+        <span className="font-bold text-claude-near-black">{data.name}</span>
       </div>
       <div className="mt-1 space-y-0.5 text-claude-olive">
         <div>{data.value.toLocaleString()}件{data.percent !== undefined && ` (${(data.percent * 100).toFixed(1)}%)`}</div>
@@ -125,7 +125,7 @@ function PieChartCard({ title, subtitle, children, isEmpty }: {
   return (
     <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-4 flex flex-col h-[360px]">
       <div className="mb-1 shrink-0">
-        <h3 className="text-sm font-heading text-claude-near-black">{title}</h3>
+        <h3 className="text-sm font-bold text-claude-near-black">{title}</h3>
         {subtitle && <p className="text-xs text-claude-olive mt-0.5">{subtitle}</p>}
       </div>
       {isEmpty ? (

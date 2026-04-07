@@ -26,7 +26,7 @@ export function KPICard({ title, value, subtitle, icon, color = "blue" }: KPICar
           {icon}
         </div>
       </div>
-      <p className="text-[28px] font-heading text-claude-near-black leading-none tracking-tight">{value}</p>
+      <p className="text-[28px] font-bold text-claude-near-black leading-none tracking-tight">{value}</p>
       <p className="text-[11px] text-claude-stone mt-2">{subtitle}</p>
     </div>
   );

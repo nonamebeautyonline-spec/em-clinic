@@ -244,7 +244,7 @@ export default function AccountingPage() {
               </div>
               <span className="text-[11px] font-medium text-claude-stone">カード決済</span>
             </div>
-            <div className="text-xl font-heading text-claude-near-black">¥{todaySummary.totalSquare.toLocaleString()}</div>
+            <div className="text-xl font-bold text-claude-near-black">¥{todaySummary.totalSquare.toLocaleString()}</div>
             <div className="text-[11px] text-claude-stone mt-1">{todaySummary.squareCount}件</div>
           </div>
           <div className="p-4 rounded-2xl bg-emerald-50/60">
@@ -254,7 +254,7 @@ export default function AccountingPage() {
               </div>
               <span className="text-[11px] font-medium text-claude-stone">銀行振込</span>
             </div>
-            <div className="text-xl font-heading text-claude-near-black">¥{todaySummary.totalBank.toLocaleString()}</div>
+            <div className="text-xl font-bold text-claude-near-black">¥{todaySummary.totalBank.toLocaleString()}</div>
             <div className="text-[11px] text-claude-stone mt-1">{todaySummary.bankCount}件</div>
           </div>
           <div className="p-4 rounded-2xl bg-red-50/60">
@@ -264,7 +264,7 @@ export default function AccountingPage() {
               </div>
               <span className="text-[11px] font-medium text-red-400">返金</span>
             </div>
-            <div className="text-xl font-heading text-claude-error">-¥{todaySummary.totalRefund.toLocaleString()}</div>
+            <div className="text-xl font-bold text-claude-error">-¥{todaySummary.totalRefund.toLocaleString()}</div>
           </div>
           <div className="p-4 rounded-2xl bg-claude-parchment">
             <div className="flex items-center gap-2 mb-2">
@@ -273,7 +273,7 @@ export default function AccountingPage() {
               </div>
               <span className="text-[11px] font-medium text-claude-stone">純売上</span>
             </div>
-            <div className="text-xl font-heading text-claude-near-black">¥{todaySummary.totalNet.toLocaleString()}</div>
+            <div className="text-xl font-bold text-claude-near-black">¥{todaySummary.totalNet.toLocaleString()}</div>
           </div>
         </div>
       </div>
@@ -297,25 +297,25 @@ export default function AccountingPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="p-4 rounded-2xl bg-claude-parchment/60">
             <p className="text-[11px] font-medium text-claude-stone mb-1">カード決済</p>
-            <p className="text-xl font-heading text-claude-near-black">¥{dailySummary.totalSquare.toLocaleString()}</p>
+            <p className="text-xl font-bold text-claude-near-black">¥{dailySummary.totalSquare.toLocaleString()}</p>
           </div>
           <div className="p-4 rounded-2xl bg-emerald-50/60">
             <p className="text-[11px] font-medium text-claude-stone mb-1">銀行振込</p>
-            <p className="text-xl font-heading text-claude-near-black">¥{dailySummary.totalBank.toLocaleString()}</p>
+            <p className="text-xl font-bold text-claude-near-black">¥{dailySummary.totalBank.toLocaleString()}</p>
           </div>
           <div className="p-4 rounded-2xl bg-red-50/60">
             <p className="text-[11px] font-medium text-red-400 mb-1">返金</p>
-            <p className="text-xl font-heading text-claude-error">-¥{dailySummary.totalRefund.toLocaleString()}</p>
+            <p className="text-xl font-bold text-claude-error">-¥{dailySummary.totalRefund.toLocaleString()}</p>
           </div>
           <div className="p-4 rounded-2xl bg-claude-parchment">
             <p className="text-[11px] font-medium text-claude-stone mb-1">純売上</p>
-            <p className="text-xl font-heading text-claude-near-black">¥{dailySummary.totalNet.toLocaleString()}</p>
+            <p className="text-xl font-bold text-claude-near-black">¥{dailySummary.totalNet.toLocaleString()}</p>
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
           <div className="p-4 rounded-2xl bg-violet-50/60">
             <p className="text-[11px] font-medium text-claude-stone mb-1">決済数</p>
-            <p className="text-xl font-heading text-claude-near-black">
+            <p className="text-xl font-bold text-claude-near-black">
               {dailySummary.totalCount.toLocaleString()}件
               <span className="text-[11px] font-normal ml-2 text-claude-stone">
                 (カード{dailySummary.totalSquareCount} / 振込{dailySummary.totalBankCount})
@@ -324,7 +324,7 @@ export default function AccountingPage() {
           </div>
           <div className="p-4 rounded-2xl bg-amber-50/60">
             <p className="text-[11px] font-medium text-claude-stone mb-1">顧客単価</p>
-            <p className="text-xl font-heading text-claude-near-black">¥{dailySummary.avgOrderValue.toLocaleString()}</p>
+            <p className="text-xl font-bold text-claude-near-black">¥{dailySummary.avgOrderValue.toLocaleString()}</p>
           </div>
         </div>
       </div>
@@ -381,7 +381,7 @@ export default function AccountingPage() {
                   </div>
                   <span className="text-[11px] font-medium text-claude-stone">予約件数</span>
                 </div>
-                <p className="text-[22px] font-heading text-claude-near-black">{customStats.reservations.total}<span className="text-sm font-normal text-claude-stone ml-1">件</span></p>
+                <p className="text-[22px] font-bold text-claude-near-black">{customStats.reservations.total}<span className="text-sm font-normal text-claude-stone ml-1">件</span></p>
                 <p className="text-[11px] text-claude-stone mt-1">診察済 {customStats.reservations.completed} / キャンセル {customStats.reservations.cancelled}</p>
               </div>
               <div className="p-4 rounded-2xl bg-emerald-50/60">
@@ -391,7 +391,7 @@ export default function AccountingPage() {
                   </div>
                   <span className="text-[11px] font-medium text-claude-stone">配送件数</span>
                 </div>
-                <p className="text-[22px] font-heading text-claude-near-black">{customStats.shipping.total}<span className="text-sm font-normal text-claude-stone ml-1">件</span></p>
+                <p className="text-[22px] font-bold text-claude-near-black">{customStats.shipping.total}<span className="text-sm font-normal text-claude-stone ml-1">件</span></p>
                 <p className="text-[11px] text-claude-stone mt-1">新規 {customStats.shipping.first} / 再処方 {customStats.shipping.reorder}</p>
               </div>
               <div className="p-4 rounded-2xl bg-violet-50/60">
@@ -401,7 +401,7 @@ export default function AccountingPage() {
                   </div>
                   <span className="text-[11px] font-medium text-claude-stone">純売上</span>
                 </div>
-                <p className="text-[22px] font-heading text-claude-near-black">¥{(customStats.revenue.total || 0).toLocaleString()}</p>
+                <p className="text-[22px] font-bold text-claude-near-black">¥{(customStats.revenue.total || 0).toLocaleString()}</p>
                 <p className="text-[11px] text-claude-stone mt-1">カード ¥{(customStats.revenue.square || 0).toLocaleString()} / 振込 ¥{(customStats.revenue.bankTransfer || 0).toLocaleString()}</p>
               </div>
               <div className="p-4 rounded-2xl bg-amber-50/60">
@@ -411,7 +411,7 @@ export default function AccountingPage() {
                   </div>
                   <span className="text-[11px] font-medium text-claude-stone">顧客単価</span>
                 </div>
-                <p className="text-[22px] font-heading text-claude-near-black">¥{(customStats.revenue.avgOrderAmount || 0).toLocaleString()}</p>
+                <p className="text-[22px] font-bold text-claude-near-black">¥{(customStats.revenue.avgOrderAmount || 0).toLocaleString()}</p>
                 <p className="text-[11px] text-claude-stone mt-1">{customRangeLabel[customRange]}平均</p>
               </div>
             </div>
@@ -428,19 +428,19 @@ export default function AccountingPage() {
                   <>
                     <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-5 hover:shadow-whisper transition-all duration-200">
                       <p className="text-[13px] font-medium text-claude-stone mb-3">診療後決済率</p>
-                      <p className={`text-[28px] font-heading leading-none mb-3 ${rateColor(payRate)}`}>{payRate}<span className="text-lg">%</span></p>
+                      <p className={`text-[28px] font-bold leading-none mb-3 ${rateColor(payRate)}`}>{payRate}<span className="text-lg">%</span></p>
                       <div className="w-full h-1.5 bg-claude-sand rounded-full overflow-hidden mb-2"><div className={`h-full rounded-full ${barColor(payRate)}`} style={{ width: `${Math.min(payRate, 100)}%` }} /></div>
                       <p className="text-[11px] text-claude-stone">診察完了後に決済した割合</p>
                     </div>
                     <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-5 hover:shadow-whisper transition-all duration-200">
                       <p className="text-[13px] font-medium text-claude-stone mb-3">問診後予約率</p>
-                      <p className={`text-[28px] font-heading leading-none mb-3 ${rateColor(resRate)}`}>{resRate}<span className="text-lg">%</span></p>
+                      <p className={`text-[28px] font-bold leading-none mb-3 ${rateColor(resRate)}`}>{resRate}<span className="text-lg">%</span></p>
                       <div className="w-full h-1.5 bg-claude-sand rounded-full overflow-hidden mb-2"><div className={`h-full rounded-full ${barColor(resRate)}`} style={{ width: `${Math.min(resRate, 100)}%` }} /></div>
                       <p className="text-[11px] text-claude-stone">問診完了後に予約した割合</p>
                     </div>
                     <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-5 hover:shadow-whisper transition-all duration-200">
                       <p className="text-[13px] font-medium text-claude-stone mb-3">予約後受診率</p>
-                      <p className={`text-[28px] font-heading leading-none mb-3 ${rateColor(conRate)}`}>{conRate}<span className="text-lg">%</span></p>
+                      <p className={`text-[28px] font-bold leading-none mb-3 ${rateColor(conRate)}`}>{conRate}<span className="text-lg">%</span></p>
                       <div className="w-full h-1.5 bg-claude-sand rounded-full overflow-hidden mb-2"><div className={`h-full rounded-full ${barColor(conRate)}`} style={{ width: `${Math.min(conRate, 100)}%` }} /></div>
                       <p className="text-[11px] text-claude-stone">予約後に診察完了した割合</p>
                     </div>
@@ -487,13 +487,13 @@ export default function AccountingPage() {
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div className="p-4 rounded-2xl bg-emerald-50/60 text-center">
               <p className="text-[11px] font-medium text-claude-stone mb-1">再処方</p>
-              <p className="text-xl font-heading text-claude-near-black">
+              <p className="text-xl font-bold text-claude-near-black">
                 {dailyData.reduce((sum, d) => sum + d.reorderCount, 0)}件
               </p>
             </div>
             <div className="p-4 rounded-2xl bg-claude-parchment/60 text-center">
               <p className="text-[11px] font-medium text-claude-stone mb-1">新規処方</p>
-              <p className="text-xl font-heading text-claude-near-black">
+              <p className="text-xl font-bold text-claude-near-black">
                 {dailyData.reduce((sum, d) => sum + d.firstCount, 0)}件
               </p>
             </div>
@@ -730,7 +730,7 @@ export default function AccountingPage() {
               </svg>
             </div>
             <div>
-              <div className="text-lg font-heading text-claude-near-black">月次詳細入力</div>
+              <div className="text-lg font-bold text-claude-near-black">月次詳細入力</div>
               <div className="text-sm text-claude-stone">売上原価・経費の入力</div>
             </div>
           </div>
@@ -747,7 +747,7 @@ export default function AccountingPage() {
               </svg>
             </div>
             <div>
-              <div className="text-lg font-heading text-claude-near-black">収支表</div>
+              <div className="text-lg font-bold text-claude-near-black">収支表</div>
               <div className="text-sm text-claude-stone">月次損益計算書</div>
             </div>
           </div>

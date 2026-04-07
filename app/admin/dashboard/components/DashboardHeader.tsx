@@ -46,7 +46,7 @@ export function DashboardHeader({
     <div className="mb-8 flex items-center justify-between">
       <div className="flex items-center gap-4">
         <div>
-          <h1 className="text-2xl font-heading text-claude-near-black">ダッシュボード</h1>
+          <h1 className="text-2xl font-bold text-claude-near-black">ダッシュボード</h1>
           <p className="text-claude-stone text-sm mt-0.5">{rangeLabelJa}の運営指標</p>
         </div>
         {dateRange === "today" && (

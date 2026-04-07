@@ -113,7 +113,7 @@ function RevenueTooltip({ active, payload, label }: CustomTooltipProps) {
 
   return (
     <div className="bg-claude-ivory border border-claude-border-warm rounded-lg shadow-lg p-3 text-sm">
-      <p className="font-heading text-claude-near-black mb-2">{label}</p>
+      <p className="font-bold text-claude-near-black mb-2">{label}</p>
       {payload.map((entry: TooltipPayloadEntry) => (
         <div key={entry.name} className="flex items-center gap-2 mb-1">
           <span
@@ -128,7 +128,7 @@ function RevenueTooltip({ active, payload, label }: CustomTooltipProps) {
       ))}
       <div className="border-t border-claude-border-warm mt-2 pt-2">
         <span className="text-claude-olive">合計: </span>
-        <span className="font-heading text-claude-near-black">
+        <span className="font-bold text-claude-near-black">
           ¥{total.toLocaleString()}
         </span>
       </div>
@@ -141,7 +141,7 @@ function OrderTooltip({ active, payload, label }: CustomTooltipProps) {
 
   return (
     <div className="bg-claude-ivory border border-claude-border-warm rounded-lg shadow-lg p-3 text-sm">
-      <p className="font-heading text-claude-near-black mb-2">{label}</p>
+      <p className="font-bold text-claude-near-black mb-2">{label}</p>
       {payload.map((entry: TooltipPayloadEntry) => (
         <div key={entry.name} className="flex items-center gap-2 mb-1">
           <span
@@ -222,7 +222,7 @@ export default function ChartWidget({
   if (!hasData && !trendLoading) {
     return (
       <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
-        <h3 className="text-md font-heading text-claude-near-black mb-4">売上推移</h3>
+        <h3 className="text-md font-bold text-claude-near-black mb-4">売上推移</h3>
         <div className="flex items-center justify-center h-48 text-claude-stone text-sm">
           表示期間のデータがありません
         </div>
@@ -239,7 +239,7 @@ export default function ChartWidget({
         <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <h3 className="text-md font-heading text-claude-near-black">
+              <h3 className="text-md font-bold text-claude-near-black">
                 {granularityLabel}売上推移
               </h3>
               {/* 前期比バッジ */}
@@ -283,19 +283,19 @@ export default function ChartWidget({
                 <div className="grid grid-cols-3 gap-4 mb-4">
                   <div className="bg-claude-ivory rounded-2xl p-3 border border-claude-border-cream">
                     <div className="text-xs text-claude-stone mb-1">純売上</div>
-                    <div className="text-lg font-heading text-claude-near-black">
+                    <div className="text-lg font-bold text-claude-near-black">
                       ¥{trendData.currentPeriod.total.toLocaleString()}
                     </div>
                   </div>
                   <div className="bg-claude-ivory rounded-2xl p-3 border border-claude-border-cream">
                     <div className="text-xs text-claude-olive mb-1">注文数</div>
-                    <div className="text-lg font-heading text-claude-near-black">
+                    <div className="text-lg font-bold text-claude-near-black">
                       {trendData.currentPeriod.orderCount}件
                     </div>
                   </div>
                   <div className="bg-claude-ivory rounded-2xl p-3 border border-claude-border-cream">
                     <div className="text-xs text-claude-olive mb-1">顧客数</div>
-                    <div className="text-lg font-heading text-claude-near-black">
+                    <div className="text-lg font-bold text-claude-near-black">
                       {trendData.currentPeriod.uniquePatients}人
                     </div>
                   </div>
@@ -356,7 +356,7 @@ export default function ChartWidget({
       {/* 新規 vs 再処方 バーチャート（日別のみ表示） */}
       {showOrderChart && granularity === "daily" && (
         <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
-          <h3 className="text-md font-heading text-claude-near-black mb-4">
+          <h3 className="text-md font-bold text-claude-near-black mb-4">
             新規処方 vs 再処方（日別件数）
           </h3>
           <div className="h-64">

@@ -77,12 +77,6 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* ═══ Claude Design System — 管理画面セリフ見出しユーティリティ ═══ */
-.font-heading {
-  font-family: var(--font-serif), Georgia, "Noto Serif JP", serif;
-  font-weight: 500;
-}
-
 /* リングシャドウ（Claudeスタイル: ボーダーっぽいシャドウ） */
 .shadow-ring-warm {
   box-shadow: 0px 0px 0px 1px var(--claude-ring-warm);

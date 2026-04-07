@@ -194,7 +194,7 @@ function AccountingInputContent() {
             ← 戻る
           </button>
           <div>
-            <h1 className="text-2xl font-heading text-claude-near-black">月次詳細入力</h1>
+            <h1 className="text-2xl font-bold text-claude-near-black">月次詳細入力</h1>
             <p className="text-claude-olive text-sm mt-1">売上原価・経費の入力</p>
           </div>
         </div>
@@ -266,7 +266,7 @@ function AccountingInputContent() {
 
           {/* 売上セクション */}
           <div className="bg-claude-ivory rounded-lg shadow p-6">
-            <h2 className="text-lg font-heading text-claude-near-black mb-4 border-b pb-2">売上</h2>
+            <h2 className="text-lg font-bold text-claude-near-black mb-4 border-b pb-2">売上</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <InputField
                 label="純売上高"
@@ -278,7 +278,7 @@ function AccountingInputContent() {
 
           {/* 売上原価セクション */}
           <div className="bg-claude-ivory rounded-lg shadow p-6">
-            <h2 className="text-lg font-heading text-claude-near-black mb-4 border-b pb-2">売上原価</h2>
+            <h2 className="text-lg font-bold text-claude-near-black mb-4 border-b pb-2">売上原価</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <InputField
                 label="薬品仕入高"
@@ -296,7 +296,7 @@ function AccountingInputContent() {
 
           {/* 販売費及び一般管理費セクション */}
           <div className="bg-claude-ivory rounded-lg shadow p-6">
-            <h2 className="text-lg font-heading text-claude-near-black mb-4 border-b pb-2">販売費及び一般管理費</h2>
+            <h2 className="text-lg font-bold text-claude-near-black mb-4 border-b pb-2">販売費及び一般管理費</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <InputField
                 label="販管人件費"
@@ -388,7 +388,7 @@ function AccountingInputContent() {
 
           {/* メモ */}
           <div className="bg-claude-ivory rounded-lg shadow p-6">
-            <h2 className="text-lg font-heading text-claude-near-black mb-4 border-b pb-2">メモ</h2>
+            <h2 className="text-lg font-bold text-claude-near-black mb-4 border-b pb-2">メモ</h2>
             <textarea
               value={formData.notes}
               onChange={(e) => handleNotesChange(e.target.value)}

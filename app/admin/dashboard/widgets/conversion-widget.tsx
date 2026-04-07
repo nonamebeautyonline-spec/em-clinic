@@ -43,7 +43,7 @@ function ConversionTooltip({ active, payload, label }: { active?: boolean; paylo
 
   return (
     <div className="bg-claude-ivory border border-claude-border-warm rounded-lg shadow-lg p-3 text-sm">
-      <p className="font-heading text-claude-near-black mb-2">{label}</p>
+      <p className="font-bold text-claude-near-black mb-2">{label}</p>
       <div className="space-y-1">
         <div className="flex justify-between gap-4">
           <span className="text-claude-olive">新規患者:</span>
@@ -83,7 +83,7 @@ export default function ConversionWidget() {
   if (error) {
     return (
       <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
-        <h3 className="text-md font-heading text-claude-near-black mb-4">初診→再診転換率</h3>
+        <h3 className="text-md font-bold text-claude-near-black mb-4">初診→再診転換率</h3>
         <div className="flex items-center justify-center h-48 text-red-500 text-sm">{error instanceof Error ? error.message : "エラーが発生しました"}</div>
       </div>
     );
@@ -92,7 +92,7 @@ export default function ConversionWidget() {
   if (!data || data.cohorts.length === 0) {
     return (
       <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
-        <h3 className="text-md font-heading text-claude-near-black mb-4">初診→再診転換率</h3>
+        <h3 className="text-md font-bold text-claude-near-black mb-4">初診→再診転換率</h3>
         <div className="flex items-center justify-center h-48 text-claude-stone text-sm">
           データがありません
         </div>
@@ -107,7 +107,7 @@ export default function ConversionWidget() {
   return (
     <div className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-md font-heading text-claude-near-black">初診→再診転換率</h3>
+        <h3 className="text-md font-bold text-claude-near-black">初診→再診転換率</h3>
         <div className="flex items-center gap-3">
           <div className="text-right">
             <div className="text-xs text-claude-olive">全体転換率</div>

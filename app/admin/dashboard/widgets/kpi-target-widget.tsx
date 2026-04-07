@@ -129,7 +129,7 @@ export default function KPITargetWidget() {
         {/* ヘッダー */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <h3 className="text-lg font-heading text-claude-near-black">KPI目標 vs 実績</h3>
+            <h3 className="text-lg font-bold text-claude-near-black">KPI目標 vs 実績</h3>
             {/* 月ナビゲーション */}
             <div className="flex items-center gap-1">
               <button
@@ -183,7 +183,7 @@ export default function KPITargetWidget() {
                     return (
                       <div key={mt} className="bg-claude-ivory rounded-2xl border border-claude-border-cream p-3">
                         <div className="text-xs text-claude-olive">{config.label}</div>
-                        <div className="text-lg font-heading text-claude-near-black mt-1">
+                        <div className="text-lg font-bold text-claude-near-black mt-1">
                           {config.format(val)}
                         </div>
                       </div>
@@ -344,7 +344,7 @@ function KPITargetModal({
         {/* ヘッダー */}
         <div className="flex items-center justify-between p-6 border-b border-claude-border-warm">
           <div>
-            <h2 className="text-lg font-heading text-claude-near-black">KPI目標設定</h2>
+            <h2 className="text-lg font-bold text-claude-near-black">KPI目標設定</h2>
             <p className="text-sm text-claude-olive mt-0.5">
               {formatYearMonth(yearMonth)}の目標
             </p>
