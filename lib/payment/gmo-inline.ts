@@ -122,6 +122,34 @@ export async function saveGmoCard(
   }
 }
 
+/** 決済後にTradedCardでカード保存（失敗しても例外を投げない） */
+export async function saveCardViaTradedCard(
+  patientId: string,
+  orderId: string,
+  tenantId: string | null,
+): Promise<boolean> {
+  try {
+    const memberId = await ensureGmoMember(patientId, tenantId);
+    const result = await getGmo(tenantId).tradedCard({ orderId, memberId });
+    if (!result.ok) {
+      console.warn("[gmo-inline] TradedCard failed (non-critical):", result.error);
+      return false;
+    }
+    // DB更新: cardSeqを保存
+    await withTenant(
+      supabaseAdmin
+        .from("patients")
+        .update({ gmo_card_seq: result.cardSeq })
+        .eq("patient_id", patientId),
+      tenantId,
+    );
+    return true;
+  } catch (e) {
+    console.error("[gmo-inline] saveCardViaTradedCard error:", e);
+    return false;
+  }
+}
+
 /** トークンでGMO決済実行 */
 export async function createGmoPayment(params: {
   token: string;

@@ -338,6 +338,33 @@ export class GmoPaymentProvider implements PaymentProvider {
   }
 
   /**
+   * 決済後カード保存（TradedCard）— 決済で使ったカードを会員に紐付け
+   */
+  async tradedCard(params: {
+    orderId: string;
+    memberId: string;
+  }): Promise<{ ok: boolean; cardSeq?: string; error?: string }> {
+    const config = await this.getConfig();
+    if (!config.shopId || !config.shopPass || !config.siteId || !config.sitePass) {
+      return { ok: false, error: "GMO設定が不足しています" };
+    }
+    const res = await this.callApi(config.baseUrl, "/payment/TradedCard.idPass", {
+      ShopID: config.shopId,
+      ShopPass: config.shopPass,
+      OrderID: params.orderId,
+      JobCd: "CAPTURE",
+      SiteID: config.siteId,
+      SitePass: config.sitePass,
+      MemberID: params.memberId,
+    });
+    if (res.ErrCode) {
+      console.error("[GMO] TradedCard failed:", JSON.stringify(res));
+      return { ok: false, error: res.ErrInfo || res.ErrCode };
+    }
+    return { ok: true, cardSeq: res.CardSeq || "0" };
+  }
+
+  /**
    * 保存済みカード情報取得（SearchCard）
    */
   async searchCard(memberId: string): Promise<{

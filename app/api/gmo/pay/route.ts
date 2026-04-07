@@ -18,8 +18,8 @@ import {
   createGmoPayment,
   createGmoPaymentWithSavedCard,
   ensureGmoMember,
-  saveGmoCard,
   getGmoSavedCard,
+  saveCardViaTradedCard,
   markReorderPaid,
 } from "@/lib/payment/gmo-inline";
 import { getBusinessRules } from "@/lib/business-rules";
@@ -158,42 +158,17 @@ export async function POST(req: NextRequest) {
         retUrl: tdsRetUrl,
       });
     } else {
-      // 新規トークンで決済
-      // GMOトークンは1回限りなので、カード保存する場合は先にSaveCardしてから保存済みカードで決済
-      if (saveCard && token) {
-        const cardSeq = await saveGmoCard(patientId, token, tenantId);
-        if (cardSeq) {
-          // 保存成功 → 保存済みカードで決済実行
-          const memberId = await ensureGmoMember(patientId, tenantId);
-          payResult = await createGmoPaymentWithSavedCard({
-            memberId,
-            cardSeq,
-            amount: payAmount,
-            patientId,
-            productCode: effectiveProductCode,
-            mode,
-            reorderId: reorderId ?? undefined,
-            tenantId,
-            retUrl: tdsRetUrl,
-          });
-        } else {
-          // カード保存失敗 → トークンはSaveCardで消費済みのため再利用不可
-          // フロントにエラーを返し、ユーザーに再入力してもらう
-          payResult = { ok: false, error: "カード情報の登録に失敗しました。別のカードをお試しいただくか、再度入力してください。" };
-        }
-      } else {
-        // カード保存不要 → トークンで直接決済
-        payResult = await createGmoPayment({
-          token: token!,
-          amount: payAmount,
-          patientId,
-          productCode: effectiveProductCode,
-          mode,
-          reorderId: reorderId ?? undefined,
-          tenantId,
-          retUrl: tdsRetUrl,
-        });
-      }
+      // 新規トークンで直接決済（TradedCard方式: 決済成功後にカード保存）
+      payResult = await createGmoPayment({
+        token: token!,
+        amount: payAmount,
+        patientId,
+        productCode: effectiveProductCode,
+        mode,
+        reorderId: reorderId ?? undefined,
+        tenantId,
+        retUrl: tdsRetUrl,
+      });
     }
 
     if (!payResult.ok) {
@@ -211,6 +186,7 @@ export async function POST(req: NextRequest) {
           mode: mode || null,
           reorder_id: reorderId || null,
           nonce: pendingNonce,
+          save_card: !!(saveCard && !useSavedCard),
           shipping: {
             name: shipping.name,
             postalCode: shipping.postalCode,
@@ -305,6 +281,11 @@ export async function POST(req: NextRequest) {
     // 後処理をfire-and-forget（waitUntil相当）
     const postProcess = async () => {
       try {
+        // TradedCard方式: 決済成功後にカード保存（失敗しても決済に影響なし）
+        if (saveCard && !useSavedCard) {
+          await saveCardViaTradedCard(patientId, orderId, tenantId);
+        }
+
         // reorder paidマーク + カルテ自動作成
         if (reorderId) {
           await markReorderPaid(reorderId, patientId, tenantId);

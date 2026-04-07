@@ -5,7 +5,7 @@ import { GmoPaymentProvider } from "@/lib/payment/gmo";
 import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant, tenantPayload } from "@/lib/tenant";
 import { normalizeJPPhone } from "@/lib/phone";
-import { markReorderPaid } from "@/lib/payment/gmo-inline";
+import { markReorderPaid, saveCardViaTradedCard } from "@/lib/payment/gmo-inline";
 import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { getBusinessRules } from "@/lib/business-rules";
@@ -53,6 +53,16 @@ export async function POST(req: NextRequest) {
     const orderId = pending.order_id;
     const tenantId = pending.tenant_id;
     const tid = tenantId ?? undefined;
+
+    // TradedCard方式: 3DS認証成功後にカード保存（失敗しても決済に影響なし）
+    if (pending.save_card) {
+      try {
+        await saveCardViaTradedCard(pending.patient_id, orderId, tenantId);
+      } catch (e) {
+        console.error("[gmo/3ds-callback] TradedCard failed (non-critical):", e);
+      }
+    }
+
     const shipping = pending.shipping as { name: string; postalCode: string; address: string; addressDetail: string; phone: string; email: string; shippingOptions?: { customSenderName?: string | null; itemNameCosmetics?: boolean; useHexidin?: boolean; postOfficeHold?: boolean; postOfficeName?: string | null } | null } | null;
     const sOpts = shipping?.shippingOptions;
 
