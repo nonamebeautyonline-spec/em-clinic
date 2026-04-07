@@ -257,6 +257,7 @@ export default function TrackingNumberPage() {
     const tempId = `manual_${Date.now()}`;
     const newEntry: ManualEntry = {
       payment_id: manualForm.payment_id,
+      patient_id: "",
       patient_name: manualForm.patient_name,
       tracking_number: manualForm.tracking_number,
       matched: true,
