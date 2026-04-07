@@ -102,9 +102,9 @@ function PurchasePageInner() {
     return p.price;
   }, []);
 
-  // カートモード判定
-  const cartMode = config.cartMode ?? false;
-  const multiSelectEnabled = config.multiSelectEnabled ?? false;
+  // カートモード判定（マルチ分野モードON or 設定で有効）
+  const cartMode = (config.cartMode ?? false) || multiFieldEnabled;
+  const multiSelectEnabled = (config.multiSelectEnabled ?? false) || multiFieldEnabled;
 
   // カートState
   const [cart, setCart] = React.useState<CartItem[]>([]);
@@ -343,6 +343,7 @@ function PurchasePageInner() {
           onRemove={handleRemoveFromCart}
           onClear={handleClearCart}
           onCheckout={handleCartCheckout}
+          isReorderFlow={isReorderFlow}
         />
       )}
     </div>
@@ -352,7 +353,7 @@ function PurchasePageInner() {
 // カートフローティングバー（展開可能なカート詳細表示）
 function CartFloatingBar({
   cart, cartItemCount, cartSubtotal, cartShippingFee, cartTotal,
-  onRemove, onClear, onCheckout,
+  onRemove, onClear, onCheckout, isReorderFlow,
 }: {
   cart: CartItem[];
   cartItemCount: number;
@@ -361,6 +362,7 @@ function CartFloatingBar({
   cartTotal: number;
   onRemove: (code: string) => void;
   onClear: () => void;
+  isReorderFlow?: boolean;
   onCheckout: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -436,7 +438,7 @@ function CartFloatingBar({
             onClick={onCheckout}
             className="rounded-full bg-blue-600 text-white px-6 py-2.5 text-sm font-semibold shadow-md"
           >
-            決済に進む
+            {isReorderFlow ? "再処方を申請する" : "決済に進む"}
           </button>
         </div>
       </div>
