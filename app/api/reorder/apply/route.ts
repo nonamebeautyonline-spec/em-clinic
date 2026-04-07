@@ -360,10 +360,19 @@ export async function POST(req: NextRequest) {
 
       // ユニーク制約違反: 23505 = unique_violation
       if (dbError?.code === "23505") {
-        // patient_id の重複（二重申請）→ 即座にエラー返却
         if (dbError.message?.includes("idx_reorders_one_active_per_patient")) {
-          console.log(`[reorder/apply] DB unique constraint blocked duplicate: patient=${patientId}`);
-          return NextResponse.json({ ok: false, error: "duplicate_pending", message: "すでに処理中の再処方申請があります。キャンセルまたは決済完了後に再度お申し込みください。" }, { status: 400 });
+          // 自動キャンセルしたはずだが制約違反 → 再度キャンセルを試みてリトライ
+          console.warn(`[reorder/apply] Unique constraint hit after auto-cancel, retrying cancel+insert (attempt ${attempt + 1})`);
+          await strictWithTenant(
+            supabaseAdmin.from("reorders").update({ status: "canceled" }).eq("patient_id", patientId).eq("status", "pending"),
+            tenantId
+          );
+          await strictWithTenant(
+            supabaseAdmin.from("reorders").update({ status: "canceled" }).eq("patient_id", patientId).eq("status", "confirmed").is("paid_at", null),
+            tenantId
+          );
+          reorderNumber++;
+          continue;
         }
         // reorder_number の衝突 → 番号をインクリメントしてリトライ
         reorderNumber++;
@@ -371,7 +380,7 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      console.error("[reorder/apply] DB insert error:", dbError);
+      console.error("[reorder/apply] DB insert error:", dbError?.code, dbError?.message, dbError);
       return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
     }
 
