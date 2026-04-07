@@ -63,6 +63,7 @@ export function usePatientDashboard(): {
   const [cancelingReorder, setCancelingReorder] = useState(false);
   const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
   const [multiFieldEnabled, setMultiFieldEnabled] = useState(false);
+  const [intakeByField, setIntakeByField] = useState<Record<string, boolean>>({});
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return localStorage.getItem("lope_selected_field") || null;
@@ -207,6 +208,7 @@ export function usePatientDashboard(): {
         ordersFlags?: import("./types").OrdersFlags;
         reorders?: { id?: unknown; reorder_number?: unknown; timestamp?: unknown; createdAt?: unknown; product_code?: unknown; productCode?: unknown; status?: unknown; note?: unknown; fieldName?: string; fieldColor?: string }[];
         hasIntake?: boolean;
+        intakeByField?: Record<string, boolean>;
         intakeId?: string;
         intakeStatus?: string | null;
       };
@@ -216,6 +218,7 @@ export function usePatientDashboard(): {
       setHasIntake(exists);
       setIntakeStatus(api.intakeStatus ?? null);
       setMultiFieldEnabled(api.multiFieldEnabled === true);
+      if (api.intakeByField) setIntakeByField(api.intakeByField as Record<string, boolean>);
 
       if (typeof window !== "undefined") {
         if (exists) window.localStorage.setItem("has_intake", "1");
@@ -537,6 +540,7 @@ export function usePatientDashboard(): {
         multiFieldEnabled,
         selectedFieldId,
         setSelectedFieldId: handleSetSelectedFieldId,
+        intakeByField,
         displayReorder,
         displayReorderStatus,
       }

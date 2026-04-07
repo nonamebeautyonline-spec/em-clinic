@@ -475,6 +475,31 @@ export async function POST(_req: NextRequest) {
 
     // マルチ分野モード: 分野マップを取得して各データに分野名・色を付与
     const multiField = await isMultiFieldEnabled(tenantId);
+
+    // 分野別のintake完了状態（マルチ分野モード時のみ）
+    let intakeByField: Record<string, boolean> = {};
+    if (multiField) {
+      try {
+        const { data: allIntakes } = await strictWithTenant(
+          supabaseAdmin
+            .from("intake")
+            .select("field_id, answers")
+            .eq("patient_id", patientId)
+            .not("answers", "is", null),
+          tenantId
+        );
+        for (const intake of allIntakes || []) {
+          const fid = intake.field_id;
+          if (!fid) continue;
+          const ans = intake.answers as Record<string, unknown> | null;
+          if (ans && Object.keys(ans).length > 0) {
+            intakeByField[fid] = true;
+          }
+        }
+      } catch (e) {
+        console.error("[mypage] intakeByField error:", e);
+      }
+    }
     const fieldMap = multiField ? await getFieldMap(tenantId) : new Map<string, { name: string; color: string }>();
 
     // LINE UID がDBに未保存ならDB更新（非同期・画面は待たせない）
@@ -525,6 +550,7 @@ export async function POST(_req: NextRequest) {
         detail: h.detail,
       })),
       hasIntake,
+      intakeByField,
       intakeId: "",
       intakeStatus: patientInfo?.intakeStatus || null,
     };

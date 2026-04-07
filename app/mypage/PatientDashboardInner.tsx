@@ -50,7 +50,7 @@ export default function PatientDashboardInner() {
     );
   }
 
-  const { data, mpColors, mpSections, mpContent, mpLabels, hasIntake, intakeStatus, reorders, selectedFieldId, setSelectedFieldId } = contextValue;
+  const { data, mpColors, mpSections, mpContent, mpLabels, hasIntake, intakeStatus, reorders, selectedFieldId, setSelectedFieldId, intakeByField } = contextValue;
   const { patient, nextReservation, history, ordersFlags } = data;
   const hasHistory = history.length > 0;
   const isNG = intakeStatus === "NG";
@@ -98,12 +98,67 @@ export default function PatientDashboardInner() {
           </div>
         </header>
 
+        {/* 分野タブ（マルチ分野モード時のみ・問診ボタンの上） */}
+        {multiFieldEnabled && fieldOptions.length > 1 && (
+          <div className="mx-auto max-w-4xl px-4 mt-3">
+            <div className="relative">
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                <button
+                  onClick={() => setSelectedFieldId(null)}
+                  className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
+                    selectedFieldId === null
+                      ? "bg-[var(--mp-primary)] text-white"
+                      : "bg-white text-slate-600 border border-slate-200"
+                  }`}
+                >
+                  すべて
+                </button>
+                {fieldOptions.map((f) => {
+                  const isActive = selectedFieldId === f.id;
+                  const hasFieldIntake = intakeByField[f.id] ?? false;
+                  return (
+                    <button
+                      key={f.id}
+                      onClick={() => setSelectedFieldId(f.id)}
+                      className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
+                        isActive
+                          ? "bg-[var(--mp-primary)] text-white"
+                          : "bg-white text-slate-600 border border-slate-200"
+                      }`}
+                    >
+                      {f.name}
+                      {hasFieldIntake && <span className="ml-1 text-[9px] opacity-70">&#10003;</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              {/* スクロールインジケーター */}
+              {fieldOptions.length > 2 && (
+                <div className="absolute right-0 top-0 bottom-1 w-8 bg-gradient-to-l from-[var(--mp-bg,#f8fafc)] to-transparent pointer-events-none flex items-center justify-end pr-0.5">
+                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* 上部CTA */}
         {(mpSections.showIntake || mpSections.showReserveButton) && (
         <div className="mx-auto max-w-4xl px-4 mt-3 space-y-2">
           {/* 問診 */}
-          {mpSections.showIntake && (
-            hasIntake === null ? (
+          {mpSections.showIntake && (() => {
+            // マルチ分野モード: 選択分野の問診完了状態で判定
+            const fieldIntakeDone = multiFieldEnabled && selectedFieldId
+              ? (intakeByField[selectedFieldId] ?? false)
+              : hasIntake === true;
+            const fieldIntakeLoading = !multiFieldEnabled && hasIntake === null;
+            const selectedFieldName = selectedFieldId
+              ? fieldOptions.find(f => f.id === selectedFieldId)?.name
+              : null;
+
+            return fieldIntakeLoading ? (
               <button
                 type="button"
                 disabled
@@ -111,14 +166,14 @@ export default function PatientDashboardInner() {
               >
                 問診状況を確認中…
               </button>
-            ) : hasIntake === true ? (
+            ) : fieldIntakeDone ? (
               <>
                 <button
                   type="button"
                   disabled
                   className="block w-full rounded-xl bg-slate-200 text-slate-500 text-center py-3 text-base font-semibold cursor-not-allowed"
                 >
-                  {mpLabels.intakeCompleteText}
+                  {selectedFieldName ? `${selectedFieldName} の問診回答済み` : mpLabels.intakeCompleteText}
                 </button>
                 <p className="mt-1 text-[11px] text-slate-500">
                   {mpLabels.intakeGuideText}
@@ -130,16 +185,16 @@ export default function PatientDashboardInner() {
                   href={`/intake${selectedFieldId ? `?fieldId=${selectedFieldId}` : ""}`}
                   className="block w-full rounded-xl text-white text-center py-3 text-base font-semibold shadow-sm transition bg-[var(--mp-primary)] hover:bg-[var(--mp-hover)]"
                 >
-                  {multiFieldEnabled && selectedFieldId
-                    ? `${fieldOptions.find(f => f.id === selectedFieldId)?.name || ""} の問診に回答する`
+                  {selectedFieldName
+                    ? `${selectedFieldName} の問診に回答する`
                     : mpLabels.intakeButtonLabel}
                 </Link>
                 <p className="mt-1 text-[11px] text-slate-500">
                   {mpLabels.intakeNoteText}
                 </p>
               </>
-            )
-          )}
+            );
+          })()}
 
           {/* 予約ボタン */}
           {mpSections.showReserveButton && (
@@ -192,40 +247,6 @@ export default function PatientDashboardInner() {
             </button>
           )}
         </div>
-        )}
-
-        {/* 分野タブ（マルチ分野モード時のみ） */}
-        {multiFieldEnabled && fieldOptions.length > 1 && (
-          <div className="mx-auto max-w-4xl px-4 mt-3">
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              <button
-                onClick={() => setSelectedFieldId(null)}
-                className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
-                  selectedFieldId === null
-                    ? "bg-[var(--mp-primary)] text-white"
-                    : "bg-white text-slate-600 border border-slate-200"
-                }`}
-              >
-                すべて
-              </button>
-              {fieldOptions.map((f) => {
-                const isActive = selectedFieldId === f.id;
-                return (
-                  <button
-                    key={f.id}
-                    onClick={() => setSelectedFieldId(f.id)}
-                    className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
-                      isActive
-                        ? "bg-[var(--mp-primary)] text-white"
-                        : "bg-white text-slate-600 border border-slate-200"
-                    }`}
-                  >
-                    {f.name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
         )}
 
         {/* 本文 */}

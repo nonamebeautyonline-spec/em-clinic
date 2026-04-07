@@ -71,6 +71,7 @@ export interface DashboardContextValue {
   multiFieldEnabled: boolean;
   selectedFieldId: string | null;
   setSelectedFieldId: (id: string | null) => void;
+  intakeByField: Record<string, boolean>;
 
   // 導出値
   displayReorder: ReorderItem | null;
