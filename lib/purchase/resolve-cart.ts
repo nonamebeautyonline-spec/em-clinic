@@ -75,7 +75,7 @@ export async function resolveCart(
       shippingFee,
       totalAmount,
       productCode: resolved[0].code,
-      productName: resolved.map((i) => i.title).join(", "),
+      productName: resolved.map((i) => i.title).join("\n"),
     };
   }
 

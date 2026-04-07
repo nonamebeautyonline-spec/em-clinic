@@ -114,8 +114,14 @@ export function OrdersSection() {
               : "再処方申請が許可されました"}
           </div>
 
-          <div className="text-sm font-medium text-slate-900 flex items-center gap-1.5">
-            <span>{(displayReorder.productCode && productLabels[displayReorder.productCode]) || displayReorder.productLabel}</span>
+          <div className="text-sm font-medium text-slate-900 flex items-start gap-1.5">
+            <span className="whitespace-pre-line">{(() => {
+              const code = displayReorder.productCode || "";
+              if (code.includes(",")) {
+                return code.split(",").map(c => productLabels[c.trim()] || c.trim()).join("\n");
+              }
+              return productLabels[code] || displayReorder.productLabel;
+            })()}</span>
             {multiFieldEnabled && mpSections.showFieldBadges && <FieldBadge name={displayReorder.fieldName} color={displayReorder.fieldColor} />}
           </div>
 
@@ -295,7 +301,12 @@ function OrderCard({
           </div>
         )}
         <div className="text-[15px] font-medium text-slate-900 flex items-center gap-1.5">
-          <span>{(order.productCode && productLabels[order.productCode]) || order.productName || order.productCode}</span>
+          <span className="whitespace-pre-line">{(() => {
+            const name = order.productName || "";
+            if (name.includes("\n")) return name;
+            const code = order.productCode || "";
+            return productLabels[code] || name || code;
+          })()}</span>
           {multiFieldEnabled && showFieldBadges && <FieldBadge name={order.fieldName} color={order.fieldColor} />}
         </div>
         <div className="mt-2 flex flex-wrap gap-2 text-[11px]">

@@ -109,7 +109,12 @@ export function HistorySection() {
                   </div>
 
                   <div className="text-sm font-medium text-slate-900 flex items-center gap-1.5">
-                    <span>{(o.productCode && productLabels[o.productCode]) || o.productName || o.productCode}</span>
+                    <span className="whitespace-pre-line">{(() => {
+                      const name = o.productName || "";
+                      if (name.includes("\n")) return name;
+                      const code = o.productCode || "";
+                      return productLabels[code] || name || code;
+                    })()}</span>
                     {multiFieldEnabled && mpSections.showFieldBadges && <FieldBadge name={o.fieldName} color={o.fieldColor} />}
                   </div>
 

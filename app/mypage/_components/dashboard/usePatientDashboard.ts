@@ -257,7 +257,10 @@ export function usePatientDashboard(): {
       if (Array.isArray(api.reorders)) {
         const mapped: ReorderItem[] = api.reorders.map((r) => {
           const code = String(r.product_code ?? r.productCode ?? "").trim();
-          const label = PRODUCT_LABELS[code] || code || "マンジャロ";
+          // カンマ区切りの複数商品コード対応
+          const label = code.includes(",")
+            ? code.split(",").map(c => productLabels[c.trim()] || PRODUCT_LABELS[c.trim()] || c.trim()).join("\n")
+            : (productLabels[code] || PRODUCT_LABELS[code] || code || "マンジャロ");
           return {
             id: String(r.id ?? ""),
             reorder_number: r.reorder_number != null ? Number(r.reorder_number) : null,

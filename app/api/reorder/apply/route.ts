@@ -475,7 +475,7 @@ export async function POST(req: NextRequest) {
               const p = await getProductByCode(code.trim(), tenantId);
               names.push(p?.title || code);
             }
-            notifyProductLabel = names.join("、");
+            notifyProductLabel = names.join("\n");
           } else {
             notifyProductLabel = reorderProduct?.title || productCode;
           }
