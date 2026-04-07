@@ -111,23 +111,19 @@ function PurchasePageInner() {
   React.useEffect(() => { if (cartMode) setCart(getCart()); }, [cartMode]);
 
   const handleAddToCart = useCallback((p: DbProduct) => {
+    const item = {
+      code: p.code,
+      title: p.title,
+      price: getEffectivePrice(p),
+      coolType: p.cool_type ?? null,
+      shippingDelayDays: p.shipping_delay_days ?? 0,
+    };
     if (!multiSelectEnabled) {
-      // 単一選択モード: カートをクリアして1商品のみ
       clearCart();
-      const newCart = addToCart({
-        code: p.code,
-        title: p.title,
-        price: getEffectivePrice(p),
-        coolType: p.cool_type ?? null,
-      });
+      const newCart = addToCart(item);
       setCart(newCart);
     } else {
-      const newCart = addToCart({
-        code: p.code,
-        title: p.title,
-        price: getEffectivePrice(p),
-        coolType: p.cool_type ?? null,
-      });
+      const newCart = addToCart(item);
       setCart(newCart);
     }
   }, [multiSelectEnabled]);

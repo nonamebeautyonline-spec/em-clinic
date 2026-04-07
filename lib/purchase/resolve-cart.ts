@@ -11,6 +11,7 @@ export type ResolvedCartItem = {
   price: number;
   qty: number;
   coolType: string | null;
+  shippingDelayDays: number;
 };
 
 export type ResolvedCart = {
@@ -37,7 +38,7 @@ export async function resolveCart(
     const { data: products, error } = await strictWithTenant(
       supabaseAdmin
         .from("products")
-        .select("code, title, price, cool_type")
+        .select("code, title, price, cool_type, shipping_delay_days")
         .in("code", codes)
         .eq("is_active", true),
       tenantId
@@ -58,12 +59,13 @@ export async function resolveCart(
         price: p.price,
         qty: item.qty,
         coolType: p.cool_type,
+        shippingDelayDays: p.shipping_delay_days ?? 0,
       });
     }
 
     const subtotal = resolved.reduce((sum, i) => sum + i.price * i.qty, 0);
     const shippingFee = calculateShippingFeeFromCodes(
-      resolved.map((i) => ({ code: i.code, coolType: i.coolType }))
+      resolved.map((i) => ({ code: i.code, coolType: i.coolType, shippingDelayDays: i.shippingDelayDays }))
     );
     const totalAmount = subtotal + shippingFee;
 
@@ -83,7 +85,7 @@ export async function resolveCart(
   const { data: product, error } = await strictWithTenant(
     supabaseAdmin
       .from("products")
-      .select("code, title, price, cool_type")
+      .select("code, title, price, cool_type, shipping_delay_days")
       .eq("code", productCode)
       .eq("is_active", true)
       .maybeSingle(),
@@ -94,7 +96,7 @@ export async function resolveCart(
   if (!product) throw new Error(`商品 ${productCode} が見つかりません`);
 
   return {
-    items: [{ code: product.code, title: product.title, price: product.price, qty: 1, coolType: product.cool_type }],
+    items: [{ code: product.code, title: product.title, price: product.price, qty: 1, coolType: product.cool_type, shippingDelayDays: product.shipping_delay_days ?? 0 }],
     subtotal: product.price,
     shippingFee: 0, // 単一モードでは従来通りprice込みで扱う（のなめ互換）
     totalAmount: product.price,

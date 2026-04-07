@@ -358,7 +358,7 @@ function PurchaseConfirmContent() {
   const isCartMode = searchParams.get("cart") === "1";
 
   // カートモード: localStorageからカート情報取得
-  const [cartItems, setCartItems] = useState<{ code: string; title: string; price: number; qty: number; coolType: string | null }[]>([]);
+  const [cartItems, setCartItems] = useState<{ code: string; title: string; price: number; qty: number; coolType: string | null; shippingDelayDays?: number }[]>([]);
   useEffect(() => {
     if (isCartMode) {
       try {
@@ -375,8 +375,22 @@ function PurchaseConfirmContent() {
 
   // カートモード: 配送料・合計計算
   const cartSubtotal = useMemo(() => cartItems.reduce((sum, i) => sum + i.price * i.qty, 0), [cartItems]);
-  const cartHasCool = useMemo(() => cartItems.some(i => i.coolType === "chilled" || i.coolType === "frozen"), [cartItems]);
-  const cartShippingFee = cartItems.length > 0 ? (cartHasCool ? 3000 : 550) : 0;
+  // 配送タイプ別にグループ化して配送料計算（通常便+予約便=2回分）
+  const cartShippingFee = useMemo(() => {
+    if (cartItems.length === 0) return 0;
+    const groups = new Map<number, typeof cartItems>();
+    for (const item of cartItems) {
+      const key = (item.shippingDelayDays ?? 0) > 0 ? 1 : 0;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(item);
+    }
+    let total = 0;
+    for (const [, g] of groups) {
+      const hasCool = g.some(i => i.coolType === "chilled" || i.coolType === "frozen");
+      total += hasCool ? 3000 : 550;
+    }
+    return total;
+  }, [cartItems]);
   const cartTotal = cartSubtotal + cartShippingFee;
 
   // 商品が注射（冷蔵）かどうかの判定
@@ -664,7 +678,7 @@ function PurchaseConfirmContent() {
                 <span>¥{cartSubtotal.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-[11px] text-slate-500">
-                <span>配送料（{cartHasCool ? "クール便" : "常温便"}）</span>
+                <span>配送料</span>
                 <span>¥{cartShippingFee.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-sm font-bold text-slate-900 pt-1">

@@ -6,6 +6,7 @@ export type CartItem = {
   price: number;
   qty: number;
   coolType: "normal" | "chilled" | "frozen" | null;
+  shippingDelayDays?: number;
 };
 
 const CART_KEY = "lope_cart";
