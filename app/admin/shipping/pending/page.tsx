@@ -40,7 +40,7 @@ interface MergeableGroup {
 
 export default function ShippingPendingPage() {
   const router = useRouter();
-  const { data, error, isLoading: loading, isValidating } = useSWR<{
+  const { data, error, isLoading: loading, isValidating, mutate } = useSWR<{
     orders: Order[];
     mergeableGroups: MergeableGroup[];
     sameAddressGroups?: { postal_code: string; patient_names: string[]; count: number; orders: Order[] }[];
@@ -52,6 +52,8 @@ export default function ShippingPendingPage() {
   const [editCreatedMode, setEditCreatedMode] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [showFamilyModal, setShowFamilyModal] = useState(false);
+  const [resetLabelOrderId, setResetLabelOrderId] = useState<string | null>(null);
+  const [resetLabelLoading, setResetLabelLoading] = useState(false);
 
   // 過去発送履歴
   type HistoryRange = "week" | "month" | "custom";
@@ -401,6 +403,9 @@ export default function ShippingPendingPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   購入回数
                 </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  ラベル再発行
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-200">
@@ -411,7 +416,7 @@ export default function ShippingPendingPage() {
                   : orders;
                 return filteredOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-8 text-center text-slate-500">
+                  <td colSpan={11} className="px-6 py-8 text-center text-slate-500">
                     {editCreatedMode ? "作成済みの注文はありません" : "発送待ちの注文はありません"}
                   </td>
                 </tr>
@@ -519,6 +524,16 @@ export default function ShippingPendingPage() {
                         {order.purchase_count}
                       </span>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                      {isLabelCreated && (
+                        <button
+                          onClick={() => setResetLabelOrderId(order.id)}
+                          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-orange-100 text-orange-700 hover:bg-orange-200 transition"
+                        >
+                          再発行
+                        </button>
+                      )}
+                    </td>
                   </tr>
                   );
                 })
@@ -528,6 +543,69 @@ export default function ShippingPendingPage() {
           </table>
         </div>
       </div>
+
+      {/* ラベル再発行確認モーダル */}
+      {resetLabelOrderId && (() => {
+        const targetOrder = orders.find(o => o.id === resetLabelOrderId);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => !resetLabelLoading && setResetLabelOrderId(null)}>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+              <div className="border-b border-slate-200 px-6 py-4">
+                <h2 className="text-lg font-bold text-slate-900">ラベル再発行の確認</h2>
+              </div>
+              <div className="px-6 py-5">
+                <p className="text-sm text-slate-700 mb-4">
+                  以下の注文のラベル作成済みステータスをリセットして、再度ラベルを発行できるようにします。
+                </p>
+                {targetOrder && (
+                  <div className="bg-slate-50 rounded-lg p-4 space-y-1 text-sm">
+                    <div><span className="text-slate-500">患者名:</span> <span className="font-medium">{targetOrder.patient_name}</span></div>
+                    <div><span className="text-slate-500">商品:</span> <span>{targetOrder.product_name}</span></div>
+                    <div><span className="text-slate-500">注文ID:</span> <span className="font-mono text-xs">{targetOrder.id}</span></div>
+                  </div>
+                )}
+              </div>
+              <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
+                <button
+                  onClick={() => setResetLabelOrderId(null)}
+                  disabled={resetLabelLoading}
+                  className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition disabled:opacity-50"
+                >
+                  キャンセル
+                </button>
+                <button
+                  onClick={async () => {
+                    setResetLabelLoading(true);
+                    try {
+                      const res = await fetch("/api/admin/shipping/reset-label", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: "include",
+                        body: JSON.stringify({ orderId: resetLabelOrderId }),
+                      });
+                      if (res.ok) {
+                        setResetLabelOrderId(null);
+                        mutate();
+                      } else {
+                        const data = await res.json();
+                        alert(data.error || "エラーが発生しました");
+                      }
+                    } catch {
+                      alert("通信エラーが発生しました");
+                    } finally {
+                      setResetLabelLoading(false);
+                    }
+                  }}
+                  disabled={resetLabelLoading}
+                  className="px-4 py-2 text-sm font-medium bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition disabled:opacity-50"
+                >
+                  {resetLabelLoading ? "処理中..." : "リセットして再発行可能にする"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 過去発送履歴 */}
       <div className="bg-white rounded-lg shadow p-6 mt-6">
