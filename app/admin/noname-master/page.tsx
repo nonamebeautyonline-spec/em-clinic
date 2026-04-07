@@ -540,7 +540,7 @@ export default function NonameMasterPage() {
                   const isRefundOrCancelled = !!(order.refund_status && order.refund_status !== "FAILED") || order.status === "cancelled";
                   const showOverdue = order.is_overdue && !isRefundOrCancelled;
                   return (
-                  <tr key={order.id} className={`hover:bg-slate-50 ${isRefundOrCancelled ? "opacity-50" : showOverdue ? "bg-red-50 border-l-4 border-l-red-500" : ""}`}>
+                  <tr key={order.id} className={`hover:bg-slate-50 ${isRefundOrCancelled ? "bg-slate-100" : showOverdue ? "bg-red-50 border-l-4 border-l-red-500" : ""}`}>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-slate-900">
                       <div className="flex items-center gap-2">
                         {showOverdue && (
