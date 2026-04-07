@@ -32,9 +32,6 @@ interface TooltipInfo {
 /** 期間フィルタ */
 type PeriodFilter = "6" | "12" | "all";
 
-/** 間隔フィルタ（表示するmonthOffsetの間隔） */
-type IntervalFilter = "all" | "1" | "2" | "3";
-
 /** リテンション率に応じたセル背景色を返す */
 function getCellColor(rate: number): string {
   if (rate >= 80) return "bg-green-600 text-white";
@@ -66,7 +63,6 @@ export default function CohortWidget() {
   const { data: rawData, error, isLoading } = useSWR<{ cohort: CohortRow[] }>("/api/admin/analytics?type=cohort");
   const data = rawData?.cohort || [];
   const [period, setPeriod] = useState<PeriodFilter>("12");
-  const [interval, setInterval] = useState<IntervalFilter>("all");
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -82,16 +78,6 @@ export default function CohortWidget() {
     (max, row) => Math.max(max, row.retention.length - 1),
     0,
   );
-
-  // 間隔フィルタに応じて表示するmonthOffsetの配列を生成
-  const visibleOffsets = (() => {
-    const step = interval === "all" || interval === "1" ? 1 : parseInt(interval);
-    const offsets: number[] = [];
-    for (let i = 0; i <= maxOffset; i += step) {
-      offsets.push(i);
-    }
-    return offsets;
-  })();
 
   /** セルのマウスイベントハンドラ */
   const handleCellMouseEnter = (
@@ -164,53 +150,27 @@ export default function CohortWidget() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* メニュー間隔 */}
-          <div className="flex gap-1 bg-claude-parchment rounded-lg p-1">
-            {(
-              [
-                { value: "all", label: "全体" },
-                { value: "1", label: "1ヶ月毎" },
-                { value: "2", label: "2ヶ月毎" },
-                { value: "3", label: "3ヶ月毎" },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setInterval(opt.value)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  interval === opt.value
-                    ? "bg-white text-claude-near-black shadow-sm"
-                    : "text-claude-olive hover:text-claude-charcoal"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-
-          {/* 期間選択 */}
-          <div className="flex gap-1 bg-claude-parchment rounded-lg p-1">
-            {(
-              [
-                { value: "6", label: "6ヶ月" },
-                { value: "12", label: "12ヶ月" },
-                { value: "all", label: "全期間" },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setPeriod(opt.value)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  period === opt.value
-                    ? "bg-white text-claude-near-black shadow-sm"
-                    : "text-claude-olive hover:text-claude-charcoal"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+        {/* 期間選択 */}
+        <div className="flex gap-1 bg-claude-parchment rounded-lg p-1">
+          {(
+            [
+              { value: "6", label: "6ヶ月" },
+              { value: "12", label: "12ヶ月" },
+              { value: "all", label: "全期間" },
+            ] as const
+          ).map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setPeriod(opt.value)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                period === opt.value
+                  ? "bg-claude-ivory text-claude-near-black shadow-sm"
+                  : "text-claude-olive hover:text-claude-charcoal"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -225,7 +185,7 @@ export default function CohortWidget() {
               <th className="p-2 font-semibold text-claude-olive whitespace-nowrap">
                 人数
               </th>
-              {visibleOffsets.map((i) => (
+              {Array.from({ length: maxOffset + 1 }, (_, i) => (
                 <th
                   key={i}
                   className="p-2 font-semibold text-claude-olive whitespace-nowrap text-center"
@@ -247,7 +207,7 @@ export default function CohortWidget() {
                   {row.size}人
                 </td>
                 {/* リテンション率セル */}
-                {visibleOffsets.map((i) => {
+                {Array.from({ length: maxOffset + 1 }, (_, i) => {
                   const ret = row.retention.find(
                     (r) => r.monthOffset === i,
                   );
