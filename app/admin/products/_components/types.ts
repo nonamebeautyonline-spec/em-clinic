@@ -6,6 +6,7 @@ export type ProductCategory = {
   name: string;
   parent_id: string | null;
   sort_order: number;
+  color_theme: string | null;
   created_at: string;
   updated_at: string;
 };

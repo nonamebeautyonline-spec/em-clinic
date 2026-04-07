@@ -2,25 +2,41 @@
 
 import { useState, useEffect, useRef } from "react";
 
+const COLOR_THEMES = [
+  { value: "", label: "デフォルト" },
+  { value: "blue", label: "ブルー" },
+  { value: "emerald", label: "エメラルド" },
+  { value: "teal", label: "ティール" },
+  { value: "purple", label: "パープル" },
+  { value: "pink", label: "ピンク" },
+  { value: "rose", label: "ローズ" },
+  { value: "amber", label: "アンバー" },
+  { value: "indigo", label: "インディゴ" },
+  { value: "orange", label: "オレンジ" },
+];
+
 type Props = {
   isOpen: boolean;
   initialName?: string;
+  initialColorTheme?: string | null;
   title: string;
-  onSave: (name: string) => Promise<void>;
+  onSave: (name: string, colorTheme?: string | null) => Promise<void>;
   onClose: () => void;
 };
 
-export function FolderEditModal({ isOpen, initialName = "", title, onSave, onClose }: Props) {
+export function FolderEditModal({ isOpen, initialName = "", initialColorTheme = null, title, onSave, onClose }: Props) {
   const [name, setName] = useState(initialName);
+  const [colorTheme, setColorTheme] = useState(initialColorTheme || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const savingRef = useRef(false);
 
   useEffect(() => {
     setName(initialName);
+    setColorTheme(initialColorTheme || "");
     setError("");
     savingRef.current = false;
-  }, [initialName, isOpen]);
+  }, [initialName, initialColorTheme, isOpen]);
 
   if (!isOpen) return null;
 
@@ -35,7 +51,7 @@ export function FolderEditModal({ isOpen, initialName = "", title, onSave, onClo
     setSaving(true);
     setError("");
     try {
-      await onSave(trimmed);
+      await onSave(trimmed, colorTheme || null);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "保存に失敗しました");
@@ -76,6 +92,20 @@ export function FolderEditModal({ isOpen, initialName = "", title, onSave, onClo
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
               autoFocus
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              カラーテーマ（購入画面表示用）
+            </label>
+            <select
+              value={colorTheme}
+              onChange={(e) => setColorTheme(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white"
+            >
+              {COLOR_THEMES.map(t => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
           </div>
         </div>
         <div className="px-6 py-4 border-t border-slate-100 flex gap-3">

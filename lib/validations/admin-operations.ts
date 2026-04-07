@@ -403,6 +403,7 @@ export const productCategoryCreateSchema = z
     name: z.string().min(1, "カテゴリ名は必須です"),
     parent_id: z.string().nullable().optional(),
     sort_order: z.number().optional(),
+    color_theme: z.string().nullable().optional(),
   })
   .passthrough();
 
@@ -413,6 +414,7 @@ export const productCategoryUpdateSchema = z
     name: z.string().optional(),
     parent_id: z.string().nullable().optional(),
     sort_order: z.number().optional(),
+    color_theme: z.string().nullable().optional(),
   })
   .passthrough();
 

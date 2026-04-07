@@ -516,12 +516,12 @@ export default function ProductsPage() {
   const clearSelection = () => setSelectedItems(new Set());
 
   // ─── フォルダ操作 ───
-  const handleCreateFolder = async (name: string) => {
+  const handleCreateFolder = async (name: string, colorTheme?: string | null) => {
     const res = await fetch("/api/admin/product-categories", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, parent_id: currentFolderId }),
+      body: JSON.stringify({ name, parent_id: currentFolderId, color_theme: colorTheme || null }),
     });
     if (!res.ok) {
       const data = await res.json();
@@ -530,12 +530,12 @@ export default function ProductsPage() {
     revalidateAll();
   };
 
-  const handleRenameFolder = async (id: string, name: string) => {
+  const handleRenameFolder = async (id: string, name: string, colorTheme?: string | null) => {
     const res = await fetch("/api/admin/product-categories", {
       method: "PUT",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, name }),
+      body: JSON.stringify({ id, name, color_theme: colorTheme || null }),
     });
     if (!res.ok) {
       const data = await res.json();
@@ -1064,12 +1064,13 @@ export default function ProductsPage() {
       <FolderEditModal
         isOpen={folderModal.open}
         initialName={folderModal.editing?.name || ""}
+        initialColorTheme={folderModal.editing?.color_theme || null}
         title={folderModal.editing ? "フォルダ名を変更" : "新規フォルダ"}
-        onSave={async (name) => {
+        onSave={async (name, colorTheme) => {
           if (folderModal.editing) {
-            await handleRenameFolder(folderModal.editing.id, name);
+            await handleRenameFolder(folderModal.editing.id, name, colorTheme);
           } else {
-            await handleCreateFolder(name);
+            await handleCreateFolder(name, colorTheme);
           }
         }}
         onClose={() => setFolderModal({ open: false, editing: null })}

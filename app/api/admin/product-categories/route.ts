@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, productCategoryCreateSchema);
   if ("error" in parsed) return parsed.error;
 
-  const { name, parent_id, sort_order } = parsed.data;
+  const { name, parent_id, sort_order, color_theme } = parsed.data;
 
   const { data, error } = await supabaseAdmin
     .from("product_categories")
@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
       name,
       parent_id: parent_id || null,
       sort_order: sort_order ?? 0,
+      color_theme: color_theme || null,
     })
     .select()
     .single();

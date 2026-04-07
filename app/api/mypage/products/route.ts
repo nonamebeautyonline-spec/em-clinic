@@ -51,12 +51,12 @@ export async function GET(req: NextRequest) {
   });
 
   // フォルダ一覧取得（購入画面のアコーディオン用）
-  let folders: { id: string; name: string; parent_id: string | null; sort_order: number }[] = [];
+  let folders: { id: string; name: string; parent_id: string | null; sort_order: number; color_theme: string | null }[] = [];
   if (tenantId) {
     const { data } = await strictWithTenant(
       supabaseAdmin
         .from("product_categories")
-        .select("id, name, parent_id, sort_order")
+        .select("id, name, parent_id, sort_order, color_theme")
         .order("sort_order"),
       tenantId
     );

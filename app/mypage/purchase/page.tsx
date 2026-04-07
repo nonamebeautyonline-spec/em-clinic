@@ -50,6 +50,7 @@ interface ProductFolder {
   name: string;
   parent_id: string | null;
   sort_order: number;
+  color_theme?: string | null;
 }
 
 interface FieldsResponse {
@@ -232,7 +233,7 @@ function PurchasePageInner() {
                 badgeLabel: dosage || folder.name,
                 displayName: label,
                 description: "",
-                colorTheme: CATEGORY_THEMES[cat] || "blue",
+                colorTheme: folder.color_theme || CATEGORY_THEMES[cat] || "blue",
                 sortOrder: sortIdx++,
                 productCodes: sorted.map(p => p.code),
                 _folderName: folder.name,
@@ -720,9 +721,6 @@ function ProductGroupSection({
 
       {useDurationView ? (
         <div className="space-y-4">
-          {/* 期間なし商品 */}
-          {durationGroups?.noDuration.map(p => renderProductCard(p))}
-
           {/* 1-3ヶ月（デフォルト表示） */}
           {visibleDurations.map(([months, prods]) => (
             <div key={months}>
@@ -733,24 +731,36 @@ function ProductGroupSection({
             </div>
           ))}
 
-          {/* 4ヶ月以上（折りたたみ） */}
-          {hasMoreDurations && !showMore && (
+          {/* 4ヶ月以上＋本数商品（折りたたみ） */}
+          {(hasMoreDurations || (durationGroups?.noDuration.length ?? 0) > 0) && !showMore && (
             <button
               type="button"
               onClick={() => setShowMore(true)}
               className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-[11px] font-semibold text-slate-500 hover:bg-slate-100 transition"
             >
-              {DEFAULT_VISIBLE_MONTHS + 1}ヶ月以上を表示（{moreDurations.reduce((s, [, p]) => s + p.length, 0)}プラン）
+              その他を表示
             </button>
           )}
-          {showMore && moreDurations.map(([months, prods]) => (
-            <div key={months}>
-              <div className="text-[11px] font-semibold text-slate-500 mb-1.5 pl-1">{months}ヶ月</div>
-              <div className="space-y-2">
-                {prods.map(p => renderProductCard(p, true))}
-              </div>
-            </div>
-          ))}
+          {showMore && (
+            <>
+              {moreDurations.map(([months, prods]) => (
+                <div key={months}>
+                  <div className="text-[11px] font-semibold text-slate-500 mb-1.5 pl-1">{months}ヶ月</div>
+                  <div className="space-y-2">
+                    {prods.map(p => renderProductCard(p, true))}
+                  </div>
+                </div>
+              ))}
+              {(durationGroups?.noDuration.length ?? 0) > 0 && (
+                <div>
+                  <div className="text-[11px] font-semibold text-slate-500 mb-1.5 pl-1">本数売り</div>
+                  <div className="space-y-2">
+                    {durationGroups?.noDuration.map(p => renderProductCard(p, true))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
