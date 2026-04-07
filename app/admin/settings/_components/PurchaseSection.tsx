@@ -14,6 +14,7 @@ interface PurchaseGroup {
   colorTheme: string;
   sortOrder: number;
   productCodes: string[];
+  fieldId?: string | null;
 }
 
 interface ReorderConfirmConfig {
@@ -148,6 +149,11 @@ export default function PurchaseSection({ onToast }: Props) {
   const products = swrData?.products ?? [];
   const categories = swrData?.categories ?? [];
 
+  // マルチ分野モード判定 + 分野一覧
+  const { data: fieldsData } = useSWR<{ multiFieldEnabled: boolean; fields: { id: string; slug: string; name: string }[] }>("/api/admin/medical-fields");
+  const multiFieldEnabled = fieldsData?.multiFieldEnabled ?? false;
+  const medicalFields = fieldsData?.fields ?? [];
+
   // テキストフィールド更新
   const updateText = (key: keyof Omit<PurchaseConfig, "groups" | "reorderConfirm" | "cartMode" | "multiSelectEnabled">, value: string) => {
     setConfig(prev => ({ ...prev, [key]: value }));
@@ -162,7 +168,7 @@ export default function PurchaseSection({ onToast }: Props) {
   };
 
   // グループ更新
-  const updateGroup = (groupId: string, field: keyof Omit<PurchaseGroup, "id" | "sortOrder" | "productCodes">, value: string) => {
+  const updateGroup = (groupId: string, field: keyof Omit<PurchaseGroup, "id" | "sortOrder" | "productCodes">, value: string | null) => {
     setConfig(prev => ({
       ...prev,
       groups: prev.groups.map(g => g.id === groupId ? { ...g, [field]: value } : g),
@@ -504,6 +510,24 @@ export default function PurchaseSection({ onToast }: Props) {
                       ))}
                     </select>
                   </div>
+
+                  {/* 診療分野（マルチ分野モード時のみ） */}
+                  {multiFieldEnabled && medicalFields.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">診療分野</label>
+                      <select
+                        value={group.fieldId || ""}
+                        onChange={(e) => updateGroup(group.id, "fieldId", e.target.value || null)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 bg-white"
+                      >
+                        <option value="">全分野共通</option>
+                        {medicalFields.map(f => (
+                          <option key={f.id} value={f.id}>{f.name}</option>
+                        ))}
+                      </select>
+                      <p className="text-[10px] text-gray-400 mt-1">このグループを表示する診療分野を選択（未設定で全分野に表示）</p>
+                    </div>
+                  )}
 
                   {/* 商品選択（フォルダ構造） */}
                   <div>
