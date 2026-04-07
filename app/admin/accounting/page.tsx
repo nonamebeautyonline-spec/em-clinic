@@ -800,7 +800,7 @@ function DailyBarChart({ data }: DailyBarChartProps) {
                   )}
                   {squareHeight > 0 && (
                     <div
-                      className="w-full bg-blue-500 rounded-t-sm"
+                      className="w-full bg-blue-500"
                       style={{ height: `${squareHeight}%`, minHeight: squareHeight > 0 ? "2px" : 0 }}
                     />
                   )}
