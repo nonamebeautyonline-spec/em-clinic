@@ -131,6 +131,22 @@ export default function AccountingPage() {
   // 売上分析用のstate
   const [analyticsTab, setAnalyticsTab] = useState<AnalyticsTab>("revenue");
 
+  // 日別売上チャート用
+  const [dailyChartMode, setDailyChartMode] = useState<"month" | "custom">("month");
+  const [dailyChartMonth, setDailyChartMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [dailyChartStart, setDailyChartStart] = useState("");
+  const [dailyChartEnd, setDailyChartEnd] = useState("");
+  const dailyChartKey = dailyChartMode === "month"
+    ? `/api/admin/daily-revenue?year_month=${dailyChartMonth}`
+    : dailyChartStart && dailyChartEnd
+      ? `/api/admin/daily-revenue?start=${dailyChartStart}&end=${dailyChartEnd}`
+      : null;
+  const { data: dailyChartRaw } = useSWR<{ ok: boolean; data: DailyData[] }>(dailyChartKey);
+  const dailyChartData = dailyChartRaw?.data ?? [];
+
   // 新規処方 vs 再処方チャート用
   const [rxMode, setRxMode] = useState<"month" | "custom">("month");
   const [rxMonth, setRxMonth] = useState(() => {
@@ -492,8 +508,52 @@ export default function AccountingPage() {
 
       {/* 日別売上グラフ */}
       <div className="bg-white rounded-2xl border border-slate-100 p-6 overflow-visible">
-        <h2 className="text-[15px] font-semibold text-claude-near-black mb-5">日別売上</h2>
-        <DailyBarChart data={dailyData} />
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-[15px] font-semibold text-claude-near-black">日別売上</h2>
+          <div className="flex items-center gap-2">
+            <div className="flex bg-claude-sand rounded-lg p-0.5">
+              <button
+                onClick={() => setDailyChartMode("month")}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${dailyChartMode === "month" ? "bg-white text-claude-near-black shadow-sm" : "text-claude-stone hover:text-claude-charcoal"}`}
+              >月指定</button>
+              <button
+                onClick={() => setDailyChartMode("custom")}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${dailyChartMode === "custom" ? "bg-white text-claude-near-black shadow-sm" : "text-claude-stone hover:text-claude-charcoal"}`}
+              >カスタム</button>
+            </div>
+            {dailyChartMode === "month" ? (
+              <input
+                type="month"
+                value={dailyChartMonth}
+                onChange={(e) => setDailyChartMonth(e.target.value)}
+                className="px-3 py-1.5 border border-claude-border-warm rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-claude-terracotta/30"
+              />
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={dailyChartStart}
+                  onChange={(e) => setDailyChartStart(e.target.value)}
+                  className="px-2 py-1.5 border border-claude-border-warm rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-claude-terracotta/30"
+                />
+                <span className="text-claude-stone text-xs">〜</span>
+                <input
+                  type="date"
+                  value={dailyChartEnd}
+                  onChange={(e) => setDailyChartEnd(e.target.value)}
+                  className="px-2 py-1.5 border border-claude-border-warm rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-claude-terracotta/30"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+        {dailyChartData.length > 0 ? (
+          <DailyBarChart data={dailyChartData} />
+        ) : (
+          <div className="flex items-center justify-center h-48 text-claude-stone text-sm">
+            {dailyChartMode === "custom" && (!dailyChartStart || !dailyChartEnd) ? "開始日と終了日を指定してください" : "表示期間のデータがありません"}
+          </div>
+        )}
       </div>
 
       {/* 新規処方 vs 再処方 */}
