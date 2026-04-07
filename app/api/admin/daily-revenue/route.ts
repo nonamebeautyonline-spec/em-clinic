@@ -16,15 +16,25 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const yearMonth = searchParams.get("year_month");
+    const startParam = searchParams.get("start");
+    const endParam = searchParams.get("end");
 
-    if (!yearMonth || !/^\d{4}-\d{2}$/.test(yearMonth)) {
-      return NextResponse.json({ ok: false, error: "invalid_year_month" }, { status: 400 });
+    let startDate: string;
+    let endDate: string;
+
+    if (startParam && endParam && /^\d{4}-\d{2}-\d{2}$/.test(startParam) && /^\d{4}-\d{2}-\d{2}$/.test(endParam)) {
+      // カスタム期間指定
+      startDate = startParam;
+      endDate = endParam;
+    } else if (yearMonth && /^\d{4}-\d{2}$/.test(yearMonth)) {
+      // 月指定
+      const [year, month] = yearMonth.split("-").map(Number);
+      startDate = `${yearMonth}-01`;
+      const lastDay = new Date(year, month, 0).getDate();
+      endDate = `${yearMonth}-${String(lastDay).padStart(2, "0")}`;
+    } else {
+      return NextResponse.json({ ok: false, error: "invalid_params" }, { status: 400 });
     }
-
-    const [year, month] = yearMonth.split("-").map(Number);
-    const startDate = `${yearMonth}-01`;
-    const lastDay = new Date(year, month, 0).getDate();
-    const endDate = `${yearMonth}-${String(lastDay).padStart(2, "0")}`; // 月末日
 
     const tenantId = resolveTenantId(req) || await getAdminTenantId(req);
     if (!tenantId) {

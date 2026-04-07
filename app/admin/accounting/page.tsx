@@ -131,6 +131,22 @@ export default function AccountingPage() {
   // 売上分析用のstate
   const [analyticsTab, setAnalyticsTab] = useState<AnalyticsTab>("revenue");
 
+  // 新規処方 vs 再処方チャート用
+  const [rxMode, setRxMode] = useState<"month" | "custom">("month");
+  const [rxMonth, setRxMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [rxStart, setRxStart] = useState("");
+  const [rxEnd, setRxEnd] = useState("");
+  const rxKey = rxMode === "month"
+    ? `/api/admin/daily-revenue?year_month=${rxMonth}`
+    : rxStart && rxEnd
+      ? `/api/admin/daily-revenue?start=${rxStart}&end=${rxEnd}`
+      : null;
+  const { data: rxRaw } = useSWR<{ ok: boolean; data: DailyData[] }>(rxKey);
+  const rxData = rxRaw?.data ?? [];
+
   // SWRで月次データ取得
   const dailyRevenueKey = `/api/admin/daily-revenue?year_month=${selectedMonth}`;
   const { data: dailyRevenueData } = useSWR<{ ok: boolean; data: DailyData[]; summary: { totalSquare: number; totalBank: number; totalRefund: number; totalNet: number; totalSquareCount: number; totalBankCount: number; totalCount: number; avgOrderValue: number } }>(dailyRevenueKey);
@@ -481,50 +497,95 @@ export default function AccountingPage() {
       </div>
 
       {/* 新規処方 vs 再処方 */}
-      {dailyData.some(d => d.firstCount > 0 || d.reorderCount > 0) && (
-        <div className="bg-white rounded-2xl border border-slate-100 p-6 overflow-visible">
-          <h2 className="text-[15px] font-semibold text-claude-near-black mb-5">新規処方 vs 再処方（日別件数）</h2>
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="p-4 rounded-2xl bg-emerald-50/60 text-center">
-              <p className="text-[11px] font-medium text-claude-stone mb-1">再処方</p>
-              <p className="text-xl font-bold text-claude-near-black">
-                {dailyData.reduce((sum, d) => sum + d.reorderCount, 0)}件
-              </p>
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 overflow-visible">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-[15px] font-semibold text-claude-near-black">新規処方 vs 再処方（日別件数）</h2>
+          <div className="flex items-center gap-2">
+            {/* モード切替 */}
+            <div className="flex bg-claude-sand rounded-lg p-0.5">
+              <button
+                onClick={() => setRxMode("month")}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${rxMode === "month" ? "bg-white text-claude-near-black shadow-sm" : "text-claude-stone hover:text-claude-charcoal"}`}
+              >月指定</button>
+              <button
+                onClick={() => setRxMode("custom")}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${rxMode === "custom" ? "bg-white text-claude-near-black shadow-sm" : "text-claude-stone hover:text-claude-charcoal"}`}
+              >カスタム</button>
             </div>
-            <div className="p-4 rounded-2xl bg-claude-parchment/60 text-center">
-              <p className="text-[11px] font-medium text-claude-stone mb-1">新規処方</p>
-              <p className="text-xl font-bold text-claude-near-black">
-                {dailyData.reduce((sum, d) => sum + d.firstCount, 0)}件
-              </p>
-            </div>
-          </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dailyData.filter(d => d.firstCount > 0 || d.reorderCount > 0)}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(5)} tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                <Tooltip
-                  content={({ active, payload, label }) => {
-                    if (!active || !payload?.length) return null;
-                    const first = payload.find(p => p.dataKey === "firstCount");
-                    const reorder = payload.find(p => p.dataKey === "reorderCount");
-                    return (
-                      <div className="bg-claude-ivory border border-claude-border-warm rounded shadow px-3 py-2 text-sm">
-                        <div className="font-medium text-claude-near-black mb-1">{String(label)}</div>
-                        {reorder && <div style={{ color: "#10b981" }}>再処方：{reorder.value}件</div>}
-                        {first && <div style={{ color: "#3b82f6" }}>新規処方：{first.value}件</div>}
-                      </div>
-                    );
-                  }}
+            {rxMode === "month" ? (
+              <input
+                type="month"
+                value={rxMonth}
+                onChange={(e) => setRxMonth(e.target.value)}
+                className="px-3 py-1.5 border border-claude-border-warm rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-claude-terracotta/30"
+              />
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={rxStart}
+                  onChange={(e) => setRxStart(e.target.value)}
+                  className="px-2 py-1.5 border border-claude-border-warm rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-claude-terracotta/30"
                 />
-                <Bar dataKey="firstCount" name="firstCount" stackId="orders" fill="#3b82f6" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="reorderCount" name="reorderCount" stackId="orders" fill="#10b981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+                <span className="text-claude-stone text-xs">〜</span>
+                <input
+                  type="date"
+                  value={rxEnd}
+                  onChange={(e) => setRxEnd(e.target.value)}
+                  className="px-2 py-1.5 border border-claude-border-warm rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-claude-terracotta/30"
+                />
+              </div>
+            )}
           </div>
         </div>
-      )}
+        {rxData.some(d => d.firstCount > 0 || d.reorderCount > 0) ? (
+          <>
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="p-4 rounded-2xl bg-emerald-50/60 text-center">
+                <p className="text-[11px] font-medium text-claude-stone mb-1">再処方</p>
+                <p className="text-xl font-bold text-claude-near-black">
+                  {rxData.reduce((sum, d) => sum + d.reorderCount, 0)}件
+                </p>
+              </div>
+              <div className="p-4 rounded-2xl bg-blue-50/60 text-center">
+                <p className="text-[11px] font-medium text-claude-stone mb-1">新規処方</p>
+                <p className="text-xl font-bold text-claude-near-black">
+                  {rxData.reduce((sum, d) => sum + d.firstCount, 0)}件
+                </p>
+              </div>
+            </div>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={rxData.filter(d => d.firstCount > 0 || d.reorderCount > 0)}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(5)} tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload?.length) return null;
+                      const first = payload.find(p => p.dataKey === "firstCount");
+                      const reorder = payload.find(p => p.dataKey === "reorderCount");
+                      return (
+                        <div className="bg-white border border-slate-200 rounded shadow px-3 py-2 text-sm">
+                          <div className="font-medium text-claude-near-black mb-1">{String(label)}</div>
+                          {reorder && <div style={{ color: "#10b981" }}>再処方：{reorder.value}件</div>}
+                          {first && <div style={{ color: "#3b82f6" }}>新規処方：{first.value}件</div>}
+                        </div>
+                      );
+                    }}
+                  />
+                  <Bar dataKey="firstCount" name="新規処方" stackId="orders" fill="#3b82f6" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="reorderCount" name="再処方" stackId="orders" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center justify-center h-48 text-claude-stone text-sm">
+            {rxMode === "custom" && (!rxStart || !rxEnd) ? "開始日と終了日を指定してください" : "表示期間のデータがありません"}
+          </div>
+        )}
+      </div>
 
       {/* 売上分析 */}
       <div className="bg-white rounded-2xl border border-slate-100 p-6">
