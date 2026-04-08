@@ -191,18 +191,18 @@ export function AiReplyCard({
 
             {/* 修正指示入力 */}
             <div className="mt-1.5 flex gap-1.5">
-              <input
-                type="text"
+              <textarea
                 value={instruction}
                 onChange={(e) => setInstruction(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !(e.nativeEvent as KeyboardEvent).isComposing && instruction.trim()) {
+                  if (e.key === "Enter" && !e.shiftKey && !(e.nativeEvent as KeyboardEvent).isComposing && instruction.trim()) {
                     e.preventDefault();
                     onRegenerate();
                   }
                 }}
-                placeholder="修正指示（例: もっと丁寧に）"
-                className="flex-1 text-[11px] border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300"
+                placeholder="修正指示（例: もっと丁寧に）&#10;Shift+Enterで改行"
+                rows={2}
+                className="flex-1 text-[11px] border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300 resize-none"
                 disabled={regenerating}
               />
               <button
