@@ -28,14 +28,21 @@ export async function GET(req: NextRequest) {
     }
 
     if (!orders || orders.length === 0) {
-      console.log("[TodayShipped] No orders found for today");
+      console.log("[TodayShipped] No pending orders found");
+      // メインリストが空でも通知未送信の注文をチェック
+      const { data: unnotified } = await strictWithTenant(
+        supabaseAdmin.from("orders")
+          .select("id, patient_id")
+          .eq("shipping_status", "shipped")
+          .not("tracking_number", "is", null)
+          .is("notify_shipped_at", null)
+          .or("refund_status.is.null,refund_status.neq.COMPLETED"),
+        tenantId
+      );
       return NextResponse.json({
         entries: [],
-        summary: {
-          total: 0,
-          withTracking: 0,
-          withoutTracking: 0,
-        },
+        summary: { total: 0, withTracking: 0, withoutTracking: 0 },
+        unnotifiedCount: unnotified?.length || 0,
       });
     }
 
