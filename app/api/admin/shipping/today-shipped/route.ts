@@ -27,22 +27,30 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "注文データ取得エラー", details: ordersError.message }, { status: 500 });
     }
 
+    // 今日の日付（JST）
+    const now = new Date();
+    const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+    const todayStr = `${jst.getUTCFullYear()}-${String(jst.getUTCMonth() + 1).padStart(2, "0")}-${String(jst.getUTCDate()).padStart(2, "0")}`;
+
+    // 通知未送信の今日発送分を取得（この関数の後でも使うので先に取得）
+    const { data: unnotified } = await strictWithTenant(
+      supabaseAdmin.from("orders")
+        .select("id, patient_id")
+        .eq("shipping_date", todayStr)
+        .eq("shipping_status", "shipped")
+        .not("tracking_number", "is", null)
+        .is("notify_shipped_at", null)
+        .or("refund_status.is.null,refund_status.neq.COMPLETED"),
+      tenantId
+    );
+    const unnotifiedCount = unnotified?.length || 0;
+
     if (!orders || orders.length === 0) {
       console.log("[TodayShipped] No pending orders found");
-      // メインリストが空でも通知未送信の注文をチェック
-      const { data: unnotified } = await strictWithTenant(
-        supabaseAdmin.from("orders")
-          .select("id, patient_id")
-          .eq("shipping_status", "shipped")
-          .not("tracking_number", "is", null)
-          .is("notify_shipped_at", null)
-          .or("refund_status.is.null,refund_status.neq.COMPLETED"),
-        tenantId
-      );
       return NextResponse.json({
         entries: [],
         summary: { total: 0, withTracking: 0, withoutTracking: 0 },
-        unnotifiedCount: unnotified?.length || 0,
+        unnotifiedCount,
       });
     }
 
@@ -74,19 +82,6 @@ export async function GET(req: NextRequest) {
     }));
 
     const withTracking = entries.filter((e) => e.tracking_number).length;
-
-    // 通知未送信の発送済み注文を取得（shipping_dateに関わらず全件）
-    const { data: unnotified } = await strictWithTenant(
-      supabaseAdmin.from("orders")
-        .select("id, patient_id")
-        .eq("shipping_status", "shipped")
-        .not("tracking_number", "is", null)
-        .is("notify_shipped_at", null)
-        .or("refund_status.is.null,refund_status.neq.COMPLETED"),
-      tenantId
-    );
-
-    const unnotifiedCount = unnotified?.length || 0;
 
     return NextResponse.json({
       entries,
