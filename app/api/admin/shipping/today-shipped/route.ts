@@ -68,14 +68,10 @@ export async function GET(req: NextRequest) {
 
     const withTracking = entries.filter((e) => e.tracking_number).length;
 
-    // 通知未送信の発送済み注文を取得（ページ遷移後も通知カードを表示するため）
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-
+    // 通知未送信の発送済み注文を取得（shipping_dateに関わらず全件）
     const { data: unnotified } = await strictWithTenant(
       supabaseAdmin.from("orders")
         .select("id, patient_id")
-        .eq("shipping_date", todayStr)
         .eq("shipping_status", "shipped")
         .not("tracking_number", "is", null)
         .is("notify_shipped_at", null)
