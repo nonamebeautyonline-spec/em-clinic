@@ -132,7 +132,7 @@ export function useTalkState(props: TalkClientProps) {
   const [markNote, setMarkNote] = useState("");
   const [savingMark, setSavingMark] = useState(false);
   const markOptions: MarkOption[] = useMemo(() => {
-    if (!marksData?.marks) return DEFAULT_MARK_OPTIONS;
+    if (!marksData?.marks || marksData.marks.length === 0) return DEFAULT_MARK_OPTIONS;
     return marksData.marks.map(m => ({ value: m.value, label: m.label, color: m.color, icon: m.icon || "●" }));
   }, [marksData]);
   const [userRichMenu, setUserRichMenu] = useState<{ id?: number; name: string; image_url: string | null; line_rich_menu_id: string; is_default: boolean } | null>(null);

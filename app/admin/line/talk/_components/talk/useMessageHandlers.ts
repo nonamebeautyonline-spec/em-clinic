@@ -885,7 +885,7 @@ export function useMessageHandlers(
 
   const getMarkColor = useCallback((mark: string) => getMarkColorUtil(markOptions, mark), [markOptions]);
   const getMarkLabel = useCallback((mark: string) => getMarkLabelUtil(markOptions, mark), [markOptions]);
-  const currentMark = markOptions.find(m => m.value === patientMark) || markOptions[0];
+  const currentMark = markOptions.find(m => m.value === patientMark) || markOptions[0] || { value: "none", label: "未対応", color: "#06B6D4", icon: "●" };
 
   const assignedTagIds = patientTags.map(t => t.tag_id);
   const availableTags = allTags.filter(t => !assignedTagIds.includes(t.id));
