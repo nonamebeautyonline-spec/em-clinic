@@ -171,7 +171,7 @@ export function OrdersSection() {
                       const allProducts = productsJson.products || [];
                       const cartItems = codes.map((code: string) => {
                         const p = allProducts.find((pr: { code: string }) => pr.code === code);
-                        return p ? { code: p.code, title: p.title, price: p.price, qty: 1, coolType: p.cool_type || null } : null;
+                        return p ? { code: p.code, title: p.title, price: p.price, qty: 1, coolType: p.cool_type || null, shippingDelayDays: p.shipping_delay_days ?? 0 } : null;
                       }).filter(Boolean);
                       localStorage.setItem("lope_cart", JSON.stringify(cartItems));
                     } catch { /* ignore */ }
