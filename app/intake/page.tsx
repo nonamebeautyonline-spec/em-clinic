@@ -286,7 +286,13 @@ const runPidCheck = useCallback(async () => {
     }
 
     // ★ /api/mypage の真実源
-    setAlreadyAnswered(j.hasIntake === true);
+    // マルチ分野モード: 選択中の分野の問診済み状態で判定（他分野の問診済みに影響されない）
+    // every_time分野はAPIがintakeByField[fid]=falseを返すので常に未回答扱い
+    if (j.multiFieldEnabled && fieldId && j.intakeByField) {
+      setAlreadyAnswered(j.intakeByField[fieldId] === true);
+    } else {
+      setAlreadyAnswered(j.hasIntake === true);
+    }
 
   } catch {
     setCheckError("通信エラーが発生しました。");
