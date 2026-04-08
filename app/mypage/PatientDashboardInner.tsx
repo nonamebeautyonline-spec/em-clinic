@@ -50,7 +50,7 @@ export default function PatientDashboardInner() {
     );
   }
 
-  const { data, mpColors, mpSections, mpContent, mpLabels, hasIntake, intakeStatus, reorders, selectedFieldId, setSelectedFieldId, intakeByField } = contextValue;
+  const { data, mpColors, mpSections, mpContent, mpLabels, hasIntake, intakeStatus, reorders, selectedFieldId, setSelectedFieldId, intakeByField, fieldConfigs } = contextValue;
   const { patient, nextReservation, history, ordersFlags } = data;
   const hasHistory = history.length > 0;
   const isNG = intakeStatus === "NG";
@@ -154,14 +154,24 @@ export default function PatientDashboardInner() {
         <div className="mx-auto max-w-4xl px-4 mt-3 space-y-2">
           {/* 問診（マルチ分野モードで「すべて」選択時は非表示） */}
           {mpSections.showIntake && !(multiFieldEnabled && selectedFieldId === null) && (() => {
+            // 分野別フロー設定
+            const fc = selectedFieldId ? fieldConfigs[selectedFieldId] : null;
+            const isEveryTime = fc?.intake_frequency === "every_time";
+            const isIntakeThenPay = fc?.purchase_flow === "intake_then_pay";
+
             // マルチ分野モード: 選択分野の問診完了状態で判定
+            // every_time分野は常にfalse（毎回問診入力を促す）
             const fieldIntakeDone = multiFieldEnabled && selectedFieldId
-              ? (intakeByField[selectedFieldId] ?? false)
+              ? (isEveryTime ? false : (intakeByField[selectedFieldId] ?? false))
               : hasIntake === true;
             const fieldIntakeLoading = !multiFieldEnabled && hasIntake === null;
             const selectedFieldName = selectedFieldId
               ? fieldOptions.find(f => f.id === selectedFieldId)?.name
               : null;
+            // every_time分野で過去に回答がある場合の判定（決済ボタン表示用）
+            const hasFieldIntakeRecord = multiFieldEnabled && selectedFieldId
+              ? (intakeByField[selectedFieldId] ?? false)
+              : hasIntake === true;
 
             return fieldIntakeLoading ? (
               <button
@@ -180,6 +190,15 @@ export default function PatientDashboardInner() {
                 >
                   {selectedFieldName ? `${selectedFieldName} の問診回答済み` : mpLabels.intakeCompleteText}
                 </button>
+                {/* intake_then_pay分野: 問診完了後に直接決済ボタン */}
+                {isIntakeThenPay && (
+                  <Link
+                    href={`/mypage/purchase${selectedFieldId ? `?fieldId=${selectedFieldId}` : ""}`}
+                    className="mt-2 block w-full rounded-xl text-white text-center py-3 text-base font-semibold shadow-sm transition bg-[var(--mp-primary)] hover:bg-[var(--mp-hover)]"
+                  >
+                    決済に進む
+                  </Link>
+                )}
                 <p className="mt-1 text-[11px] text-slate-500">
                   {mpLabels.intakeGuideText}
                 </p>
@@ -194,6 +213,15 @@ export default function PatientDashboardInner() {
                     ? `${selectedFieldName} の問診に回答する`
                     : mpLabels.intakeButtonLabel}
                 </Link>
+                {/* every_time + intake_then_pay: 過去に回答済みなら決済ボタンも表示 */}
+                {isEveryTime && isIntakeThenPay && hasFieldIntakeRecord && (
+                  <Link
+                    href={`/mypage/purchase${selectedFieldId ? `?fieldId=${selectedFieldId}` : ""}`}
+                    className="mt-2 block w-full rounded-xl text-center py-3 text-base font-semibold border border-[var(--mp-primary)] text-[var(--mp-primary)] bg-white hover:bg-[var(--mp-light)] transition"
+                  >
+                    前回の問診で決済に進む
+                  </Link>
+                )}
                 <p className="mt-1 text-[11px] text-slate-500">
                   {mpLabels.intakeNoteText}
                 </p>
@@ -201,8 +229,8 @@ export default function PatientDashboardInner() {
             );
           })()}
 
-          {/* 予約ボタン */}
-          {mpSections.showReserveButton && (
+          {/* 予約ボタン（intake_then_pay分野では非表示） */}
+          {mpSections.showReserveButton && !(selectedFieldId && fieldConfigs[selectedFieldId]?.purchase_flow === "intake_then_pay") && (
             <button
               type="button"
               disabled={!canReserve}

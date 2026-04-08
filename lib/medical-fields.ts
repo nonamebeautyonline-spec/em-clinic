@@ -3,6 +3,28 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { getSetting } from "@/lib/settings";
 import { withTenant } from "@/lib/tenant";
 
+/** 分野別フロー設定 */
+export interface MedicalFieldFlowConfig {
+  /** 問診回数: "once"=1回のみ(デフォルト), "every_time"=毎回 */
+  intake_frequency: "once" | "every_time";
+  /** 購入フロー: "reservation_first"=予約→診察→決済, "intake_then_pay"=問診→決済, "intake_reservation_pay"=問診→予約→診察→決済 */
+  purchase_flow: "reservation_first" | "intake_then_pay" | "intake_reservation_pay";
+  /** 再処方セクションに表示するか */
+  show_in_reorder: boolean;
+}
+
+/** flow_configのデフォルト値 */
+export const DEFAULT_FLOW_CONFIG: MedicalFieldFlowConfig = {
+  intake_frequency: "once",
+  purchase_flow: "reservation_first",
+  show_in_reorder: true,
+};
+
+/** flow_configをデフォルトとマージして返す */
+export function resolveFlowConfig(raw: Partial<MedicalFieldFlowConfig> | null | undefined): MedicalFieldFlowConfig {
+  return { ...DEFAULT_FLOW_CONFIG, ...(raw || {}) };
+}
+
 /** 分野の型定義 */
 export interface MedicalField {
   id: string;
@@ -14,6 +36,7 @@ export interface MedicalField {
   color_theme: string;
   sort_order: number;
   is_active: boolean;
+  flow_config: Partial<MedicalFieldFlowConfig>;
   created_at: string;
   updated_at: string;
 }

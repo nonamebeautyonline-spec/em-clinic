@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   const tenantId = resolveTenantIdOrThrow(req);
 
   const body = await req.json();
-  const { slug, name, description, icon_url, color_theme, sort_order } = body;
+  const { slug, name, description, icon_url, color_theme, sort_order, flow_config } = body;
 
   if (!slug || !name) return badRequest("slug と name は必須です");
 
@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
       color_theme: color_theme || "emerald",
       sort_order: sort_order ?? 0,
       is_active: true,
+      flow_config: flow_config || {},
     })
     .select()
     .single();
@@ -74,7 +75,7 @@ export async function PUT(req: NextRequest) {
   const tenantId = resolveTenantIdOrThrow(req);
 
   const body = await req.json();
-  const { id, slug, name, description, icon_url, color_theme, sort_order, is_active } = body;
+  const { id, slug, name, description, icon_url, color_theme, sort_order, is_active, flow_config } = body;
 
   if (!id) return badRequest("id は必須です");
 
@@ -96,6 +97,7 @@ export async function PUT(req: NextRequest) {
   if (color_theme !== undefined) updateData.color_theme = color_theme;
   if (sort_order !== undefined) updateData.sort_order = sort_order;
   if (is_active !== undefined) updateData.is_active = is_active;
+  if (flow_config !== undefined) updateData.flow_config = flow_config;
 
   const { data, error } = await supabaseAdmin
     .from("medical_fields")

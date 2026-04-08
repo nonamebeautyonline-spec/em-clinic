@@ -16,6 +16,12 @@ const COLOR_OPTIONS = [
   { value: "orange", label: "オレンジ", class: "bg-orange-500" },
 ];
 
+interface FlowConfig {
+  intake_frequency?: "once" | "every_time";
+  purchase_flow?: "reservation_first" | "intake_then_pay" | "intake_reservation_pay";
+  show_in_reorder?: boolean;
+}
+
 interface MedicalField {
   id: string;
   slug: string;
@@ -25,6 +31,7 @@ interface MedicalField {
   color_theme: string;
   sort_order: number;
   is_active: boolean;
+  flow_config: FlowConfig;
 }
 
 interface FieldConfig {
@@ -59,6 +66,11 @@ export default function MedicalFieldsSection({ onToast }: { onToast: (msg: strin
   const [formDescription, setFormDescription] = useState("");
   const [formColorTheme, setFormColorTheme] = useState("emerald");
   const [formSortOrder, setFormSortOrder] = useState(0);
+  const [formFlowConfig, setFormFlowConfig] = useState<FlowConfig>({
+    intake_frequency: "once",
+    purchase_flow: "reservation_first",
+    show_in_reorder: true,
+  });
 
   const resetForm = useCallback(() => {
     setFormSlug("");
@@ -66,6 +78,7 @@ export default function MedicalFieldsSection({ onToast }: { onToast: (msg: strin
     setFormDescription("");
     setFormColorTheme("emerald");
     setFormSortOrder(0);
+    setFormFlowConfig({ intake_frequency: "once", purchase_flow: "reservation_first", show_in_reorder: true });
     setEditingField(null);
     setShowAddForm(false);
   }, []);
@@ -77,6 +90,11 @@ export default function MedicalFieldsSection({ onToast }: { onToast: (msg: strin
     setFormDescription(field.description || "");
     setFormColorTheme(field.color_theme);
     setFormSortOrder(field.sort_order);
+    setFormFlowConfig({
+      intake_frequency: field.flow_config?.intake_frequency || "once",
+      purchase_flow: field.flow_config?.purchase_flow || "reservation_first",
+      show_in_reorder: field.flow_config?.show_in_reorder ?? true,
+    });
     setShowAddForm(true);
   }, []);
 
@@ -116,6 +134,7 @@ export default function MedicalFieldsSection({ onToast }: { onToast: (msg: strin
         description: formDescription.trim() || null,
         color_theme: formColorTheme,
         sort_order: formSortOrder,
+        flow_config: formFlowConfig,
       };
       const res = await fetch("/api/admin/medical-fields", {
         method: editingField ? "PUT" : "POST",
@@ -332,6 +351,55 @@ export default function MedicalFieldsSection({ onToast }: { onToast: (msg: strin
                 onChange={(e) => setFormSortOrder(Number(e.target.value))}
                 className="w-24 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+          </div>
+
+          {/* フロー設定 */}
+          <div className="border-t border-gray-200 pt-4 mt-2 space-y-4">
+            <h4 className="text-sm font-semibold text-gray-800">フロー設定</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">問診回数</label>
+                <select
+                  value={formFlowConfig.intake_frequency || "once"}
+                  onChange={(e) => setFormFlowConfig({ ...formFlowConfig, intake_frequency: e.target.value as "once" | "every_time" })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="once">1回のみ（初回で完了）</option>
+                  <option value="every_time">毎回（処方のたびに入力）</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">購入フロー</label>
+                <select
+                  value={formFlowConfig.purchase_flow || "reservation_first"}
+                  onChange={(e) => setFormFlowConfig({ ...formFlowConfig, purchase_flow: e.target.value as "reservation_first" | "intake_then_pay" | "intake_reservation_pay" })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="reservation_first">予約→診察→決済</option>
+                  <option value="intake_then_pay">問診→決済（診察不要）</option>
+                  <option value="intake_reservation_pay">問診→予約→診察→決済</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">再処方表示</label>
+                <div className="flex items-center gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormFlowConfig({ ...formFlowConfig, show_in_reorder: !(formFlowConfig.show_in_reorder ?? true) })}
+                    className={`relative inline-flex h-6 w-10 items-center rounded-full transition-colors ${
+                      formFlowConfig.show_in_reorder ?? true ? "bg-blue-600" : "bg-gray-300"
+                    }`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                      formFlowConfig.show_in_reorder ?? true ? "translate-x-5" : "translate-x-1"
+                    }`} />
+                  </button>
+                  <span className="text-sm text-gray-600">
+                    {formFlowConfig.show_in_reorder ?? true ? "再処方リストに表示" : "再処方リストに非表示"}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 

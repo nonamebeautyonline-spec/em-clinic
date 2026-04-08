@@ -67,6 +67,7 @@ export function OrdersSection() {
     productLabels,
     multiFieldEnabled,
     selectedFieldId,
+    fieldConfigs,
   } = useDashboardContext();
 
   if (!mpSections.showOrders) return null;
@@ -105,8 +106,8 @@ export function OrdersSection() {
         </h2>
       </div>
 
-      {/* 再処方申請カード */}
-      {displayReorder && !isNG && (
+      {/* 再処方申請カード（show_in_reorder=false の分野では非表示） */}
+      {displayReorder && !isNG && !(selectedFieldId && fieldConfigs[selectedFieldId]?.show_in_reorder === false) && (
         <div className="mb-3 rounded-2xl border border-[var(--mp-primary)] bg-[var(--mp-light)] px-4 py-3">
           <div className="text-xs font-semibold text-[var(--mp-text)] mb-1">
             {displayReorderStatus === "pending"
@@ -212,8 +213,8 @@ export function OrdersSection() {
 
       {/* 初回決済ボタン（上部CTAセクション外に表示する場合のための条件。元コードは上部CTAセクションに配置） */}
 
-      {/* 再処方申請ボタン */}
-      {ordersFlags?.hasAnyPaidOrder && !isNG && (
+      {/* 再処方申請ボタン（show_in_reorder=false の分野では非表示） */}
+      {ordersFlags?.hasAnyPaidOrder && !isNG && !(selectedFieldId && fieldConfigs[selectedFieldId]?.show_in_reorder === false) && (
         <div className="mt-4">
           <button
             type="button"

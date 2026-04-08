@@ -42,6 +42,8 @@ const FIELD_TYPES: { type: IntakeFieldType; label: string; icon: string }[] = [
   { type: "dropdown", label: "プルダウン", icon: "▼" },
   { type: "checkbox", label: "チェックボックス", icon: "☑" },
   { type: "heading", label: "見出し", icon: "H" },
+  { type: "image", label: "画像アップロード", icon: "📷" },
+  { type: "date", label: "日付", icon: "📅" },
 ];
 
 function createField(type: IntakeFieldType): IntakeFormField {

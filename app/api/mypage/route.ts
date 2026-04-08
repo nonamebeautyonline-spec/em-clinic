@@ -399,17 +399,27 @@ async function getReordersFromSupabase(patientId: string, tenantId: string | nul
 /**
  * 分野マスタのマップを取得（field_id → { name, color_theme }）
  */
-async function getFieldMap(tenantId: string | null): Promise<Map<string, { name: string; color: string }>> {
-  const map = new Map<string, { name: string; color: string }>();
+interface FieldMapEntry {
+  name: string;
+  color: string;
+  flow_config: { intake_frequency?: string; purchase_flow?: string; show_in_reorder?: boolean };
+}
+
+async function getFieldMap(tenantId: string | null): Promise<Map<string, FieldMapEntry>> {
+  const map = new Map<string, FieldMapEntry>();
   if (!tenantId) return map;
   try {
     const { data } = await supabaseAdmin
       .from("medical_fields")
-      .select("id, name, color_theme")
+      .select("id, name, color_theme, flow_config")
       .eq("tenant_id", tenantId)
       .eq("is_active", true);
     for (const f of data ?? []) {
-      map.set(f.id, { name: f.name, color: f.color_theme || "emerald" });
+      map.set(f.id, {
+        name: f.name,
+        color: f.color_theme || "emerald",
+        flow_config: f.flow_config || {},
+      });
     }
   } catch (e) {
     console.error("[mypage] getFieldMap error:", e);
@@ -500,7 +510,16 @@ export async function POST(_req: NextRequest) {
         console.error("[mypage] intakeByField error:", e);
       }
     }
-    const fieldMap = multiField ? await getFieldMap(tenantId) : new Map<string, { name: string; color: string }>();
+    const fieldMap = multiField ? await getFieldMap(tenantId) : new Map<string, FieldMapEntry>();
+
+    // every_time分野は常にintakeByField=falseに（毎回問診を促す）
+    if (multiField) {
+      for (const [fid, entry] of fieldMap) {
+        if (entry.flow_config?.intake_frequency === "every_time") {
+          intakeByField[fid] = false;
+        }
+      }
+    }
 
     // LINE UID がDBに未保存ならDB更新（非同期・画面は待たせない）
     const existingLineId = patientInfo?.lineId || "";
@@ -551,6 +570,13 @@ export async function POST(_req: NextRequest) {
       })),
       hasIntake,
       intakeByField,
+      fieldConfigs: multiField ? Object.fromEntries(
+        Array.from(fieldMap.entries()).map(([fid, entry]) => [fid, {
+          intake_frequency: entry.flow_config?.intake_frequency || "once",
+          purchase_flow: entry.flow_config?.purchase_flow || "reservation_first",
+          show_in_reorder: entry.flow_config?.show_in_reorder ?? true,
+        }])
+      ) : {},
       intakeId: "",
       intakeStatus: patientInfo?.intakeStatus || null,
     };

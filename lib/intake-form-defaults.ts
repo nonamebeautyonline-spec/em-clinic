@@ -1,6 +1,6 @@
 // lib/intake-form-defaults.ts — 問診フォーム型定義・デフォルトデータ
 
-export type IntakeFieldType = "text" | "textarea" | "radio" | "dropdown" | "checkbox" | "heading";
+export type IntakeFieldType = "text" | "textarea" | "radio" | "dropdown" | "checkbox" | "heading" | "image" | "date";
 
 export interface IntakeFieldOption {
   label: string;

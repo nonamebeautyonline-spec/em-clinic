@@ -70,6 +70,17 @@ export async function POST(req: NextRequest) {
       fieldId = defaultField?.id ?? null;
     }
 
+    // every_time分野の判定（毎回新規INSERTする）
+    let isEveryTime = false;
+    if (multiField && fieldId) {
+      const { getMedicalFieldById, resolveFlowConfig } = await import("@/lib/medical-fields");
+      const fieldDef = await getMedicalFieldById(fieldId);
+      if (fieldDef) {
+        const fc = resolveFlowConfig(fieldDef.flow_config);
+        isEveryTime = fc.intake_frequency === "every_time";
+      }
+    }
+
     // ★ デバッグログ：bodyの構造を確認
     console.log("[Intake Debug] patientId:", patientId);
     console.log("[Intake Debug] body keys:", Object.keys(body));
@@ -111,9 +122,11 @@ export async function POST(req: NextRequest) {
           intakeQuery = intakeQuery.eq("field_id", fieldId);
         }
         const { data: intakeRows } = await intakeQuery;
-        const existingRecord = intakeRows?.find(r => r.reserve_id != null)
-          ?? intakeRows?.find(r => !(r.note || "").startsWith("再処方"))
-          ?? null;
+        // every_time分野では既存レコードを使わず常に新規INSERT
+        const existingRecord = isEveryTime ? null
+          : (intakeRows?.find(r => r.reserve_id != null)
+            ?? intakeRows?.find(r => !(r.note || "").startsWith("再処方"))
+            ?? null);
 
         // ★ 既存answersとマージ — 問診フォームは個人情報を送らないため、
         //   既存の個人情報（カナ,性別,生年月日,電話番号）を保持する

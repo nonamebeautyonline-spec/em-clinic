@@ -72,6 +72,7 @@ export interface DashboardContextValue {
   selectedFieldId: string | null;
   setSelectedFieldId: (id: string | null) => void;
   intakeByField: Record<string, boolean>;
+  fieldConfigs: Record<string, { intake_frequency: string; purchase_flow: string; show_in_reorder: boolean }>;
 
   // 導出値
   displayReorder: ReorderItem | null;
