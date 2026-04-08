@@ -799,9 +799,12 @@ export async function processAiReply(
       // エスカレーション対象はドラフト生成して承認に回す
       const isEscalation = classificationResult.escalate_to_staff;
 
-      if (isMedicalDirect || isEscalation) {
+      // greeting + greeting_reply_enabled の場合もドラフト生成を継続
+      const isGreetingEnabled = classificationResult.category === "greeting" && settings.greeting_reply_enabled;
+
+      if (isMedicalDirect || isEscalation || isGreetingEnabled) {
         classificationResult.should_reply = true;
-        log.push(`step6A: should_reply=falseを上書き (medical_direct=${isMedicalDirect}, escalation=${isEscalation})`);
+        log.push(`step6A: should_reply=falseを上書き (medical_direct=${isMedicalDirect}, escalation=${isEscalation}, greeting_enabled=${isGreetingEnabled})`);
       } else {
         log.push(`skip: 分類で返信不要 (category=${classificationResult.category}, reason=${classificationResult.reasoning})`);
         console.log(`[AI Reply] 分類で返信不要: ${classificationResult.reasoning}`);

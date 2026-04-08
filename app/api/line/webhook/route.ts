@@ -725,13 +725,11 @@ async function handleMessage(lineUid: string, message: { type: string; id?: stri
         });
         // AI返信処理はスキップ
       } else {
-        // 営業時間内: 通常のAI返信フロー
-        scheduleAiReply(lineUid, patient.patient_id, patient.patient_name, message.text, tenantId).catch(() => {});
+        // 営業時間内: after()で直接処理（cronへの二重登録を防止）
         pendingAiReplyTargets.push({ lineUid, patientId: patient.patient_id, patientName: patient.patient_name, tenantId, receivedAt: Date.now() });
       }
     } catch (e) {
       console.error("[webhook] 営業時間チェックエラー（AI返信フローにフォールバック）:", e);
-      scheduleAiReply(lineUid, patient.patient_id, patient.patient_name, message.text, tenantId).catch(() => {});
       pendingAiReplyTargets.push({ lineUid, patientId: patient.patient_id, patientName: patient.patient_name, tenantId, receivedAt: Date.now() });
     }
   }
