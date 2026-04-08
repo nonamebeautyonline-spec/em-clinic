@@ -295,6 +295,22 @@ function IntakePreview({
                         {opt.label}
                       </label>
                     ))}
+                  {current.type === "date" && (
+                    <input
+                      type="date"
+                      value={answers[current.id] || ""}
+                      onChange={(e) =>
+                        setAnswers((a) => ({ ...a, [current.id]: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                    />
+                  )}
+                  {current.type === "image" && (
+                    <div className="flex flex-col items-center justify-center w-full h-24 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50">
+                      <span className="text-xs text-gray-400">📷 画像アップロード</span>
+                      <span className="text-[10px] text-gray-300 mt-1">（プレビューでは動作しません）</span>
+                    </div>
+                  )}
                 </div>
               </main>
 
