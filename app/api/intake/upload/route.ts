@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
-import { verifyPatientSession } from "@/lib/patient-auth";
+import { verifyPatientSession } from "@/lib/patient-session";
 import { resolveTenantIdOrThrow } from "@/lib/tenant";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
