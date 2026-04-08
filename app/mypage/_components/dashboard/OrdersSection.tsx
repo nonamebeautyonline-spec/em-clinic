@@ -149,7 +149,7 @@ export function OrdersSection() {
             <div className="mt-2 flex gap-2 text-[11px]">
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   const raw = String((displayReorder.product_code ?? displayReorder.productCode ?? "")).trim();
                   if (!raw) {
                     alert("再処方の決済情報（product_code）が見つかりません。管理者にお問い合わせください。");
@@ -160,9 +160,26 @@ export function OrdersSection() {
                     alert("再処方の識別子が見つかりません。管理者にお問い合わせください。");
                     return;
                   }
-                  const code = encodeURIComponent(raw);
                   const reorderId = encodeURIComponent(String(reorderNum));
-                  router.push(`/mypage/purchase/confirm?code=${code}&mode=reorder&reorder_id=${reorderId}`);
+                  // カンマ区切りの複数商品コード（カート再処方）
+                  if (raw.includes(",")) {
+                    const codes = raw.split(",").map(c => c.trim()).filter(Boolean);
+                    // カートをlocalStorageにセットしてカートモードで遷移
+                    try {
+                      const productsRes = await fetch("/api/mypage/products", { credentials: "include" });
+                      const productsJson = await productsRes.json();
+                      const allProducts = productsJson.products || [];
+                      const cartItems = codes.map((code: string) => {
+                        const p = allProducts.find((pr: { code: string }) => pr.code === code);
+                        return p ? { code: p.code, title: p.title, price: p.price, qty: 1, coolType: p.cool_type || null } : null;
+                      }).filter(Boolean);
+                      localStorage.setItem("lope_cart", JSON.stringify(cartItems));
+                    } catch { /* ignore */ }
+                    router.push(`/mypage/purchase/confirm?cart=1&mode=reorder&reorder_id=${reorderId}`);
+                  } else {
+                    const code = encodeURIComponent(raw);
+                    router.push(`/mypage/purchase/confirm?code=${code}&mode=reorder&reorder_id=${reorderId}`);
+                  }
                 }}
                 className="px-4 py-1.5 rounded-full bg-emerald-500 text-white font-semibold shadow-sm"
               >
