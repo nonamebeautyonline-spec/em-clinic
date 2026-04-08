@@ -163,6 +163,7 @@ function IntakePageInner() {
 
   // 入力不足などフォーム内の軽いエラー
   const [inlineError, setInlineError] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
 
   // ★ 入場時のPID既回答チェック
   const [checking, setChecking] = useState(true);
@@ -505,39 +506,6 @@ const runPidCheck = useCallback(async () => {
         );
       case "image": {
         const currentUrl = answers[current.id] || "";
-        const [uploading, setUploading] = React.useState(false);
-        const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-          const file = e.target.files?.[0];
-          if (!file) return;
-          // 10MBチェック
-          if (file.size > 10 * 1024 * 1024) {
-            alert("ファイルサイズは10MB以下にしてください");
-            return;
-          }
-          // 画像MIMEチェック
-          if (!file.type.startsWith("image/")) {
-            alert("画像ファイル（jpeg、jpg、png、gif、heic）のみ添付できます。");
-            return;
-          }
-          setUploading(true);
-          try {
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("field_id", current.id);
-            const res = await fetch("/api/intake/upload", {
-              method: "POST",
-              credentials: "include",
-              body: formData,
-            });
-            if (!res.ok) throw new Error("アップロードに失敗しました");
-            const data = await res.json();
-            setAnswers({ ...answers, [current.id]: data.file_url });
-          } catch (err) {
-            alert(err instanceof Error ? err.message : "アップロードに失敗しました");
-          } finally {
-            setUploading(false);
-          }
-        };
         return (
           <div className="space-y-2">
             <label className="flex items-center justify-center w-full h-32 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:bg-gray-100 transition">
@@ -545,11 +513,30 @@ const runPidCheck = useCallback(async () => {
                 type="file"
                 accept="image/jpeg,image/jpg,image/png,image/gif,image/heic"
                 className="hidden"
-                onChange={handleFileChange}
-                disabled={uploading}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (file.size > 10 * 1024 * 1024) { alert("ファイルサイズは10MB以下にしてください"); return; }
+                  if (!file.type.startsWith("image/")) { alert("画像ファイル（jpeg、jpg、png、gif、heic）のみ添付できます。"); return; }
+                  setImageUploading(true);
+                  try {
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    formData.append("field_id", current.id);
+                    const res = await fetch("/api/intake/upload", { method: "POST", credentials: "include", body: formData });
+                    if (!res.ok) throw new Error("アップロードに失敗しました");
+                    const data = await res.json();
+                    setAnswers({ ...answers, [current.id]: data.file_url });
+                  } catch (err) {
+                    alert(err instanceof Error ? err.message : "アップロードに失敗しました");
+                  } finally {
+                    setImageUploading(false);
+                  }
+                }}
+                disabled={imageUploading}
               />
               <span className="text-sm text-gray-500">
-                {uploading ? "アップロード中..." : currentUrl ? "画像を変更する" : "画像を選択してください"}
+                {imageUploading ? "アップロード中..." : currentUrl ? "画像を変更する" : "画像を選択してください"}
               </span>
             </label>
             {currentUrl && (
