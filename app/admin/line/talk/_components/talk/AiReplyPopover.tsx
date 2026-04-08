@@ -200,8 +200,9 @@ export function AiReplyCard({
                     onRegenerate();
                   }
                 }}
+                onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 120) + "px"; }}
                 placeholder="修正指示（例: もっと丁寧に）&#10;Shift+Enterで改行"
-                rows={2}
+                rows={1}
                 className="flex-1 text-[11px] border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300 resize-none"
                 disabled={regenerating}
               />
