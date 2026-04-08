@@ -152,8 +152,8 @@ export default function PatientDashboardInner() {
         {/* 上部CTA */}
         {(mpSections.showIntake || mpSections.showReserveButton) && (
         <div className="mx-auto max-w-4xl px-4 mt-3 space-y-2">
-          {/* 問診 */}
-          {mpSections.showIntake && (() => {
+          {/* 問診（マルチ分野モードで「すべて」選択時は非表示） */}
+          {mpSections.showIntake && !(multiFieldEnabled && selectedFieldId === null) && (() => {
             // マルチ分野モード: 選択分野の問診完了状態で判定
             const fieldIntakeDone = multiFieldEnabled && selectedFieldId
               ? (intakeByField[selectedFieldId] ?? false)
