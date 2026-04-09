@@ -281,9 +281,11 @@ export async function POST(req: NextRequest) {
     // 後処理をfire-and-forget（waitUntil相当）
     const postProcess = async () => {
       try {
-        // TradedCard方式: 決済成功後にカード保存（失敗しても決済に影響なし）
+        // TradedCard方式: カード保存は独立して非同期実行（サンクス通知をブロックしない）
         if (saveCard && !useSavedCard) {
-          await saveCardViaTradedCard(patientId, orderId, tenantId);
+          saveCardViaTradedCard(patientId, orderId, tenantId).catch(e =>
+            console.error("[gmo/pay] TradedCard background error:", e)
+          );
         }
 
         // reorder paidマーク + カルテ自動作成
