@@ -23,7 +23,8 @@ async function sendReorderNotification(
   reorderNumber: number,
   history: string,
   notifyToken: string,
-  adminGroupId: string
+  adminGroupId: string,
+  is75mgFirst = false
 ) {
   if (!notifyToken || !adminGroupId) {
     console.log("[reorder/apply] LINE notification skipped (missing config)");
@@ -74,9 +75,22 @@ async function sendReorderNotification(
               type: "text",
               text: `申請: ${productLabel}`,
               size: "md",
+              weight: "bold",
               wrap: true,
-              margin: "md"
+              margin: "md",
+              ...(is75mgFirst ? { color: "#CC0000" } : {})
             },
+            // 7.5mg初回申請の場合、警告ブロックを挿入
+            ...(is75mgFirst ? [
+              {
+                type: "text",
+                text: "⚠️【7.5mg 初回申請】⚠️\nこの患者は7.5mgの処方歴がありません。\n承認前にご確認ください。",
+                size: "sm",
+                color: "#CC0000",
+                wrap: true,
+                margin: "sm"
+              },
+            ] : []),
             {
               type: "separator",
               margin: "md"
@@ -479,7 +493,24 @@ export async function POST(req: NextRequest) {
           } else {
             notifyProductLabel = reorderProduct?.title || productCode;
           }
-          await sendReorderNotification(patientId, patientName, productCode, notifyProductLabel, reorderNumber, history, LINE_NOTIFY_TOKEN, LINE_ADMIN_GROUP_ID);
+          // 7.5mg初回申請チェック（Flex Messageに警告を統合するため先に判定）
+          let is75mgFirst = false;
+          if (productCode.includes("7.5mg")) {
+            const { data: prev75Orders } = await strictWithTenant(
+              supabaseAdmin
+                .from("orders")
+                .select("id")
+                .eq("patient_id", patientId)
+                .like("product_code", "%7.5mg%"),
+              tenantId
+            ).limit(1);
+            if (!prev75Orders || prev75Orders.length === 0) {
+              is75mgFirst = true;
+              console.log(`[reorder/apply] First 7.5mg request for patient=${patientId}`);
+            }
+          }
+
+          await sendReorderNotification(patientId, patientName, productCode, notifyProductLabel, reorderNumber, history, LINE_NOTIFY_TOKEN, LINE_ADMIN_GROUP_ID, is75mgFirst);
 
           // 自動承認された場合はその旨も通知
           if (autoApproved) {
@@ -520,33 +551,8 @@ export async function POST(req: NextRequest) {
           console.error("[reorder/apply] dosage change notify error:", err);
         }
       })();
-    } else {
-      // 用量変更通知OFFでも既存の7.5mg初回チェックは維持
-      if (productCode.includes("7.5mg")) {
-        (async () => {
-          try {
-            const { data: prev75Orders, error: prev75Error } = await strictWithTenant(
-              supabaseAdmin
-                .from("orders")
-                .select("id")
-                .eq("patient_id", patientId)
-                .like("product_code", "%7.5mg%"),
-              tenantId
-            ).limit(1);
-
-            if (prev75Error) {
-              console.error("[reorder/apply] 7.5mg history check error:", prev75Error);
-            } else if (!prev75Orders || prev75Orders.length === 0) {
-              console.log(`[reorder/apply] First 7.5mg request for patient=${patientId}`);
-              const alertText = `⚠️【7.5mg 初回申請】⚠️\n患者ID: ${patientId}\n\nこの患者は7.5mgの処方歴がありません。\n承認前にご確認ください。`;
-              await pushTextToAdminGroup(alertText, LINE_NOTIFY_TOKEN, LINE_ADMIN_GROUP_ID);
-            }
-          } catch (err) {
-            console.error("[reorder/apply] 7.5mg check exception:", err);
-          }
-        })();
-      }
     }
+    // 7.5mg初回警告はFlex Messageに統合済みのため、別メッセージ送信は不要
 
     return NextResponse.json({ ok: true, autoApproved }, { status: 200 });
   } catch (e) {
