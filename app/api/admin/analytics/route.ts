@@ -4,6 +4,7 @@ import { badRequest, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth, getAdminTenantId } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
+import { getProductNamesMap } from "@/lib/products";
 
 export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
@@ -110,16 +111,18 @@ async function getProductBreakdown(from: string, to: string, tenantId: string | 
     return NextResponse.json({ products: [] });
   }
 
-  // 商品名で集計（codeにproduct_nameを使用）
+  // product_codeをキーに集計し、表示名はproductsテーブルから解決
+  const namesMap = await getProductNamesMap(tenantId ?? undefined);
   const productMap = new Map<string, { code: string; revenue: number; count: number }>();
   for (const o of orders) {
-    const name = o.product_name || o.product_code || "不明";
-    const entry = productMap.get(name) || { code: name, revenue: 0, count: 0 };
+    const key = o.product_code || "不明";
+    const displayName = namesMap[key] || o.product_name || key;
+    const entry = productMap.get(key) || { code: displayName, revenue: 0, count: 0 };
     const amount = Number(o.amount) || 0;
     const refund = o.refund_status === "refunded" ? (Number(o.refunded_amount) || amount) : 0;
     entry.revenue += amount - refund;
     entry.count += 1;
-    productMap.set(name, entry);
+    productMap.set(key, entry);
   }
 
   const products = Array.from(productMap.values())
