@@ -1,7 +1,7 @@
 // app/mypage/purchase/bank-transfer/page.tsx
 "use client";
 
-import React, { useMemo, useState, useEffect, Suspense } from "react";
+import React, { useMemo, useState, useEffect, useCallback, Suspense } from "react";
 import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -118,6 +118,22 @@ function BankTransferContent() {
   const [error, setError] = useState<string | null>(null);
   const [showBackAlert, setShowBackAlert] = useState(false);
 
+  // ブラウザバック・スマホ戻るボタン検知 → モーダル表示
+  useEffect(() => {
+    // ダミーのhistoryエントリを追加（戻るを検知するため）
+    history.pushState({ bankTransferGuard: true }, "");
+
+    const onPopState = (e: PopStateEvent) => {
+      // ブラウザバックが押された → モーダル表示して戻りを阻止
+      e.preventDefault();
+      history.pushState({ bankTransferGuard: true }, "");
+      setShowBackAlert(true);
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   // patientIdをSWRで取得 → useMemoで同期的に導出
   const { data: identityData, error: identityError } = useSWR("/api/mypage/identity", swrFetcher, {
     revalidateOnFocus: false,
@@ -159,13 +175,14 @@ function BankTransferContent() {
     setShowBackAlert(true);
   };
 
-  const handleBackConfirm = () => {
+  const handleBackConfirm = useCallback(() => {
+    // popstateリスナーが再発火しないようにreplaceで遷移
     if (modeParam === "reorder") {
-      router.push("/mypage");
+      router.replace("/mypage");
     } else {
-      router.push("/mypage/purchase");
+      router.replace("/mypage/purchase");
     }
-  };
+  }, [modeParam, router]);
 
   const handleTransferCompleted = () => {
     if (!product || !patientId) return;
