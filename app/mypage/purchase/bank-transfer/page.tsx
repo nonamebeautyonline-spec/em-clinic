@@ -116,6 +116,7 @@ function BankTransferContent() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showBackAlert, setShowBackAlert] = useState(false);
 
   // patientIdをSWRで取得 → useMemoで同期的に導出
   const { data: identityData, error: identityError } = useSWR("/api/mypage/identity", swrFetcher, {
@@ -155,6 +156,10 @@ function BankTransferContent() {
   );
 
   const handleBack = () => {
+    setShowBackAlert(true);
+  };
+
+  const handleBackConfirm = () => {
     if (modeParam === "reorder") {
       router.push("/mypage");
     } else {
@@ -333,6 +338,42 @@ function BankTransferContent() {
           ※ 振込確認後に商品を発送いたします。
         </p>
       </div>
+
+      {/* 戻るボタン押下時のアラート */}
+      {showBackAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+            <h3 className="text-sm font-bold text-slate-900">お振込みはお済みですか？</h3>
+            <p className="mt-2 text-[11px] text-slate-700 leading-relaxed">
+              既にお振込み済みの場合は、<strong className="text-pink-600">配送先情報の入力</strong>が必要です。
+              入力がないと商品を発送できませんのでご注意ください。
+            </p>
+            <div className="mt-4 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleTransferCompleted}
+                className="w-full rounded-full bg-pink-500 text-white py-2 text-[12px] font-semibold"
+              >
+                振込済み → 配送先入力へ進む
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowBackAlert(false)}
+                className="w-full rounded-full border border-slate-200 bg-white text-slate-700 py-1.5 text-[11px] font-medium"
+              >
+                この画面に戻る
+              </button>
+              <button
+                type="button"
+                onClick={handleBackConfirm}
+                className="w-full text-[10px] text-slate-400 underline py-1"
+              >
+                まだ振込していない → 戻る
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
