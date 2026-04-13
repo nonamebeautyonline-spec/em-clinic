@@ -61,10 +61,24 @@ export async function POST(req: NextRequest) {
     for (const match of matches) {
       const patientId = match.order.patient_id;
 
-      // 同一バッチ内で既に確認済みの場合はスキップ（分割振込）
+      // 同一バッチ内で既に確認済みの場合（分割振込）→ 注文作成はスキップ、bank_statementsの紐付けのみ実行
       if (confirmedPatients.has(patientId)) {
         const existing = confirmedPatients.get(patientId)!;
-        console.log(`[Confirm] Skipping duplicate for patient ${patientId} (split payment, already confirmed as ${existing.newId})`);
+        console.log(`[Confirm] Split payment for patient ${patientId} — linking additional transfer to ${existing.newId}`);
+
+        // 2回目以降の振込もbank_statementsに紐付け
+        const transferDate = match.transfer.date.replace(/\//g, "-");
+        await strictWithTenant(
+          supabase
+            .from("bank_statements")
+            .update({ reconciled: true, matched_order_id: existing.newId })
+            .eq("transaction_date", transferDate)
+            .eq("description", match.transfer.description)
+            .eq("deposit", match.transfer.amount)
+            .eq("reconciled", false),
+          tenantId
+        );
+
         updateResults.push({
           orderId: patientId,
           newId: existing.newId,

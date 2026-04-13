@@ -131,11 +131,16 @@ function PurchaseConfirmContent() {
     return null;
   }, []);
 
+  // 全角数字を半角に変換
+  const toHalfWidth = (s: string) =>
+    s.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
+
   // 郵便番号入力ハンドラ
   const handlePostalCodeChange = useCallback(async (value: string) => {
-    setShipping((s) => ({ ...s, postalCode: value }));
+    const normalized = toHalfWidth(value);
+    setShipping((s) => ({ ...s, postalCode: normalized }));
     setPostalError(null);
-    const digits = value.replace(/[^0-9]/g, "");
+    const digits = normalized.replace(/[^0-9]/g, "");
     if (digits.length === 7) {
       setAutoAddress("");
       setPostalSearching(true);
@@ -173,19 +178,20 @@ function PurchaseConfirmContent() {
   // 「前回の情報を使用」チェックON→自動入力、OFF→空欄に戻す
   useEffect(() => {
     if (usePrevShipping && lastShipping) {
+      const normalizedPostal = toHalfWidth(lastShipping.postalCode || "");
       setShipping({
         name: lastShipping.name || "",
-        postalCode: lastShipping.postalCode || "",
+        postalCode: normalizedPostal,
         address: "",
         phone: lastShipping.phone || "",
         email: lastShipping.email || "",
       });
       const savedDetail = lastShipping.addressDetail || "";
       const addr = lastShipping.address || "";
-      if (lastShipping.postalCode) {
-        const digits = lastShipping.postalCode.replace(/[^0-9]/g, "");
+      if (normalizedPostal) {
+        const digits = normalizedPostal.replace(/[^0-9]/g, "");
         if (digits.length === 7) {
-          setPrevPostalCode(lastShipping.postalCode);
+          setPrevPostalCode(normalizedPostal);
           setPostalSearching(true);
           // address_detailがDBにある場合はそのまま使う（zipcloud再分割不要）
           if (savedDetail) {
@@ -204,7 +210,7 @@ function PurchaseConfirmContent() {
               }
             });
           }
-          setShipping((s) => ({ ...s, postalCode: lastShipping.postalCode }));
+          setShipping((s) => ({ ...s, postalCode: normalizedPostal }));
         } else {
           setAutoAddress("");
           setAddressDetail(savedDetail || addr);

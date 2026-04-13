@@ -58,11 +58,16 @@ function ShippingFormContent() {
     return null;
   }, []);
 
+  // 全角数字を半角に変換
+  const toHalfWidth = (s: string) =>
+    s.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
+
   // 郵便番号入力ハンドラ
   const handlePostalCodeChange = useCallback(async (value: string) => {
-    setPostalCode(value);
+    const normalized = toHalfWidth(value);
+    setPostalCode(normalized);
     setPostalError(null);
-    const digits = value.replace(/[^0-9]/g, "");
+    const digits = normalized.replace(/[^0-9]/g, "");
     if (digits.length === 7) {
       setAutoAddress("");
       setPostalSearching(true);
@@ -99,10 +104,11 @@ function ShippingFormContent() {
       const savedDetail = lastShipping.addressDetail || "";
       const addr = lastShipping.address || "";
       if (lastShipping.postalCode) {
-        const digits = lastShipping.postalCode.replace(/[^0-9]/g, "");
+        const normalizedPostal = toHalfWidth(lastShipping.postalCode);
+        const digits = normalizedPostal.replace(/[^0-9]/g, "");
         if (digits.length === 7) {
-          setPostalCode(lastShipping.postalCode);
-          setPrevPostalCode(lastShipping.postalCode);
+          setPostalCode(normalizedPostal);
+          setPrevPostalCode(normalizedPostal);
           setPostalSearching(true);
           // address_detailがDBにある場合はそのまま使う（zipcloud再分割不要）
           if (savedDetail) {
