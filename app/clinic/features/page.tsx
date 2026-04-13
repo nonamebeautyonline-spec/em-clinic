@@ -4,15 +4,15 @@ import Link from "next/link";
 const SITE_URL = "https://l-ope.jp";
 
 export const metadata: Metadata = {
-  title: "Lオペ 機能一覧 | 45の医療特化機能をオールインワン",
+  title: "クリニック向けLINE公式アカウント運用の全機能一覧 | Lオペ 45の医療特化機能",
   description:
-    "Lオペの全40機能以上を一覧で紹介。Lオペなら患者CRM・セグメント配信・リッチメニュー・オンライン問診・予約管理・業務時間管理・Google Calendar連携・AI自動返信・音声カルテ・決済管理・配送管理・在庫管理・NPS調査・フロービルダー・マルチ診療分野・スタッフ権限管理など、LINE公式アカウントでクリニック業務をDX化する全機能をオールインワンで提供。",
+    "クリニックのLINE公式アカウント運用に必要な45以上の機能を一覧で紹介。患者CRM・セグメント配信・リッチメニュー・オンライン問診・オンライン診療・予約管理・AI自動返信・音声カルテ・決済管理・配送管理・在庫管理など、医療機関のLINE運用をオールインワンで実現。",
   keywords: "Lオペ, Lオペ 機能一覧, Lオペ for CLINIC, クリニック LINE 機能, 患者CRM, セグメント配信, リッチメニュー ビルダー, AI自動返信 クリニック, 音声カルテ AI, 予約管理 LINE, オンライン問診, 電子カルテ連携, 配送管理 クリニック, 在庫管理, NPS調査, フロービルダー, チャットボット ビルダー, A/Bテスト LINE, クーポン管理, ダッシュボード 経営, 売上分析 LTV, ステップシナリオ, Flex Message, 業務時間管理, Google Calendar連携, マルチ診療分野, スタッフ権限管理, 問診フォーム複数",
   alternates: { canonical: `${SITE_URL}/clinic/features` },
   openGraph: {
-    title: "Lオペ 機能一覧 | 45の医療特化機能をオールインワン",
+    title: "クリニック向けLINE公式アカウント運用の全機能一覧 | Lオペ 45の医療特化機能",
     description:
-      "Lオペなら患者CRM・AI・予約・決済・配送・分析まで、40以上の機能をオールインワンで提供。LINE公式アカウントでクリニック業務をDX化。",
+      "クリニックのLINE公式アカウント運用に必要な全機能。患者CRM・AI自動返信・予約管理・オンライン診療・決済・配送・分析まで45以上の機能をオールインワンで提供。",
     url: `${SITE_URL}/clinic/features`,
     siteName: "Lオペ for CLINIC",
     locale: "ja_JP",
@@ -268,10 +268,10 @@ export default function FeaturesPage() {
 
           <p className="text-[13px] font-semibold tracking-widest text-blue-600 uppercase">Features</p>
           <h1 className="mt-3 text-[2rem] font-extrabold leading-tight tracking-tight text-gray-900 md:text-[2.5rem]">
-            機能一覧
+            クリニック向けLINE公式アカウント運用の全機能
           </h1>
           <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-gray-500">
-            患者CRM・メッセージ配信・AI・予約・決済・配送・分析まで、クリニック運営に必要な{totalFeatures}の機能をオールインワンで搭載しています。
+            患者CRM・メッセージ配信・AI自動返信・予約管理・オンライン診療・決済・配送・分析まで、クリニックのLINE公式アカウント運用に必要な{totalFeatures}の機能をオールインワンで搭載。
           </p>
 
           {/* カテゴリナビ */}
@@ -332,7 +332,7 @@ export default function FeaturesPage() {
         <section className="mt-24 rounded-2xl bg-gray-50 p-10 text-center md:p-14">
           <p className="text-[13px] font-semibold tracking-widest text-blue-600 uppercase">All-in-one</p>
           <h2 className="mt-3 text-[1.5rem] font-extrabold text-gray-900 md:text-[1.75rem]">
-            {featureCategories.length}カテゴリ・全{totalFeatures}機能
+            LINE公式アカウント運用に必要な{featureCategories.length}カテゴリ・全{totalFeatures}機能
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-[14px] text-gray-500">
             すべての機能がスタンダードプランから利用可能。ユーザー数無制限・アップデート無料。

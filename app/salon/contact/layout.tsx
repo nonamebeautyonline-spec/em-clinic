@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   description:
     "Lオペ for SALONへのお問い合わせ・無料相談はこちら。サロンのLINE運用に関するご相談、デモのご案内、導入に関するご質問を受け付けています。",
   keywords: "Lオペ for SALON 問い合わせ, サロン LINE 相談, 美容室 LINE 導入, ネイルサロン LINE, エステ LINE 見積もり",
+  robots: { index: false, follow: true },
   alternates: { canonical: `${SITE_URL}/salon/contact` },
   openGraph: {
     title: "Lオペ for SALON お問い合わせ・無料相談",

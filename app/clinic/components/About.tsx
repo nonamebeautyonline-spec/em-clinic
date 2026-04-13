@@ -8,8 +8,8 @@ export default function About() {
     <Section className="bg-gradient-to-b from-blue-50/40 to-white">
       <div className="text-center">
         <Label>ABOUT</Label>
-        <Title>Lオペ for CLINIC とは</Title>
-        <Sub>Lオペ for CLINIC は、LINE公式アカウントを「クリニックの業務基盤」へ進化させる、医療機関専用のオールインワン運用プラットフォームです。</Sub>
+        <Title>クリニックのLINE公式アカウント運用を、これ一つで</Title>
+        <Sub>Lオペ for CLINIC は、LINE公式アカウントを「クリニックの業務基盤」へ進化させる、医療機関専用のオールインワン運用プラットフォームです。予約・問診・オンライン診療・決済・配送・AI自動返信まで、クリニック経営に必要な全てをLINE公式アカウントで完結。</Sub>
       </div>
 
       {/* 管理画面モック — aboutページと同一の3カラムトーク画面 */}

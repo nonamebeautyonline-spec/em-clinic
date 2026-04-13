@@ -7,7 +7,7 @@ import { Section, Label, Title, Sub, MockWindow } from "./shared";
 import { FadeIn, StaggerChildren, StaggerItem } from "./animations";
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   機能紹介 — タブ式UI（5カテゴリ）+ 主要機能のMockWindow
+   機能紹介 — クリニックのLINE公式アカウント運用に必要な全機能
    ═══════════════════════════════════════════════════════════════════════════ */
 
 const categories = [
@@ -100,7 +100,7 @@ export default function Features() {
     <Section id="features" className="bg-slate-50/30">
       <div className="text-center">
         <Label>FEATURES</Label>
-        <Title>クリニック運営に必要な<br className="md:hidden" />すべてを、ひとつに</Title>
+        <Title>LINE公式アカウントでクリニック運営に必要な<br className="md:hidden" />すべてを、ひとつに</Title>
         <Sub>LINE公式アカウントの配信・予約・問診・カルテ・決済・配送・AI — 30以上の機能をオールインワンで搭載。</Sub>
       </div>
 

@@ -16,7 +16,7 @@ export default function Strengths() {
     <Section id="strengths" className="bg-slate-900 text-white">
       <div className="text-center">
         <span className="mb-4 inline-block rounded-full bg-blue-500/10 px-4 py-1.5 text-[11px] font-semibold tracking-[.18em] text-blue-400 uppercase">STRENGTHS</span>
-        <h2 className="mb-5 text-[1.7rem] font-extrabold leading-snug tracking-tight text-white md:text-4xl">Lオペ for CLINIC が選ばれる<br className="md:hidden" />4つの理由</h2>
+        <h2 className="mb-5 text-[1.7rem] font-extrabold leading-snug tracking-tight text-white md:text-4xl">クリニックのLINE公式アカウント運用で<br className="md:hidden" />選ばれる4つの理由</h2>
         <p className="mx-auto mb-16 max-w-2xl text-[14px] leading-relaxed text-slate-400">院長と事務スタッフ1人だけで、カルテ・予約・LINE配信・CRM・決済・配送まですべて回せる。複数ツールの契約も追加人員も不要にする「少人数クリニック起点」の設計思想が、Lオペ最大の差別化です。</p>
       </div>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">

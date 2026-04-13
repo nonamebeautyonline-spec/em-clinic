@@ -125,9 +125,9 @@ function KeyPoints({ points }: { points: string[] }) {
 export function InlineCTA() {
   return (
     <div className="my-10 overflow-hidden rounded-xl bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 p-6 text-center ring-1 ring-blue-100">
-      <p className="text-[14px] font-bold text-gray-800">クリニックのLINE運用を<a href="/" className="text-blue-600 underline font-bold">Lオペ</a>でまるごと効率化</p>
-      <p className="mt-1 text-[12px] text-gray-500"><a href="/" className="text-gray-600 underline">Lオペ for CLINIC</a>の機能・料金・導入事例をまとめた資料をお送りします。</p>
-      <InlineCTAButton />
+      <p className="text-[14px] font-bold text-gray-800">クリニックのLINE公式アカウント運用を<a href="/clinic" className="text-blue-600 underline font-bold">Lオペ</a>でまるごと効率化</p>
+      <p className="mt-1 text-[12px] text-gray-500"><a href="/clinic" className="text-gray-600 underline">Lオペ for CLINIC</a>なら予約・問診・オンライン診療・配信・決済をLINEで一元化。資料をお送りします。</p>
+      <InlineCTAButton contactPath="/clinic/contact" columnPathPrefix="/clinic/column/" />
     </div>
   );
 }
@@ -315,14 +315,22 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
             {/* CTA（明るいトーン） */}
             <div className="mt-10 overflow-hidden rounded-xl bg-gradient-to-br from-blue-100 via-indigo-50 to-violet-100 p-8 text-center ring-1 ring-blue-200/80">
               <p className="text-[11px] font-bold tracking-widest text-blue-400 uppercase">Lオペ for CLINIC</p>
-              <h2 className="mt-2 text-[18px] font-bold text-gray-800">クリニックのLINE活用を始めませんか？</h2>
-              <p className="mt-1 text-[13px] text-gray-500">予約・問診・配信・決済をオールインワンで。</p>
-              <a
-                href={`/clinic/contact?ref=${slug}`}
-                className="mt-4 inline-block rounded-lg bg-blue-600 px-8 py-3 text-[13px] font-bold text-white transition hover:bg-blue-700 hover:shadow-lg"
-              >
-                無料で資料請求
-              </a>
+              <h2 className="mt-2 text-[18px] font-bold text-gray-800">クリニックのLINE公式アカウント運用を始めませんか？</h2>
+              <p className="mt-1 text-[13px] text-gray-500">予約・問診・オンライン診療・配信・決済をLINE公式アカウントでオールインワンに。</p>
+              <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+                <a
+                  href={`/clinic/contact?ref=${slug}`}
+                  className="inline-block rounded-lg bg-blue-600 px-8 py-3 text-[13px] font-bold text-white transition hover:bg-blue-700 hover:shadow-lg"
+                >
+                  無料で資料請求
+                </a>
+                <a
+                  href="/clinic"
+                  className="inline-block rounded-lg border border-blue-200 bg-white px-8 py-3 text-[13px] font-bold text-blue-600 transition hover:border-blue-300 hover:bg-blue-50"
+                >
+                  Lオペの詳細を見る
+                </a>
+              </div>
             </div>
 
             {/* 関連記事 */}
@@ -372,6 +380,23 @@ export default function ArticleLayout({ slug, breadcrumbLabel, keyPoints, toc, c
                   className="mt-3 inline-block w-full rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 py-2.5 text-[11px] font-bold text-white transition hover:shadow-md hover:shadow-blue-500/20"
                 >
                   お問い合わせ
+                </a>
+              </div>
+              {/* LP導線カード */}
+              <div className="rounded-xl bg-gradient-to-br from-blue-50 to-sky-50 p-4 shadow-sm ring-1 ring-blue-100/60">
+                <p className="text-[11px] font-bold text-blue-700">Lオペ for CLINIC</p>
+                <p className="mt-1 text-[10px] leading-relaxed text-blue-600/70">クリニックのLINE公式アカウント運用に必要な全機能をオールインワンで提供</p>
+                <a
+                  href="/clinic"
+                  className="mt-2 inline-block w-full rounded-lg border border-blue-200 bg-white py-2 text-center text-[10px] font-bold text-blue-600 transition hover:bg-blue-50"
+                >
+                  詳細を見る →
+                </a>
+                <a
+                  href="/clinic/features"
+                  className="mt-1.5 inline-block w-full text-center text-[10px] text-blue-500 hover:text-blue-700 transition"
+                >
+                  機能一覧を見る →
                 </a>
               </div>
             </div>

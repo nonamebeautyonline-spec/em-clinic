@@ -171,8 +171,8 @@ export async function POST(req: NextRequest) {
               quantity: 1,
             },
           ],
-          success_url: `${baseUrl}/lp/apply-complete?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${baseUrl}/lp/apply?canceled=true`,
+          success_url: `${baseUrl}/clinic/apply-complete?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${baseUrl}/clinic/apply?canceled=true`,
           customer_email: data.email,
           metadata: {
             company_name: data.company_name,

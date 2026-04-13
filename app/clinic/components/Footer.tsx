@@ -28,8 +28,27 @@ export function Footer() {
             <a href="https://ordix.co.jp" target="_blank" rel="noopener noreferrer" className="hover:text-white">運営会社</a>
           </nav>
         </div>
+        {/* コラムカテゴリリンク — 内部リンク強化 */}
+        <div className="mt-8 border-t border-slate-800 pt-6">
+          <p className="mb-3 text-[11px] font-bold tracking-wider text-slate-500 uppercase">コラムカテゴリ</p>
+          <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-[11px]">
+            {[
+              { label: "LINE運用・業務改善", slug: "line-dx" },
+              { label: "集患・マーケティング", slug: "marketing" },
+              { label: "オンライン診療", slug: "online-clinic" },
+              { label: "経営・開業", slug: "management" },
+              { label: "自費診療の売上戦略", slug: "self-pay-revenue" },
+              { label: "診療科別ガイド", slug: "specialty" },
+              { label: "ツール・システム比較", slug: "tools" },
+            ].map((c) => (
+              <a key={c.slug} href={`/clinic/column/category/${c.slug}`} className="text-slate-500 transition hover:text-white">
+                {c.label}
+              </a>
+            ))}
+          </div>
+        </div>
         {/* パートナー募集 */}
-        <div className="mt-8 border-t border-slate-800 pt-6 text-center">
+        <div className="mt-6 border-t border-slate-800 pt-6 text-center">
           <p className="text-[12px] font-semibold text-slate-500">連携・代理店パートナー募集</p>
           <p className="mt-1 text-[11px] text-slate-500">
             Lオペとの連携・代理店についてのご相談は

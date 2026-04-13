@@ -14,8 +14,25 @@ export function Flow() {
     { num: "03", title: "環境構築・設定代行", desc: "LINE連携・リッチメニュー初期構築・問診フォーム作成・患者データ移行をサポートチームが代行。" },
     { num: "04", title: "運用開始", desc: "スタッフ向け操作研修を実施し運用開始。導入後も専任担当が活用提案をサポートします。" },
   ];
+
+  /* HowTo JSON-LD — Google検索でステップ表示を促進 */
+  const howToJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: "クリニックにLINE公式アカウント運用プラットフォーム「Lオペ」を導入する方法",
+    description: "お問い合わせから最短2週間でクリニックのLINE公式アカウント運用を開始。初期設定はサポートチームが代行。",
+    totalTime: "P14D",
+    step: steps.map((s, i) => ({
+      "@type": "HowToStep",
+      position: i + 1,
+      name: s.title,
+      text: s.desc,
+    })),
+  };
+
   return (
     <Section id="flow">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToJsonLd) }} />
       <div className="text-center"><Label>FLOW</Label><Title>導入の流れ</Title><Sub>お問い合わせから最短2週間で運用開始。初期設定はサポートチームが代行するため、現場の負担はほぼゼロです。</Sub></div>
       <ol className="mx-auto max-w-3xl list-none p-0 m-0">
         <StaggerChildren className="">

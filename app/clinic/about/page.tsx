@@ -4,14 +4,14 @@ import Link from "next/link";
 const SITE_URL = "https://l-ope.jp";
 
 export const metadata: Metadata = {
-  title: "Lオペ for CLINICとは？ — AI搭載クリニック特化LINE運用プラットフォーム",
+  title: "Lオペとは？ — クリニック向けLINE公式アカウント運用・オンライン診療プラットフォーム",
   description:
-    "Lオペ for CLINICはClaude AI・自動学習・追跡番号自動配信を搭載したクリニック特化LINE運用プラットフォーム。予約管理・オンライン問診・セグメント配信・決済・配送まで、クリニック業務をLINEで一元化。",
+    "Lオペ for CLINICはClaude AI・自動学習を搭載したクリニック向けLINE公式アカウント運用プラットフォーム。予約管理・オンライン問診・オンライン診療・セグメント配信・決済・配送まで、医療機関のLINE公式アカウント運用をワンストップで実現。",
   keywords: "Lオペ, Lオペとは, Lオペ for CLINIC とは, クリニック LINE AI, Claude AI クリニック, AI 自動学習, 追跡番号 自動配信, クリニック DX 導入, Lステップ 違い, クリニック 業務効率化, 医療DX プラットフォーム, LINE CRM クリニック",
   alternates: { canonical: `${SITE_URL}/clinic/about` },
   openGraph: {
-    title: "Lオペ for CLINICとは？ — AI搭載クリニック特化LINE運用プラットフォーム",
-    description: "Claude AI・自動学習・追跡番号自動配信搭載。予約・問診・配信・決済・配送をLINEで一元化するクリニック専用プラットフォーム。",
+    title: "Lオペとは？ — クリニック向けLINE公式アカウント運用・オンライン診療プラットフォーム",
+    description: "Claude AI搭載のクリニック向けLINE公式アカウント運用プラットフォーム。予約・問診・オンライン診療・配信・決済・配送をLINEで一元化。",
     url: `${SITE_URL}/clinic/about`,
     siteName: "Lオペ for CLINIC",
     locale: "ja_JP",

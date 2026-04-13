@@ -79,7 +79,7 @@ export default function PamphletCodesPage() {
   };
 
   const handleCopyLink = (c: string) => {
-    const url = `${window.location.origin}/lp/pamphlet?code=${encodeURIComponent(c)}`;
+    const url = `${window.location.origin}/clinic/pamphlet?code=${encodeURIComponent(c)}`;
     navigator.clipboard.writeText(url);
     alert("リンクをコピーしました");
   };

@@ -5,14 +5,14 @@ import { articles } from "./articles";
 const SITE_URL = "https://l-ope.jp";
 
 export const metadata: Metadata = {
-  title: "Lオペ コラム | クリニックLINE活用・DX情報",
+  title: "クリニックのLINE公式アカウント運用コラム | 活用事例・オンライン診療・導入ガイド",
   description:
-    "Lオペ公式コラム。クリニックのLINE公式アカウント活用事例・DX導入ガイド・ツール比較など、クリニック経営に役立つ情報を発信。",
+    "クリニック向けLINE公式アカウント運用の活用事例・オンライン診療との連携・導入ガイド・ツール比較など、クリニック経営者・院長に役立つ情報を発信。",
   keywords: "Lオペ, Lオペ コラム, Lオペ for CLINIC, クリニック LINE 活用事例, クリニック DX ガイド, LINE公式アカウント 活用, クリニック 予約システム 比較, クリニック 経営, 美容クリニック LINE, 歯科 LINE 活用, 皮膚科 LINE, オンライン診療 LINE, クリニック 集患, リピート率 向上, ブロック率 下げる, リッチメニュー 設計, AI自動返信 導入, クリニック KPI",
   alternates: { canonical: `${SITE_URL}/clinic/column` },
   openGraph: {
-    title: "Lオペ コラム | クリニックLINE活用・DX情報",
-    description: "Lオペ公式コラム。クリニックのLINE活用・DX情報を発信。",
+    title: "クリニックのLINE公式アカウント運用コラム | 活用事例・オンライン診療・導入ガイド",
+    description: "クリニック向けLINE公式アカウント運用の活用事例・オンライン診療連携・ツール比較など、経営に役立つ情報を発信。",
     url: `${SITE_URL}/clinic/column`,
   },
 };

@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 
 const SITE_URL = "https://l-ope.jp";
 const LP_URL = `${SITE_URL}/clinic`;
-const TITLE = "Lオペ | クリニック特化LINE運用プラットフォーム";
+const TITLE =
+  "クリニックのLINE公式アカウント運用ならLオペ | 予約・問診・オンライン診療をLINEで一元化";
 const DESCRIPTION =
-  "Lオペ（Lオペ for CLINIC）は、LINE公式アカウントを活用したクリニック特化の業務DXプラットフォームです。Lオペなら患者CRM・予約管理・セグメント配信・リッチメニュー構築・オンライン問診・AI自動返信・決済・配送管理をオールインワンで提供。初期設定サポート無料・最短2週間で導入。";
+  "クリニック向けLINE公式アカウント運用プラットフォーム「Lオペ」。患者CRM・予約管理・オンライン問診・オンライン診療・セグメント配信・リッチメニュー構築・AI自動返信・決済・配送管理をLINE公式アカウントで一元化。医療機関専用設計で初期設定サポート無料・最短2週間で導入。";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -17,6 +18,11 @@ export const metadata: Metadata = {
     "max-video-preview": -1,
   },
   keywords: [
+    /* メインキーワード（検索1位狙い） */
+    "クリニック LINE公式アカウント 運用", "クリニック LINE運用", "クリニック LINE 導入",
+    "オンライン診療 LINE", "オンライン診療 LINE連携", "オンライン診療 プラットフォーム",
+    "医療 LINE公式アカウント", "医療機関 LINE公式アカウント 活用",
+    "病院 LINE公式アカウント", "クリニック LINE 活用",
     /* ブランド */
     "Lオペ", "Lオペ for CLINIC", "L-OPE",
     /* ピラー */
@@ -25,7 +31,7 @@ export const metadata: Metadata = {
     "LINE公式アカウント 運用", "セグメント配信", "リッチメニュー", "AI自動返信", "LINE配信", "ステップ配信",
     "キーワード自動返信", "Flex Message", "チャットボット", "LINE 自動化", "LINE CRM",
     /* 業務管理 */
-    "患者CRM", "予約管理システム", "オンライン問診", "電子カルテ 連携", "カルテ管理", "配送管理",
+    "患者CRM", "予約管理システム", "オンライン問診", "オンライン診療 システム", "電子カルテ 連携", "カルテ管理", "配送管理",
     "クリニック 予約システム", "問診票 電子化", "SOAP カルテ", "音声カルテ",
     /* 決済・在庫 */
     "クリニック 決済", "オンライン決済 医療", "Square 連携", "GMO決済", "在庫管理 クリニック",
@@ -33,9 +39,9 @@ export const metadata: Metadata = {
     /* 分析 */
     "クリニック ダッシュボード", "売上分析", "患者LTV", "NPS調査", "LINE配信 分析", "クリック分析",
     /* 導入検討 */
-    "LINE公式 導入 費用", "クリニック 開業 LINE", "クリニック 集患",
+    "LINE公式 導入 費用", "クリニック 開業 LINE", "クリニック 集患", "クリニック 集患 LINE",
     /* 競合比較 */
-    "Lステップ 比較", "Lステップ クリニック", "Liny 比較", "LINE配信ツール 比較", "クリニック LINE ツール",
+    "Lステップ 比較", "Lステップ クリニック", "Liny 比較", "LINE配信ツール 比較", "クリニック LINE ツール 比較",
     /* 診療科別 */
     "美容クリニック LINE", "歯科 LINE", "皮膚科 LINE", "内科 LINE公式",
     /* 経営 */
@@ -56,7 +62,7 @@ export const metadata: Metadata = {
     siteName: "Lオペ for CLINIC",
     locale: "ja_JP",
     type: "website",
-    images: [{ url: `${SITE_URL}/clinic/opengraph-image`, width: 1200, height: 630, alt: "Lオペ for CLINIC — LINE公式アカウントでクリニック業務をDX化" }],
+    images: [{ url: `${SITE_URL}/clinic/opengraph-image`, width: 1200, height: 630, alt: "クリニックのLINE公式アカウント運用プラットフォーム Lオペ — 予約・問診・オンライン診療・AI自動返信をLINEで一元化" }],
   },
   twitter: {
     card: "summary_large_image",
@@ -85,7 +91,9 @@ const jsonLd = [
       availableLanguage: "Japanese",
     },
     knowsAbout: [
-      "LINE公式アカウント運用",
+      "クリニック LINE公式アカウント運用",
+      "オンライン診療 LINE連携",
+      "医療機関 LINE公式アカウント活用",
       "クリニックDX",
       "患者CRM",
       "医療業務効率化",
@@ -93,6 +101,8 @@ const jsonLd = [
       "セグメント配信",
       "AI自動返信",
       "電子カルテ連携",
+      "クリニック 予約管理",
+      "医療 LINE運用",
     ],
     sameAs: ["https://l-ope.jp/clinic/about"],
   },
@@ -102,7 +112,7 @@ const jsonLd = [
     name: "Lオペ for CLINIC",
     alternateName: "Lオペ",
     applicationCategory: "BusinessApplication",
-    applicationSubCategory: "LINE公式アカウント クリニック運用ツール",
+    applicationSubCategory: "クリニック向けLINE公式アカウント運用・オンライン診療プラットフォーム",
     operatingSystem: "Web",
     description: DESCRIPTION,
     url: LP_URL,
@@ -115,14 +125,14 @@ const jsonLd = [
       description: "初期相談・資料請求は無料。貴院の規模・運用体制に合わせた最適プランをご提案",
     },
     featureList:
-      "患者CRM, セグメント配信, リッチメニュービルダー, オンライン問診, 予約管理, AI自動返信, 決済管理, 配送管理, ダッシュボード分析",
+      "患者CRM, セグメント配信, リッチメニュービルダー, オンライン問診, オンライン診療, 予約管理, AI自動返信, 決済管理, 配送管理, ダッシュボード分析, LINE公式アカウント運用",
   },
   {
     "@context": "https://schema.org",
     "@type": "Service",
     name: "Lオペ for CLINIC",
     alternateName: "Lオペ",
-    serviceType: "LINE公式アカウント クリニック業務DXプラットフォーム",
+    serviceType: "クリニック向けLINE公式アカウント運用・オンライン診療対応プラットフォーム",
     provider: {
       "@type": "Organization",
       name: "Lオペ for CLINIC",
@@ -144,7 +154,7 @@ const jsonLd = [
     alternateName: "Lオペ",
     url: SITE_URL,
     description:
-      "LINE公式アカウントでクリニック業務をDX化するプラットフォーム「Lオペ for CLINIC」",
+      "クリニックのLINE公式アカウント運用・オンライン診療を一元化するプラットフォーム「Lオペ for CLINIC」",
   },
   {
     "@context": "https://schema.org",
@@ -164,7 +174,7 @@ const jsonLd = [
     "@type": "MedicalBusiness",
     name: "Lオペ for CLINIC",
     description:
-      "クリニック・医療機関向けLINE公式アカウント運用プラットフォーム。予約管理・問診・CRM・AI自動返信・決済を一元化。",
+      "クリニック・病院・医療機関向けLINE公式アカウント運用プラットフォーム。予約管理・オンライン問診・オンライン診療・CRM・AI自動返信・決済を一元化。",
     url: SITE_URL,
     logo: `${SITE_URL}/icon.png`,
     medicalSpecialty: [
@@ -179,9 +189,9 @@ const jsonLd = [
     ],
     availableService: {
       "@type": "MedicalTherapy",
-      name: "LINE公式アカウント業務DXプラットフォーム",
+      name: "クリニック向けLINE公式アカウント運用・オンライン診療プラットフォーム",
       description:
-        "LINE公式アカウントを活用した患者CRM・予約管理・セグメント配信・オンライン問診・AI自動返信・決済・配送管理",
+        "LINE公式アカウントを活用した患者CRM・予約管理・セグメント配信・オンライン問診・オンライン診療・AI自動返信・決済・配送管理",
     },
     areaServed: { "@type": "Country", name: "JP" },
     isAcceptingNewPatients: true,

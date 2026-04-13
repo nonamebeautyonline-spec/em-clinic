@@ -15,18 +15,18 @@ export default function Hero() {
           <div>
             <FadeIn>
               <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-blue-200/60 bg-white/60 px-4 py-1.5 text-[11px] font-semibold text-blue-700 backdrop-blur">
-                <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />LINE公式アカウント × クリニック特化プラットフォーム
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />クリニック・医療機関向けLINE公式アカウント運用プラットフォーム
               </div>
             </FadeIn>
             <TextReveal>
               <h1 className="mb-6 text-[2.2rem] font-extrabold leading-[1.25] tracking-tight md:text-5xl lg:text-[3.2rem]">
-                <span className="bg-gradient-to-r from-blue-600 to-sky-500 bg-clip-text text-transparent">Lオペ for CLINIC</span><br />LINE公式アカウントで<br />クリニック業務をまるごとDX化
+                <span className="bg-gradient-to-r from-blue-600 to-sky-500 bg-clip-text text-transparent">クリニックのLINE公式アカウント運用</span><br />予約・問診・オンライン診療を<br />LINEで一元化
               </h1>
-              <p className="sr-only">Lオペ（エルオペ）はクリニック経営に特化したLINE運用プラットフォームです。</p>
+              <p className="sr-only">Lオペ（エルオペ）はクリニック・医療機関のLINE公式アカウント運用に特化したプラットフォームです。オンライン診療・予約管理・問診・AI自動返信をLINEで完結。</p>
             </TextReveal>
             <FadeIn delay={0.2}>
               <p className="mb-8 max-w-lg text-[15px] leading-[1.8] text-slate-500">
-                Lオペ for CLINIC なら、患者CRM・セグメント配信・リッチメニュー構築・問診・予約管理・会計・配送・AI自動返信まで。LINE公式アカウントを起点にクリニック運営のすべてをワンストップで実現します。
+                クリニック向けLINE公式アカウント運用プラットフォーム「Lオペ」なら、患者CRM・セグメント配信・リッチメニュー・問診・予約管理・オンライン診療・会計・配送・AI自動返信まで。LINE公式アカウントを起点にクリニック運営のすべてをワンストップで実現します。
               </p>
             </FadeIn>
             <div className="flex flex-wrap gap-3">
