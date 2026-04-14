@@ -96,7 +96,7 @@ export default function PatientDashboardInner() {
                   {patient.displayName} さん
                 </div>
                 <div className="text-[11px] text-slate-500">
-                  Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` : "—"}
+                  {patient.pid || (patient.id ? `ID: ${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` : "—")}
                 </div>
               </div>
             </div>

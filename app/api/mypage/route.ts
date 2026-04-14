@@ -140,13 +140,13 @@ function inferCarrierFromDates(o: { shippingEta?: string; paidAt?: string }): Ca
 async function getPatientInfoFromSupabase(
   patientId: string,
   tenantId: string | null
-): Promise<{ id: string; displayName: string; lineId: string; hasIntake: boolean; intakeStatus: string | null } | null> {
+): Promise<{ id: string; pid: string | null; displayName: string; lineId: string; hasIntake: boolean; intakeStatus: string | null } | null> {
   try {
     // patients と intake を並列取得
     const [patientRes, intakeRes] = await Promise.all([
       strictWithTenant(supabaseAdmin
         .from("patients")
-        .select("patient_id, name, line_id")
+        .select("patient_id, name, line_id, pid")
         .eq("patient_id", patientId), tenantId)
         .maybeSingle(),
       strictWithTenant(supabaseAdmin
@@ -163,7 +163,7 @@ async function getPatientInfoFromSupabase(
     const intake = intakeRes.data;
 
     if (!patient && !intake) {
-      return { id: patientId, displayName: "", lineId: "", hasIntake: false, intakeStatus: null };
+      return { id: patientId, pid: null, displayName: "", lineId: "", hasIntake: false, intakeStatus: null };
     }
 
     const answers = intake?.answers as Record<string, unknown> | null;
@@ -171,6 +171,7 @@ async function getPatientInfoFromSupabase(
 
     return {
       id: patientId,
+      pid: patient?.pid || null,
       displayName: patient?.name || "",
       lineId: patient?.line_id || "",
       hasIntake: hasCompletedQuestionnaire,
@@ -178,7 +179,7 @@ async function getPatientInfoFromSupabase(
     };
   } catch (err) {
     console.error("[Supabase] getPatientInfo error:", err);
-    return { id: patientId, displayName: "", lineId: "", hasIntake: false, intakeStatus: null };
+    return { id: patientId, pid: null, displayName: "", lineId: "", hasIntake: false, intakeStatus: null };
   }
 }
 
@@ -547,6 +548,7 @@ export async function POST(_req: NextRequest) {
       multiFieldEnabled: multiField,
       patient: {
         id: patientInfo?.id || patientId,
+        pid: patientInfo?.pid || null,
         displayName: patientInfo?.displayName || "",
       },
       nextReservation: nextReservation ? (() => {
