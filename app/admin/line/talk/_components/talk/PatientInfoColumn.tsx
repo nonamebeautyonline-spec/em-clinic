@@ -60,10 +60,19 @@ export default function PatientInfoColumn() {
                 {selectedPatient.patient_name?.charAt(0) || selectedPatient.line_display_name?.charAt(0) || "?"}
               </div>
             )}
+            {selectedPatient.pid && (
+              <button
+                onClick={() => { navigator.clipboard.writeText(selectedPatient.pid!); }}
+                title="顧客番号をコピー"
+                className="absolute -top-5 left-full ml-3 text-[10px] text-blue-500 font-mono leading-none whitespace-nowrap hover:text-blue-700 cursor-pointer font-semibold"
+              >
+                {selectedPatient.pid}
+              </button>
+            )}
             <button
               onClick={() => { navigator.clipboard.writeText(selectedPatient.patient_id); }}
               title="PIDをコピー"
-              className="absolute -top-2 left-full ml-3 text-[10px] text-gray-400 font-mono leading-none whitespace-nowrap hover:text-gray-600 cursor-pointer"
+              className={`absolute ${selectedPatient.pid ? "-top-2" : "-top-2"} left-full ml-3 text-[10px] text-gray-400 font-mono leading-none whitespace-nowrap hover:text-gray-600 cursor-pointer`}
             >
               PID：{selectedPatient.patient_id}
             </button>

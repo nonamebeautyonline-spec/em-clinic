@@ -118,17 +118,19 @@ export async function GET(req: NextRequest) {
     // 全患者IDを取得
     const patientIds = [...new Set((orders || []).map((o: OrderRow) => o.patient_id))];
 
-    // ★ 患者名をpatientsテーブルから取得
+    // ★ 患者名・pidをpatientsテーブルから取得
     const patientNameMap: Record<string, string> = {};
+    const patientPidMap: Record<string, string> = {};
 
     if (patientIds.length > 0) {
       const { data: pData } = await strictWithTenant(
-        supabaseAdmin.from("patients").select("patient_id, name").in("patient_id", patientIds),
+        supabaseAdmin.from("patients").select("patient_id, name, pid").in("patient_id", patientIds),
         tenantId
       );
 
-      (pData || []).forEach((p: PatientRow) => {
+      (pData || []).forEach((p: PatientRow & { pid?: string }) => {
         patientNameMap[p.patient_id] = p.name || "";
+        if (p.pid) patientPidMap[p.patient_id] = p.pid;
       });
     }
 
@@ -155,6 +157,7 @@ export async function GET(req: NextRequest) {
       return {
         id: order.id,
         patient_id: order.patient_id,
+        pid: patientPidMap[order.patient_id] || null,
         // ★ 氏名: shipping_name優先、なければpatients.name
         patient_name: shippingName || patientName,
         product_code: order.product_code,

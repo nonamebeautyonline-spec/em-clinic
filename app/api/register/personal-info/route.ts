@@ -110,6 +110,24 @@ export async function POST(req: NextRequest) {
       console.log("[register/personal-info] Migration complete:", oldLinePatientId, "->", patientId);
     }
 
+    // 4b) pid（テナント内表示ID）を付与（未設定の場合のみ）
+    try {
+      const { data: currentPid } = await supabaseAdmin
+        .from("patients")
+        .select("pid")
+        .eq("patient_id", patientId)
+        .maybeSingle();
+      if (!currentPid?.pid && tenantId) {
+        const { data: newPid } = await supabaseAdmin.rpc("next_tenant_pid", { p_tenant_id: tenantId });
+        if (newPid) {
+          await supabaseAdmin.from("patients").update({ pid: newPid }).eq("patient_id", patientId);
+          console.log("[register/personal-info] pid付与:", newPid);
+        }
+      }
+    } catch (e) {
+      console.error("[register/personal-info] pid付与エラー（継続）:", e);
+    }
+
     // 5) answerers に個人情報を上書き保存（既存の tel 等はそのまま）
     const { data: existingAnswerer } = await withTenant(supabaseAdmin
       .from("patients")

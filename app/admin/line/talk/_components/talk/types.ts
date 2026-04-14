@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 export interface Friend {
   patient_id: string;
+  pid: string | null;
   patient_name: string;
   line_id: string | null;
   line_display_name?: string | null;

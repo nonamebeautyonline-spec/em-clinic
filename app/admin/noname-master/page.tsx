@@ -6,6 +6,7 @@ import useSWR from "swr";
 interface Order {
   id: string;
   patient_id: string;
+  pid: string | null;
   patient_name: string;
   product_code: string;
   product_name: string;
@@ -607,7 +608,7 @@ export default function NonameMasterPage() {
                         onClick={() => window.open(`/admin/line/talk?pid=${order.patient_id}`, '_blank')}
                         className="text-blue-600 hover:text-blue-900 hover:underline font-mono"
                       >
-                        {order.patient_id}
+                        {order.pid || order.patient_id}
                       </button>
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-slate-900">

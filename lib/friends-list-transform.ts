@@ -27,6 +27,7 @@ export function transformFriendsRow(row: any) {
 
   return {
     patient_id: row.patient_id as string,
+    pid: (row.pid || null) as string | null,
     patient_name: (row.patient_name || "") as string,
     line_id: (row.line_id || null) as string | null,
     line_display_name: (row.line_display_name || null) as string | null,

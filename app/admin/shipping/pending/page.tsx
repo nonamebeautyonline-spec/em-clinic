@@ -7,6 +7,7 @@ import useSWR from "swr";
 interface Order {
   id: string;
   patient_id: string;
+  pid: string | null;
   patient_name: string;
   product_code: string;
   product_name: string;
@@ -486,7 +487,7 @@ export default function ShippingPendingPage() {
                         }`}
                         disabled={isDisabled}
                       >
-                        {order.patient_id}
+                        {order.pid || order.patient_id}
                       </button>
                     </td>
                     <td className={`px-6 py-4 text-sm whitespace-nowrap ${isDisabled ? "text-slate-400" : "text-slate-900"}`}>

@@ -213,7 +213,7 @@ export async function GET(req: NextRequest) {
         .eq("tenant_id", effectiveTenantId),
       supabaseAdmin
         .from("patients")
-        .select("patient_id, name, line_id, line_display_name, line_picture_url")
+        .select("patient_id, name, line_id, line_display_name, line_picture_url, pid")
         .in("patient_id", unreadIds)
         .eq("tenant_id", effectiveTenantId),
       supabaseAdmin
@@ -360,7 +360,7 @@ async function buildResponse(
           .eq("tenant_id", tid),
         supabaseAdmin
           .from("patients")
-          .select("patient_id, name, line_id, line_display_name, line_picture_url")
+          .select("patient_id, name, line_id, line_display_name, line_picture_url, pid")
           .in("patient_id", missingPinIds)
           .eq("tenant_id", tid),
         supabaseAdmin

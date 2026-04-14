@@ -127,7 +127,7 @@ export default function FriendListColumn() {
                   <button
                     key={`${msg.patient_id}-${msg.sent_at}-${i}`}
                     onClick={() => {
-                      const f = friend || { patient_id: msg.patient_id, patient_name: msg.patient_id, line_id: null, mark: "none", tags: [], fields: {} };
+                      const f = friend || { patient_id: msg.patient_id, pid: null, patient_name: msg.patient_id, line_id: null, mark: "none", tags: [], fields: {} };
                       ctx.selectPatient(f);
                     }}
                     className={`w-full text-left px-3 py-2.5 border-b border-gray-50 hover:bg-gray-50/80 transition-colors ${ctx.selectedPatient?.patient_id === msg.patient_id ? "bg-[#00B900]/[0.12]" : ""}`}

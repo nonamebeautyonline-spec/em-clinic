@@ -44,11 +44,26 @@ export async function GET(req: NextRequest) {
       tenantId
     );
 
-    // 患者IDフィルター
+    // 患者IDフィルター（patient_idまたはpidで検索）
     const pidFilter = searchParams.get("patient_id") || "";
     if (pidFilter) {
-      countQuery = countQuery.eq("patient_id", pidFilter);
-      dataQuery = dataQuery.eq("patient_id", pidFilter);
+      // P始まりならpidで検索→patient_idを解決
+      if (pidFilter.startsWith("P")) {
+        const { data: pidMatch } = await strictWithTenant(
+          supabaseAdmin.from("patients").select("patient_id").eq("pid", pidFilter).maybeSingle(),
+          tenantId
+        );
+        if (pidMatch) {
+          countQuery = countQuery.eq("patient_id", pidMatch.patient_id);
+          dataQuery = dataQuery.eq("patient_id", pidMatch.patient_id);
+        } else {
+          // 見つからなければ空結果
+          return NextResponse.json({ orders: [], total: 0 });
+        }
+      } else {
+        countQuery = countQuery.eq("patient_id", pidFilter);
+        dataQuery = dataQuery.eq("patient_id", pidFilter);
+      }
     }
 
     // 決済方法フィルター
@@ -95,20 +110,22 @@ export async function GET(req: NextRequest) {
     // 全患者IDを取得
     const patientIds = [...new Set((orders || []).map((o: { patient_id: string }) => o.patient_id))];
 
-    // 患者名をpatientsテーブルから取得
+    // 患者名・pidをpatientsテーブルから取得
     const patientNameMap: Record<string, string> = {};
+    const patientPidMap: Record<string, string> = {};
     if (patientIds.length > 0) {
       const { data: pData } = await strictWithTenant(
         supabaseAdmin
           .from("patients")
-          .select("patient_id, name")
+          .select("patient_id, name, pid")
           .in("patient_id", patientIds)
           .limit(100000),
         tenantId
       );
 
-      (pData || []).forEach((p: { patient_id: string; name: string | null }) => {
+      (pData || []).forEach((p: { patient_id: string; name: string | null; pid: string | null }) => {
         patientNameMap[p.patient_id] = p.name || "";
+        if (p.pid) patientPidMap[p.patient_id] = p.pid;
       });
     }
 
@@ -173,6 +190,7 @@ export async function GET(req: NextRequest) {
       return {
         id: order.id,
         patient_id: order.patient_id,
+        pid: patientPidMap[order.patient_id] || null,
         // ★ 氏名: shipping_name優先、なければintake.patient_name
         patient_name: shippingName || patientNameMap[order.patient_id] || "",
         product_code: order.product_code,
