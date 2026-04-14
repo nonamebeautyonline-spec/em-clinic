@@ -8,6 +8,7 @@ export type Carrier = "japanpost" | "yamato";
 
 export interface PatientInfo {
   id: string; // Patient ID
+  pid: string | null; // テナント内表示ID（P0000001形式）
   displayName: string; // 氏名
 }
 
