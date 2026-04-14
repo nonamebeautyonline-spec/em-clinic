@@ -1,7 +1,7 @@
 // app/api/mypage/export/route.ts — 患者データエクスポートAPI
 import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized, tooManyRequests } from "@/lib/api-error";
-import { cookies } from "next/headers";
+import { verifyPatientSession } from "@/lib/patient-session";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -10,15 +10,12 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const patientId =
-      cookieStore.get("__Host-patient_id")?.value ||
-      cookieStore.get("patient_id")?.value ||
-      "";
-
-    if (!patientId) {
+    // 患者セッション検証（JWT + 旧Cookieフォールバック）
+    const session = await verifyPatientSession(req);
+    if (!session) {
       return unauthorized("patient_id cookie not found");
     }
+    const patientId = session.patientId;
 
     // レート制限: 1時間に1回
     const rl = await checkRateLimit(`export:${patientId}`, 1, 3600);

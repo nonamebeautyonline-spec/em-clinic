@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
-import { verifyAdminAuth } from "@/lib/admin-auth";
+import { verifyDoctorAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 const BUCKET = "karte-images";
@@ -18,7 +18,7 @@ async function ensureBucket() {
 
 // 画像一覧取得
 export async function GET(req: NextRequest) {
-  const isAuthorized = await verifyAdminAuth(req);
+  const isAuthorized = await verifyDoctorAuth(req);
   if (!isAuthorized)
     return unauthorized();
 
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
 
 // 画像アップロード
 export async function POST(req: NextRequest) {
-  const isAuthorized = await verifyAdminAuth(req);
+  const isAuthorized = await verifyDoctorAuth(req);
   if (!isAuthorized)
     return unauthorized();
 
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
 
 // 画像削除
 export async function DELETE(req: NextRequest) {
-  const isAuthorized = await verifyAdminAuth(req);
+  const isAuthorized = await verifyDoctorAuth(req);
   if (!isAuthorized)
     return unauthorized();
 

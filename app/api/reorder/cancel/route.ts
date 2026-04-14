@@ -1,7 +1,7 @@
 // app/api/reorder/cancel/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError } from "@/lib/api-error";
-import { cookies } from "next/headers";
+import { verifyPatientSession } from "@/lib/patient-session";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
@@ -39,18 +39,15 @@ async function pushToAdminGroup(text: string, token: string, groupId: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const patientId =
-      cookieStore.get("__Host-patient_id")?.value ||
-      cookieStore.get("patient_id")?.value ||
-      "";
-
-    if (!patientId) {
+    // 患者セッション検証（JWT + 旧Cookieフォールバック）
+    const session = await verifyPatientSession(req);
+    if (!session) {
       return NextResponse.json(
         { ok: false, error: "unauthorized: no patient_id cookie" },
         { status: 401 }
       );
     }
+    const patientId = session.patientId;
 
     const tenantId = resolveTenantIdOrThrow(req);
     const lineToken = (await getSettingOrEnv("line", "notify_channel_access_token", "LINE_NOTIFY_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined))

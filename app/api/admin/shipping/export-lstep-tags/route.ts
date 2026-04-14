@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { notFound, serverError, unauthorized } from "@/lib/api-error";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import * as iconv from "iconv-lite";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export async function GET(req: NextRequest) {
   try {
@@ -27,7 +22,7 @@ export async function GET(req: NextRequest) {
 
     // 本日発送（追跡番号付与）された注文を取得
     const { data: orders, error: ordersError } = await strictWithTenant(
-      supabase.from("orders").select("id, patient_id").eq("shipping_date", today).not("tracking_number", "is", null),
+      supabaseAdmin.from("orders").select("id, patient_id").eq("shipping_date", today).not("tracking_number", "is", null),
       tenantId
     );
 
@@ -48,7 +43,7 @@ export async function GET(req: NextRequest) {
 
     // intakeテーブルからLステップID（answerer_id）を取得
     const { data: patients, error: patientsError } = await strictWithTenant(
-      supabase.from("intake").select("patient_id, answerer_id").in("patient_id", patientIds),
+      supabaseAdmin.from("intake").select("patient_id, answerer_id").in("patient_id", patientIds),
       tenantId
     );
 

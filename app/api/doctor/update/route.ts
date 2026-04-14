@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unauthorized, apiError } from "@/lib/api-error";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { createClient } from "@supabase/supabase-js";
-import { verifyAdminAuth } from "@/lib/admin-auth";
+import { verifyDoctorAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { sendPaymentNotification } from "@/lib/payment-flex";
 import { scheduleReservationFollowups } from "@/lib/followup";
@@ -20,7 +20,7 @@ function fail(code: string, message: string = "", status: number = 500) {
 }
 
 export async function POST(req: NextRequest) {
-  const isAuthorized = await verifyAdminAuth(req);
+  const isAuthorized = await verifyDoctorAuth(req);
   if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);

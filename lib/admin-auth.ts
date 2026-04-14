@@ -34,12 +34,11 @@ export async function verifyAdminAuth(request: NextRequest): Promise<boolean> {
         const isValid = await validateSession(sessionCookie);
         setSessionCache(tokenH, isValid).catch(() => {});
         if (!isValid) {
-          // DBにセッションがなくてもJWT自体は有効なので認証成功
-          // （MAX_SESSIONS超過で古いセッションが削除されたケースをカバー）
-          return true;
+          return false;  // セッション失効 → 認証拒否
         }
-      } catch {
-        // admin_sessionsテーブル未作成時はJWT検証のみで認証成功
+      } catch (err) {
+        console.error("[admin-auth] validateSession error:", err);
+        return false;
       }
       return true;
     } catch {
@@ -56,7 +55,50 @@ export async function verifyAdminAuth(request: NextRequest): Promise<boolean> {
     }
   }
 
-  // 3. Basic認証（Dr用）— タイミングセーフ比較
+  return false;
+}
+
+/**
+ * Doctor用認証チェック（JWT/Bearer + Basic認証）
+ * Doctor APIでのみ使用。一般管理APIでは使わないこと。
+ */
+export async function verifyDoctorAuth(request: NextRequest): Promise<boolean> {
+  // 1. JWT/Bearer認証（管理者もDoctor画面を使えるように）
+  // verifyAdminAuth()と同じロジックでJWT + セッション検証
+  const sessionCookie = request.cookies.get("admin_session")?.value;
+  if (sessionCookie) {
+    try {
+      const secret = new TextEncoder().encode(JWT_SECRET);
+      await jwtVerify(sessionCookie, secret);
+      // Redisキャッシュでセッション検証を高速化
+      const tokenH = hashToken(sessionCookie);
+      const cached = await getSessionCache(tokenH);
+      if (cached === true) return true;
+      // cached === false でも DB再検証する（Redisのstale false防止）
+      // キャッシュミスまたは false: DB検証してキャッシュに保存
+      try {
+        const isValid = await validateSession(sessionCookie);
+        setSessionCache(tokenH, isValid).catch(() => {});
+        if (!isValid) return false;
+      } catch (err) {
+        console.error("[doctor-auth] validateSession error:", err);
+        return false;
+      }
+      return true;
+    } catch {
+      // クッキー無効、次の方式を試す
+    }
+  }
+
+  const authHeader = request.headers.get("authorization");
+
+  // 2. Bearerトークン認証（後方互換性）
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.substring(7);
+    if (token === process.env.ADMIN_TOKEN) return true;
+  }
+
+  // 3. Basic認証（Dr専用）— タイミングセーフ比較
   if (authHeader?.startsWith("Basic ")) {
     const drUser = process.env.DR_BASIC_USER;
     const drPass = process.env.DR_BASIC_PASS;
@@ -70,9 +112,7 @@ export async function verifyAdminAuth(request: NextRequest): Promise<boolean> {
           crypto.timingSafeEqual(Buffer.from(u), Buffer.from(drUser));
         const passMatch = p.length === drPass.length &&
           crypto.timingSafeEqual(Buffer.from(p), Buffer.from(drPass));
-        if (userMatch && passMatch) {
-          return true;
-        }
+        if (userMatch && passMatch) return true;
       }
     }
   }

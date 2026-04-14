@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 const PRODUCT_NAMES: Record<string, string> = {
   "MJL_2.5mg_1m": "マンジャロ 2.5mg 1ヶ月",
@@ -36,7 +31,7 @@ export async function GET(req: NextRequest) {
     const statusFilter = searchParams.get("status") || "pending_confirmation";
 
     // 銀行振込注文を取得
-    let query = supabase
+    let query = supabaseAdmin
       .from("orders")
       .select("id, patient_id, product_code, amount, shipping_name, account_name, address, postal_code, phone, created_at, status")
       .eq("payment_method", "bank_transfer")
@@ -62,7 +57,7 @@ export async function GET(req: NextRequest) {
     const patientNameMap: Record<string, string> = {};
     if (patientIds.length > 0) {
       const { data: patients } = await strictWithTenant(
-        supabase
+        supabaseAdmin
           .from("patients")
           .select("patient_id, name")
           .in("patient_id", patientIds),

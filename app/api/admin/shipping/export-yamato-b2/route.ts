@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { notFound, serverError, unauthorized } from "@/lib/api-error";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import { generateYamatoB2Csv } from "@/utils/yamato-b2-formatter";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
@@ -8,11 +8,6 @@ import { parseBody } from "@/lib/validations/helpers";
 import { exportYamatoB2Schema } from "@/lib/validations/shipping";
 import { getYamatoConfig } from "@/lib/shipping/config";
 import { logAudit } from "@/lib/audit";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,7 +25,7 @@ export async function POST(req: NextRequest) {
 
     // ordersテーブルから注文情報を取得
     const { data: orders, error: ordersError } = await strictWithTenant(
-      supabase.from("orders").select("id, patient_id, shipping_name, shipping_postal, shipping_address, shipping_phone, shipping_email, custom_sender_name, item_name_cosmetics, use_hexidin").in("id", orderIds),
+      supabaseAdmin.from("orders").select("id, patient_id, shipping_name, shipping_postal, shipping_address, shipping_phone, shipping_email, custom_sender_name, item_name_cosmetics, use_hexidin").in("id", orderIds),
       tenantId
     );
 
@@ -48,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     // 患者情報を取得（patientsテーブルから）
     const { data: patients, error: patientsError } = await strictWithTenant(
-      supabase.from("patients").select("patient_id, name, tel").in("patient_id", patientIds),
+      supabaseAdmin.from("patients").select("patient_id, name, tel").in("patient_id", patientIds),
       tenantId
     );
 

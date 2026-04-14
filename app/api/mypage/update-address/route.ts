@@ -1,7 +1,7 @@
 // app/api/mypage/update-address/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, forbidden, notFound, serverError, unauthorized } from "@/lib/api-error";
-import { cookies } from "next/headers";
+import { verifyPatientSession } from "@/lib/patient-session";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
@@ -11,15 +11,13 @@ import { updateAddressSchema } from "@/lib/validations/patient";
 export async function POST(req: NextRequest) {
   try {
     const tenantId = resolveTenantIdOrThrow(req);
-    const cookieStore = await cookies();
-    const patientId =
-      cookieStore.get("__Host-patient_id")?.value ||
-      cookieStore.get("patient_id")?.value ||
-      "";
 
-    if (!patientId) {
+    // 患者セッション検証（JWT + 旧Cookieフォールバック）
+    const session = await verifyPatientSession(req);
+    if (!session) {
       return unauthorized();
     }
+    const patientId = session.patientId;
 
     const parsed = await parseBody(req, updateAddressSchema);
     if ("error" in parsed) return parsed.error;

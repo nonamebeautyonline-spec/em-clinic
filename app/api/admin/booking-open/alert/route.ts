@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-error";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 // GET: 翌月予約枠が期限日を過ぎても未開放かチェック
 // レスポンス: { alert: boolean }

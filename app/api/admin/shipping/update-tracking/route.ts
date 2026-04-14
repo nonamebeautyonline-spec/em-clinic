@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateTrackingCsvSchema } from "@/lib/validations/shipping";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { logAudit } from "@/lib/audit";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export async function POST(req: NextRequest) {
   try {
@@ -78,7 +73,7 @@ export async function POST(req: NextRequest) {
         batch.map(async ({ paymentId, trackingNumber }) => {
           try {
             const { data, error } = await strictWithTenant(
-              supabase
+              supabaseAdmin
                 .from("orders")
                 .update({
                   tracking_number: trackingNumber,
@@ -100,7 +95,7 @@ export async function POST(req: NextRequest) {
 
             if (!data || data.length === 0) {
               const { data: existing } = await strictWithTenant(
-                supabase.from("orders").select("id, shipping_status").eq("id", paymentId),
+                supabaseAdmin.from("orders").select("id, shipping_status").eq("id", paymentId),
                 tenantId
               );
               if (existing && existing.length > 0 && existing[0].shipping_status === "shipped") {

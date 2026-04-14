@@ -1,21 +1,29 @@
-// app/api/mypage/profile/route.ts
+// app/api/profile/route.ts — 患者プロフィール取得API
 import { NextRequest, NextResponse } from "next/server";
+import { verifyPatientSession } from "@/lib/patient-session";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export async function GET(req: NextRequest) {
-  const cookieStore = req.cookies;
-  const patientId = cookieStore.get("patient_id")?.value;
-  const name = cookieStore.get("patient_name")?.value;
-
-  // まだ link-patient 済んでない → 401 で返す
-  if (!patientId || !name) {
+  // 患者セッション検証（JWT + 旧Cookieフォールバック）
+  const session = await verifyPatientSession(req);
+  if (!session) {
     return NextResponse.json(
       { message: "not_linked" },
       { status: 401 }
     );
   }
 
+  // DBから患者名を取得（旧Cookie「patient_name」からの移行）
+  const { data: patient } = await supabaseAdmin
+    .from("patients")
+    .select("name")
+    .eq("patient_id", session.patientId)
+    .maybeSingle();
+
+  const name = patient?.name || "";
+
   return NextResponse.json({
-    patientId,
+    patientId: session.patientId,
     name,
   });
 }

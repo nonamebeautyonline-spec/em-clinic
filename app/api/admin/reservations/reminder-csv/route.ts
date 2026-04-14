@@ -1,16 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
-import { createClient } from "@supabase/supabase-js";
 import * as iconv from "iconv-lite";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { parseBody } from "@/lib/validations/helpers";
 import { reminderCsvSchema } from "@/lib/validations/admin-operations";
 import { logAudit } from "@/lib/audit";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 interface ReminderData {
   lstep_id: string;

@@ -1,7 +1,7 @@
 // app/api/admin/update-order-address/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
-import { jwtVerify } from "jose";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
@@ -9,23 +9,9 @@ import { parseBody } from "@/lib/validations/helpers";
 import { updateOrderAddressSchema } from "@/lib/validations/admin-operations";
 import { logAudit } from "@/lib/audit";
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
-
-async function verifyAdmin(req: NextRequest): Promise<boolean> {
-  const session = req.cookies.get("admin_session")?.value;
-  if (!session) return false;
-  try {
-    const secret = new TextEncoder().encode(JWT_SECRET);
-    await jwtVerify(session, secret);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export async function POST(req: NextRequest) {
   try {
-    if (!(await verifyAdmin(req))) {
+    if (!(await verifyAdminAuth(req))) {
       return unauthorized();
     }
 

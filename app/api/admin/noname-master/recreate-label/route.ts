@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { notFound, serverError, unauthorized } from "@/lib/api-error";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { recreateLabelSchema } from "@/lib/validations/shipping";
 import { logAudit } from "@/lib/audit";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export async function POST(req: NextRequest) {
   try {
@@ -34,7 +29,7 @@ export async function POST(req: NextRequest) {
     // - shipping_date を NULL
     // - shipping_list_created_at を NULL（pending画面でチェック可能に戻す）
     const { data, error } = await strictWithTenant(
-      supabase
+      supabaseAdmin
         .from("orders")
         .update({
           tracking_number: null,

@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import { isFullAccessRole } from "@/lib/menu-permissions";
+import { validateSession, hashToken } from "@/lib/session";
+import { getSessionCache, setSessionCache } from "@/lib/redis";
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET || process.env.ADMIN_TOKEN;
@@ -22,6 +24,22 @@ export async function GET(req: NextRequest) {
     // JWT検証
     const secret = new TextEncoder().encode(getJwtSecret());
     const { payload } = await jwtVerify(sessionCookie, secret);
+
+    // サーバーサイドセッション検証
+    const tokenH = hashToken(sessionCookie);
+    const cached = await getSessionCache(tokenH);
+    if (cached !== true) {
+      try {
+        const isValid = await validateSession(sessionCookie);
+        setSessionCache(tokenH, isValid).catch(() => {});
+        if (!isValid) {
+          return NextResponse.json({ ok: false, error: "session_revoked" }, { status: 401 });
+        }
+      } catch (err) {
+        console.error("[session] validateSession error:", err);
+        return NextResponse.json({ ok: false, error: "session_error" }, { status: 401 });
+      }
+    }
 
     const tenantRole = ((payload as Record<string, unknown>).tenantRole as string) || "admin";
 

@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { serverError } from "@/lib/api-error";
-import { cookies } from "next/headers";
+import { verifyPatientSession } from "@/lib/patient-session";
 import { resolveTenantIdOrThrow } from "@/lib/tenant";
 import { getBalance, getHistory } from "@/lib/points";
 
@@ -14,18 +14,16 @@ import { getBalance, getHistory } from "@/lib/points";
 export async function GET(req: NextRequest) {
   try {
     const tenantId = resolveTenantIdOrThrow(req);
-    const cookieStore = await cookies();
-    const patientId =
-      cookieStore.get("__Host-patient_id")?.value ||
-      cookieStore.get("patient_id")?.value ||
-      "";
 
-    if (!patientId) {
+    // 患者セッション検証（JWT + 旧Cookieフォールバック）
+    const session = await verifyPatientSession(req);
+    if (!session) {
       return NextResponse.json(
         { ok: false, error: "unauthorized: patient_id cookie not found" },
         { status: 401 },
       );
     }
+    const patientId = session.patientId;
 
     const url = new URL(req.url);
     const limit = Math.min(Number(url.searchParams.get("limit")) || 50, 200);

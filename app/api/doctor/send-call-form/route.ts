@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unauthorized, badRequest, serverError } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
-import { verifyAdminAuth } from "@/lib/admin-auth";
+import { verifyDoctorAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { sendCallFormSchema } from "@/lib/validations/doctor";
@@ -12,7 +12,7 @@ import { buildCallFormFlex } from "@/lib/call-form-flex";
 import { getSettingOrEnv } from "@/lib/settings";
 
 export async function POST(req: NextRequest) {
-  const isAuthorized = await verifyAdminAuth(req);
+  const isAuthorized = await verifyDoctorAuth(req);
   if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);

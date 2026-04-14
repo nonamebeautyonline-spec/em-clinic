@@ -4,13 +4,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
-import { verifyAdminAuth } from "@/lib/admin-auth";
+import { verifyDoctorAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { doctorReorderRejectSchema } from "@/lib/validations/doctor";
 
 export async function POST(req: NextRequest) {
-  const isAuthorized = await verifyAdminAuth(req);
+  const isAuthorized = await verifyDoctorAuth(req);
   if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);

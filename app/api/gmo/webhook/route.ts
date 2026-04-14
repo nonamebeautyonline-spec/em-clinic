@@ -36,16 +36,16 @@ function parseClientField(field: string): Record<string, string> {
 
 /** GMO PG 結果通知の署名検証（CheckStringパラメータ） */
 function verifyGmoSignature(params: URLSearchParams, shopPass: string): boolean {
-  // ShopPass未設定時は検証スキップ（後方互換性維持）
+  // ShopPass未設定時はリクエスト拒否（fail-closed）
   if (!shopPass) {
-    console.warn("[gmo/webhook] ⚠ GMO ShopPassが未設定のため署名検証をスキップしています。本番環境では必ず設定してください");
-    return true;
+    console.error("[gmo/webhook] GMO ShopPass未設定 — リクエスト拒否");
+    return false;
   }
   const checkString = params.get("CheckString") || "";
-  // CheckStringが空の場合も検証スキップ（GMO側が送信していない可能性）
+  // CheckString欠落時はリクエスト拒否（fail-closed）
   if (!checkString) {
-    console.warn("[gmo/webhook] ⚠ CheckStringパラメータが空のため署名検証をスキップしています。GMO管理画面で結果通知の署名設定を確認してください");
-    return true;
+    console.error("[gmo/webhook] CheckStringパラメータ欠落 — リクエスト拒否");
+    return false;
   }
   const shopId = params.get("ShopID") || "";
   const orderId = params.get("OrderID") || "";
@@ -96,7 +96,7 @@ export async function POST(req: Request) {
     // 署名検証
     const shopPass = (await getSettingOrEnv("gmo", "shop_pass", "GMO_SHOP_PASS", tid)) || "";
     if (!shopPass) {
-      console.warn("[gmo/webhook] ⚠ テナント", tenantId, "のGMO ShopPassが未設定です。署名検証なしでリクエストを処理します");
+      console.error("[gmo/webhook] テナント", tenantId, "のGMO ShopPass未設定 — このwebhookは拒否されます");
     }
     if (!verifyGmoSignature(params, shopPass)) {
       console.error("[gmo/webhook] 署名検証失敗");

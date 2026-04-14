@@ -7,7 +7,8 @@ import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { logAudit } from "@/lib/audit";
 import { jwtVerify } from "jose";
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
+const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN;
+if (!JWT_SECRET) throw new Error("JWT_SECRET環境変数が未設定です");
 
 export async function POST(req: NextRequest) {
   // プラットフォーム管理者認証（元のセッションCookieから検証）

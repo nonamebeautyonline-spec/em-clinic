@@ -5,7 +5,7 @@ import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { pushMessage } from "@/lib/line-push";
-import { verifyAdminAuth } from "@/lib/admin-auth";
+import { verifyDoctorAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
 import { evaluateTagAutoRules } from "@/lib/tag-auto-rules";
@@ -13,7 +13,7 @@ import { parseBody } from "@/lib/validations/helpers";
 import { doctorReorderApproveSchema } from "@/lib/validations/doctor";
 
 export async function POST(req: NextRequest) {
-  const isAuthorized = await verifyAdminAuth(req);
+  const isAuthorized = await verifyDoctorAuth(req);
   if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);

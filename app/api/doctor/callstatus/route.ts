@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
-import { verifyAdminAuth } from "@/lib/admin-auth";
+import { verifyDoctorAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { callStatusSchema } from "@/lib/validations/doctor";
@@ -10,7 +10,7 @@ import { getBusinessRules, DEFAULT_NO_ANSWER_MESSAGE } from "@/lib/business-rule
 import { pushMessage } from "@/lib/line-push";
 
 export async function POST(req: NextRequest) {
-  const isAuthorized = await verifyAdminAuth(req);
+  const isAuthorized = await verifyDoctorAuth(req);
   if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);

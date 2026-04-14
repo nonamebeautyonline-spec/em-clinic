@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { notFound, serverError, unauthorized } from "@/lib/api-error";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
@@ -8,11 +8,6 @@ import { nonameMasterUpdateTrackingSchema } from "@/lib/validations/shipping";
 import { logAudit } from "@/lib/audit";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export async function POST(req: NextRequest) {
   try {
@@ -47,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     // 注文を更新
     const { data, error } = await strictWithTenant(
-      supabase
+      supabaseAdmin
         .from("orders")
         .update(updateData)
         .eq("id", order_id)

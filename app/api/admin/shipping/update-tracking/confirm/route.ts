@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
@@ -8,11 +8,6 @@ import { updateTrackingConfirmSchema } from "@/lib/validations/shipping";
 import { logAudit } from "@/lib/audit";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 interface TrackingEntry {
   payment_id: string;
@@ -58,7 +53,7 @@ export async function POST(req: NextRequest) {
           const { payment_id, tracking_number } = entry;
           try {
             const { data, error } = await strictWithTenant(
-              supabase.from("orders").update({
+              supabaseAdmin.from("orders").update({
                 tracking_number: tracking_number,
                 shipping_status: "shipped",
                 shipping_date: today,
@@ -75,7 +70,7 @@ export async function POST(req: NextRequest) {
 
             if (!data || data.length === 0) {
               const { data: existing } = await strictWithTenant(
-                supabase.from("orders").select("id, shipping_status").eq("id", payment_id),
+                supabaseAdmin.from("orders").select("id, shipping_status").eq("id", payment_id),
                 tenantId
               );
               if (existing && existing.length > 0 && existing[0].shipping_status === "shipped") {
@@ -99,7 +94,7 @@ export async function POST(req: NextRequest) {
             // ★ 合箱対応: 同一出荷バッチの兄弟注文も自動更新
             if (data[0]?.patient_id && data[0]?.shipping_list_created_at) {
               const { data: siblings } = await strictWithTenant(
-                supabase.from("orders").update({
+                supabaseAdmin.from("orders").update({
                   tracking_number,
                   shipping_status: "shipped",
                   shipping_date: today,

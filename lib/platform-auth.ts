@@ -40,8 +40,9 @@ export async function verifyPlatformAdmin(
     try {
       const isValid = await validateSession(sessionCookie);
       if (!isValid) return null;
-    } catch {
-      // admin_sessionsテーブル未作成時はスキップ
+    } catch (err) {
+      console.error("[platform-auth] validateSession error:", err);
+      return null;
     }
 
     // DB側でも権限を再確認（JWT改ざん防止）

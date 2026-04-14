@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
-import { jwtVerify } from "jose";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow } from "@/lib/tenant";
 
 // RPC結果の型定義
@@ -59,34 +59,6 @@ interface RpcResult {
   squareOrders: { amount: number; patient_id: string; product_code: string; paid_at: string }[];
   btOrders: { amount: number; patient_id: string; product_code: string; created_at: string }[];
   prevPaidPatientIds: string[];
-}
-
-const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
-
-// 管理者認証チェック（クッキーまたはBearerトークン）
-async function verifyAdminAuth(request: NextRequest): Promise<boolean> {
-  // 1. クッキーベースのセッション認証（新方式）
-  const sessionCookie = request.cookies.get("admin_session")?.value;
-  if (sessionCookie) {
-    try {
-      const secret = new TextEncoder().encode(JWT_SECRET);
-      await jwtVerify(sessionCookie, secret);
-      return true;
-    } catch {
-      // クッキー無効、次の方式を試す
-    }
-  }
-
-  // 2. Bearerトークン認証（後方互換性）
-  const authHeader = request.headers.get("authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    const token = authHeader.substring(7);
-    if (token === process.env.ADMIN_TOKEN) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 export async function GET(request: NextRequest) {

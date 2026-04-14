@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export async function GET(req: NextRequest) {
   try {
@@ -34,7 +29,7 @@ export async function GET(req: NextRequest) {
 
     // 本日の予約を取得
     const { data: reservations, error } = await strictWithTenant(
-      supabase
+      supabaseAdmin
         .from("reservations")
         .select("*")
         .gte("reserved_time", startOfDay.toISOString())

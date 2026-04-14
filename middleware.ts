@@ -285,6 +285,41 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // === Origin検証（CSRF免除の患者変更系API用） ===
+  // SameSite=None（LIFF必須）のため、CSRF tokenの代わりにOriginヘッダーで検証
+  const PATIENT_WRITE_PATTERNS = [
+    /^\/api\/mypage\//,
+    /^\/api\/reorder\//,
+    /^\/api\/reservations$/,
+    /^\/api\/checkout$/,
+    /^\/api\/profile$/,
+    /^\/api\/repair$/,
+    /^\/api\/intake$/,
+    /^\/api\/bank-transfer\//,
+  ];
+
+  if (
+    ["POST", "PUT", "PATCH", "DELETE"].includes(method) &&
+    PATIENT_WRITE_PATTERNS.some(p => p.test(pathname))
+  ) {
+    const origin = req.headers.get("origin") || "";
+    const referer = req.headers.get("referer") || "";
+    const effectiveOrigin = origin || (() => { try { return new URL(referer).origin; } catch { return ""; } })();
+
+    const isAllowedOrigin =
+      /^https:\/\/([a-z0-9-]+\.)?l-ope\.jp$/.test(effectiveOrigin) ||
+      /^https:\/\/liff\.line\.me$/.test(effectiveOrigin) ||
+      (process.env.NODE_ENV !== "production" && /^http:\/\/localhost(:\d+)?$/.test(effectiveOrigin)) ||
+      (process.env.NODE_ENV !== "production" && /^https:\/\/.*\.vercel\.app$/.test(effectiveOrigin));
+
+    if (!effectiveOrigin || !isAllowedOrigin) {
+      return NextResponse.json(
+        { ok: false, error: "Origin not allowed" },
+        { status: 403 },
+      );
+    }
+  }
+
   // === テナントID解決 ===
   let tenantId: string | null = null;
   let jwtTenantId: string | null = null;

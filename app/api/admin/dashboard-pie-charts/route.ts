@@ -1,26 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
-import { jwtVerify } from "jose";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow } from "@/lib/tenant";
-
-const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
-
-async function verifyAdminAuth(request: NextRequest): Promise<boolean> {
-  const sessionCookie = request.cookies.get("admin_session")?.value;
-  if (sessionCookie) {
-    try {
-      const secret = new TextEncoder().encode(JWT_SECRET);
-      await jwtVerify(sessionCookie, secret);
-      return true;
-    } catch { /* 次の方式を試す */ }
-  }
-  const authHeader = request.headers.get("authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    if (authHeader.substring(7) === process.env.ADMIN_TOKEN) return true;
-  }
-  return false;
-}
 
 /** 日付範囲を計算（JST基準） */
 function calculateDateRange(range: string, customStart?: string | null, customEnd?: string | null): { start: string; end: string } | null {

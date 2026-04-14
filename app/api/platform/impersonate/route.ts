@@ -11,7 +11,8 @@ import { createSession } from "@/lib/session";
 import { parseBody } from "@/lib/validations/helpers";
 import { impersonateSchema } from "@/lib/validations/platform";
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
+const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN;
+if (!JWT_SECRET) throw new Error("JWT_SECRET環境変数が未設定です");
 const SESSION_DURATION_SECONDS = 2 * 60 * 60; // インパーソネーションは2時間
 
 export async function POST(req: NextRequest) {

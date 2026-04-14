@@ -1,7 +1,7 @@
 // app/api/mypage/orders/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { serverError } from "@/lib/api-error";
-import { cookies } from "next/headers";
+import { verifyPatientSession } from "@/lib/patient-session";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantIdOrThrow, strictWithTenant } from "@/lib/tenant";
 import { getProductNamesMap } from "@/lib/products";
@@ -89,18 +89,16 @@ function toNumberOrUndefined(v: unknown): number | undefined {
 }
 
 // Supabase ordersテーブルから直接取得（高速化）
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const tenantId = resolveTenantIdOrThrow(_req);
-    const cookieStore = await cookies();
-    const patientId =
-      cookieStore.get("__Host-patient_id")?.value ||
-      cookieStore.get("patient_id")?.value ||
-      "";
+    const tenantId = resolveTenantIdOrThrow(req);
 
-    if (!patientId) {
+    // 患者セッション検証（JWT + 旧Cookieフォールバック）
+    const session = await verifyPatientSession(req);
+    if (!session) {
       return NextResponse.json({ ok: false, error: "unauthorized: patient_id cookie not found" }, { status: 401 });
     }
+    const patientId = session.patientId;
 
     // ★ Supabaseから直接取得（GAS不要、50-100ms）
     // ordersテーブルにはクレカ決済と銀行振込（payment_method='bank_transfer'）の両方が入っている
