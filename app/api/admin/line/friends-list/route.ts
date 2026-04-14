@@ -231,6 +231,7 @@ export async function GET(req: NextRequest) {
       const pt = ptMap.get(fs.patient_id);
       return transformRow({
         patient_id: fs.patient_id,
+        pid: pt?.pid || null,
         patient_name: pt?.name || "",
         line_id: pt?.line_id || null,
         line_display_name: pt?.line_display_name || null,
@@ -385,6 +386,7 @@ async function buildResponse(
         foundIds.add(fs.patient_id);
         patients.push(transformRow({
           patient_id: fs.patient_id,
+          pid: pt.pid || null,
           patient_name: pt.name || "",
           line_id: pt.line_id,
           line_display_name: pt.line_display_name,
@@ -409,6 +411,7 @@ async function buildResponse(
         if (!pt) continue;
         patients.push(transformRow({
           patient_id: id,
+          pid: pt.pid || null,
           patient_name: pt.name || "",
           line_id: pt.line_id,
           line_display_name: pt.line_display_name,
