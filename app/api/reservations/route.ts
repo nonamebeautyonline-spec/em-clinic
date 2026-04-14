@@ -912,9 +912,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: "db_error", detail: rpcError.message }, { status: 500 });
       }
 
-      // RPC が slot_full を返した場合
+      // RPC がエラーを返した場合（slot_full / doctor_closed）
       if (rpcResult && !rpcResult.ok) {
-        console.log(`[Reservation] slot_full: date=${date}, time=${time}, booked=${rpcResult.booked}, capacity=${rpcResult.capacity}`);
+        console.log(`[Reservation] ${rpcResult.error}: date=${date}, time=${time}, doctor=${createDoctorId}, booked=${rpcResult.booked}, capacity=${rpcResult.capacity}`);
         return NextResponse.json({ ok: false, error: "slot_full", message: "この時間帯はすでに予約が埋まりました。別の時間帯をお選びください。", }, { status: 409 });
       }
 
@@ -1195,7 +1195,6 @@ export async function POST(req: NextRequest) {
       const newDate = updateValidated.data.date || "";
       const newTime = updateValidated.data.time || "";
       const pid = updateValidated.data.patient_id || patientId;
-      const updateDoctorId = updateValidated.data.doctor_id || "dr_default";
 
       if (!reserveId || !newDate || !newTime) {
         return badRequest("missing parameters");
@@ -1241,14 +1240,22 @@ export async function POST(req: NextRequest) {
         }, { status: 400 });
       }
 
-      // LINE通知用に変更前の日時を取得（RPCで上書きされる前に）
+      // LINE通知用 + 元のdoctor_id取得（RPCで上書きされる前に）
       const { data: prevResvInfo } = await strictWithTenant(
         supabaseAdmin
           .from("reservations")
-          .select("reserved_date, reserved_time")
+          .select("reserved_date, reserved_time, doctor_id")
           .eq("reserve_id", reserveId),
         tenantId
       ).maybeSingle();
+
+      // ★ doctor_id: 指定があればそれを使い、なければ変更先日時で空き医師を自動選択
+      let updateDoctorId = updateValidated.data.doctor_id || "";
+      if (!updateDoctorId) {
+        const assigned = await autoAssignDoctor(newDate, newTime, tenantId);
+        // autoAssignで見つからない場合は元の医師を維持（RPCのclosedチェックで最終防御）
+        updateDoctorId = assigned || prevResvInfo?.doctor_id || "dr_default";
+      }
 
       // ★ RPC で変更先スロットの定員チェック + UPDATE をアトミックに実行
       const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
@@ -1267,11 +1274,15 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: "db_error", detail: rpcError.message }, { status: 500 });
       }
 
-      // RPC がエラーを返した場合（not_found: キャンセル済み/存在しない、slot_full: 定員超過）
+      // RPC がエラーを返した場合（not_found / slot_full / doctor_closed）
       if (rpcResult && !rpcResult.ok) {
         if (rpcResult.error === "not_found") {
           console.log(`[Reservation] not_found on update: reserve_id=${reserveId} (キャンセル済みまたは存在しない)`);
           return NextResponse.json({ ok: false, error: "not_found", message: "この予約は既にキャンセルされているか、存在しません。" }, { status: 404 });
+        }
+        if (rpcResult.error === "doctor_closed") {
+          console.log(`[Reservation] doctor_closed on update: reserve_id=${reserveId}, doctor=${updateDoctorId}, date=${newDate}`);
+          return NextResponse.json({ ok: false, error: "slot_full", message: "この時間帯はすでに予約が埋まりました。別の時間帯をお選びください。", }, { status: 409 });
         }
         console.log(`[Reservation] slot_full on update: date=${newDate}, time=${newTime}, booked=${rpcResult.booked}, capacity=${rpcResult.capacity}`);
         return NextResponse.json({ ok: false, error: "slot_full", message: "この時間帯はすでに予約が埋まりました。別の時間帯をお選びください。", }, { status: 409 });
