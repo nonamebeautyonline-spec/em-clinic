@@ -134,7 +134,7 @@ export function usePatientDashboard(): {
     setLoading(true);
 
     let finalData: PatientDashboardData = {
-      patient: { id: "unknown", displayName: "ゲスト" },
+      patient: { id: "unknown", pid: null, displayName: "ゲスト" },
       nextReservation: null,
       activeOrders: [],
       orders: [],
