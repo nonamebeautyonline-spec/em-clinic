@@ -157,6 +157,7 @@ export function usePatientDashboard(): {
 
       const patient: PatientInfo = {
         id: "unknown",
+        pid: null,
         displayName: "ゲスト",
       };
 
