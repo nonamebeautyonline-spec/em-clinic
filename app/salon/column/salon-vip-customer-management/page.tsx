@@ -139,7 +139,7 @@ export default function Page() {
           <li><strong>特典は「金額」より「特別感」</strong> — 優先予約・先行体験が効果的</li>
           <li><strong>離反予兆を検出して早期フォロー</strong> — 来店間隔の延びを自動検知</li>
         </ol>
-        <p className="mt-4">Lオペ for SALONは、VIPランクの自動判定と専用リッチメニュー切り替えを標準搭載。大切なお客様に最高の体験を提供します。</p>
+        <p className="mt-4">Lオペ for SALONでは、タグとセグメント機能を活用して、VIP顧客向けの専用リッチメニューを設定できます。大切なお客様に最高の体験を提供します。</p>
       </section>
 
       <section id="faq">

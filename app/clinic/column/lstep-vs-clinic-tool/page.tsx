@@ -182,6 +182,12 @@ export default function Page() {
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: クリニックには専用ツールを選ぶべき</h2>
         <p>Lステップ・Linyは優れたLINE配信ツールですが、クリニックの業務フロー全体をカバーするには力不足です。<strong>LINE配信だけでなく、予約・問診・カルテ・決済・配送まで統合管理</strong>したいクリニックには、専用設計のツールが最適解です。LINE起点でDXを進める全体像については<Link href="/clinic/column/clinic-dx-guide" className="text-emerald-700 underline">クリニックDX完全ガイド</Link>も併せてご覧ください。自費クリニックの集患チャネル全体像については<Link href="/clinic/column/self-pay-clinic-marketing-guide" className="text-emerald-700 underline">自費クリニック集患マーケティング完全ガイド</Link>で詳しく解説しています。</p>
+        <p className="text-sm text-gray-600 mt-4">関連記事:</p>
+        <ul className="text-sm space-y-1 mt-1">
+          <li><Link href="/clinic/column/line-doctor-alternative-guide" className="text-blue-600 underline">LINEドクター代替サービス7選 — 終了後の乗り換え先</Link></li>
+          <li><Link href="/clinic/column/clinic-line-automation-complete" className="text-blue-600 underline">クリニックLINE自動化完全ガイド — 8つの業務を自動化</Link></li>
+          <li><Link href="/clinic/column/clinic-line-case-studies" className="text-blue-600 underline">クリニックLINE活用事例5選</Link></li>
+        </ul>
       </section>
 
       <section id="faq">

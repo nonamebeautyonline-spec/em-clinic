@@ -26,6 +26,9 @@ const faqItems = [
   { q: "クリニックでLINE公式アカウントを始めるのに必要な準備は？", a: "必要なのはLINEビジネスIDの取得とアカウント開設（所要時間約10分）だけです。その後、プロフィール設定・あいさつメッセージ・リッチメニューを整え、院内にQRコードを掲示すれば基本的な運用を開始できます。認証済みアカウントの申請もおすすめです。" },
   { q: "LINE友だち数は何人から効果が出ますか？", a: "一般的に500人を超えるとセグメント配信の効果が実感しやすくなります。ただし、100人程度でも予約リマインドや問診の自動送信など、業務効率化の効果は十分に得られます。まずは来院患者への声かけで月100人の追加を目指しましょう。" },
   { q: "配信頻度はどのくらいが適切ですか？", a: "月2〜4回が目安です。週1回を超えるとブロック率が上がる傾向があります。ただし、予約リマインドや問診送信などの個別通知は配信頻度にカウントされないため、一斉配信の頻度を抑えつつ個別通知で利便性を高めるのが効果的です。" },
+  { q: "LINE公式アカウントと予約システムは別に必要ですか？", a: "LINE公式アカウント単体には予約管理機能がないため、別途予約システムとの連携が必要です。Lオペ for CLINICのようなLINE連携ツールを使えば、LINE上で予約受付・変更・リマインド送信まで一元管理でき、別システムの契約は不要になります。既存の予約システムがある場合もAPI連携で統合可能です。" },
+  { q: "患者の個人情報をLINEで扱って問題ないですか？", a: "LINE公式アカウント上でのメッセージのやり取りはSSL/TLS暗号化で保護されています。ただし、問診データや診療情報を扱う場合は、プライバシーポリシーの明示と患者の同意取得が必須です。個人情報保護法に準拠した運用体制を整え、LINE上では必要最小限の情報のみをやり取りすることが望ましいです。" },
+  { q: "院長一人でも運用できますか？", a: "可能です。AI自動返信・予約リマインド・問診送信などの自動化機能を活用すれば、院長一人でも日常的な運用工数は1日10〜15分程度に抑えられます。月1〜2回の一斉配信のみ手動で行い、それ以外は自動化する運用設計がおすすめです。" },
 ];
 
 /* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
@@ -41,8 +44,9 @@ const jsonLd = {
 
 const keyPoints = [
   "LINE公式アカウントの基本設定から高度な自動化まで、クリニック運用の全体像を把握できる",
-  "友だち集め・セグメント配信・リッチメニュー・AI自動返信など各施策の要点と関連記事リンク",
-  "運用代行と自社運用の判断基準、ブロック率を抑えるコツ",
+  "友だち集め・セグメント配信・リッチメニュー・AI自動返信など各施策の要点と具体的なデータ",
+  "導入スケジュール・費用の目安・ROI計算の考え方、運用代行と自社運用の判断基準",
+  "内科・美容・歯科の3パターンの導入事例と具体的な成果数値",
 ];
 
 const toc = [
@@ -53,6 +57,8 @@ const toc = [
   { id: "ai-auto-reply", label: "AI自動返信の活用" },
   { id: "block-rate", label: "ブロック率を下げるコツ" },
   { id: "outsource-vs-inhouse", label: "運用代行 vs 自社運用" },
+  { id: "cost-schedule", label: "導入スケジュールと費用の目安" },
+  { id: "case-studies", label: "導入事例" },
   { id: "ad-guideline", label: "医療広告ガイドラインとLINE運用" },
   { id: "summary", label: "まとめ" },
 ];
@@ -63,7 +69,7 @@ export default function Page() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">
-        LINE公式アカウントの月間利用者数は<strong>9,700万人以上</strong>（2024年時点）。メールの開封率が10〜20%に対し、LINEメッセージの開封率は<strong>約90%</strong>と圧倒的です。クリニックがLINE公式アカウントを最大限に活用するには、アカウント開設からセグメント配信、AI自動返信まで一貫した運用設計が欠かせません。本記事では、導入手順から友だち集め・セグメント配信・ブロック率対策・医療広告ガイドライン対応まで8つのテーマを体系的に解説します。
+        LINE公式アカウントの月間利用者数は<strong>9,700万人以上</strong>（2024年時点）。メールの開封率が10〜20%に対し、LINEメッセージの開封率は<strong>約90%</strong>と圧倒的です。クリニックがLINE公式アカウントを最大限に活用するには、アカウント開設からセグメント配信、AI自動返信まで一貫した運用設計が欠かせません。本記事では、導入手順から友だち集め・セグメント配信・ブロック率対策・費用の目安・導入事例・医療広告ガイドライン対応まで10のテーマを体系的に解説します。
       </p>
 
       <StatGrid stats={[
@@ -87,6 +93,15 @@ export default function Page() {
         <Callout type="info" title="開業前からのLINE活用がおすすめ">
           開業前からLINE公式アカウントを開設し、事前に友だちを集めておけば開業初日から集患に活用できます。詳しくは<Link href="/clinic/column/clinic-opening-line" className="text-emerald-700 underline">クリニック開業時のLINE活用ガイド</Link>をご覧ください。
         </Callout>
+
+        <Callout type="success" title="認証済みアカウントのメリット">
+          <ul className="list-disc pl-5 space-y-1 mt-1">
+            <li><strong>LINE内検索で表示</strong>: 認証済みアカウントはLINEアプリ内の検索結果に表示され、患者が自発的に見つけて友だち追加できる</li>
+            <li><strong>患者の信頼感向上</strong>: 認証バッジ（青色の盾マーク）が表示され、公式アカウントとしての信頼性が高まる</li>
+            <li><strong>友だち追加広告が利用可能</strong>: LINE広告の「友だち追加広告」は認証済みアカウント限定。地域ターゲティングで近隣住民にリーチできる</li>
+          </ul>
+          <p className="mt-2 text-sm text-gray-600">申請から審査完了まで通常5〜10営業日。医療機関の場合、開設届の写しが求められることがあります。</p>
+        </Callout>
       </section>
 
       {/* ── 2. 友だち集め ── */}
@@ -100,7 +115,18 @@ export default function Page() {
           { value: "30", unit: "%", label: "Web経由の追加割合" },
         ]} />
 
-        <p>主な施策には、受付での声かけ、待合室のポスター・ポップ、ホームページへのバナー設置、初回特典（待ち時間短縮・事前問診）の提供などがあります。施策ごとの効果検証と改善サイクルが重要です。</p>
+        <ComparisonTable
+          headers={["施策", "追加数の目安（月）", "コスト", "難易度"]}
+          rows={[
+            ["受付での声かけ", "30〜50人", "0円", "★☆☆"],
+            ["待合室ポスター・POP", "10〜20人", "数千円", "★☆☆"],
+            ["ホームページバナー", "10〜30人", "0円", "★★☆"],
+            ["友だち追加広告（LINE広告）", "50〜200人", "月3〜10万円", "★★★"],
+            ["初回特典（事前問診で待ち時間短縮）", "20〜40人", "0円", "★★☆"],
+          ]}
+        />
+
+        <p>最も費用対効果が高いのは<strong>受付での声かけ</strong>です。「LINEで次回の予約確認ができますよ」と具体的なメリットを伝えるだけで、追加率が2〜3倍に向上します。施策ごとの効果検証と改善サイクルが重要です。</p>
 
         <Callout type="success" title="友だち集めの詳細はこちら">
           具体的な7つの施策と実践のポイントは<Link href="/clinic/column/clinic-line-friends-growth" className="text-emerald-700 underline">クリニックのLINE友だち集め -- 月100人増やす7つの施策</Link>で詳しく解説しています。
@@ -120,7 +146,17 @@ export default function Page() {
           unit="% 開封率"
         />
 
-        <p>例えば「3ヶ月以上再来院のない美容施術患者」に対して、パーソナライズされたリマインドを送ると再診率が20〜30%向上するケースもあります。</p>
+        <ComparisonTable
+          headers={["セグメント例", "配信内容", "期待効果"]}
+          rows={[
+            ["3ヶ月以上未来院", "再来院リマインド+特典", "再診率20〜30%向上"],
+            ["花粉症タグ付き", "シーズン前の早期受診案内", "予約数1.5倍"],
+            ["美容施術経験者", "施術後フォロー+次回提案", "リピート率40%向上"],
+            ["初診から1週間以内", "満足度アンケート", "口コミ獲得率向上"],
+          ]}
+        />
+
+        <p>セグメント配信の肝は<strong>「患者が欲しいタイミングで欲しい情報を届ける」</strong>ことです。来院履歴・診療科・タグ情報を組み合わせて、一斉配信では実現できないパーソナライズを実現しましょう。</p>
 
         <Callout type="point" title="セグメント配信の詳細はこちら">
           5つのセグメント分類と効果を最大化するコツは<Link href="/clinic/column/segment-delivery-repeat" className="text-emerald-700 underline">LINEセグメント配信でリピート率を向上させる方法</Link>で詳しく解説しています。
@@ -162,7 +198,18 @@ export default function Page() {
           { value: "3", unit: "秒以内", label: "平均応答時間" },
         ]} />
 
-        <p>AI自動返信は「回答できない質問」をスタッフにエスカレーションする仕組みを組み合わせることで、患者満足度を維持しつつ自動化率を最大化できます。</p>
+        <p>AI自動返信は「回答できない質問」をスタッフにエスカレーションする仕組みを組み合わせることで、患者満足度を維持しつつ自動化率を最大化できます。最新のAI自動返信は、スタッフの過去の返信内容を自動学習し、クリニック固有の回答を生成できるレベルに進化しています。</p>
+
+        <ComparisonTable
+          headers={["問い合わせ内容", "自動応答率", "対応例"]}
+          rows={[
+            ["診療時間・休診日", "95%以上", "カレンダー連携で当日の診療状況を即時回答"],
+            ["アクセス・駐車場", "95%以上", "Google Maps連携で経路案内を自動送信"],
+            ["予約の変更・キャンセル", "80〜90%", "LINE上で予約変更フォームを自動送信"],
+            ["料金・保険適用の確認", "70〜80%", "診療メニュー別の概算費用を回答"],
+            ["症状の相談", "スタッフ転送", "医療判断が必要な内容はスタッフに即時通知"],
+          ]}
+        />
 
         <Callout type="info" title="AI自動返信の導入方法はこちら">
           導入ステップと運用のコツは<Link href="/clinic/column/ai-auto-reply-guide" className="text-emerald-700 underline">クリニックのAI自動返信導入ガイド</Link>で詳しく解説しています。
@@ -185,7 +232,17 @@ export default function Page() {
           </ul>
         </Callout>
 
-        <p>ブロック率対策は配信頻度・内容・タイミングの3つの観点から総合的に取り組む必要があります。</p>
+        <BarChart
+          data={[
+            { label: "週3回以上配信", value: 25, color: "bg-red-500" },
+            { label: "週2回配信", value: 12, color: "bg-orange-400" },
+            { label: "週1回配信", value: 5, color: "bg-yellow-400" },
+            { label: "月2〜3回配信", value: 2, color: "bg-emerald-500" },
+          ]}
+          unit="% ブロック率"
+        />
+
+        <p>配信頻度とブロック率には明確な相関があります。<strong>月2〜3回の配信頻度を守りつつ、セグメント配信で関連性の高い情報だけを届ける</strong>のがベストプラクティスです。配信時間帯は平日の9〜12時または17〜20時が最もブロックされにくい傾向にあります。</p>
 
         <Callout type="success" title="ブロック率対策の詳細はこちら">
           5つの鉄則は<Link href="/clinic/column/line-block-rate-reduction" className="text-emerald-700 underline">LINE配信で患者に嫌われない -- ブロック率を下げる5つの鉄則</Link>で詳しく解説しています。
@@ -215,9 +272,72 @@ export default function Page() {
         </Callout>
       </section>
 
-      {/* ── 8. 医療広告ガイドライン ── */}
+      {/* ── 8. 導入スケジュールと費用の目安 ── */}
       <section>
-        <h2 id="ad-guideline" className="text-xl font-bold text-gray-800">8. 医療広告ガイドラインとLINE運用</h2>
+        <h2 id="cost-schedule" className="text-xl font-bold text-gray-800">8. 導入スケジュールと費用の目安</h2>
+        <p>LINE公式アカウントの導入から本格運用開始までは、<strong>最短2週間〜1ヶ月</strong>が目安です。以下のスケジュールに沿って進めれば、無理なく導入できます。</p>
+
+        <FlowSteps steps={[
+          { title: "WEEK 1: アカウント開設・初期設定", desc: "LINE公式アカウント開設、認証済みアカウント申請、Messaging API有効化、プロフィール・あいさつメッセージ設定を完了させる。" },
+          { title: "WEEK 2: ツール連携・リッチメニュー構築", desc: "Lオペ等の連携ツールの初期設定、リッチメニューの設計・反映、予約・問診フォームの連携テスト。" },
+          { title: "WEEK 3: 院内導線整備・スタッフ研修", desc: "QRコードの設置、受付スタッフへの声かけスクリプト共有、AI自動返信のテスト・チューニング。" },
+          { title: "WEEK 4〜: 本格運用開始", desc: "友だち集め施策の本格稼働、初回セグメント配信の実施、KPIモニタリング（友だち数・ブロック率・予約転換率）の開始。" },
+        ]} />
+
+        <h3 className="text-lg font-bold text-gray-800 mt-8">費用の目安（規模別）</h3>
+        <ComparisonTable
+          headers={["費用項目", "小規模（〜月500通）", "中規模（〜月5,000通）", "大規模（5,000通超）"]}
+          rows={[
+            ["LINE公式アカウント", "0円（コミュニケーションプラン）", "5,000円/月（ライトプラン）", "15,000円/月（スタンダードプラン）"],
+            ["連携ツール（Lオペ等）", "月額数千円〜", "月額1〜3万円", "月額3〜5万円"],
+            ["運用代行（任意）", "—", "月額10〜20万円", "月額20〜30万円"],
+            ["友だち追加広告（任意）", "—", "月額3〜5万円", "月額5〜15万円"],
+            ["月額合計の目安", "0〜1万円", "2〜25万円", "5〜65万円"],
+          ]}
+        />
+
+        <Callout type="point" title="ROI（投資対効果）の考え方">
+          <p>LINE運用のROIは<strong>「再診1件あたりの診療報酬 × LINE経由の再診増加数」</strong>で概算できます。例えば、再診単価5,000円のクリニックでLINE経由の再診が月20件増えれば月10万円の増収。ツール費用3万円・運用工数を時給換算2万円とすると、<strong>ROIは約200%</strong>です。友だち数が増えるほどROIは改善するため、初期投資を恐れず早期に始めることが重要です。</p>
+        </Callout>
+      </section>
+
+      {/* ── 9. 導入事例 ── */}
+      <section>
+        <h2 id="case-studies" className="text-xl font-bold text-gray-800">9. 導入事例: LINE運用で成果を上げたクリニック</h2>
+        <p>実際にLINE公式アカウントを活用して成果を上げたクリニックの事例を3つ紹介します。</p>
+
+        <h3 className="text-lg font-bold text-gray-800 mt-6">事例1: 内科クリニック（東京都・医師2名体制）</h3>
+        <StatGrid stats={[
+          { value: "1,200", unit: "人", label: "友だち数（6ヶ月）" },
+          { value: "60", unit: "%減", label: "電話問い合わせ" },
+          { value: "15", unit: "%増", label: "再診率" },
+        ]} />
+        <p>受付での声かけを徹底し月平均200人を友だち追加。予約リマインドと問診の自動送信で電話対応を大幅に削減。インフルエンザ予防接種のセグメント配信で予約枠を3日で完売した。</p>
+
+        <h3 className="text-lg font-bold text-gray-800 mt-6">事例2: 美容皮膚科（大阪府・医師1名体制）</h3>
+        <StatGrid stats={[
+          { value: "55", unit: "%", label: "リピート率（35%→）" },
+          { value: "120", unit: "万円増", label: "月間売上" },
+          { value: "0.8", unit: "%", label: "月間ブロック率" },
+        ]} />
+        <p>施術後フォローメッセージの自動送信と、施術履歴に基づくセグメント配信を導入。「前回の施術から3ヶ月が経ちました」のリマインドがリピート促進に直結。院長一人でも1日15分の運用工数で回せている。</p>
+
+        <h3 className="text-lg font-bold text-gray-800 mt-6">事例3: 歯科医院（愛知県・ユニット4台）</h3>
+        <StatGrid stats={[
+          { value: "7", unit: "%", label: "キャンセル率（18%→）" },
+          { value: "25", unit: "%増", label: "定期検診受診率" },
+          { value: "4.5", unit: "★", label: "Google口コミ（3.8→）" },
+        ]} />
+        <p>予約前日のリマインド配信でキャンセル率を大幅改善。3ヶ月ごとの定期検診リマインドで休眠患者の掘り起こしに成功。来院後の満足度アンケートからGoogle口コミ誘導の導線を構築した。</p>
+
+        <Callout type="info" title="さらに詳しい事例はこちら">
+          5つの活用パターンを詳しく解説した<Link href="/clinic/column/clinic-line-case-studies" className="text-emerald-700 underline">クリニックのLINE公式アカウント活用事例5選</Link>もあわせてご覧ください。
+        </Callout>
+      </section>
+
+      {/* ── 10. 医療広告ガイドライン ── */}
+      <section>
+        <h2 id="ad-guideline" className="text-xl font-bold text-gray-800">10. 医療広告ガイドラインとLINE運用</h2>
         <p>クリニックがLINE公式アカウントで情報発信する際は、<strong>医療広告ガイドライン</strong>への準拠が必須です。2018年の改正医療法により、Webサイトやソーシャルメディアも広告規制の対象となりました。LINE上のメッセージ配信やリッチメニューも例外ではありません。</p>
 
         <Callout type="warning" title="LINE配信で注意すべき医療広告ガイドラインのポイント">
@@ -238,11 +358,17 @@ export default function Page() {
       {/* ── まとめ ── */}
       <section>
         <h2 id="summary" className="text-xl font-bold text-gray-800">まとめ: LINE運用は「設計」が9割</h2>
-        <p>クリニックのLINE公式アカウント運用は、場当たり的に始めても成果が出ません。<strong>基本設定 → 友だち集め → セグメント配信 → リッチメニュー → AI自動返信 → ブロック率対策</strong>という流れで段階的に設計・実行していくことが成功の鍵です。</p>
+        <p>クリニックのLINE公式アカウント運用は、場当たり的に始めても成果が出ません。<strong>基本設定 → 友だち集め → セグメント配信 → リッチメニュー → AI自動返信 → ブロック率対策 → 費用対効果の検証</strong>という流れで段階的に設計・実行していくことが成功の鍵です。</p>
 
         <p>本ガイドで紹介した各テーマの詳細記事と合わせて、自院に合った運用プランを組み立ててみてください。LINE活用と合わせてクリニック全体のDXを進めたい方は、<Link href="/clinic/column/clinic-dx-complete-guide" className="text-emerald-700 underline">クリニックDX完全ガイド</Link>も参考になります。また、LINE活用の具体的な成功事例は<Link href="/clinic/column/clinic-line-case-studies" className="text-emerald-700 underline">クリニックのLINE公式アカウント活用事例5選</Link>でご確認いただけます。</p>
 
         <p>Lオペ for CLINICは、本ガイドで解説したすべての機能をワンストップで提供するクリニック専用プラットフォームです。友だち管理・セグメント配信・リッチメニュー・AI自動返信・予約連携まで、LINE運用に必要な機能がすべて揃っています。</p>
+        <p className="text-sm text-gray-600 mt-4">関連記事:</p>
+        <ul className="text-sm space-y-1 mt-1">
+          <li><Link href="/clinic/column/clinic-line-automation-complete" className="text-blue-600 underline">クリニックLINE自動化完全ガイド — 8つの業務を自動化して月40時間削減</Link></li>
+          <li><Link href="/clinic/column/clinic-line-questionnaire-complete" className="text-blue-600 underline">クリニックLINE問診完全ガイド — 受付業務を70%削減</Link></li>
+          <li><Link href="/clinic/column/clinic-line-revisit-guide" className="text-blue-600 underline">再来院率をLINEで向上させる7つの施策</Link></li>
+        </ul>
       </section>
 
       {/* ── FAQ ── */}

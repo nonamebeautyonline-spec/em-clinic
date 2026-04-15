@@ -92,7 +92,7 @@ export default function Page() {
 
       <section>
         <h2 id="rule-1" className="text-xl font-bold text-gray-800">鉄則1: 配信頻度は月2〜4回がベスト</h2>
-        <p>ブロックの最大の原因は「配信が多すぎる」ことです。LINE公式アカウントの調査によると、ブロック理由の第1位は<strong>「通知が多い」</strong>で、全体の約50%を占めています。</p>
+        <p>ブロックの最大の原因は「配信が多すぎる」ことです。ブロック理由として<strong>「通知が多い」</strong>は最も多く挙がるポイントです。</p>
 
         <DonutChart percentage={50} label="ブロック理由第1位" sublabel="「通知が多い」" />
 

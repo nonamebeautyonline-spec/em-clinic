@@ -132,7 +132,7 @@ export default function Page() {
           <li><strong>最低2週間、友だち200人以上で実施</strong> — 統計的に有意な結果を得る</li>
           <li><strong>テスト→改善→テストのサイクルを回す</strong> — 3回のテストで大幅な改善が期待</li>
         </ol>
-        <p className="mt-4">Lオペ for SALONは、リッチメニューのA/Bテスト機能を標準搭載。ワンクリックでテストを開始し、結果を自動分析してくれます。</p>
+        <p className="mt-4">Lオペ for SALONでは、リッチメニューを定期的に変更し、反応率を比較することでA/Bテストが可能です。</p>
       </section>
 
       <section id="faq">

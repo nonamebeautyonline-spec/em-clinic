@@ -150,7 +150,7 @@ export default function Page() {
           週3回以上の配信ではブロック率が6%を超え、友だち数の減少が加速します。頻度を上げたい場合は、セグメント配信でアクティブユーザーに絞って送るのが鉄則です。配信とセグメントの使い分けについては<Link href="/line/column/line-broadcast-vs-segment-delivery" className="text-blue-600 underline">一斉配信vsセグメント配信の比較記事</Link>をご覧ください。
         </Callout>
 
-        <ResultCard before="週5回一斉配信" after="週2回セグメント配信" metric="ブロック率" description="12% → 2.5%に改善、開封率は35% → 52%に向上" />
+        <ResultCard before="週5回一斉配信" after="週2回セグメント配信" metric="ブロック率" description="ブロック率の大幅低減、開封率の向上が報告されています" />
       </section>
 
       <section>

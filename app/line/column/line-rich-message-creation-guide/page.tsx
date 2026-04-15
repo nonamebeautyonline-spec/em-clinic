@@ -122,7 +122,7 @@ export default function Page() {
           ]}
         />
 
-        <ResultCard before="「詳細はこちら」" after="「30%OFFクーポンを今すぐ受け取る」" metric="クリック率" description="具体的なベネフィットを含むCTAでクリック率が2.4倍に向上" />
+        <ResultCard before="「詳細はこちら」" after="「30%OFFクーポンを今すぐ受け取る」" metric="クリック率" description="具体的なベネフィットを含むCTAでクリック率の大幅な向上が期待できます" />
       </section>
 
       <InlineCTA />

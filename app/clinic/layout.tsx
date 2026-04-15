@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 const SITE_URL = "https://l-ope.jp";
 const LP_URL = `${SITE_URL}/clinic`;
 const TITLE =
-  "クリニックのLINE公式アカウント運用ならLオペ | 予約・問診・オンライン診療をLINEで一元化";
+  "【医療特化45機能】クリニックのLINE公式アカウント運用ならLオペ | 予約・問診・オンライン診療を一元化";
 const DESCRIPTION =
-  "クリニック向けLINE公式アカウント運用プラットフォーム「Lオペ」。患者CRM・予約管理・オンライン問診・オンライン診療・セグメント配信・リッチメニュー構築・AI自動返信・決済・配送管理をLINE公式アカウントで一元化。医療機関専用設計で初期設定サポート無料・最短2週間で導入。";
+  "クリニック向けLINE公式アカウント運用プラットフォーム「Lオペ」。予約管理・問診・オンライン診療・AI自動返信・決済・配送まで45機能をLINEで一元化。最短2週間で導入、初期設定サポート無料。";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -47,6 +47,13 @@ export const metadata: Metadata = {
     /* 経営 */
     "クリニック経営", "クリニック 集患 方法", "再診率 向上", "リピート率 向上", "無断キャンセル 防止",
     "クリニック 業務改善", "医療機関 LINE活用",
+    /* 競合調査で発見した追加キーワード */
+    "クリニック LINE 自動化", "クリニック LINE 問診", "クリニック LINE 患者対応",
+    "クリニック LINE 再来院", "クリニック LINE リピーター", "クリニック LINE マーケティング",
+    "オンライン診療 LINE予約", "オンライン診療 LINE 導入", "LINE診療 システム",
+    "LINEドクター 代替", "LINEドクター 乗り換え",
+    "医療 LINE 予約システム", "クリニック LINE予約 システム",
+    "クリニック LINE公式アカウント 成功事例", "クリニック LINE 自動応答",
   ].join(", "),
   icons: {
     icon: [{ url: "/icon.png", sizes: "778x778", type: "image/png" }],
@@ -195,6 +202,41 @@ const jsonLd = [
     },
     areaServed: { "@type": "Country", name: "JP" },
     isAcceptingNewPatients: true,
+  },
+  /* HowTo — 導入ステップ（競合未実装のリッチリザルト獲得） */
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: "クリニックへのLINE公式アカウント運用プラットフォーム導入方法",
+    description: "Lオペ for CLINICの導入は4ステップ。お問い合わせから最短2週間で運用開始できます。",
+    totalTime: "P14D",
+    step: [
+      {
+        "@type": "HowToStep",
+        position: 1,
+        name: "お問い合わせ・ヒアリング",
+        text: "フォームまたはLINEからご相談。デモ画面をお見せしながら貴院の課題をヒアリングします。",
+        url: `${LP_URL}/contact`,
+      },
+      {
+        "@type": "HowToStep",
+        position: 2,
+        name: "プラン決定・ご契約",
+        text: "貴院の規模・診療科・運用体制に合わせた最適プランをご提案。ご契約後、導入準備を開始します。",
+      },
+      {
+        "@type": "HowToStep",
+        position: 3,
+        name: "環境構築・設定代行",
+        text: "LINE連携・リッチメニュー初期構築・問診フォーム作成・患者データ移行をサポートチームが代行します。",
+      },
+      {
+        "@type": "HowToStep",
+        position: 4,
+        name: "運用開始・継続サポート",
+        text: "スタッフ向け操作研修を実施し運用開始。導入後も専任担当が活用提案を継続サポートします。",
+      },
+    ],
   },
   /* SiteNavigationElement — Googleサイトリンク表示を促進 */
   ...[

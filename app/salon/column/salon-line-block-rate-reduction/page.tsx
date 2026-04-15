@@ -140,7 +140,7 @@ export default function Page() {
           <li><strong>配信時間・吹き出し数・文章量を最適化</strong> — 細部が積み重なってブロック率に影響</li>
           <li><strong>配信解除の選択肢を用意</strong> — ブロックよりも頻度減の方が双方にメリット</li>
         </ol>
-        <p className="mt-4">Lオペ for SALONは、ブロック率の自動モニタリングと配信最適化のレコメンド機能を搭載。お客様との長期的な関係を守ります。</p>
+        <p className="mt-4">Lオペ for SALONでは、ダッシュボードでブロック率を確認し、配信内容の改善に活用できます。お客様との長期的な関係を守ります。</p>
       </section>
 
       <section id="faq">

@@ -141,7 +141,7 @@ export default function Page() {
           <li><strong>リピート購入のリマインド自動化</strong> — 使い切りタイミングで再購入を促す</li>
           <li><strong>物販は施術時間を消費しない収益柱</strong> — 売上の上限を拡張</li>
         </ol>
-        <p className="mt-4">Lオペ for SALONは、施術後の商品提案からリピート購入のリマインドまで、物販のクロスセル戦略をLINEで自動化します。</p>
+        <p className="mt-4">LINE公式アカウントを活用すれば、施術後の商品提案からリピート購入のリマインドまで、物販のクロスセル戦略を効率化できます。EC連携についてはLオペ for ECもご検討ください。</p>
       </section>
 
       <section id="faq">

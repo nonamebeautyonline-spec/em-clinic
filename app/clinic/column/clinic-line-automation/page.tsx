@@ -174,6 +174,9 @@ export default function Page() {
         <p className="text-[13px] mt-2">
           あわせて読みたい: <a href="/clinic/column/online-clinic-complete-guide" className="text-blue-600 underline">オンライン診療 LINE連携ガイド — 開業準備・集患・運用を徹底解説</a>
         </p>
+        <p className="text-[13px] mt-2">
+          あわせて読みたい: <a href="/clinic/column/clinic-line-automation-complete" className="text-blue-600 underline">クリニックLINE自動化完全ガイド — 8つの業務を自動化して月40時間削減</a>
+        </p>
       </section>
 
       <section id="faq">

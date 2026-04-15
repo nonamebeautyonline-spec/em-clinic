@@ -11,11 +11,11 @@ import { categories as ecCategories } from "./ec/column/categories";
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = "https://l-ope.jp";
   const pageLastModified = {
-    home: new Date("2026-04-13"),
-    about: new Date("2026-04-13"),
-    features: new Date("2026-04-13"),
+    home: new Date("2026-04-15"),
+    about: new Date("2026-04-15"),
+    features: new Date("2026-04-15"),
     contact: new Date("2026-04-01"),
-    column: new Date("2026-04-13"),
+    column: new Date("2026-04-15"),
     legal: new Date("2026-03-30"),
     line: new Date("2026-04-01"),
   };

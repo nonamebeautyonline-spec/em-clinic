@@ -137,9 +137,11 @@ export default function Page() {
           <li><strong>カゴ落ち対策が最もROIが高い</strong> — 全事例で最初の一手として導入。詳しくは<Link href="/ec/column/line-cart-abandonment-recovery-guide" className="text-blue-600 underline">カゴ落ち回収ガイド</Link></li>
           <li><strong>業態特化の施策で差をつける</strong> — 汎用施策 + 業態固有の施策が成功の鍵</li>
           <li><strong>セグメント配信で売上とブロック率を両立</strong> — <Link href="/ec/column/ec-segment-delivery-purchase-data" className="text-blue-600 underline">セグメント配信</Link>で詳しく解説</li>
-          <li><strong>3ヶ月で月商20%アップは再現可能</strong> — まずはカゴ落ちリマインドから始めましょう</li>
+          <li><strong>3ヶ月で月商アップを目指すためのポイント</strong> — まずはカゴ落ちリマインドから始めましょう</li>
         </ol>
       </section>
+
+      <p className="text-xs text-gray-400 mt-8 mb-2">※本記事の事例は、複数の導入実績をもとに再構成したものです。実際の効果はご利用状況により異なります。</p>
 
       <section id="faq">
         <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>

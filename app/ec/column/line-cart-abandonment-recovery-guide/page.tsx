@@ -92,7 +92,7 @@ export default function Page() {
 
         <p>LINEリマインドが高い回収率を実現する理由は3つあります。</p>
         <ul className="list-disc pl-6 space-y-1">
-          <li><strong>即時到達</strong> — プッシュ通知で確実にユーザーの目に入る。メールのように埋もれない</li>
+          <li><strong>即時到達</strong> — プッシュ通知でユーザーの目に入りやすい。メールのように埋もれない</li>
           <li><strong>リッチコンテンツ</strong> — 商品画像・価格・カートリンクをカード形式で表示でき、ワンタップで購入に復帰</li>
           <li><strong>トーク画面の親密感</strong> — 友人や家族とのやり取りと同じ空間でメッセージが届き、開封の心理的ハードルが低い</li>
         </ul>

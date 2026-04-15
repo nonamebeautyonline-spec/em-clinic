@@ -167,8 +167,8 @@ export default function Page() {
         />
 
         <ul className="list-disc pl-6 space-y-2 text-gray-700">
-          <li><strong>飲食店</strong>: 来店後のフォロー配信でリピート率を30%向上</li>
-          <li><strong>美容サロン</strong>: 予約リマインド+施術後フォローで無断キャンセル50%削減</li>
+          <li><strong>飲食店</strong>: 来店後のフォロー配信でリピート率の向上</li>
+          <li><strong>美容サロン</strong>: 予約リマインド+施術後フォローで無断キャンセルの大幅削減</li>
           <li><strong>ECサイト</strong>: カゴ落ちリマインド+レビュー配信で購入率3倍</li>
           <li><strong>教育・スクール</strong>: 体験申込→入会シナリオで入会率を2倍に</li>
         </ul>
@@ -211,7 +211,7 @@ export default function Page() {
 
         <Callout type="success" title="Lステップ導入のポイント">
           <ul className="mt-1 space-y-1">
-            <li>・LINE拡張ツールの定番で導入実績No.1</li>
+            <li>・LINE拡張ツールの定番で導入実績が豊富</li>
             <li>・スタートプラン2,980円/月から始められる</li>
             <li>・シナリオ配信・セグメント・リッチメニュー切替が全プラン対応</li>
             <li>・高度な分析機能はスタンダード以上が必要</li>

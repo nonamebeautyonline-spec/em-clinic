@@ -59,7 +59,7 @@ export default function Page() {
 
       <section>
         <h2 id="ec-line-overview" className="text-xl font-bold text-gray-800">ECサイトにLINEが不可欠な理由</h2>
-        <p>従来のECマーケティングはメールマガジンが中心でしたが、受信トレイの過密化やフィルタリング強化により到達率・開封率ともに低下傾向です。LINEはプッシュ通知でダイレクトに届き、ユーザーが日常的に使うコミュニケーションツールであるため、圧倒的な到達力を発揮します。</p>
+        <p>従来のECマーケティングはメールマガジンが中心でしたが、受信トレイの過密化やフィルタリング強化により到達率・開封率ともに低下傾向です。LINEはプッシュ通知でダイレクトに届き、ユーザーが日常的に使うコミュニケーションツールであるため、非常に高い到達力を発揮します。</p>
 
         <StatGrid stats={[
           { value: "70%", label: "ECサイト平均カゴ落ち率" },
@@ -194,8 +194,10 @@ export default function Page() {
           { title: "ロイヤル化", desc: "VIPセグメントへの限定オファーでLTVを最大化" },
         ]} />
 
-        <p className="mt-4">Lオペ for LINEは、これらのEC×LINE施策をワンストップで実現できるプラットフォームです。セグメント配信からチャット対応まで、LINE運用の全てを一元管理できます。</p>
+        <p className="mt-4">EC×LINE施策を実現するには、EC特化の「Lオペ for EC」がおすすめです。Shopify・BASE連携、カゴ落ちリマインド、RFM分析などEC特化機能を搭載しています。</p>
       </section>
+
+      <p className="text-xs text-gray-400 mt-8 mb-2">※本記事の事例は、複数の導入実績をもとに再構成したものです。実際の効果はご利用状況により異なります。</p>
 
       <section id="faq">
         <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>

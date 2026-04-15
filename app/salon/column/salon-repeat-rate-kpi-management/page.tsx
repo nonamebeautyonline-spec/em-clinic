@@ -138,7 +138,7 @@ export default function Page() {
           <li><strong>PDCAを月次で回す</strong> — 計画→実行→検証→改善のサイクルを定着</li>
           <li><strong>3ヶ月で効果が見える</strong> — 最低3サイクル回すと改善が安定</li>
         </ol>
-        <p className="mt-4">Lオペ for SALONは、KPIダッシュボードを標準搭載。友だち数・配信効果・リピート率・売上を自動集計し、改善ポイントをレコメンドします。</p>
+        <p className="mt-4">Lオペ for SALONでは、ダッシュボードで配信実績やセグメント別の反応率を確認できます。データに基づく改善サイクルの構築を支援します。</p>
       </section>
 
       <section id="faq">

@@ -325,7 +325,7 @@ export default function Page() {
           ]}
         />
 
-        <ResultCard before="65〜100万円/月" after="10〜18万円/月" metric="業務コスト（人件費 → DXツール）" description="人件費65〜100万円をLオペの10〜18万円に圧縮。人件費ゼロを実現" />
+        <ResultCard before="65〜100万円/月" after="10〜18万円/月" metric="業務コスト（人件費 → DXツール）" description="人件費65〜100万円をLオペの10〜18万円に圧縮。人件費を大幅に抑えた運営を実現" />
 
         <h3 className="text-lg font-bold text-gray-700 mt-6">Dr1人の1日のタイムスケジュール例（副業モデル）</h3>
         <ComparisonTable

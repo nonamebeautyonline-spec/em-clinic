@@ -84,9 +84,9 @@ export default function Page() {
         />
 
         <StatGrid stats={[
-          { value: "+55%", label: "開封率の向上（40→62%）" },
-          { value: "3倍", label: "クリック率の向上（4→12%）" },
-          { value: "-60%", label: "ブロック率の低減" },
+          { value: "大幅向上", label: "開封率の向上" },
+          { value: "大幅向上", label: "クリック率の向上" },
+          { value: "大幅低減", label: "ブロック率の低減" },
         ]} />
 
         <Callout type="success" title="セグメント配信は全指標で優位">
@@ -169,7 +169,7 @@ export default function Page() {
         ]} />
 
         <ol className="list-decimal pl-6 space-y-2">
-          <li><strong>セグメント配信は全指標で一斉配信を上回る</strong> — 開封率+55%、クリック率3倍、ブロック率-60%</li>
+          <li><strong>セグメント配信は全指標で一斉配信を上回る</strong> — 開封率が大幅に向上、クリック率が大幅に向上、ブロック率が大幅に低減</li>
           <li><strong>配信コストも大幅に削減</strong> — 対象を絞ることで通数課金を最適化</li>
           <li><strong>一斉配信も適材適所で活用</strong> — 全員に届けるべき告知には一斉配信が有効</li>
           <li><strong>3〜5セグメントから始める</strong> — 最初から細分化しすぎず段階的に精度を上げる</li>

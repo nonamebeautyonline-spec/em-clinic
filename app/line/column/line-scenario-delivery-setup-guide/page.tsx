@@ -127,8 +127,8 @@ export default function Page() {
         ]} />
 
         <ResultCard
-          before="全員に同じシナリオ: CVR 3%"
-          after="条件分岐シナリオ: CVR 8%"
+          before="全員に同じシナリオ: CVR 低"
+          after="条件分岐シナリオ: CVR 高"
           metric="パーソナライズでCVRが2.7倍に"
           description="ユーザーの関心に合ったメッセージで成約率が大幅向上"
         />

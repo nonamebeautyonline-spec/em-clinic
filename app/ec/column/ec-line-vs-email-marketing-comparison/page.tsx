@@ -60,7 +60,7 @@ export default function Page() {
         <DonutChart percentage={60} label="LINE開封率" sublabel="メールの開封率15〜20%に対し、LINEは60〜80%を達成" />
 
         <Callout type="warning" title="メール開封率の低下トレンド">
-          EC事業者のメール開封率は2020年の22%から2025年には15%まで低下。Gmailの「プロモーション」タブ振り分け強化やプライバシー保護による影響が大きく、今後も低下傾向が続くと予測されています。
+          EC事業者のメール開封率は年々低下傾向にあると言われています。Gmailの「プロモーション」タブ振り分け強化やプライバシー保護による影響が大きく、今後も低下傾向が続くと予測されています。
         </Callout>
       </section>
 
@@ -140,7 +140,7 @@ export default function Page() {
         ]} />
 
         <Callout type="point" title="LINE単独よりハイブリッドが効果的">
-          LINE単独運用の場合と比較して、ハイブリッド運用は売上貢献額が約30%高いというデータがあります。両チャネルの特性を理解し、施策ごとに使い分けることがポイントです。
+          LINE単独運用の場合と比較して、ハイブリッド運用により売上貢献額の向上が期待できます。両チャネルの特性を理解し、施策ごとに使い分けることがポイントです。
         </Callout>
       </section>
 
@@ -170,7 +170,7 @@ export default function Page() {
           <li><strong>最適解はハイブリッド運用</strong> — 即時性が必要な施策はLINE、長文コンテンツはメールと使い分け</li>
           <li><strong>カゴ落ち対策から移行を開始</strong> — 最もROIが高い施策からLINEに切り替えると効果を実感しやすい。具体的なカゴ落ち対策は<Link href="/ec/column/line-cart-abandonment-recovery-guide" className="text-blue-600 underline">カゴ落ち回収ガイド</Link>で解説しています</li>
         </ol>
-        <p className="mt-4">Lオペ for ECは、LINEとメールのハイブリッド運用を支援する機能を標準搭載。<Link href="/ec/column/ec-line-official-account-guide-2026" className="text-blue-600 underline">EC×LINE活用入門</Link>も合わせてご覧ください。</p>
+        <p className="mt-4">Lオペ for ECは、LINE配信の管理を一元化し、メールとの併用運用をサポートします。<Link href="/ec/column/ec-line-official-account-guide-2026" className="text-blue-600 underline">EC×LINE活用入門</Link>も合わせてご覧ください。</p>
       </section>
 
       <section id="faq">

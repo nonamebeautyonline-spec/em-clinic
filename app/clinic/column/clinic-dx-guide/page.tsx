@@ -25,7 +25,7 @@ const faqItems = [
   { q: "クリニックDXとは具体的に何ですか？", a: "クリニックDX（デジタルトランスフォーメーション）とは、紙の問診票や電話予約といったアナログ業務をデジタル化し、業務効率と患者体験を同時に向上させることです。LINE公式アカウントは最も手軽に始められるDXの入り口です。" },
   { q: "DXを始めるのに最適な順番は？", a: "①LINE公式アカウント開設 → ②オンライン予約導入 → ③Web問診導入 → ④セグメント配信開始の順がおすすめです。一度に全てを導入するより、段階的に進める方がスタッフの負荷も少なく定着しやすいです。" },
   { q: "DX化に反対するスタッフへの対応は？", a: "まずは一番業務負荷の高い作業（例：電話予約対応）を自動化し、効果を実感してもらうのが効果的です。トップダウンで強制するより、現場の課題解決からスタートする方がスムーズに浸透します。" },
-  { q: "電子カルテとLINEの連携は可能ですか？", a: "Lオペ for CLINICでは主要な電子カルテとの連携に対応しています。患者情報の自動連携により、二重入力を防ぎ、カルテ情報に基づいたセグメント配信も可能になります。" },
+  { q: "電子カルテとLINEの連携は可能ですか？", a: "Lオペ for CLINICではCSVエクスポートによるデータ連携に対応しており、貴院の既存システムに合わせた連携方法をご提案します。二重入力を防ぎ、業務効率を向上させることが可能です。" },
 ];
 
 /* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
@@ -188,6 +188,13 @@ export default function Page() {
         <DonutChart percentage={80} label="LINE開封率" sublabel="メール(20%)の4倍の到達力" />
 
         <p>Lオペ for CLINICは、この5ステップをすべてワンストップで実現できるクリニック専用プラットフォームです。各ステップで活用できる具体的な機能は<Link href="/clinic/features" className="text-sky-600 underline hover:text-sky-800">機能一覧ページ</Link>でご確認いただけます。電子カルテ・予約・問診・決済を含むDXの全体設計については<Link href="/clinic/column/clinic-dx-complete-guide" className="text-emerald-700 underline">クリニックDX完全ガイド</Link>もぜひご覧ください。DX導入のビフォーアフターを数値で見たい方は<Link href="/clinic/column/clinic-dx-before-after" className="text-sky-600 underline hover:text-sky-800">DX導入ビフォーアフター事例</Link>を、日常業務の具体的な変化は<Link href="/clinic/column/clinic-dx-daily-transformation" className="text-sky-600 underline hover:text-sky-800">DXで1日の業務がここまで変わる</Link>も参考になります。</p>
+        <p className="text-sm text-gray-600 mt-4">関連記事:</p>
+        <ul className="text-sm space-y-1 mt-1">
+          <li><Link href="/clinic/column/clinic-line-automation-complete" className="text-blue-600 underline">クリニックLINE自動化完全ガイド — 8つの業務を自動化して月40時間削減</Link></li>
+          <li><Link href="/clinic/column/clinic-line-questionnaire-complete" className="text-blue-600 underline">クリニックLINE問診完全ガイド — 受付業務を70%削減</Link></li>
+          <li><Link href="/clinic/column/clinic-line-revisit-guide" className="text-blue-600 underline">再来院率をLINEで向上させる7つの施策</Link></li>
+          <li><Link href="/clinic/column/line-doctor-alternative-guide" className="text-blue-600 underline">LINEドクター代替サービス7選</Link></li>
+        </ul>
       </section>
 
       <section id="faq">

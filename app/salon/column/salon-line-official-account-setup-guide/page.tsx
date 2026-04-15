@@ -60,7 +60,7 @@ export default function Page() {
         <StatGrid stats={[
           { value: "9,700万", unit: "人", label: "国内LINEユーザー数" },
           { value: "85%", label: "メッセージ開封率（メールの3倍以上）" },
-          { value: "70%", label: "サロン利用者がLINE予約を希望" },
+          { value: "多数", label: "サロン利用者がLINE予約を希望しているという声" },
         ]} />
 
         <Callout type="success" title="電話予約からLINE予約へ">
@@ -122,7 +122,7 @@ export default function Page() {
 
       <section>
         <h2 id="greeting-message" className="text-xl font-bold text-gray-800">あいさつメッセージの設定</h2>
-        <p>あいさつメッセージは友だち追加直後に自動送信されるメッセージです。<strong>開封率はほぼ100%</strong>のため、お客様の次のアクションにつなげる重要なタッチポイントです。</p>
+        <p>あいさつメッセージは友だち追加直後に自動送信されるメッセージです。<strong>開封率が非常に高い</strong>のため、お客様の次のアクションにつなげる重要なタッチポイントです。</p>
 
         <Callout type="success" title="効果的なあいさつメッセージの構成">
           <ol className="list-decimal pl-4 space-y-1 mt-1">

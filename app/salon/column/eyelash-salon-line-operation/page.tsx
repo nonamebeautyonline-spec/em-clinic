@@ -50,7 +50,7 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="まつげサロンLINE運用" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">まつげサロンは<strong>3〜4週間周期</strong>の定期来店が見込める業態です。この短い来店サイクルをLINEで確実にキャッチすることで、高いリピート率を維持できます。</p>
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">まつげサロンは<strong>3〜4週間周期</strong>の定期来店が見込める業態です。この短い来店サイクルをLINEでキャッチすることで、高いリピート率を維持できます。</p>
 
       <section>
         <h2 id="characteristics" className="text-xl font-bold text-gray-800">まつげサロンのLINE活用特性</h2>
@@ -131,7 +131,7 @@ export default function Page() {
           <li><strong>高頻度来店を活かしたスタンプカード</strong> — 年12回以上の来店で高回転</li>
           <li><strong>ケア情報の発信で信頼構築</strong> — 「長持ちさせる方法」が最も求められる情報</li>
         </ol>
-        <p className="mt-4">Lオペ for SALONは、まつげサロン向けのリペアリマインド自動化とデザインカタログ機能を搭載しています。</p>
+        <p className="mt-4">Lオペ for SALONでは、まつげサロン向けのリペアリマインド自動化に対応しています。リッチメニューやメッセージにデザイン写真を掲載し、カタログとして活用できます。</p>
       </section>
 
       <section id="faq">

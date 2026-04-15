@@ -209,6 +209,8 @@ export default function Page() {
         <p className="mt-4">KPIの管理方法は<Link href="/line/column/line-kpi-dashboard-analytics-guide" className="text-sky-600 underline hover:text-sky-800">LINE分析KPIダッシュボードガイド</Link>、友だち集めの具体的な手法は<Link href="/line/column/line-friends-collection-15-strategies" className="text-sky-600 underline hover:text-sky-800">友だち集め施策15選</Link>をご覧ください。</p>
       </section>
 
+      <p className="text-xs text-gray-400 mt-8 mb-2">※本記事の事例は、複数の導入実績をもとに再構成したものです。実際の効果はご利用状況により異なります。</p>
+
       <section id="faq">
         <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
         {faqItems.map((item, i) => (

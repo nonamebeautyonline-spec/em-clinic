@@ -27,6 +27,9 @@ const faqItems = [
   { q: "LINE公式アカウントの導入で患者からのクレームはありませんか？", a: "LINEは患者自身が友だち追加する仕組みのため、押し売り感がなくクレームはほぼありません。むしろ予約リマインドやフォローアップで『便利になった』という声が多いです。ブロック率を低く保つには月2〜4回の配信頻度が目安です。" },
   { q: "スタッフのITリテラシーが低くても運用できますか？", a: "クリニック専用ツールを使えばLINEの管理画面より直感的に操作できます。実際の事例でも、導入初月はサポートを受けながら、2ヶ月目以降はスタッフだけで運用できるケースがほとんどです。" },
   { q: "小規模クリニックでもLINE導入の効果はありますか？", a: "むしろ小規模クリニックほど効果を実感しやすいです。スタッフ数が少ない分、予約リマインド・問診自動送信・AI返信による業務削減のインパクトが大きく、受付1名分の工数を削減できた事例もあります。" },
+  { q: "LINE公式アカウントの月額費用はいくらですか？", a: "LINE公式アカウント自体は無料プラン（月200通まで）から利用可能です。クリニックの場合、友だち数500〜1,000人規模ではライトプラン（月額5,000円・月5,000通）で十分です。1,000人以上の場合はスタンダードプラン（月額15,000円・月30,000通）を推奨します。これにクリニック専用ツールの月額費用（1〜3万円程度）が加算されます。" },
+  { q: "開業前からLINE公式アカウントを準備すべきですか？", a: "はい、開業3ヶ月前からの準備を推奨します。開業前にアカウント開設・リッチメニュー設計・問診フォーム作成を済ませておけば、開院初日から新患の受付をLINEで自動化できます。内覧会の告知や予約受付にも活用でき、開院時点で友だち数100〜300人を確保した事例もあります。" },
+  { q: "既存の患者をLINE友だちに移行する方法は？", a: "最も効果的なのは来院時の声かけ＋院内QRコードの掲示です。受付・待合室・診察室にQRコードを設置し、友だち追加で次回予約が簡単にできることを伝えると、移行率は来院患者の30〜50%に達します。初回特典（次回予約の優先案内など）を付けるとさらに効果的です。3〜6ヶ月で既存患者の60%以上をLINE友だちに移行できます。" },
 ];
 
 /* FAQPage JSON-LD（Article JSON-LDはArticleLayoutで自動生成） */
@@ -43,11 +46,13 @@ const jsonLd = {
 const keyPoints = [
   "LINE公式アカウントを活用した5つのクリニック事例と具体的な成果",
   "予約管理・再診促進・問診自動化・決済連携・AI返信の実践例",
-  "クリニック専用ツールと汎用ツールの違い",
+  "クリニック専用ツールと汎用ツールの比較・選定ポイント",
+  "導入3ステップとROI（投資回収2〜3ヶ月）の数値根拠",
 ];
 
 const toc = [
   { id: "why-line", label: "なぜLINE公式アカウントが必要か" },
+  { id: "introduction-steps", label: "LINE公式アカウント導入の3ステップ" },
   { id: "line-effect", label: "LINE導入で何が変わるか" },
   { id: "case-1", label: "事例1: 問診→予約を完全自動化" },
   { id: "case-2", label: "事例2: セグメント配信で再診率向上" },
@@ -55,6 +60,8 @@ const toc = [
   { id: "case-4", label: "事例4: オンライン決済+配送" },
   { id: "case-5", label: "事例5: AI自動返信で24時間対応" },
   { id: "five-cases-comparison", label: "5事例の成果比較" },
+  { id: "tool-selection", label: "クリニック向けLINEツールの選び方" },
+  { id: "roi", label: "導入効果の数値まとめ — ROIの考え方" },
   { id: "summary", label: "まとめ" },
   { id: "faq", label: "よくある質問" },
 ];
@@ -96,6 +103,28 @@ export default function Page() {
         <p>しかし、多くのクリニックではLINE公式アカウントを開設しただけで活用しきれていないのが実情です。ツール選定で迷っている方は<Link href="/clinic/column/lstep-vs-clinic-tool" className="text-emerald-700 underline">Lステップ・Liny vs クリニック専用ツール比較</Link>も参考にしてください。ここでは、LINE公式アカウントを効果的に活用しているクリニックの事例を5つご紹介します。</p>
       </section>
 
+      {/* ── LINE公式アカウント導入の3ステップ ── */}
+      <section>
+        <h2 id="introduction-steps" className="text-xl font-bold text-gray-800">LINE公式アカウント導入の3ステップ</h2>
+        <p>「導入が難しそう」と感じるクリニックは多いですが、実際の工程はシンプルです。以下の3ステップで、最短2週間で運用開始できます。</p>
+
+        <FlowSteps steps={[
+          { title: "STEP1: アカウント開設（所要時間: 30分）", desc: "LINE公式アカウントを開設し、クリニック名・ロゴ・営業時間を設定。必要なものはメールアドレスとクリニック情報のみ。認証済みアカウントの申請もこの段階で行います。" },
+          { title: "STEP2: 初期設定（所要時間: 1〜3日）", desc: "リッチメニューのデザイン作成、あいさつメッセージの設定、問診フォームの作成、予約カレンダーとの連携を行います。クリニック専用ツールならテンプレートが用意されており、設定工数を大幅に短縮できます。" },
+          { title: "STEP3: 運用開始（所要時間: 1〜2週間）", desc: "院内にQRコードを掲示し、受付で友だち追加を案内。既存患者への告知と並行して自動応答・リマインドなどの自動化フローを段階的に有効化します。" },
+        ]} />
+
+        <Callout type="success" title="最短2週間で導入可能">
+          開業前のクリニックなら準備期間に組み込むことで、開院初日からLINE運用をスタートできます。詳しくは<Link href="/clinic/column/clinic-opening-line" className="text-emerald-700 underline">開業時のLINE公式アカウント準備ガイド</Link>をご覧ください。
+        </Callout>
+
+        <StatGrid stats={[
+          { value: "30", unit: "分", label: "アカウント開設" },
+          { value: "1〜3", unit: "日", label: "初期設定" },
+          { value: "2", unit: "週間", label: "運用安定まで" },
+        ]} />
+      </section>
+
       {/* ── LINE導入で何が変わるか ── */}
       <section>
         <h2 id="line-effect" className="text-xl font-bold text-gray-800">クリニックにLINEを導入すると何が変わるのか？</h2>
@@ -131,6 +160,8 @@ export default function Page() {
           metric="受付スタッフの電話対応時間を87%削減"
           description="新患の予約完了率も30%向上"
         />
+
+        <DonutChart percentage={87} label="電話対応87%削減" sublabel="1日2時間→15分に短縮" />
       </section>
 
       {/* ── 事例2 ── */}
@@ -178,6 +209,8 @@ export default function Page() {
 
         <ResultCard before="月30件" after="月6件" metric="無断キャンセルを80%削減" description="空き枠の稼働率向上で月間売上12%増加" />
 
+        <DonutChart percentage={80} label="無断キャンセル80%削減" sublabel="月30件→6件に改善" />
+
         <StatGrid stats={[
           { value: "80", unit: "%", label: "キャンセル削減" },
           { value: "12", unit: "%", label: "月間売上増加" },
@@ -203,6 +236,14 @@ export default function Page() {
         <h3 className="text-lg font-semibold text-gray-700 mt-4">成果</h3>
         <ResultCard before="決済完了率 65%" after="決済完了率 95%" metric="決済完了率30ポイント向上" description="未入金催促業務がほぼゼロに" />
 
+        <BarChart
+          data={[
+            { label: "銀行振込", value: 65, color: "bg-gray-300" },
+            { label: "LINE決済", value: 95, color: "bg-sky-500" },
+          ]}
+          unit="%"
+        />
+
         <p>オンライン決済の導入方法については<Link href="/clinic/column/clinic-payment-guide" className="text-sky-600 underline hover:text-sky-800">オンライン決済導入ガイド</Link>で詳しく解説しています。</p>
       </section>
 
@@ -223,6 +264,8 @@ export default function Page() {
 
         <h3 className="text-lg font-semibold text-gray-700 mt-4">成果</h3>
         <ResultCard before="夜間対応 0%" after="夜間対応 85%" metric="夜間問い合わせ即時対応率85%達成" />
+
+        <DonutChart percentage={85} label="夜間即時対応率85%" sublabel="導入前0%から劇的改善" />
 
         <p>AI自動返信の導入方法は<Link href="/clinic/column/ai-auto-reply-guide" className="text-sky-600 underline hover:text-sky-800">AI自動返信導入ガイド</Link>で詳しく解説しています。</p>
 
@@ -247,6 +290,73 @@ export default function Page() {
             ["AI自動返信", "皮膚科", "夜間対応0%", "夜間対応85%", "85%達成"],
           ]}
         />
+      </section>
+
+      {/* ── クリニック向けLINEツールの選び方 ── */}
+      <section>
+        <h2 id="tool-selection" className="text-xl font-bold text-gray-800">クリニック向けLINEツールの選び方</h2>
+        <p>LINE公式アカウントの運用ツールは大きく「汎用ツール」と「クリニック専用ツール」に分かれます。導入を検討する際は、クリニック業務に必要な機能が標準搭載されているかを確認することが重要です。</p>
+
+        <ComparisonTable
+          headers={["機能", "Lステップ", "Liny", "Lオペ for CLINIC", "L Message"]}
+          rows={[
+            ["予約管理", "△（外部連携）", "△（外部連携）", "◎（標準搭載）", "×"],
+            ["LINE問診", "△（カスタム構築）", "△（カスタム構築）", "◎（テンプレ付き）", "×"],
+            ["カルテ連携", "×", "×", "◎（標準搭載）", "×"],
+            ["オンライン決済", "×", "×", "◎（Square/GMO）", "×"],
+            ["配送管理", "×", "×", "◎（自動連携）", "×"],
+            ["AI自動返信", "×", "×", "◎（自動学習型）", "×"],
+            ["セグメント配信", "◎", "◎", "◎", "○"],
+            ["月額費用", "2,980円〜", "5,000円〜", "要問合せ", "無料〜"],
+          ]}
+        />
+
+        <h3 className="text-lg font-semibold text-gray-700 mt-6">ツール選定の3つのポイント</h3>
+        <ol className="list-decimal pl-6 space-y-3 text-[14px] text-gray-700 mt-3">
+          <li><strong>医療業務フローとの適合性</strong> — 予約・問診・カルテ・決済・配送がワンストップで完結するかを最重要視する。汎用ツールでは複数SaaSを組み合わせる必要があり、運用コストと連携障害リスクが増大します。</li>
+          <li><strong>導入サポートの有無</strong> — クリニック運営を理解したサポート体制があるか。初期設定テンプレート・リッチメニューデザインの提供有無で導入スピードが大きく変わります。</li>
+          <li><strong>総コストで比較する</strong> — 月額費用だけでなく、初期構築費用・外部連携の追加費用・カスタマイズ工数を含めたトータルコストで判断すること。安価な汎用ツールでも、カスタム構築費用を含めると専用ツールより高額になるケースが多いです。</li>
+        </ol>
+
+        <p className="mt-4">ツール比較の詳細は<Link href="/clinic/column/lstep-vs-clinic-tool" className="text-emerald-700 underline">Lステップ・Liny vs クリニック専用ツール徹底比較</Link>で解説しています。</p>
+      </section>
+
+      <InlineCTA />
+
+      {/* ── 導入効果の数値まとめ — ROIの考え方 ── */}
+      <section>
+        <h2 id="roi" className="text-xl font-bold text-gray-800">導入効果の数値まとめ — ROIの考え方</h2>
+        <p>LINE公式アカウント＋専用ツールの導入は「コスト」ではなく「投資」です。実際のクリニックのデータをもとに、投資回収の目安を示します。</p>
+
+        <StatGrid stats={[
+          { value: "3〜5", unit: "万円", label: "月額コスト目安" },
+          { value: "40", unit: "時間", label: "月間削減工数" },
+          { value: "2〜3", unit: "ヶ月", label: "投資回収期間" },
+        ]} />
+
+        <h3 className="text-lg font-semibold text-gray-700 mt-6">費用対効果の計算例（月間）</h3>
+        <ComparisonTable
+          headers={["項目", "金額", "内訳"]}
+          rows={[
+            ["投資コスト", "約5万円/月", "LINE公式: 5,000〜15,000円 + 専用ツール: 1〜3万円"],
+            ["人件費削減", "約15万円/月", "受付スタッフ工数 約40時間削減（時給1,500円×40h）"],
+            ["売上増加", "約20万円/月", "再診率向上+キャンセル削減+新患増加の合算"],
+            ["月間ROI", "+約30万円/月", "削減額+売上増 − 投資コスト"],
+          ]}
+        />
+
+        <BarChart
+          data={[
+            { label: "投資コスト", value: 5, color: "bg-red-400" },
+            { label: "人件費削減", value: 15, color: "bg-emerald-500" },
+            { label: "売上増加", value: 20, color: "bg-sky-500" },
+          ]}
+          unit="万円/月"
+        />
+
+        <Callout type="point" title="ROIは導入2〜3ヶ月目で黒字化">
+          初月は設定・運用定着の期間ですが、2ヶ月目以降は自動化の効果が本格化します。友だち数500人を超えるとセグメント配信の効果も顕在化し、ROIはさらに改善します。投資対効果の詳しい計算方法は<Link href="/clinic/column/clinic-line-roi" className="text-emerald-700 underline">クリニックLINE導入のROI計算ガイド</Link>をご覧ください。
+        </Callout>
       </section>
 
       {/* ── まとめ ── */}
@@ -274,6 +384,15 @@ export default function Page() {
         />
 
         <p>Lオペ for CLINICは、これら5つの事例で紹介した施策をすべて実現できるクリニック専用のLINE運用プラットフォームです。予約管理・セグメント配信・AI自動返信・決済連携など、搭載している<Link href="/clinic/features" className="text-sky-600 underline hover:text-sky-800">全機能の一覧はこちら</Link>でご確認いただけます。LINE運用の始め方から自動化まで体系的に知りたい方は<Link href="/clinic/column/line-operation-guide" className="text-emerald-700 underline">LINE公式アカウント運用完全ガイド</Link>をご覧ください。</p>
+        <p className="text-sm text-gray-600 mt-4">関連記事:</p>
+        <ul className="text-sm space-y-1 mt-1">
+          <li><Link href="/clinic/column/clinic-line-automation-complete" className="text-blue-600 underline">クリニックLINE自動化完全ガイド — 8つの業務を自動化して月40時間削減</Link></li>
+          <li><Link href="/clinic/column/clinic-line-revisit-guide" className="text-blue-600 underline">再来院率をLINEで向上させる7つの施策</Link></li>
+          <li><Link href="/clinic/column/clinic-line-questionnaire-complete" className="text-blue-600 underline">クリニックLINE問診完全ガイド — 受付業務を70%削減</Link></li>
+          <li><Link href="/clinic/column/line-doctor-alternative-guide" className="text-blue-600 underline">LINEドクター代替サービス7選 — 終了後の乗り換え先</Link></li>
+          <li><a href="/clinic/column/clinic-opening-line" className="text-blue-600 underline">開業時のLINE公式アカウント準備ガイド</a></li>
+          <li><a href="/clinic/column/clinic-line-roi" className="text-blue-600 underline">クリニックLINE導入のROI計算ガイド</a></li>
+        </ul>
       </section>
 
       <section id="faq">

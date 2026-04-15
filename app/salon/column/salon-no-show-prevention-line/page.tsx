@@ -51,7 +51,7 @@ export default function Page() {
     <ArticleLayout slug={self.slug} breadcrumbLabel="無断キャンセル防止" keyPoints={keyPoints} toc={toc}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">サロンの無断キャンセル（ノーショー）率は業界平均で<strong>8〜12%</strong>。月間予約200件のサロンなら<strong>毎月16〜24件の売上損失</strong>が発生しています。LINEの自動リマインドを活用すれば、来店率を95%以上に引き上げることが可能です。</p>
+      <p className="text-[15px] leading-relaxed text-gray-700 font-medium bg-blue-50 rounded-xl p-5 border border-blue-100">サロンの無断キャンセル（ノーショー）率は一般的に<strong>8〜12%と言われています</strong>。月間予約200件のサロンなら<strong>毎月16〜24件の売上損失</strong>が発生しています。LINEの自動リマインドを活用すれば、来店率を95%以上に引き上げることが可能です。</p>
 
       <section>
         <h2 id="cost-of-no-show" className="text-xl font-bold text-gray-800">無断キャンセルがサロンに与える損失</h2>
@@ -82,7 +82,7 @@ export default function Page() {
           ]}
         />
 
-        <p>LINEは到達率99%、確認率85%と他のリマインド手段を圧倒しています。お客様が日常的に開くアプリで通知が届くため、見逃しがほぼありません。</p>
+        <p>LINEは到達率99%、確認率85%と他のリマインド手段を圧倒しています。お客様が日常的に開くアプリで通知が届くため、見逃しが少なくなります。</p>
       </section>
 
       <section>
@@ -157,7 +157,7 @@ export default function Page() {
           <li><strong>キャンセルポリシーの明示が抑止力</strong> — 請求しなくても効果あり</li>
           <li><strong>キャンセル枠の再販売で損失を最小化</strong> — 空き通知＋直前割引の仕組み</li>
         </ol>
-        <p className="mt-4">Lオペ for SALONの自動リマインド機能は、予約確定→3日前→前日→当日のリマインドを完全自動化。無断キャンセルによる売上損失をゼロに近づけます。</p>
+        <p className="mt-4">Lオペ for SALONの自動リマインド機能は、予約確定→3日前→前日→当日のリマインドを完全自動化。無断キャンセルによる売上損失を大幅に削減できます。</p>
       </section>
 
       <section id="faq">

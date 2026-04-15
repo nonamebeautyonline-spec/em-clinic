@@ -184,6 +184,8 @@ export default function Page() {
         <p className="mt-4">Lオペ for SALONは、これらの成功パターンをテンプレート化。設定するだけで、成功サロンと同じ仕組みを自分のサロンに導入できます。</p>
       </section>
 
+      <p className="text-xs text-gray-400 mt-8 mb-2">※本記事の事例は、複数の導入実績をもとに再構成したものです。実際の効果はご利用状況により異なります。</p>
+
       <section id="faq">
         <h2 className="text-2xl font-bold mt-12 mb-6">よくある質問</h2>
         {faqItems.map((item, i) => (

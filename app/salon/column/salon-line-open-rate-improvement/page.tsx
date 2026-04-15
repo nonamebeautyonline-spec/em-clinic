@@ -140,7 +140,7 @@ export default function Page() {
           <li><strong>セグメント配信で開封率20ポイント改善</strong> — 「自分ごと」にすることが鍵</li>
           <li><strong>画像付き＋1アクション＋期限で行動を促す</strong> — 開封後の転換率を最大化</li>
         </ol>
-        <p className="mt-4">Lオペ for SALONは、配信時間の自動最適化とセグメント配信を標準搭載。開封率を最大化し、1通あたりの配信効果を高めます。</p>
+        <p className="mt-4">Lオペ for SALONでは、配信時間を変えながら効果を比較し、最適な時間帯を見つけることが推奨されます。セグメント配信機能で開封率を高め、1通あたりの配信効果を最大化できます。</p>
       </section>
 
       <section id="faq">

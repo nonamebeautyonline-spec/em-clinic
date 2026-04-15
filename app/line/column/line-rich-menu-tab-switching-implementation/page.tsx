@@ -59,7 +59,7 @@ export default function Page() {
 
         <StatGrid stats={[
           { value: "2〜3タブ", label: "推奨タブ数" },
-          { value: "+35%", label: "平均タップ率の向上" },
+          { value: "向上傾向", label: "タップ率が向上する傾向があります" },
           { value: "アプリ風", label: "実現できるUI体験" },
         ]} />
 
@@ -160,7 +160,7 @@ export default function Page() {
         <h3 className="text-lg font-semibold text-gray-700 mt-4">期間限定タブの追加</h3>
         <p>キャンペーン期間中だけ「SALE」タブを追加し、終了後に自動で通常メニューに戻す運用も可能です。期間限定感を演出しつつ、通常の導線を維持できます。</p>
 
-        <ResultCard before="固定6枠メニュー" after="タブ切り替え（2タブ×4枠）" metric="メニュー内の全アクション利用率" description="表示アクション数を8個に拡大しつつ、各アクションのタップ率が平均23%向上" />
+        <ResultCard before="固定6枠メニュー" after="タブ切り替え（2タブ×4枠）" metric="メニュー内の全アクション利用率" description="表示アクション数を8個に拡大しつつ、タップ率の向上が期待できます" />
       </section>
 
       <section>
@@ -168,7 +168,7 @@ export default function Page() {
 
         <StatGrid stats={[
           { value: "2〜3タブ", label: "推奨タブ数" },
-          { value: "+35%", label: "タップ率の向上" },
+          { value: "向上傾向", label: "タップ率の向上" },
           { value: "拡張ツール", label: "必要な環境" },
         ]} />
 
