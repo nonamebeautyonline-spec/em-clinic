@@ -21,6 +21,7 @@ interface ConsultationConfig {
   lineCallUrl: string;
   reorderRequiresReservation: boolean;
   karteMode: KarteMode;
+  phone050Dates: string[]; // "YYYY-MM-DD" 形式の050使用日リスト
 }
 
 const DEFAULT_CONFIG: ConsultationConfig = {
@@ -28,6 +29,7 @@ const DEFAULT_CONFIG: ConsultationConfig = {
   lineCallUrl: "",
   reorderRequiresReservation: false,
   karteMode: "reservation",
+  phone050Dates: [],
 };
 
 const CONSULTATION_TYPE_OPTIONS: { value: ConsultationType; label: string; description: string }[] = [
@@ -61,12 +63,15 @@ export default function ConsultationSection({ onToast }: ConsultationSectionProp
     if (!consultationData) return;
     if (consultationData.settings && typeof consultationData.settings === "object") {
       const s = consultationData.settings;
+      let phone050Dates: string[] = [];
+      try { phone050Dates = s.phone_050_dates ? JSON.parse(s.phone_050_dates) : []; } catch { /* */ }
       setConfig(prev => ({
         ...prev,
         type: (s.type || prev.type) as ConsultationType,
         lineCallUrl: s.line_call_url || prev.lineCallUrl,
         reorderRequiresReservation: s.reorder_requires_reservation === "true",
         karteMode: (s.karte_mode as KarteMode) || prev.karteMode,
+        phone050Dates,
       }));
     }
     setConfigInitialized(true);
@@ -101,6 +106,12 @@ export default function ConsultationSection({ onToast }: ConsultationSectionProp
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ category: "consultation", key: "karte_mode", value: config.karteMode }),
+        }),
+        fetch("/api/admin/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ category: "consultation", key: "phone_050_dates", value: JSON.stringify(config.phone050Dates) }),
         }),
       ];
       const results = await Promise.all(promises);
@@ -315,6 +326,73 @@ export default function ConsultationSection({ onToast }: ConsultationSectionProp
                 </p>
               </div>
             )}
+          </div>
+        </div>
+        {/* 050番号使用日の設定 */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h3 className="text-sm font-bold text-gray-800">050番号使用日</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              050端末を使用する診療日を指定します。指定日のリマインド・マイページは自動で「050-」表記になります
+            </p>
+          </div>
+          <div className="p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                id="phone050DateInput"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const input = document.getElementById("phone050DateInput") as HTMLInputElement;
+                  const val = input?.value;
+                  if (val && !config.phone050Dates.includes(val)) {
+                    setConfig(prev => ({
+                      ...prev,
+                      phone050Dates: [...prev.phone050Dates, val].sort(),
+                    }));
+                    input.value = "";
+                  }
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                追加
+              </button>
+            </div>
+            {config.phone050Dates.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {config.phone050Dates.map(date => (
+                  <span
+                    key={date}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-full text-sm font-medium text-amber-800"
+                  >
+                    {date.replace(/-/g, "/")}
+                    <button
+                      type="button"
+                      onClick={() => setConfig(prev => ({
+                        ...prev,
+                        phone050Dates: prev.phone050Dates.filter(d => d !== date),
+                      }))}
+                      className="text-amber-400 hover:text-amber-600 transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">050使用日は設定されていません（すべて090で表示）</p>
+            )}
+            <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+              <p className="text-xs text-blue-800 leading-relaxed">
+                指定した日付に予約がある患者のリマインドLINEとマイページの電話案内が「050-」表記になります。
+                それ以外の日は通常通り「090-」で表示されます。
+              </p>
+            </div>
           </div>
         </div>
       </div>

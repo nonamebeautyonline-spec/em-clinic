@@ -7,6 +7,7 @@ import { withTenant, tenantPayload } from "@/lib/tenant";
 import { pushMessage } from "@/lib/line-push";
 import { buildReminderFlex } from "@/lib/reservation-flex";
 import { notifyCronFailure } from "@/lib/notifications/cron-failure";
+import { getSetting } from "@/lib/settings";
 import {
   getJSTToday,
   addOneDay,
@@ -181,6 +182,11 @@ async function sendReminders(rule: ReminderRule, tenantId: string | null, target
 
 /** 未送信予約リストに対してメッセージを作成・送信する共通関数 */
 async function sendReminderMessages(rule: ReminderRule, tenantId: string | null, unsent: ReservationRow[]): Promise<number> {
+  // 050番号使用日リストを取得
+  const phone050DatesRaw = await getSetting("consultation", "phone_050_dates", tenantId ?? undefined);
+  let phone050Dates: string[] = [];
+  try { phone050Dates = phone050DatesRaw ? JSON.parse(phone050DatesRaw) : []; } catch { /* */ }
+
   // 患者のLINE UID取得
   const patientIds = [...new Set(unsent.map((r) => r.patient_id))];
   const { data: patients } = await withTenant(
@@ -215,11 +221,13 @@ async function sendReminderMessages(rule: ReminderRule, tenantId: string | null,
         return `${hhmm}〜${Math.floor(endTotal / 60)}:${String(endTotal % 60).padStart(2, "0")}`;
       })() : "";
       const formattedTime = formatReservationTime(reservation.reserved_date, reservation.reserved_time);
-      const text = (rule.message_template || buildReminderMessage(formattedTime))
+      const phonePrefix = phone050Dates.includes(reservation.reserved_date) ? "050" : "090";
+      const text = (rule.message_template || buildReminderMessage(formattedTime, phonePrefix))
         .replace(/\{name\}/g, patient.name || reservation.patient_name || "")
         .replace(/\{date\}/g, dateStr)
         .replace(/\{time\}/g, timeStr)
-        .replace(/\{patient_id\}/g, reservation.patient_id);
+        .replace(/\{patient_id\}/g, reservation.patient_id)
+        .replace(/\{phone_prefix\}/g, phonePrefix);
       messages = [{ type: "text", text }];
     }
     tasks.push({ reservation, patient, messages });

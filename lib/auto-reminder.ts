@@ -18,15 +18,17 @@ export function formatReservationTime(dateStr: string, timeStr: string): string 
 
 /**
  * 当日リマインドのテキストメッセージ本文を生成
+ * @param reservationTime 予約時間文字列
+ * @param phonePrefix 発信元番号プレフィックス（デフォルト "090"）
  */
-export function buildReminderMessage(reservationTime: string): string {
+export function buildReminderMessage(reservationTime: string, phonePrefix = "090"): string {
   return `本日、診療のご予約がございます。
 
 予約日時：${reservationTime}
 
 詳細につきましてはマイページよりご確認ください。
 
-診療は、予約時間枠の間に「090-」から始まる番号よりお電話いたします。
+診療は、予約時間枠の間に「${phonePrefix}-」から始まる番号よりお電話いたします。
 知らない番号からの着信を受け取れない設定になっている場合は、
 事前にご連絡いただけますと幸いです。
 

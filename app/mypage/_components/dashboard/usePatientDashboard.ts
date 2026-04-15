@@ -104,6 +104,7 @@ export function usePatientDashboard(): {
   const mpSections = useMemo(() => settingsData?.config?.sections ?? DEFAULT_MP_SECTIONS, [settingsData]);
   const mpContent = useMemo(() => settingsData?.config?.content ?? DEFAULT_MP_CONTENT, [settingsData]);
   const mpLabels = useMemo(() => settingsData?.config?.labels ?? DEFAULT_MP_LABELS, [settingsData]);
+  const phone050Dates: string[] = useMemo(() => settingsData?.consultation?.phone050Dates ?? [], [settingsData]);
   const reorderRequiresReservation = settingsData?.consultation?.reorderRequiresReservation ?? false;
 
   const showToast = useCallback((msg: string) => {
@@ -550,6 +551,7 @@ export function usePatientDashboard(): {
         setSelectedFieldId: handleSetSelectedFieldId,
         intakeByField,
         fieldConfigs,
+        phone050Dates,
         displayReorder,
         displayReorderStatus,
       }

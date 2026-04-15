@@ -60,6 +60,7 @@ const TEMPLATE_VARS = [
   { var: "{date}", desc: "予約日" },
   { var: "{time}", desc: "予約時刻" },
   { var: "{patient_id}", desc: "患者ID" },
+  { var: "{phone_prefix}", desc: "発信番号プレフィックス（診察設定で切替）" },
 ];
 
 const DEFAULT_TEMPLATE = `{name}様
@@ -79,7 +80,7 @@ const DEFAULT_MORNING_TEMPLATE = `{name}様
 
 詳細につきましてはマイページよりご確認ください。
 
-診療は、予約時間枠の間に「090-」から始まる番号よりお電話いたします。
+診療は、予約時間枠の間に「{phone_prefix}-」から始まる番号よりお電話いたします。
 知らない番号からの着信を受け取れない設定になっている場合は、
 事前にご連絡いただけますと幸いです。
 

@@ -74,6 +74,7 @@ const SETTING_DEFINITIONS: Record<SettingCategory, SettingDef[]> = {
     { key: "line_call_url", label: "LINEコールURL", sensitive: false },
     { key: "reorder_requires_reservation", label: "再処方時に予約必須", sensitive: false },
     { key: "karte_mode", label: "カルテモード (reservation / intake_completion)", sensitive: false },
+    { key: "phone_050_dates", label: "050番号使用日（JSON日付配列）", sensitive: false },
   ],
   notification: [
     { key: "cron_slack_webhook_url", label: "Cron通知 Slack Webhook URL" },

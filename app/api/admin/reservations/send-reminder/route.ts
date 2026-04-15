@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
 import { formatReservationTime, buildReminderMessage } from "@/lib/auto-reminder";
+import { getSetting } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
 import { sendReminderSchema } from "@/lib/validations/admin-operations";
 import { checkIdempotency } from "@/lib/idempotency";
@@ -66,7 +67,13 @@ export async function GET(req: NextRequest) {
   if (!date) return badRequest("date required");
 
   try {
-    const targets = await getTargetPatients(date, tenantId);
+    const [targets, phone050DatesRaw] = await Promise.all([
+      getTargetPatients(date, tenantId),
+      getSetting("consultation", "phone_050_dates", tenantId ?? undefined),
+    ]);
+    let phone050Dates: string[] = [];
+    try { phone050Dates = phone050DatesRaw ? JSON.parse(phone050DatesRaw) : []; } catch { /* */ }
+    const phonePrefix = phone050Dates.includes(date) ? "050" : "090";
 
     const patients = targets.map((p) => ({
       patient_id: p.patient_id,
@@ -81,7 +88,7 @@ export async function GET(req: NextRequest) {
 
     // サンプルメッセージ（最初の患者の時間で生成）
     const sampleTime = sendable.length > 0 ? sendable[0].formatted_time : formatReservationTime(date, "13:00:00");
-    const sampleMessage = buildReminderMessage(sampleTime);
+    const sampleMessage = buildReminderMessage(sampleTime, phonePrefix);
 
     return NextResponse.json({
       patients,
@@ -120,7 +127,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const targets = await getTargetPatients(date, tenantId);
+    const [targets, phone050DatesRaw] = await Promise.all([
+      getTargetPatients(date, tenantId),
+      getSetting("consultation", "phone_050_dates", tenantId ?? undefined),
+    ]);
+    let phone050Dates: string[] = [];
+    try { phone050Dates = phone050DatesRaw ? JSON.parse(phone050DatesRaw) : []; } catch { /* */ }
+    const phonePrefix = phone050Dates.includes(date) ? "050" : "090";
 
     // テストモード: 管理者（PID: 20251200128）にサンプルメッセージを送信
     // 当日の予約がなくても送信可能
@@ -176,7 +189,7 @@ export async function POST(req: NextRequest) {
       const formattedTime = patient.reserved_time
         ? formatReservationTime(date, patient.reserved_time)
         : "";
-      const message = buildReminderMessage(formattedTime);
+      const message = buildReminderMessage(formattedTime, phonePrefix);
 
       try {
         const pushRes = await pushMessage(patient.line_id, [{

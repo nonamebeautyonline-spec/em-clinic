@@ -10,15 +10,21 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const tenantId = resolveTenantIdOrThrow(req);
   const tid = tenantId ?? undefined;
-  const [config, reorderRequiresReservation, shippingConfig] = await Promise.all([
+  const [config, reorderRequiresReservation, phone050DatesRaw, shippingConfig] = await Promise.all([
     getMypageConfig(tid),
     getSetting("consultation", "reorder_requires_reservation", tid),
+    getSetting("consultation", "phone_050_dates", tid),
     getShippingConfig(tid),
   ]);
+  let phone050Dates: string[] = [];
+  try { phone050Dates = phone050DatesRaw ? JSON.parse(phone050DatesRaw) : []; } catch { /* */ }
   return NextResponse.json(
     {
       config,
-      consultation: { reorderRequiresReservation: reorderRequiresReservation === "true" },
+      consultation: {
+        reorderRequiresReservation: reorderRequiresReservation === "true",
+        phone050Dates,
+      },
       shippingOptions: shippingConfig.options,
     },
     {

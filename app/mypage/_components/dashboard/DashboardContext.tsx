@@ -74,6 +74,9 @@ export interface DashboardContextValue {
   intakeByField: Record<string, boolean>;
   fieldConfigs: Record<string, { intake_frequency: string; purchase_flow: string; show_in_reorder: boolean }>;
 
+  // 050番号使用日リスト
+  phone050Dates: string[];
+
   // 導出値
   displayReorder: ReorderItem | null;
   displayReorderStatus: "pending" | "confirmed" | undefined;
