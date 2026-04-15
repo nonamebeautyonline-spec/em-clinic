@@ -238,6 +238,7 @@ export function usePatientDashboard(): {
       finalData = {
         patient: {
           id: api.patient?.id || patient.id,
+          pid: api.patient?.pid || patient.pid,
           displayName: api.patient?.displayName || patient.displayName,
         },
         nextReservation:

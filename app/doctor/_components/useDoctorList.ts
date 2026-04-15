@@ -58,7 +58,7 @@ export function useDoctorList() {
         toIso = toDate.toISOString().slice(0, 10);
       }
 
-      const r = await fetch(`/api/intake/list?from=${fromIso}&to=${toIso}`, {
+      const r = await fetch(`/api/doctor/intake-list?from=${fromIso}&to=${toIso}`, {
         cache: "no-store",
       });
       const res = await r.json();
@@ -139,7 +139,7 @@ export function useDoctorList() {
 
   // 診察モード取得（LINE通話フォームボタン表示制御）
   const { data: consultationData } = useSWR(
-    "/api/admin/settings?category=consultation",
+    "/api/doctor/settings?category=consultation",
     swrFetcher,
     { revalidateOnFocus: false }
   );
