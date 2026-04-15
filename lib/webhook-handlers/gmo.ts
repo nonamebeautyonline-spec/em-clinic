@@ -153,6 +153,7 @@ export async function processGmoEvent(params: GmoHandlerParams): Promise<void> {
         );
 
         if (existingOrder) {
+          // gmo/payで既にINSERT済みの場合、paid_atは上書きしない（決済完了時刻を保持）
           const { error } = await withTenant(
             supabaseAdmin
               .from("orders")
@@ -161,7 +162,6 @@ export async function processGmoEvent(params: GmoHandlerParams): Promise<void> {
                 product_code: productCode || null,
                 product_name: productName || null,
                 amount: amountNum,
-                paid_at: paidAt,
                 payment_status: "COMPLETED",
                 payment_method: "credit_card",
                 status: "confirmed",
