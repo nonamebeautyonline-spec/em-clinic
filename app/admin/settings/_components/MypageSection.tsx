@@ -472,6 +472,7 @@ export default function MypageSection({ onToast }: Props) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">電話案内文言</label>
                 <textarea value={config.labels.phoneNotice} onChange={(e) => updateLabel("phoneNotice", e.target.value)}
                   rows={3} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none" />
+                <p className="mt-1 text-xs text-gray-400"><code className="bg-gray-100 px-1 rounded">{"{phone_prefix}"}</code> で発信番号プレフィックス（090/050）を動的に表示できます</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">予約変更・キャンセル注記</label>

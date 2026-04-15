@@ -87,11 +87,12 @@ export function ReservationSection() {
           </div>
 
           <p className="mt-2 text-xs text-slate-600 leading-relaxed whitespace-pre-line">
-            {mpLabels.phoneNotice || (() => {
-              // phoneNotice未設定時は予約日に基づいてデフォルト文言を自動生成
+            {(() => {
               const reservedDate = (nextReservation.datetime || "").split(/[T ]/)[0];
               const prefix = phone050Dates.includes(reservedDate) ? "050" : "090";
-              return `診療は、予約時間枠の間に「${prefix}-」から始まる番号よりお電話いたします。\n知らない番号からの着信を受け取れない設定になっている場合は、事前にご連絡いただけますと幸いです。`;
+              const notice = mpLabels.phoneNotice
+                || `診療は、予約時間枠の間に「${prefix}-」から始まる番号よりお電話いたします。\n知らない番号からの着信を受け取れない設定になっている場合は、事前にご連絡いただけますと幸いです。`;
+              return notice.replace(/\{phone_prefix\}/g, prefix);
             })()}
           </p>
 
