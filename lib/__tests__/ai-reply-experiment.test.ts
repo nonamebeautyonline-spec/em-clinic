@@ -23,6 +23,8 @@ import {
   selectVariant,
   generateSuggestion,
   getRunningExperiment,
+  assignDraftToExperiment,
+  aggregateExperimentResults,
   type Experiment,
 } from "@/lib/ai-reply-experiment";
 
@@ -180,5 +182,125 @@ describe("getRunningExperiment", () => {
 
     const result = await getRunningExperiment("tenant-1");
     expect(result).toBeNull();
+  });
+});
+
+// ── assignDraftToExperiment ──
+
+describe("assignDraftToExperiment", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("ドラフトを実験に割り当てる（エラーなく完了する）", async () => {
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    // insert が Promise を返すようにモック
+    vi.mocked(supabaseAdmin.from).mockReturnValueOnce({
+      ...mockQueryBuilder,
+      insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+    } as any);
+
+    await assignDraftToExperiment({
+      tenantId: "tenant-1",
+      draftId: 100,
+      experimentId: 1,
+      variantKey: "control",
+    });
+
+    expect(supabaseAdmin.from).toHaveBeenCalled();
+  });
+
+  it("エラーが発生してもクラッシュしない", async () => {
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementationOnce(() => {
+      throw new Error("DB error");
+    });
+
+    // 例外がthrowされない
+    await expect(
+      assignDraftToExperiment({
+        tenantId: "tenant-1",
+        draftId: 100,
+        experimentId: 1,
+        variantKey: "variant",
+      })
+    ).resolves.toBeUndefined();
+  });
+});
+
+// ── aggregateExperimentResults ──
+
+describe("aggregateExperimentResults", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("割当なしの場合、空のstatsを返す", async () => {
+    const { strictWithTenant } = await import("@/lib/tenant");
+    vi.mocked(strictWithTenant).mockResolvedValueOnce({ data: [], error: null } as any);
+
+    const result = await aggregateExperimentResults(1, "tenant-1");
+    expect(result.control.total).toBe(0);
+    expect(result.variant.total).toBe(0);
+  });
+
+  it("割当がある場合、control/variant別のstatsを計算する", async () => {
+    const { strictWithTenant } = await import("@/lib/tenant");
+
+    // 割当取得
+    vi.mocked(strictWithTenant).mockResolvedValueOnce({
+      data: [
+        { draft_id: 1, variant_key: "control" },
+        { draft_id: 2, variant_key: "variant" },
+        { draft_id: 3, variant_key: "control" },
+      ],
+      error: null,
+    } as any);
+
+    // calculateVariantStats: control
+    vi.mocked(strictWithTenant).mockResolvedValueOnce({
+      data: [
+        { status: "sent", confidence: 0.9, input_tokens: 100, output_tokens: 50 },
+        { status: "rejected", confidence: 0.3, input_tokens: 120, output_tokens: 60 },
+      ],
+      error: null,
+    } as any);
+
+    // calculateVariantStats: variant
+    vi.mocked(strictWithTenant).mockResolvedValueOnce({
+      data: [
+        { status: "sent", confidence: 0.8, input_tokens: 200, output_tokens: 100 },
+      ],
+      error: null,
+    } as any);
+
+    const result = await aggregateExperimentResults(1, "tenant-1");
+    expect(result.control.total).toBe(2);
+    expect(result.control.sent).toBe(1);
+    expect(result.control.rejected).toBe(1);
+    expect(result.variant.total).toBe(1);
+    expect(result.variant.sent).toBe(1);
+  });
+});
+
+// ── generateSuggestion: 追加分岐テスト ──
+
+describe("generateSuggestion（追加分岐）", () => {
+  it("variantが承認率5%超だが信頼度が同等以下→有意差なしメッセージ", () => {
+    const control = makeStats({ total: 20, approvalRate: 50, avgConfidence: 0.8 });
+    const variant = makeStats({ total: 20, approvalRate: 56, avgConfidence: 0.7 });
+    const result = generateSuggestion(control, variant);
+    // approvalDiff > 5 だが confidenceDiff <= 0 なので variant推奨にはならない
+    // approvalDiff > 5 なので control維持推奨でもない
+    // → 有意差なし
+    expect(result).toContain("有意差なし");
+  });
+
+  it("controlとvariantが完全同一のapprovalRate", () => {
+    const control = makeStats({ total: 20, approvalRate: 50 });
+    const variant = makeStats({ total: 20, approvalRate: 50 });
+    const result = generateSuggestion(control, variant);
+    expect(result).toContain("有意差なし");
+    expect(result).toContain("0.0%");
   });
 });

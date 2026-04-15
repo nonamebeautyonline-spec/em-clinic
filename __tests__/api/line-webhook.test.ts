@@ -98,6 +98,28 @@ vi.mock("@/lib/ai-reply", () => ({
   sendAiReply: vi.fn().mockResolvedValue(undefined),
   processAiReply: vi.fn().mockResolvedValue(undefined),
   clearAiReplyDebounce: vi.fn().mockResolvedValue(undefined),
+  rescheduleAiReply: vi.fn().mockResolvedValue(undefined),
+}));
+
+// 分散ロック
+vi.mock("@/lib/distributed-lock", () => ({
+  acquireLock: vi.fn().mockResolvedValue({ acquired: true, release: vi.fn() }),
+}));
+
+// タグ自動ルール
+vi.mock("@/lib/tag-auto-rules", () => ({
+  evaluateTagAutoRules: vi.fn().mockResolvedValue(undefined),
+}));
+
+// イベントバス
+vi.mock("@/lib/event-bus", () => ({
+  fireEvent: vi.fn().mockResolvedValue(undefined),
+}));
+
+// SALON予約ハンドラー
+vi.mock("@/lib/salon-reservation-handler", () => ({
+  handleSalonReservationMessage: vi.fn().mockResolvedValue(false),
+  handleSalonReservationPostback: vi.fn().mockResolvedValue(false),
 }));
 
 // webhook-tenant-resolver: テナント逆引き（テスト用にデフォルトテナントIDを返す）
@@ -122,9 +144,9 @@ vi.mock("@/lib/notifications/webhook-failure", () => ({
   notifyWebhookFailure: vi.fn().mockResolvedValue(undefined),
 }));
 
-// 営業時間チェック
+// 営業時間チェック（実装は { withinHours, outsideMessage } を返す）
 vi.mock("@/lib/business-hours", () => ({
-  isWithinBusinessHours: vi.fn().mockReturnValue(true),
+  isWithinBusinessHours: vi.fn().mockResolvedValue({ withinHours: true, outsideMessage: null }),
 }));
 
 // Flexメッセージサニタイズ
@@ -159,7 +181,8 @@ vi.stubGlobal("fetch", mockFetch);
 import { POST } from "@/app/api/line/webhook/route";
 import { pushMessage } from "@/lib/line-push";
 import { checkFollowTriggerScenarios, exitAllStepEnrollments, checkKeywordTriggerScenarios } from "@/lib/step-enrollment";
-import { scheduleAiReply, sendAiReply } from "@/lib/ai-reply";
+import { scheduleAiReply, processAiReply, sendAiReply } from "@/lib/ai-reply";
+import { resolveLineTenantBySignature } from "@/lib/webhook-tenant-resolver";
 import { NextRequest } from "next/server";
 
 // テスト用 LINE チャネルシークレット
@@ -228,8 +251,8 @@ describe("LINE Webhook POST API", () => {
 
   // ===== 署名検証 =====
   describe("署名検証", () => {
-    it("LINE_CHANNEL_SECRET未設定で500を返す", async () => {
-      delete process.env.LINE_MESSAGING_API_CHANNEL_SECRET;
+    it("テナント解決不可で401を返す（resolveLineTenantBySignatureがnull）", async () => {
+      vi.mocked(resolveLineTenantBySignature).mockResolvedValueOnce(null);
       const body = JSON.stringify({ events: [] });
       const req = new NextRequest("http://localhost:3000/api/line/webhook", {
         method: "POST",
@@ -237,12 +260,13 @@ describe("LINE Webhook POST API", () => {
         body,
       });
       const res = await POST(req);
-      expect(res.status).toBe(500);
+      expect(res.status).toBe(401);
       const json = await res.json();
-      expect(json.error).toBe("LINE_CHANNEL_SECRET missing");
+      expect(json.error).toBe("invalid signature");
     });
 
-    it("不正な署名で401を返す", async () => {
+    it("不正な署名で401を返す（テナント逆引き失敗）", async () => {
+      vi.mocked(resolveLineTenantBySignature).mockResolvedValueOnce(null);
       const body = JSON.stringify({ events: [] });
       const req = new NextRequest("http://localhost:3000/api/line/webhook", {
         method: "POST",
@@ -446,13 +470,9 @@ describe("LINE Webhook POST API", () => {
       tableChains["keyword_auto_replies"] = createChain({ data: [], error: null });
 
       await POST(makeWebhookReq({ events: [messageEvent()] }));
-      expect(scheduleAiReply).toHaveBeenCalledWith(
-        "U1234567890",
-        "p001",
-        "テスト",
-        "こんにちは",
-        "00000000-0000-0000-0000-000000000001",
-      );
+      // AI返信はpendingAiReplyTargetsに蓄積 → after()で処理される
+      const { after } = await import("next/server");
+      expect(after).toHaveBeenCalled();
     });
 
     it("スタンプメッセージのログ記録", async () => {
@@ -1116,8 +1136,9 @@ describe("LINE Webhook POST API", () => {
 
       await POST(makeWebhookReq({ events: [messageEvent("U1234567890", { type: "text", text: "特典" })] }));
       // 条件不一致のためキーワード返信は実行されない
-      // AI返信が代わりにスケジュールされる
-      expect(scheduleAiReply).toHaveBeenCalled();
+      // AI返信がpendingAiReplyTargetsに蓄積 → after()で処理される
+      const { after } = await import("next/server");
+      expect(after).toHaveBeenCalled();
     });
   });
 

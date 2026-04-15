@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError } from "@/lib/api-error";
 import twilio from "twilio";
 import { getSettingOrEnv } from "@/lib/settings";
-import { resolveTenantId } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { verifyCheckSchema } from "@/lib/validations/patient";
 

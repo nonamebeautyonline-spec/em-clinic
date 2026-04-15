@@ -312,4 +312,371 @@ describe("chatbot-engine", () => {
       expect(result).toBeNull();
     });
   });
+
+  /* ---------- processUserInput 追加分岐テスト ---------- */
+
+  describe("processUserInput - conditionノード", () => {
+    it("condition評価で条件一致した場合、対応するnext_nodeに遷移する", async () => {
+      let callCount = 0;
+      mockFrom.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          // セッション取得
+          return createMockChain({
+            id: "session-1",
+            patient_id: "p1",
+            current_node_id: "cond-node",
+            completed_at: null,
+            context: { answer_q1: "yes" },
+          });
+        } else if (callCount === 2) {
+          // 現在ノード（condition）
+          return createMockChain({
+            id: "cond-node",
+            node_type: "condition",
+            data: {
+              conditions: [
+                { field: "answer_q1", operator: "eq", value: "yes", next_node_id: "yes-msg" },
+              ],
+              default_next_node_id: "default-msg",
+            },
+            next_node_id: null,
+          });
+        } else if (callCount === 3) {
+          // advanceToNextInteractiveNode: 次ノード
+          return createMockChain({
+            id: "yes-msg",
+            node_type: "message",
+            data: { text: "はいを選択しました" },
+            next_node_id: null,
+          });
+        } else {
+          // セッション更新
+          return createMockChain(null);
+        }
+      });
+
+      const result = await processUserInput("session-1", "dummy");
+      expect(result?.text).toBe("はいを選択しました");
+    });
+
+    it("condition評価でマッチしない場合、default_next_node_idに遷移する", async () => {
+      let callCount = 0;
+      mockFrom.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return createMockChain({
+            id: "session-1",
+            patient_id: "p1",
+            current_node_id: "cond-node",
+            completed_at: null,
+            context: { answer_q1: "maybe" },
+          });
+        } else if (callCount === 2) {
+          return createMockChain({
+            id: "cond-node",
+            node_type: "condition",
+            data: {
+              conditions: [
+                { field: "answer_q1", operator: "eq", value: "yes", next_node_id: "yes-msg" },
+              ],
+              default_next_node_id: "default-msg",
+            },
+            next_node_id: null,
+          });
+        } else if (callCount === 3) {
+          return createMockChain({
+            id: "default-msg",
+            node_type: "message",
+            data: { text: "デフォルトの応答" },
+            next_node_id: null,
+          });
+        } else {
+          return createMockChain(null);
+        }
+      });
+
+      const result = await processUserInput("session-1", "dummy");
+      expect(result?.text).toBe("デフォルトの応答");
+    });
+  });
+
+  describe("processUserInput - actionノード", () => {
+    it("actionノードでtag_addが実行され、次ノードに進む", async () => {
+      let callCount = 0;
+      mockFrom.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return createMockChain({
+            id: "session-1",
+            patient_id: "p1",
+            current_node_id: "action-node",
+            completed_at: null,
+            context: {},
+          });
+        } else if (callCount === 2) {
+          return createMockChain({
+            id: "action-node",
+            node_type: "action",
+            data: { action_type: "tag_add", tag_id: "tag-1" },
+            next_node_id: "next-msg",
+          });
+        } else if (callCount === 3) {
+          // tag_add upsert
+          return createMockChain(null);
+        } else if (callCount === 4) {
+          // advanceToNextInteractiveNode: 次ノード（message）
+          return createMockChain({
+            id: "next-msg",
+            node_type: "message",
+            data: { text: "タグ追加後" },
+            next_node_id: null,
+          });
+        } else {
+          return createMockChain(null);
+        }
+      });
+
+      const result = await processUserInput("session-1", "dummy");
+      expect(result?.text).toBe("タグ追加後");
+    });
+
+    it("actionノード（api_call）でfetchが呼ばれる", async () => {
+      let callCount = 0;
+      mockFrom.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return createMockChain({
+            id: "session-1",
+            patient_id: "p1",
+            current_node_id: "api-node",
+            completed_at: null,
+            context: {},
+          });
+        } else if (callCount === 2) {
+          return createMockChain({
+            id: "api-node",
+            node_type: "action",
+            data: { action_type: "api_call", api_url: "https://example.com/hook" },
+            next_node_id: null,
+          });
+        } else {
+          // セッション完了（next_node_idがnull）
+          return createMockChain(null);
+        }
+      });
+
+      await processUserInput("session-1", "dummy");
+      expect(mockFetch).toHaveBeenCalledWith("https://example.com/hook", expect.objectContaining({
+        method: "POST",
+      }));
+    });
+  });
+
+  describe("processUserInput - messageノード（next_nodeへ遷移）", () => {
+    it("messageノードはそのままnext_node_idへ遷移する", async () => {
+      let callCount = 0;
+      mockFrom.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return createMockChain({
+            id: "session-1",
+            patient_id: "p1",
+            current_node_id: "msg-node",
+            completed_at: null,
+            context: {},
+          });
+        } else if (callCount === 2) {
+          return createMockChain({
+            id: "msg-node",
+            node_type: "message",
+            data: { text: "最初のメッセージ" },
+            next_node_id: "next-q",
+          });
+        } else if (callCount === 3) {
+          // advanceToNextInteractiveNode: 次のquestionノード
+          return createMockChain({
+            id: "next-q",
+            node_type: "question",
+            data: { question_text: "次の質問", buttons: [{ label: "A", value: "a" }] },
+            next_node_id: null,
+          });
+        } else {
+          return createMockChain(null);
+        }
+      });
+
+      const result = await processUserInput("session-1", "dummy");
+      expect(result?.type).toBe("question");
+      expect(result?.text).toBe("次の質問");
+    });
+  });
+
+  describe("processUserInput - セッション完了", () => {
+    it("次ノードがない場合、セッションが完了しnullを返す", async () => {
+      let callCount = 0;
+      mockFrom.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return createMockChain({
+            id: "session-1",
+            patient_id: "p1",
+            current_node_id: "last-msg",
+            completed_at: null,
+            context: {},
+          });
+        } else if (callCount === 2) {
+          return createMockChain({
+            id: "last-msg",
+            node_type: "message",
+            data: { text: "最後です" },
+            next_node_id: null,
+          });
+        } else {
+          // セッション完了更新
+          return createMockChain(null);
+        }
+      });
+
+      const result = await processUserInput("session-1", "dummy");
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("processUserInput - questionノードのlabelマッチ", () => {
+    it("labelでもマッチして次ノードに遷移する", async () => {
+      let callCount = 0;
+      mockFrom.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return createMockChain({
+            id: "session-1",
+            patient_id: "p1",
+            current_node_id: "q-node",
+            completed_at: null,
+            context: {},
+          });
+        } else if (callCount === 2) {
+          return createMockChain({
+            id: "q-node",
+            node_type: "question",
+            data: {
+              question_text: "選んで",
+              buttons: [{ label: "はい", value: "yes", next_node_id: "yes-msg" }],
+            },
+            next_node_id: "default-msg",
+          });
+        } else if (callCount === 3) {
+          // context更新
+          return createMockChain(null);
+        } else if (callCount === 4) {
+          return createMockChain({
+            id: "yes-msg",
+            node_type: "message",
+            data: { text: "はいですね" },
+            next_node_id: null,
+          });
+        } else {
+          return createMockChain(null);
+        }
+      });
+
+      // labelの「はい」でマッチ
+      const result = await processUserInput("session-1", "はい");
+      expect(result?.text).toBe("はいですね");
+    });
+  });
+
+  /* ---------- findScenarioByKeyword 追加 ---------- */
+
+  describe("findScenarioByKeyword - trigger_keywordがnullのシナリオ", () => {
+    it("trigger_keywordがnullのシナリオはスキップされる", async () => {
+      const scenarios = [
+        { id: "s1", name: "案内", trigger_keyword: null },
+        { id: "s2", name: "予約案内", trigger_keyword: "予約" },
+      ];
+      mockFrom.mockReturnValue(createMockChain(scenarios));
+
+      const result = await findScenarioByKeyword("予約", "tenant-1");
+      expect(result?.id).toBe("s2");
+    });
+  });
+
+  /* ---------- condition演算子テスト ---------- */
+
+  describe("processUserInput - condition演算子（contains, neq, gt, lt）", () => {
+    function setupConditionTest(operator: string, value: string, fieldValue: string) {
+      let callCount = 0;
+      mockFrom.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return createMockChain({
+            id: "session-1",
+            patient_id: "p1",
+            current_node_id: "cond-node",
+            completed_at: null,
+            context: { field1: fieldValue },
+          });
+        } else if (callCount === 2) {
+          return createMockChain({
+            id: "cond-node",
+            node_type: "condition",
+            data: {
+              conditions: [
+                { field: "field1", operator, value, next_node_id: "matched-msg" },
+              ],
+              default_next_node_id: "default-msg",
+            },
+            next_node_id: null,
+          });
+        } else if (callCount === 3) {
+          return createMockChain({
+            id: "matched-msg",
+            node_type: "message",
+            data: { text: "マッチ" },
+            next_node_id: null,
+          });
+        } else if (callCount === 4) {
+          return createMockChain({
+            id: "default-msg",
+            node_type: "message",
+            data: { text: "デフォルト" },
+            next_node_id: null,
+          });
+        } else {
+          return createMockChain(null);
+        }
+      });
+    }
+
+    it("contains: フィールドに値が含まれる場合マッチ", async () => {
+      setupConditionTest("contains", "hello", "say hello world");
+      const result = await processUserInput("session-1", "dummy");
+      expect(result?.text).toBe("マッチ");
+    });
+
+    it("not_contains: フィールドに値が含まれない場合マッチ", async () => {
+      setupConditionTest("not_contains", "goodbye", "say hello world");
+      const result = await processUserInput("session-1", "dummy");
+      expect(result?.text).toBe("マッチ");
+    });
+
+    it("neq: フィールドが値と異なる場合マッチ", async () => {
+      setupConditionTest("neq", "no", "yes");
+      const result = await processUserInput("session-1", "dummy");
+      expect(result?.text).toBe("マッチ");
+    });
+
+    it("gt: フィールドが値より大きい場合マッチ", async () => {
+      setupConditionTest("gt", "5", "10");
+      const result = await processUserInput("session-1", "dummy");
+      expect(result?.text).toBe("マッチ");
+    });
+
+    it("lt: フィールドが値より小さい場合マッチ", async () => {
+      setupConditionTest("lt", "10", "5");
+      const result = await processUserInput("session-1", "dummy");
+      expect(result?.text).toBe("マッチ");
+    });
+  });
 });

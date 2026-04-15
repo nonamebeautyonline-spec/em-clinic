@@ -213,4 +213,81 @@ describe("reservation-flex: sendReservationNotification", () => {
       }),
     );
   });
+
+  it("tenantId付きで送信した場合、tenantPayloadが使われる", async () => {
+    mockPushMessage.mockResolvedValue({ ok: true });
+
+    const { sendReservationNotification } = await import("@/lib/reservation-flex");
+
+    await sendReservationNotification({
+      patientId: "p-004",
+      lineUid: "U004",
+      flex: baseFlex,
+      messageType: "reservation_created",
+      tenantId: "tenant-1",
+    });
+
+    expect(mockPushMessage).toHaveBeenCalledWith("U004", [baseFlex], "tenant-1");
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenant_id: "tenant-1",
+      }),
+    );
+  });
+});
+
+// ── buildReminderFlex ──
+
+describe("reservation-flex: buildReminderFlex", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("明日の予約リマインダーFlex構造を持つ", async () => {
+    const { buildReminderFlex } = await import("@/lib/reservation-flex");
+
+    const result = await buildReminderFlex("2026-02-15", "14:00:00");
+
+    expect(result.type).toBe("flex");
+    expect(result.altText).toContain("明日のご予約");
+    expect(result.altText).toContain("2/15");
+
+    const bubble = result.contents;
+    expect(bubble.type).toBe("bubble");
+    expect(bubble.header).toBeDefined();
+    expect(bubble.body).toBeDefined();
+
+    // ヘッダーテキスト
+    expect(bubble.header.contents[0].text).toBe("明日のご予約");
+  });
+
+  it("tenantIdを渡してもエラーなく動作する", async () => {
+    const { buildReminderFlex } = await import("@/lib/reservation-flex");
+
+    const result = await buildReminderFlex("2026-03-01", "09:00:00", "tenant-1");
+    expect(result.type).toBe("flex");
+  });
+});
+
+// ── formatDateTime（各種日付・時刻のエッジケースを検証） ──
+
+describe("reservation-flex: formatDateTime エッジケース", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("23:50の場合、15分追加で24:05と表示される", async () => {
+    const { buildReservationCreatedFlex } = await import("@/lib/reservation-flex");
+
+    const result = await buildReservationCreatedFlex("2026-01-01", "23:50:00");
+    // 24:05 の表示
+    expect(result.altText).toContain("23:50〜24:05");
+  });
+
+  it("00:00の場合、0:00〜0:15と表示される", async () => {
+    const { buildReservationCreatedFlex } = await import("@/lib/reservation-flex");
+
+    const result = await buildReservationCreatedFlex("2026-01-01", "00:00:00");
+    expect(result.altText).toContain("0:00〜0:15");
+  });
 });

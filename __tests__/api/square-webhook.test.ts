@@ -104,6 +104,38 @@ vi.mock("@/lib/square-account-server", () => ({
   getActiveSquareAccount: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@/lib/webhook-tenant-resolver", () => ({
+  resolveSquareTenantBySignatureKey: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("@/lib/notifications/webhook-failure", () => ({
+  notifyWebhookFailure: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/lib/payment/square-inline", () => ({
+  markReorderPaid: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/lib/products", () => ({
+  getProductByCode: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("@/lib/business-rules", () => ({
+  getBusinessRules: vi.fn().mockResolvedValue({ notifyReorderPaid: false }),
+}));
+
+vi.mock("@/lib/payment-thank-flex", () => ({
+  sendPaymentThankNotification: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/lib/line-push", () => ({
+  pushMessage: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/lib/point-auto-grant", () => ({
+  processAutoGrant: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock("@/lib/idempotency", () => ({
   checkIdempotency: vi.fn().mockResolvedValue({
     duplicate: false,
@@ -417,10 +449,11 @@ describe("Square Webhook API", () => {
     });
 
     it("再処方注文（Reorder付き）でmarkReorderPaid + カルテ自動作成", async () => {
-      const reordersChain = createChain({ data: [{ id: 42 }], error: null });
       const ordersChain = createChain({ data: null, error: null });
-      setTableChain("reorders", reordersChain);
       setTableChain("orders", ordersChain);
+      // message_logの重複チェック用
+      const msgChain = createChain({ data: null, error: null, count: 1 } as never);
+      setTableChain("message_log", msgChain);
 
       vi.mocked(fetch)
         .mockResolvedValueOnce({
@@ -448,10 +481,10 @@ describe("Square Webhook API", () => {
       const res = await POST(req);
 
       expect(res.status).toBe(200);
-      // reordersテーブルの更新が呼ばれた
-      expect(reordersChain.update).toHaveBeenCalled();
+      // markReorderPaid が呼ばれた（reordersテーブル直接ではなくlib関数経由）
+      const { markReorderPaid } = await import("@/lib/payment/square-inline");
+      expect(markReorderPaid).toHaveBeenCalledWith("42", "pid-001", "test-tenant");
       // カルテ自動作成が呼ばれた
-      // productCode正規表現 [^\s(]+ はセミコロンも含む
       expect(createReorderPaymentKarte).toHaveBeenCalledWith(
         "pid-001", expect.stringContaining("MJL_10mg_3m"), expect.any(String), undefined, "test-tenant"
       );
@@ -463,7 +496,15 @@ describe("Square Webhook API", () => {
         data: { id: "pay-exist", tracking_number: "JP123456", shipping_date: "2026-02-20", shipping_status: "shipped" },
         error: null,
       });
+      // maybeSingleが既存注文を返すように設定
+      ordersChain.maybeSingle = vi.fn().mockResolvedValue({
+        data: { id: "pay-exist", tracking_number: "JP123456", shipping_date: "2026-02-20", shipping_status: "shipped" },
+        error: null,
+      });
       setTableChain("orders", ordersChain);
+      // message_logの重複チェック用
+      const msgChain = createChain({ data: null, error: null, count: 1 } as never);
+      setTableChain("message_log", msgChain);
 
       vi.mocked(fetch)
         .mockResolvedValueOnce({
@@ -479,7 +520,7 @@ describe("Square Webhook API", () => {
         } as unknown as Response);
 
       const body = {
-        type: "payment.updated",
+        type: "payment.created",
         data: {
           object: {
             payment: { id: "pay-exist", status: "COMPLETED" },

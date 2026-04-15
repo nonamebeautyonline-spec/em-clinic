@@ -1023,14 +1023,17 @@ export async function POST(req: NextRequest) {
         } catch {}
       }
 
-      // タグ自動付与（fire-and-forget）
+      // タグ自動付与
       if (pid) {
-        evaluateTagAutoRules(pid, "reservation_made", tenantId ?? undefined).catch(() => {});
+        try {
+          await evaluateTagAutoRules(pid, "reservation_made", tenantId ?? undefined);
+        } catch {}
         // イベントバス発火（スコアリング・外部Webhook等）
         if (tenantId) {
-          import("@/lib/event-bus").then(({ fireEvent }) =>
-            fireEvent("reservation_made", { tenantId, patientId: pid }).catch(() => {}),
-          );
+          try {
+            const { fireEvent } = await import("@/lib/event-bus");
+            await fireEvent("reservation_made", { tenantId, patientId: pid });
+          } catch {}
         }
       }
 
@@ -1176,9 +1179,11 @@ export async function POST(req: NextRequest) {
 
       // キャンセル待ち通知（非同期 — レスポンスをブロックしない）
       if (cancelDate) {
-        notifyWaitlist(cancelDate, cancelTime, tenantId).catch((err) => {
+        try {
+          await notifyWaitlist(cancelDate, cancelTime, tenantId);
+        } catch (err) {
           console.error("[reservations] キャンセル待ち通知エラー:", err);
-        });
+        }
       }
 
       return NextResponse.json({

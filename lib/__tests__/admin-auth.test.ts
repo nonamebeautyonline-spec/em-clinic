@@ -2,6 +2,7 @@
 // 管理者認証（lib/admin-auth.ts）の単体テスト
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SignJWT } from "jose";
+import { NextRequest } from "next/server";
 
 // vi.hoisted で環境変数を最優先セットアップ（admin-auth.ts のトップレベルチェックより前）
 const TEST_SECRET = vi.hoisted(() => {
@@ -90,13 +91,13 @@ describe("verifyAdminAuth — 管理者認証", () => {
     expect(result).toBe(false);
   });
 
-  it("有効なJWT Cookie + admin_sessionsテーブル未作成（throw）→ true（JWTのみで認証）", async () => {
+  it("有効なJWT Cookie + admin_sessionsテーブル未作成（throw）→ false（セッション検証失敗）", async () => {
     const jwt = await createTestJwt();
     mockValidateSession.mockRejectedValue(new Error("relation does not exist"));
     const req = mockRequest({ cookie: jwt });
 
     const result = await verifyAdminAuth(req);
-    expect(result).toBe(true);
+    expect(result).toBe(false);
   });
 
   it("無効なJWT Cookie → Bearer認証にフォールバック", async () => {
@@ -226,8 +227,8 @@ describe("getAdminToken — トークン取得", () => {
   });
 });
 
-// === verifyAdminAuth Basic認証 テスト ===
-describe("verifyAdminAuth — Basic認証（Dr用）", () => {
+// === verifyDoctorAuth Basic認証 テスト ===
+describe("verifyDoctorAuth — Basic認証（Dr用）", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.DR_BASIC_USER = "dr-user";
@@ -235,28 +236,31 @@ describe("verifyAdminAuth — Basic認証（Dr用）", () => {
   });
 
   it("Basic認証 正しい資格情報 → true", async () => {
+    const { verifyDoctorAuth } = await import("@/lib/admin-auth");
     const encoded = Buffer.from("dr-user:dr-pass").toString("base64");
     const req = mockRequest({ basic: encoded });
 
-    const result = await verifyAdminAuth(req);
+    const result = await verifyDoctorAuth(req as unknown as NextRequest);
     expect(result).toBe(true);
   });
 
   it("Basic認証 不正な資格情報 → false", async () => {
+    const { verifyDoctorAuth } = await import("@/lib/admin-auth");
     const encoded = Buffer.from("wrong:wrong").toString("base64");
     const req = mockRequest({ basic: encoded });
 
-    const result = await verifyAdminAuth(req);
+    const result = await verifyDoctorAuth(req as unknown as NextRequest);
     expect(result).toBe(false);
   });
 
   it("Basic認証 DR環境変数未設定 → false", async () => {
+    const { verifyDoctorAuth } = await import("@/lib/admin-auth");
     delete process.env.DR_BASIC_USER;
     delete process.env.DR_BASIC_PASS;
     const encoded = Buffer.from("dr-user:dr-pass").toString("base64");
     const req = mockRequest({ basic: encoded });
 
-    const result = await verifyAdminAuth(req);
+    const result = await verifyDoctorAuth(req as unknown as NextRequest);
     expect(result).toBe(false);
   });
 });

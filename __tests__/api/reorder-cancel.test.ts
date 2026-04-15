@@ -193,6 +193,7 @@ describe("再処方キャンセルAPI (reorder/cancel/route.ts)", () => {
   // __Host-patient_id Cookie
   // ========================================
   it("__Host-patient_id Cookie で認証できる", async () => {
+    vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "p2", lineUserId: "U456" });
     mockCookies = { "__Host-patient_id": "p2" };
     vi.mocked(parseBody).mockResolvedValue({ data: { reorder_id: 3 } });
 

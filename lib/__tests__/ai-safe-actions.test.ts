@@ -37,7 +37,7 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
-import { validateActionParams } from "../ai-safe-actions";
+import { validateActionParams, proposeAction, approveAction, rejectAction, executeAction } from "../ai-safe-actions";
 
 describe("validateActionParams", () => {
   it("resend_payment_link: patientIdありで有効", () => {
@@ -112,5 +112,57 @@ describe("validateActionParams", () => {
       paymentNote: "テスト",
     });
     expect(result.valid).toBe(true);
+  });
+
+  it("suggest_reservation_slots: patientIdなしで無効", () => {
+    const result = validateActionParams("suggest_reservation_slots", {});
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("必須パラメータが不足: patientId");
+  });
+
+  it("patientIdがnullの場合も無効", () => {
+    const result = validateActionParams("resend_payment_link", { patientId: null });
+    expect(result.valid).toBe(false);
+  });
+});
+
+describe("proposeAction", () => {
+  it("バリデーション失敗時にエラーを投げる", async () => {
+    await expect(
+      proposeAction("t1", "task-1", "resend_payment_link", {}),
+    ).rejects.toThrow("パラメータ不正");
+  });
+
+  it("不明パラメータがある場合もバリデーション失敗", async () => {
+    await expect(
+      proposeAction("t1", "task-1", "resend_payment_link", { patientId: "p1", badKey: "x" }),
+    ).rejects.toThrow("パラメータ不正");
+  });
+});
+
+describe("approveAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // update→eq→eq チェーン
+    mockEq.mockReturnValue({ eq: vi.fn().mockReturnValue({ error: null }) });
+    mockUpdate.mockReturnValue({ eq: mockEq });
+  });
+
+  it("正常に承認できる", async () => {
+    const result = await approveAction(1, "admin-1");
+    expect(result).toBe(true);
+  });
+});
+
+describe("rejectAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockEq.mockReturnValue({ eq: vi.fn().mockReturnValue({ error: null }) });
+    mockUpdate.mockReturnValue({ eq: mockEq });
+  });
+
+  it("正常に却下できる", async () => {
+    const result = await rejectAction(1);
+    expect(result).toBe(true);
   });
 });

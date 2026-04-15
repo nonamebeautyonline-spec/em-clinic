@@ -5,6 +5,12 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// 環境変数を先に設定（トップレベルimportでJWT_SECRET等を参照するため）
+process.env.JWT_SECRET = "test-jwt-secret-for-platform";
+process.env.ADMIN_TOKEN = "test-admin-token";
+process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
+process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
+
 // ============================================================
 // 共通モック
 // ============================================================
@@ -116,14 +122,21 @@ function createReq(method: string, url: string, body?: unknown, cookies?: Record
 }
 
 // ============================================================
-// テスト対象ルートのインポート
+// テスト対象ルートのインポート（dynamic import: JWT_SECRETがトップレベルで参照されるため）
 // ============================================================
 
-import { POST as impersonatePOST } from "@/app/api/platform/impersonate/route";
+async function getImpersonatePOST() {
+  const mod = await import("@/app/api/platform/impersonate/route");
+  return mod.POST;
+}
+async function getImpersonateExitPOST() {
+  const mod = await import("@/app/api/platform/impersonate/exit/route");
+  return mod.POST;
+}
+
 import { GET as membersGET } from "@/app/api/platform/members/route";
 import { GET as errorsGET } from "@/app/api/platform/errors/route";
 import { GET as healthGET } from "@/app/api/platform/health/route";
-import { POST as impersonateExitPOST } from "@/app/api/platform/impersonate/exit/route";
 import { GET as auditGET } from "@/app/api/platform/audit/route";
 import { GET as alertsGET } from "@/app/api/platform/alerts/route";
 import { GET as sessionsGET } from "@/app/api/platform/sessions/route";
@@ -149,6 +162,7 @@ beforeEach(() => {
 describe("impersonate API", () => {
   it("認証失敗 → 403", async () => {
     mockVerifyPlatformAdmin.mockResolvedValue(null);
+    const impersonatePOST = await getImpersonatePOST();
     const res = await impersonatePOST(
       createReq("POST", "http://localhost/api/platform/impersonate", {
         tenantId: "tenant-1",
@@ -161,6 +175,7 @@ describe("impersonate API", () => {
     const tenantsChain = getOrCreateChain("tenants");
     tenantsChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: null, error: { message: "not found" } }));
 
+    const impersonatePOST = await getImpersonatePOST();
     const res = await impersonatePOST(
       createReq("POST", "http://localhost/api/platform/impersonate", {
         tenantId: "nonexistent",
@@ -176,6 +191,7 @@ describe("impersonate API", () => {
       error: null,
     }));
 
+    const impersonatePOST = await getImpersonatePOST();
     const res = await impersonatePOST(
       createReq("POST", "http://localhost/api/platform/impersonate", {
         tenantId: "tenant-1",
@@ -202,6 +218,7 @@ describe("impersonate API", () => {
       error: null,
     }));
 
+    const impersonatePOST = await getImpersonatePOST();
     const res = await impersonatePOST(
       createReq("POST", "http://localhost/api/platform/impersonate", {
         tenantId: "tenant-1",
@@ -338,6 +355,7 @@ describe("health API", () => {
 // ============================================================
 describe("impersonate/exit API", () => {
   it("元のセッションCookieなし → 400", async () => {
+    const impersonateExitPOST = await getImpersonateExitPOST();
     const res = await impersonateExitPOST(
       createReq("POST", "http://localhost/api/platform/impersonate/exit", {}, {}),
     );
@@ -345,6 +363,7 @@ describe("impersonate/exit API", () => {
   });
 
   it("POST 正常系 → インパーソネーション終了", async () => {
+    const impersonateExitPOST = await getImpersonateExitPOST();
     const res = await impersonateExitPOST(
       createReq("POST", "http://localhost/api/platform/impersonate/exit", {}, {
         platform_original_session: "original-jwt-token",

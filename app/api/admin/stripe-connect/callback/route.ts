@@ -1,10 +1,18 @@
 // app/api/admin/stripe-connect/callback/route.ts — Stripe Connect Expressオンボーディング完了コールバック
 // stateで検証 → アカウント状態取得 → tenant_settingsに保存 → 設定ページにリダイレクト
 import { NextRequest, NextResponse } from "next/server";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 import { setSetting } from "@/lib/settings";
 import { decodeStripeState, getConnectAccountStatus } from "@/lib/stripe-connect";
 
 export async function GET(req: NextRequest) {
+  // 管理者認証チェック（Stripeリダイレクト後もブラウザセッション維持）
+  const isAdmin = await verifyAdminAuth(req);
+  if (!isAdmin) {
+    const redirectUrl = new URL("/admin/login", req.nextUrl.origin);
+    return NextResponse.redirect(redirectUrl);
+  }
+
   const state = req.nextUrl.searchParams.get("state");
   const accountId = req.nextUrl.searchParams.get("account_id");
 

@@ -4,7 +4,6 @@ import { serverError, tooManyRequests } from "@/lib/api-error";
 import twilio from "twilio";
 import { redis } from "@/lib/redis";
 import { getSettingOrEnv } from "@/lib/settings";
-import { resolveTenantId } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { verifySendSchema } from "@/lib/validations/patient";
 

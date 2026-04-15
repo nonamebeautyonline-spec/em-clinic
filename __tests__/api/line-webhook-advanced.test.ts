@@ -703,8 +703,9 @@ describe("LINE Webhook 追加テスト", () => {
 
       await POST(makeWebhookReq({ events: [messageEvent("U001", { type: "text", text: "特典" })] }));
 
-      // not_has条件を満たさない → キーワード返信なし → AI返信がスケジュール
-      expect(mockScheduleAiReply).toHaveBeenCalled();
+      // not_has条件を満たさない → キーワード返信なし → AI返信がpendingTargetsに蓄積 → after()で処理
+      const { after } = await import("next/server");
+      expect(after).toHaveBeenCalled();
     });
   });
 
@@ -813,11 +814,9 @@ describe("LINE Webhook 追加テスト", () => {
 
       await POST(makeWebhookReq({ events: [messageEvent("U_BOT_05", { type: "text", text: "一般質問" })] }));
 
-      // チャットボット未処理 → AI返信がスケジュール
-      expect(mockScheduleAiReply).toHaveBeenCalledWith(
-        "U_BOT_05", "p001", "テスト", "一般質問",
-        "00000000-0000-0000-0000-000000000001",
-      );
+      // チャットボット未処理 → AI返信がpendingTargetsに蓄積 → after()で処理
+      const { after } = await import("next/server");
+      expect(after).toHaveBeenCalled();
     });
 
     it("アクティブセッション完了（response=null）時はAI返信にフォールスルー", async () => {
@@ -832,8 +831,9 @@ describe("LINE Webhook 追加テスト", () => {
 
       await POST(makeWebhookReq({ events: [messageEvent("U_BOT_06", { type: "text", text: "完了" })] }));
 
-      // チャットボット処理がfalseを返す → AI返信にフォールバック
-      expect(mockScheduleAiReply).toHaveBeenCalled();
+      // チャットボット処理がfalseを返す → AI返信にフォールバック（pendingTargets → after()）
+      const { after } = await import("next/server");
+      expect(after).toHaveBeenCalled();
     });
   });
 
@@ -1115,8 +1115,9 @@ describe("LINE Webhook 追加テスト", () => {
 
       await POST(makeWebhookReq({ events: [messageEvent("U_BIZ_02", { type: "text", text: "質問です" })] }));
 
-      // エラー時はフォールバックでAI返信がスケジュール
-      expect(mockScheduleAiReply).toHaveBeenCalled();
+      // エラー時はフォールバックでAI返信がpendingTargetsに蓄積 → after()で処理
+      const { after } = await import("next/server");
+      expect(after).toHaveBeenCalled();
     });
   });
 });

@@ -4,3 +4,4 @@ export { DashboardModals } from "./DashboardModals";
 export { ReservationSection } from "./ReservationSection";
 export { OrdersSection } from "./OrdersSection";
 export { HistorySection } from "./HistorySection";
+export { ExportButton } from "./ExportButton";

@@ -57,6 +57,8 @@ vi.mock("@/lib/tenant", () => ({
 vi.mock("@/lib/redis", () => ({
   invalidateDashboardCache: vi.fn().mockResolvedValue(undefined),
   invalidateSessionCache: vi.fn().mockResolvedValue(undefined),
+  getSessionCache: vi.fn().mockResolvedValue(null),
+  setSessionCache: vi.fn().mockResolvedValue(undefined),
 }));
 
 // jose モック（session / update-order-address用）
@@ -76,10 +78,11 @@ vi.mock("jose", () => ({
   SignJWT: vi.fn(),
 }));
 
-// session モック（logout用）
+// session モック（logout用 + session route用）
 vi.mock("@/lib/session", () => ({
   revokeSession: vi.fn().mockResolvedValue(undefined),
   hashToken: vi.fn((jwt: string) => `hash_${jwt.slice(0, 8)}`),
+  validateSession: vi.fn().mockResolvedValue(true),
 }));
 
 // undo モック
@@ -92,6 +95,11 @@ vi.mock("@/lib/undo", () => ({
 vi.mock("@/lib/flex-message/config", () => ({
   getFlexConfig: vi.fn().mockResolvedValue({ enabled: true }),
   setFlexConfig: vi.fn().mockResolvedValue(true),
+}));
+
+// menu-permissions モック（session route用）
+vi.mock("@/lib/menu-permissions", () => ({
+  isFullAccessRole: vi.fn().mockReturnValue(true),
 }));
 
 // feature-flags モック
@@ -226,12 +234,12 @@ import { POST as updateOrderAddressPOST } from "@/app/api/admin/update-order-add
 
 describe("admin/update-order-address", () => {
   it("未認証（Cookie無し）なら401を返す", async () => {
+    mockVerifyAdminAuth.mockResolvedValue(false);
     const req = createRequest("POST", "http://localhost/api/admin/update-order-address", {
       orderId: "order-1",
       postalCode: "1234567",
       address: "東京都渋谷区",
     });
-    // Cookieなし → verifyAdmin は false
     const res = await updateOrderAddressPOST(req);
     expect(res.status).toBe(401);
   });

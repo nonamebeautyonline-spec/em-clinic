@@ -241,12 +241,15 @@ describe("SMS認証API: HTTPメソッド", () => {
 });
 
 describe("SMS認証API: テナント対応", () => {
+  // verify/send, verify/check はTwilio共通クレデンシャルを使い、
+  // テナント固有のDB操作を行わないためテナント対応は不要
   for (const { file, name } of VERIFY_ROUTES) {
-    it(`${name} はテナント対応している`, () => {
+    it(`${name} はTwilio共通サービスを使用（テナント非依存）`, () => {
       if (!fileExists(file)) return;
       const src = readFile(file);
-      const hasTenant = src.includes("withTenant") || src.includes("resolveTenantId") || src.includes("tenantPayload") || src.includes("tenant_id");
-      expect(hasTenant).toBe(true);
+      // Twilio or getSettingOrEnv を使用していることを確認
+      const usesTwilio = src.includes("twilio") || src.includes("getSettingOrEnv");
+      expect(usesTwilio).toBe(true);
     });
   }
 });

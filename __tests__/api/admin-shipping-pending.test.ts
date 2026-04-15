@@ -16,12 +16,12 @@ vi.mock("@/lib/tenant", () => ({
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
-const mockGetProductNamesMap = vi.fn().mockResolvedValue({
-  "MJL_2.5mg_1m": "マンジャロ 2.5mg 1ヶ月",
-  "MJL_5mg_1m": "マンジャロ 5mg 1ヶ月",
-});
+const mockGetProducts = vi.fn().mockResolvedValue([
+  { code: "MJL_2.5mg_1m", title: "マンジャロ 2.5mg 1ヶ月", shipping_delay_days: 0 },
+  { code: "MJL_5mg_1m", title: "マンジャロ 5mg 1ヶ月", shipping_delay_days: 0 },
+]);
 vi.mock("@/lib/products", () => ({
-  getProductNamesMap: (...args: unknown[]) => mockGetProductNamesMap(...args),
+  getProducts: (...args: unknown[]) => mockGetProducts(...args),
 }));
 
 // === Supabase モック ===
@@ -71,10 +71,10 @@ beforeEach(() => {
   patientsResult = { data: [], error: null };
   intakeResult = { data: [], error: null };
   mockVerifyAdminAuth.mockResolvedValue(true);
-  mockGetProductNamesMap.mockResolvedValue({
-    "MJL_2.5mg_1m": "マンジャロ 2.5mg 1ヶ月",
-    "MJL_5mg_1m": "マンジャロ 5mg 1ヶ月",
-  });
+  mockGetProducts.mockResolvedValue([
+    { code: "MJL_2.5mg_1m", title: "マンジャロ 2.5mg 1ヶ月", shipping_delay_days: 0 },
+    { code: "MJL_5mg_1m", title: "マンジャロ 5mg 1ヶ月", shipping_delay_days: 0 },
+  ]);
 });
 
 // ======================================

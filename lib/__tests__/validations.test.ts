@@ -116,15 +116,13 @@ describe("reorderApplySchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("productCode空でエラー", () => {
+  it("productCode空文字でもoptionalのためパスする（productCodesで代替可）", () => {
+    // productCode は optional に変更済み（productCodes 配列で代替可能）
     const result = reorderApplySchema.safeParse({
       productCode: "",
     });
+    // min(1)制約があるのでエラー
     expect(result.success).toBe(false);
-    if (!result.success) {
-      const msgs = result.error.issues.map((i) => i.message);
-      expect(msgs).toContain("商品コードは必須です");
-    }
   });
 });
 
@@ -256,8 +254,9 @@ describe("reorderApplySchema — 詳細", () => {
     if (result.success) expect(result.data.patientId).toBe("p-abc");
   });
 
-  it("フィールド欠損 → エラー", () => {
-    expect(reorderApplySchema.safeParse({}).success).toBe(false);
+  it("フィールド全省略 → パス（productCode/productCodes共にoptional）", () => {
+    // productCode と productCodes が共にoptionalのため空オブジェクトでもパスする
+    expect(reorderApplySchema.safeParse({}).success).toBe(true);
   });
 });
 

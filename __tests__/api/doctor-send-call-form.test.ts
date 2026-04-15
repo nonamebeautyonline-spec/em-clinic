@@ -21,9 +21,9 @@ function getOrCreateChain(table: string) {
 }
 
 const {
-  mockVerifyAdminAuth, mockPushMessage, mockBuildCallFormFlex, mockGetSettingOrEnv,
+  mockVerifyDoctorAuth, mockPushMessage, mockBuildCallFormFlex, mockGetSettingOrEnv,
 } = vi.hoisted(() => ({
-  mockVerifyAdminAuth: vi.fn().mockResolvedValue(true),
+  mockVerifyDoctorAuth: vi.fn().mockResolvedValue(true),
   mockPushMessage: vi.fn().mockResolvedValue({ ok: true }),
   mockBuildCallFormFlex: vi.fn().mockResolvedValue({ type: "flex", altText: "通話フォーム", contents: { type: "bubble" } }),
   mockGetSettingOrEnv: vi.fn().mockResolvedValue("https://line.me/call/test"),
@@ -34,7 +34,7 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: mockVerifyAdminAuth,
+  verifyDoctorAuth: mockVerifyDoctorAuth,
 }));
 
 vi.mock("@/lib/tenant", () => ({
@@ -72,7 +72,7 @@ describe("POST /api/doctor/send-call-form", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tableChains = {};
-    mockVerifyAdminAuth.mockResolvedValue(true);
+    mockVerifyDoctorAuth.mockResolvedValue(true);
     mockPushMessage.mockResolvedValue({ ok: true });
     mockGetSettingOrEnv.mockResolvedValue("https://line.me/call/test");
     mockBuildCallFormFlex.mockResolvedValue({
@@ -84,7 +84,7 @@ describe("POST /api/doctor/send-call-form", () => {
   // 認証テスト
   // -------------------------------------------
   it("認証失敗時は 401 を返す", async () => {
-    mockVerifyAdminAuth.mockResolvedValue(false);
+    mockVerifyDoctorAuth.mockResolvedValue(false);
     const req = createMockRequest({ patientId: "P001" });
     const res = await POST(req);
     expect(res.status).toBe(401);
@@ -244,5 +244,42 @@ describe("POST /api/doctor/send-call-form", () => {
 
     // intake の update は呼ばれない
     expect(tableChains["intake"].update).not.toHaveBeenCalled();
+  });
+
+  // -------------------------------------------
+  // intake_ 形式の reserveId
+  // -------------------------------------------
+  it("intake_ 形式の reserveId で id ベースの更新になる", async () => {
+    const patientsChain = createChain({ data: { line_id: "U_LINE_001", name: "テスト太郎" }, error: null });
+    tableChains["patients"] = patientsChain;
+    tableChains["message_log"] = createChain();
+
+    const intakeChain = createChain();
+    tableChains["intake"] = intakeChain;
+
+    const req = createMockRequest({ patientId: "P001", reserveId: "intake_789" });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+
+    // intake の update が call_status: "call_form_sent" で呼ばれる
+    expect(intakeChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ call_status: "call_form_sent" })
+    );
+    // eq が "id" で "789" を指定
+    expect(intakeChain.eq).toHaveBeenCalledWith("id", "789");
+  });
+
+  // -------------------------------------------
+  // pushMessage 例外テスト
+  // -------------------------------------------
+  it("pushMessage が例外をスローした場合は 500 を返す", async () => {
+    const patientsChain = createChain({ data: { line_id: "U_LINE_001", name: "テスト" }, error: null });
+    tableChains["patients"] = patientsChain;
+
+    mockPushMessage.mockRejectedValue(new Error("LINE API timeout"));
+
+    const req = createMockRequest({ patientId: "P001" });
+    const res = await POST(req);
+    expect(res.status).toBe(500);
   });
 });

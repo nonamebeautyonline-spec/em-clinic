@@ -108,13 +108,19 @@ describe("feature-flags", () => {
   });
 
   describe("定数", () => {
-    it("ALL_FEATURES に11個の機能が含まれる", () => {
-      expect(ALL_FEATURES).toHaveLength(11);
+    it("ALL_FEATURES に17個の機能が含まれる", () => {
+      expect(ALL_FEATURES).toHaveLength(17);
       expect(ALL_FEATURES).toContain("broadcast");
       expect(ALL_FEATURES).toContain("ai_reply");
       expect(ALL_FEATURES).toContain("reorder");
       expect(ALL_FEATURES).toContain("voice_input");
       expect(ALL_FEATURES).toContain("ai_karte");
+      expect(ALL_FEATURES).toContain("intake_form");
+      expect(ALL_FEATURES).toContain("ehr_karte");
+      expect(ALL_FEATURES).toContain("medical_shipping");
+      expect(ALL_FEATURES).toContain("reservation");
+      expect(ALL_FEATURES).toContain("point_system");
+      expect(ALL_FEATURES).toContain("coupon_mgmt");
     });
 
     it("BASE_FEATURES に8個のベース機能が含まれる", () => {

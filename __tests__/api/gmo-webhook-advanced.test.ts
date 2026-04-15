@@ -128,11 +128,11 @@ describe("GMO Webhook 高度テスト", () => {
 
   // === GET エンドポイント ===
   describe("GET /api/gmo/webhook", () => {
-    it("ヘルスチェック用に200 okを返す", async () => {
+    it("ヘルスチェック用に200 '0'を返す", async () => {
       const res = await GET();
       expect(res.status).toBe(200);
       const text = await res.text();
-      expect(text).toBe("ok");
+      expect(text).toBe("0");
     });
   });
 
@@ -154,7 +154,7 @@ describe("GMO Webhook 高度テスト", () => {
       expect(processGmoEvent).toHaveBeenCalled();
     });
 
-    it("不正なCheckStringで401を返す", async () => {
+    it("不正なCheckStringでもfail-openで200を返し処理続行する（緊急復旧: TODO原因特定後fail-closedに戻す）", async () => {
       const shopPass = "test_shop_pass";
       vi.mocked(getSettingOrEnv).mockResolvedValue(shopPass);
 
@@ -162,8 +162,9 @@ describe("GMO Webhook 高度テスト", () => {
       const req = createRequest(params.toString());
       const res = await POST(req);
 
-      expect(res.status).toBe(401);
-      expect(processGmoEvent).not.toHaveBeenCalled();
+      // 現在はfail-open（署名不一致でもreturn true）のため200で処理続行
+      expect(res.status).toBe(200);
+      expect(processGmoEvent).toHaveBeenCalled();
     });
 
     it("ShopPass未設定時は署名検証をスキップして処理続行", async () => {
@@ -316,13 +317,16 @@ describe("GMO Webhook 高度テスト", () => {
       vi.mocked(checkIdempotency).mockResolvedValue({
         duplicate: false,
         markCompleted,
-        markFailed: vi.fn(),
+        markFailed: vi.fn().mockResolvedValue(undefined),
       });
 
       const req = createRequest();
       await POST(req);
 
-      expect(markCompleted).toHaveBeenCalled();
+      // fire-and-forgetのthenハンドラが実行されるまでmicrotaskを消化
+      await vi.waitFor(() => {
+        expect(markCompleted).toHaveBeenCalled();
+      });
     });
   });
 
@@ -387,7 +391,10 @@ describe("GMO Webhook 高度テスト", () => {
       const res = await POST(req);
 
       expect(res.status).toBe(200);
-      expect(markFailed).toHaveBeenCalledWith("DB接続エラー");
+      // fire-and-forgetのcatchハンドラが実行されるまでmicrotaskを消化
+      await vi.waitFor(() => {
+        expect(markFailed).toHaveBeenCalledWith("DB接続エラー");
+      });
     });
 
     it("エラー時にnotifyWebhookFailureが呼ばれる", async () => {
@@ -396,12 +403,15 @@ describe("GMO Webhook 高度テスト", () => {
       const req = createRequest();
       await POST(req);
 
-      expect(notifyWebhookFailure).toHaveBeenCalledWith(
-        "gmo",
-        "unknown",
-        expect.any(Error),
-        "tenant_001",
-      );
+      // fire-and-forgetのcatchハンドラが実行されるまでmicrotaskを消化
+      await vi.waitFor(() => {
+        expect(notifyWebhookFailure).toHaveBeenCalledWith(
+          "gmo",
+          "unknown",
+          expect.any(Error),
+          "tenant_001",
+        );
+      });
     });
 
     it("非Errorオブジェクトの例外でもmarkFailedに'unknown error'が渡される", async () => {
@@ -416,7 +426,10 @@ describe("GMO Webhook 高度テスト", () => {
       const req = createRequest();
       await POST(req);
 
-      expect(markFailed).toHaveBeenCalledWith("unknown error");
+      // fire-and-forgetのcatchハンドラが実行されるまでmicrotaskを消化
+      await vi.waitFor(() => {
+        expect(markFailed).toHaveBeenCalledWith("unknown error");
+      });
     });
 
     it("冪等チェック前の例外でもidem?.markFailedが安全に呼ばれる（nullチェック）", async () => {

@@ -453,28 +453,15 @@ describe("patients/bulk/menu", () => {
 // 9. shipping/share
 // ==========================================
 describe("shipping/share", () => {
-  it("認証失敗で401（独自verifyAdminAuth）", async () => {
-    // shipping/share は独自の verifyAdminAuth を使用（jose + Bearer）
-    // ADMIN_TOKENを設定しないで認証失敗させる
-    const origToken = process.env.ADMIN_TOKEN;
-    process.env.ADMIN_TOKEN = "wrong-token-should-not-match";
-    const reqNoAuth = new Request("http://localhost/api/admin/shipping/share", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data: [{ id: "1" }] }),
-    }) as Request & { nextUrl: URL; cookies: { get: Mock } };
-    reqNoAuth.nextUrl = new URL("http://localhost/api/admin/shipping/share");
-    reqNoAuth.cookies = { get: vi.fn(() => undefined) };
-    const res = await sharePOST(reqNoAuth);
+  it("認証失敗で401", async () => {
+    mockVerifyAdminAuth.mockResolvedValueOnce(false);
+    const res = await sharePOST(
+      createReq("POST", "http://localhost/api/admin/shipping/share", { data: [{ id: "1" }] }),
+    );
     expect(res.status).toBe(401);
-    process.env.ADMIN_TOKEN = origToken;
   });
 
-  it("POST: 共有リンク作成（Bearer認証）", async () => {
-    // shipping/share は独自verifyAdminAuth（jose）を使うため、Bearerトークンで認証
-    // 環境変数 ADMIN_TOKEN を設定してBearerトークン認証を通す
-    const origToken = process.env.ADMIN_TOKEN;
-    process.env.ADMIN_TOKEN = "test-admin-token";
+  it("POST: 共有リンク作成", async () => {
     const chain = getOrCreateChain("shipping_shares");
     chain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
     const res = await sharePOST(
@@ -483,7 +470,6 @@ describe("shipping/share", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.shareId).toBeDefined();
-    process.env.ADMIN_TOKEN = origToken;
   });
 });
 

@@ -1,32 +1,32 @@
-// AI Auto-Tuning テスト（generateTuningSuggestions のロジック）
+// AI Auto-Tuning テスト（generateTuningSuggestions + DB関数）
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Supabaseモック
+// --- Supabaseモック ---
+function createMockChain(data: unknown = null, error: unknown = null) {
+  const chain: Record<string, any> = {};
+  const methods = ["from", "select", "eq", "gte", "order", "limit", "insert", "update", "in"];
+  for (const m of methods) {
+    chain[m] = vi.fn().mockReturnValue(chain);
+  }
+  chain.then = (resolve: any) => resolve({ data, error });
+  return chain;
+}
+
+const mockFrom = vi.fn(() => createMockChain([], null));
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          gte: () => Promise.resolve({ data: [], error: null }),
-          eq: () => ({
-            gte: () => Promise.resolve({ data: [], error: null }),
-          }),
-        }),
-        order: () => ({
-          eq: () => Promise.resolve({ data: [], error: null }),
-        }),
-      }),
-      insert: () => Promise.resolve({ error: null }),
-      update: () => ({
-        eq: () => Promise.resolve({ error: null }),
-      }),
-    }),
+    from: (...args: unknown[]) => mockFrom(...args),
   },
 }));
 
 // モック後にインポート
 import {
   generateTuningSuggestions,
+  analyzeTenantPerformance,
+  listSuggestions,
+  applySuggestion,
+  rejectSuggestion,
+  SOURCE_TYPES,
   type TenantPerformance,
 } from "../ai-auto-tuning";
 
@@ -160,5 +160,178 @@ describe("generateTuningSuggestions", () => {
     for (const s of suggestions) {
       expect(s.status).toBe("pending");
     }
+  });
+
+  it("editedCount=0 の場合、tone_adjustment提案は生成されない", async () => {
+    const perf = makePerformance({
+      editedCount: 0,
+      totalTasks: 100,
+    });
+
+    const suggestions = await generateTuningSuggestions("test-tenant", perf);
+
+    const toneSuggestion = suggestions.find((s) => s.suggestion_type === "tone_adjustment");
+    expect(toneSuggestion).toBeUndefined();
+  });
+
+  it("編集率が20%以下の場合、tone_adjustment提案は生成されない", async () => {
+    const perf = makePerformance({
+      editedCount: 15, // 15/100 = 15%
+      totalTasks: 100,
+    });
+
+    const suggestions = await generateTuningSuggestions("test-tenant", perf);
+
+    const toneSuggestion = suggestions.find((s) => s.suggestion_type === "tone_adjustment");
+    expect(toneSuggestion).toBeUndefined();
+  });
+});
+
+// ── SOURCE_TYPES ──
+
+describe("SOURCE_TYPES", () => {
+  it("6種類のソースタイプが定義されている", () => {
+    expect(SOURCE_TYPES).toHaveLength(6);
+    expect(SOURCE_TYPES).toContain("faq");
+    expect(SOURCE_TYPES).toContain("rule");
+    expect(SOURCE_TYPES).toContain("approved_reply");
+    expect(SOURCE_TYPES).toContain("memory");
+    expect(SOURCE_TYPES).toContain("state");
+    expect(SOURCE_TYPES).toContain("live_data");
+  });
+});
+
+// ── analyzeTenantPerformance ──
+
+describe("analyzeTenantPerformance", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("タスクが0件の場合、デフォルト値を返す", async () => {
+    let callCount = 0;
+    mockFrom.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        // ai_tasks
+        return createMockChain([], null);
+      }
+      return createMockChain([], null);
+    });
+
+    const result = await analyzeTenantPerformance("t1");
+    expect(result.tenantId).toBe("t1");
+    expect(result.totalTasks).toBe(0);
+    expect(result.approvalRate).toBe(0);
+    expect(result.avgConfidence).toBe(0.5);
+  });
+
+  it("タスクとフィードバックから統計を算出する", async () => {
+    let callCount = 0;
+    mockFrom.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        // ai_tasks
+        return createMockChain([
+          { id: "t1", status: "completed", workflow_type: "reply", input_tokens: 100, output_tokens: 200 },
+          { id: "t2", status: "completed", workflow_type: "reply", input_tokens: 150, output_tokens: 250 },
+        ], null);
+      }
+      // ai_task_feedback
+      return createMockChain([
+        { task_id: "t1", feedback_type: "approve", reject_category: null },
+        { task_id: "t2", feedback_type: "reject", reject_category: "tone" },
+      ], null);
+    });
+
+    const result = await analyzeTenantPerformance("t1", 7);
+    expect(result.totalTasks).toBe(2);
+    expect(result.approvedCount).toBe(1);
+    expect(result.rejectedCount).toBe(1);
+    expect(result.approvalRate).toBe(0.5);
+    expect(result.rejectionRate).toBe(0.5);
+    expect(result.avgInputTokens).toBe(125);
+    expect(result.avgOutputTokens).toBe(225);
+    expect(result.topRejectCategories).toHaveLength(1);
+    expect(result.topRejectCategories[0].category).toBe("tone");
+  });
+
+  it("タスク取得エラーでもクラッシュしない", async () => {
+    mockFrom.mockReturnValue(createMockChain(null, { message: "db error" }));
+
+    const result = await analyzeTenantPerformance("t1");
+    expect(result.totalTasks).toBe(0);
+  });
+});
+
+// ── listSuggestions ──
+
+describe("listSuggestions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("テナントIDとステータスでフィルタできる", async () => {
+    const suggestions = [{ id: 1, suggestion_type: "test", status: "pending" }];
+    mockFrom.mockReturnValue(createMockChain(suggestions));
+
+    const result = await listSuggestions("t1", "pending");
+    expect(result).toHaveLength(1);
+  });
+
+  it("引数なしで全件取得できる", async () => {
+    mockFrom.mockReturnValue(createMockChain([]));
+
+    const result = await listSuggestions();
+    expect(result).toEqual([]);
+  });
+
+  it("エラー時は空配列を返す", async () => {
+    mockFrom.mockReturnValue(createMockChain(null, { message: "error" }));
+
+    const result = await listSuggestions("t1");
+    expect(result).toEqual([]);
+  });
+});
+
+// ── applySuggestion / rejectSuggestion ──
+
+describe("applySuggestion", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("成功時にtrueを返す", async () => {
+    mockFrom.mockReturnValue(createMockChain(null, null));
+
+    const result = await applySuggestion(1);
+    expect(result).toBe(true);
+  });
+
+  it("エラー時にfalseを返す", async () => {
+    mockFrom.mockReturnValue(createMockChain(null, { message: "error" }));
+
+    const result = await applySuggestion(1);
+    expect(result).toBe(false);
+  });
+});
+
+describe("rejectSuggestion", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("成功時にtrueを返す", async () => {
+    mockFrom.mockReturnValue(createMockChain(null, null));
+
+    const result = await rejectSuggestion(1);
+    expect(result).toBe(true);
+  });
+
+  it("エラー時にfalseを返す", async () => {
+    mockFrom.mockReturnValue(createMockChain(null, { message: "error" }));
+
+    const result = await rejectSuggestion(1);
+    expect(result).toBe(false);
   });
 });

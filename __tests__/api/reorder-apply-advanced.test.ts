@@ -116,8 +116,8 @@ function setupDefaultChains() {
   // NG判定: null（OK）
   const intakeChain = createChain({ data: null, error: null });
   tableChains["intake"] = intakeChain;
-  // 重複チェック: なし + reorder_number取得 + INSERT成功
-  const reordersChain = createChain({ data: null, error: null });
+  // 重複チェック: なし（配列で返す — 実装は .find() を使用） + reorder_number取得 + INSERT成功
+  const reordersChain = createChain({ data: [], error: null });
   reordersChain.single = vi.fn().mockReturnValue({
     then: (fn: (val: unknown) => void) => fn({ data: { id: 100 }, error: null }),
   });
@@ -171,30 +171,14 @@ describe("POST /api/reorder/apply（追加テスト）", () => {
 
       // 前回決済: 10日前
       const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
-      const reordersChain = createChain({ data: null, error: null });
-      // 重複チェック: なし
-      reordersChain.maybeSingle = vi.fn().mockReturnValue({
-        then: (fn: (val: unknown) => void) => fn({ data: null, error: null }),
-      });
+      // 重複チェック: なし（配列で返す）
+      const reordersChain = createChain({ data: [], error: null });
       tableChains["reorders"] = reordersChain;
 
-      // 間隔チェック用の前回決済: paid_atを設定
-      // reordersのfrom呼び出しは複数回行われるため、最初の呼び出し（重複チェック）以降で
-      // paid_at付きデータを返すようにする
-      // ここではcreateChainのthenで最初はnull、次にpaid_at付きを返すようにする
-      // → 簡単のため、reordersチェーンのmaybeSingleを上書き
-      let reorderCallCount = 0;
-      const originalMaybeSingle = vi.fn().mockImplementation(() => {
-        reorderCallCount++;
-        if (reorderCallCount <= 1) {
-          // 重複チェック: なし
-          return { then: (fn: (val: unknown) => void) => fn({ data: null, error: null }) };
-        } else {
-          // 間隔チェック: 前回決済10日前
-          return { then: (fn: (val: unknown) => void) => fn({ data: { paid_at: tenDaysAgo }, error: null }) };
-        }
+      // 間隔チェック用: maybeSingleで前回決済10日前を返す
+      reordersChain.maybeSingle = vi.fn().mockReturnValue({
+        then: (fn: (val: unknown) => void) => fn({ data: { paid_at: tenDaysAgo }, error: null }),
       });
-      reordersChain.maybeSingle = originalMaybeSingle;
 
       const req = new NextRequest("http://localhost/api/reorder/apply", {
         method: "POST",

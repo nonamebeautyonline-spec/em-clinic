@@ -26,10 +26,10 @@ const DOCTOR_ROUTES = [
 
 describe("Dr向けAPI: 認証チェック", () => {
   for (const { file, name } of DOCTOR_ROUTES) {
-    it(`${name} は verifyAdminAuth で認証している`, () => {
+    it(`${name} は verifyDoctorAuth で認証している`, () => {
       if (!fileExists(file)) return;
       const src = readFile(file);
-      expect(src).toContain("verifyAdminAuth");
+      expect(src).toContain("verifyDoctorAuth");
     });
   }
 });

@@ -59,6 +59,23 @@ vi.mock("@/lib/medical-fields", () => ({
   isMultiFieldEnabled: vi.fn().mockResolvedValue(false),
 }));
 
+vi.mock("@/lib/business-rules", () => ({
+  getBusinessRules: vi.fn().mockResolvedValue({
+    dosageChangeNotify: false,
+    minReorderIntervalDays: 0,
+    notifyReorderApply: false,
+    notifyReorderApprove: false,
+    notifyReorderPaid: false,
+    autoApproveSameDose: false,
+    intakeReminderHours: 0,
+    approveMessage: "",
+  }),
+}));
+
+vi.mock("@/lib/products", () => ({
+  getProductByCode: vi.fn().mockResolvedValue({ title: "テスト商品", field_id: null }),
+}));
+
 vi.mock("@/lib/patient-session", () => ({
   verifyPatientSession: vi.fn().mockResolvedValue({ patientId: "PT-001", lineUserId: "U123" }),
   createPatientToken: vi.fn().mockResolvedValue("mock-jwt"),
@@ -374,7 +391,7 @@ describe("POST /api/reorder/apply", () => {
   // 重複申請チェックテスト
   // ------------------------------------------------------------------
   describe("重複申請チェック", () => {
-    it("pending状態の既存申請がある場合は400を返す", async () => {
+    it("confirmed状態の既存申請がある場合は400を返す", async () => {
       vi.mocked(verifyPatientSession).mockResolvedValueOnce({ patientId: "PT-DUP", lineUserId: "U123" });
       vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
@@ -388,9 +405,9 @@ describe("POST /api/reorder/apply", () => {
       const intakeChain = createChain({ data: null, error: null });
       tableChains["intake"] = intakeChain;
 
-      // 重複チェック: 既存あり
+      // 重複チェック: confirmed既存あり（配列で返す — 実装は .find() を使用）
       const reordersChain = createChain({
-        data: { id: 42, status: "pending", product_code: "MJL_5mg_1m" },
+        data: [{ id: 42, status: "confirmed", product_code: "MJL_5mg_1m" }],
         error: null,
       });
       tableChains["reorders"] = reordersChain;
@@ -403,7 +420,7 @@ describe("POST /api/reorder/apply", () => {
       const res = await POST(req);
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error).toBe("duplicate_pending");
+      expect(body.error).toBe("duplicate_confirmed");
     });
 
     it("重複チェックDBエラーの場合は500を返す", async () => {

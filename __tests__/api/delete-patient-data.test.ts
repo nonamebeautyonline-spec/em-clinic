@@ -71,18 +71,24 @@ beforeEach(() => {
 
 // === POST: PII統制 — パスワード再確認・削除理由 ===
 describe("delete-patient-data PII統制", () => {
-  it("パスワードなしで400エラー", async () => {
+  it("パスワードなしでも処理が続行される（optional）", async () => {
+    // 予約なし
+    tableChains["reservations"] = createChain({ data: [], error: null });
     const { POST } = await import("@/app/api/admin/delete-patient-data/route");
     const req = buildRequest({ patient_id: "12345678901", reason: "テスト削除" });
     const res = await POST(req);
-    expect(res.status).toBe(400);
+    // passwordはoptionalなので、パスワードなしでも処理が続行される
+    expect(res.status).toBe(200);
   });
 
-  it("理由なし（空文字）で400エラー", async () => {
+  it("理由なし（空文字）でも処理が続行される（optional + default）", async () => {
+    // 予約なし
+    tableChains["reservations"] = createChain({ data: [], error: null });
     const { POST } = await import("@/app/api/admin/delete-patient-data/route");
-    const req = buildRequest({ patient_id: "12345678901", password: "secret123", reason: "" });
+    const req = buildRequest({ patient_id: "12345678901", password: "", reason: "" });
     const res = await POST(req);
-    expect(res.status).toBe(400);
+    // reasonはoptional + default("")なので、空文字でもバリデーションは通る
+    expect(res.status).toBe(200);
   });
 
   it("パスワード不一致で403エラー", async () => {

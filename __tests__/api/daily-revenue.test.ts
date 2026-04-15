@@ -64,7 +64,7 @@ describe("日別売上 API - GET", () => {
     const res = await GET(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toBe("invalid_year_month");
+    expect(json.error).toBe("invalid_params");
   });
 
   it("year_monthなし → 400", async () => {

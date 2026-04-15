@@ -25,8 +25,8 @@ function getOrCreateChain(table: string) {
   return tableChains[table];
 }
 
-const { mockVerifyAdminAuth, mockInvalidateCache, mockPushMessage, mockEvaluateMenuRules } = vi.hoisted(() => ({
-  mockVerifyAdminAuth: vi.fn().mockResolvedValue(true),
+const { mockVerifyDoctorAuth, mockInvalidateCache, mockPushMessage, mockEvaluateMenuRules } = vi.hoisted(() => ({
+  mockVerifyDoctorAuth: vi.fn().mockResolvedValue(true),
   mockInvalidateCache: vi.fn().mockResolvedValue(undefined),
   mockPushMessage: vi.fn().mockResolvedValue({ ok: true }),
   mockEvaluateMenuRules: vi.fn().mockResolvedValue(undefined),
@@ -37,7 +37,7 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: mockVerifyAdminAuth,
+  verifyDoctorAuth: mockVerifyDoctorAuth,
 }));
 
 vi.mock("@/lib/tenant", () => ({
@@ -75,7 +75,7 @@ describe("POST /api/doctor/reorders/approve", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tableChains = {};
-    mockVerifyAdminAuth.mockResolvedValue(true);
+    mockVerifyDoctorAuth.mockResolvedValue(true);
     mockInvalidateCache.mockResolvedValue(undefined);
     mockPushMessage.mockResolvedValue({ ok: true });
   });
@@ -84,7 +84,7 @@ describe("POST /api/doctor/reorders/approve", () => {
   // 認証テスト
   // -------------------------------------------
   it("認証失敗時は 401 を返す", async () => {
-    mockVerifyAdminAuth.mockResolvedValue(false);
+    mockVerifyDoctorAuth.mockResolvedValue(false);
     const req = createMockRequest({ id: 1 });
     const res = await POST(req);
     expect(res.status).toBe(401);

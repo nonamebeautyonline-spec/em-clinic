@@ -505,7 +505,7 @@ describe("POST createReservation", () => {
     const todayStr = `${jstNow.getUTCFullYear()}-${String(jstNow.getUTCMonth() + 1).padStart(2, "0")}-${String(jstNow.getUTCDate()).padStart(2, "0")}`;
 
     const req = createMockRequest(
-      { type: "createReservation", date: todayStr, time: "09:00", patient_id: "p_001" },
+      { type: "createReservation", date: todayStr, time: "09:00", patient_id: "p_001", doctor_id: "doc-001" },
       { patient_id: "p_001" },
     );
 
@@ -549,7 +549,7 @@ describe("POST createReservation", () => {
     const todayStr = `${jstNow.getUTCFullYear()}-${String(jstNow.getUTCMonth() + 1).padStart(2, "0")}-${String(jstNow.getUTCDate()).padStart(2, "0")}`;
 
     const req = createMockRequest(
-      { type: "createReservation", date: todayStr, time: "09:00", patient_id: "p_001" },
+      { type: "createReservation", date: todayStr, time: "09:00", patient_id: "p_001", doctor_id: "doc-001" },
       { patient_id: "p_001" },
     );
 
@@ -592,7 +592,7 @@ describe("POST createReservation", () => {
     const todayStr = `${jstNow.getUTCFullYear()}-${String(jstNow.getUTCMonth() + 1).padStart(2, "0")}-${String(jstNow.getUTCDate()).padStart(2, "0")}`;
 
     const req = createMockRequest(
-      { type: "createReservation", date: todayStr, time: "09:00", patient_id: "p_001" },
+      { type: "createReservation", date: todayStr, time: "09:00", patient_id: "p_001", doctor_id: "doc-001" },
       { patient_id: "p_001" },
     );
 
@@ -629,7 +629,7 @@ describe("POST createReservation", () => {
     const todayStr = `${jstNow.getUTCFullYear()}-${String(jstNow.getUTCMonth() + 1).padStart(2, "0")}-${String(jstNow.getUTCDate()).padStart(2, "0")}`;
 
     const req = createMockRequest(
-      { type: "createReservation", date: todayStr, time: "09:00", patient_id: "p_001" },
+      { type: "createReservation", date: todayStr, time: "09:00", patient_id: "p_001", doctor_id: "doc-001" },
       { patient_id: "p_001" },
     );
 
@@ -680,7 +680,7 @@ describe("POST createReservation", () => {
     const todayStr = `${jstNow.getUTCFullYear()}-${String(jstNow.getUTCMonth() + 1).padStart(2, "0")}-${String(jstNow.getUTCDate()).padStart(2, "0")}`;
 
     const req = createMockRequest(
-      { type: "createReservation", date: todayStr, time: "09:00", patient_id: "p_001" },
+      { type: "createReservation", date: todayStr, time: "09:00", patient_id: "p_001", doctor_id: "doc-001" },
       { patient_id: "p_001" },
     );
 
@@ -1119,7 +1119,7 @@ describe("POST createReservation — エッジケース", () => {
     const { POST } = await import("@/app/api/reservations/route");
 
     const req = createMockRequest(
-      { type: "createReservation", date: getTodayStr(), time: "09:00", patient_id: "p_001" },
+      { type: "createReservation", date: getTodayStr(), time: "09:00", patient_id: "p_001", doctor_id: "doc-001" },
       { patient_id: "p_001" },
     );
 
@@ -1159,7 +1159,7 @@ describe("POST createReservation — エッジケース", () => {
     const { POST } = await import("@/app/api/reservations/route");
 
     const req = createMockRequest(
-      { type: "createReservation", date: getTodayStr(), time: "09:00", patient_id: "p_001" },
+      { type: "createReservation", date: getTodayStr(), time: "09:00", patient_id: "p_001", doctor_id: "doc-001" },
       { patient_id: "p_001" },
     );
 
@@ -1205,7 +1205,7 @@ describe("POST createReservation — エッジケース", () => {
     const { POST } = await import("@/app/api/reservations/route");
 
     const req = createMockRequest(
-      { type: "createReservation", date: getTodayStr(), time: "09:00", patient_id: "p_001" },
+      { type: "createReservation", date: getTodayStr(), time: "09:00", patient_id: "p_001", doctor_id: "doc-001" },
       { patient_id: "p_001" },
     );
 
@@ -1243,7 +1243,7 @@ describe("POST createReservation — エッジケース", () => {
     const { POST } = await import("@/app/api/reservations/route");
 
     const req = createMockRequest(
-      { type: "createReservation", date: getTodayStr(), time: "09:00", patient_id: "p_001" },
+      { type: "createReservation", date: getTodayStr(), time: "09:00", patient_id: "p_001", doctor_id: "doc-001" },
       { patient_id: "p_001" },
     );
 
@@ -1279,7 +1279,7 @@ describe("POST createReservation — エッジケース", () => {
     const { POST } = await import("@/app/api/reservations/route");
 
     const req = createMockRequest(
-      { type: "createReservation", date: getTodayStr(), time: "09:00", patient_id: "p_001" },
+      { type: "createReservation", date: getTodayStr(), time: "09:00", patient_id: "p_001", doctor_id: "doc-001" },
       { patient_id: "p_001" },
     );
 
@@ -1325,7 +1325,7 @@ describe("POST createReservation — エッジケース", () => {
     const { sendReservationNotification } = await import("@/lib/reservation-flex");
 
     const req = createMockRequest(
-      { type: "createReservation", date: getTodayStr(), time: "09:00", patient_id: "p_001" },
+      { type: "createReservation", date: getTodayStr(), time: "09:00", patient_id: "p_001", doctor_id: "doc-001" },
       { patient_id: "p_001" },
     );
 
@@ -1422,7 +1422,7 @@ describe("POST createReservation — エッジケース", () => {
 
     // body.patient_id を省略し、cookieから取得させる
     const req = createMockRequest(
-      { type: "createReservation", date: getTodayStr(), time: "09:00" },
+      { type: "createReservation", date: getTodayStr(), time: "09:00", doctor_id: "doc-001" },
       { patient_id: "p_cookie" },
     );
 
@@ -1467,7 +1467,7 @@ describe("POST createReservation — エッジケース", () => {
     const { POST } = await import("@/app/api/reservations/route");
 
     const req = {
-      json: vi.fn().mockResolvedValue({ type: "createReservation", date: getTodayStr(), time: "09:00" }),
+      json: vi.fn().mockResolvedValue({ type: "createReservation", date: getTodayStr(), time: "09:00", doctor_id: "doc-001" }),
       url: "http://localhost:3000/api/reservations",
       cookies: {
         get: (name: string) => {
@@ -2344,7 +2344,7 @@ describe("booking_not_open — 予約開放日チェック", () => {
     const { POST } = await import("@/app/api/reservations/route");
 
     const req = createMockRequest(
-      { type: "createReservation", date: getFarFutureDateStr(), time: "09:00", patient_id: "p_001" },
+      { type: "createReservation", date: getFarFutureDateStr(), time: "09:00", patient_id: "p_001", doctor_id: "doc-001" },
       { patient_id: "p_001" },
     );
 
@@ -2443,7 +2443,7 @@ describe("booking_not_open — 予約開放日チェック", () => {
     const { POST } = await import("@/app/api/reservations/route");
 
     const req = createMockRequest(
-      { type: "createReservation", date: "2020-01-15", time: "09:00", patient_id: "p_001" },
+      { type: "createReservation", date: "2020-01-15", time: "09:00", patient_id: "p_001", doctor_id: "doc-001" },
       { patient_id: "p_001" },
     );
 
@@ -2653,6 +2653,7 @@ describe("DB内部ヘルパー — エラーパス", () => {
         date: futureDateStr,
         time: "09:00",
         patient_id: "p_001",
+        doctor_id: "doc-001",
       }),
       url: "http://localhost:3000/api/reservations",
       cookies: {
@@ -2726,6 +2727,7 @@ describe("DB内部ヘルパー — エラーパス", () => {
         date: futureDateStr,
         time: "09:00",
         patient_id: "p_001",
+        doctor_id: "doc-001",
       }),
       url: "http://localhost:3000/api/reservations",
       cookies: {

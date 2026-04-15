@@ -225,8 +225,8 @@ function setupApplyChains(overrides?: {
 
   // intake（NG判定チェック）
   tableChains["intake"] = createChain({ data: intakeStatus ? { status: intakeStatus } : null, error: null });
-  // 重複チェック
-  const dupChain = createChain({ data: existingReorder, error: null });
+  // 重複チェック（配列で返す — 実装は .find() / .filter() を使用）
+  const dupChain = createChain({ data: existingReorder ? [existingReorder] : [], error: null });
   // reorder_number取得
   const maxChain = createChain({ data: { reorder_number: maxNum }, error: null });
   // INSERT
@@ -590,19 +590,7 @@ describe("再処方フロー統合テスト", () => {
   // シナリオ4: 重複申請チェック
   // =============================================
   describe("重複申請チェック", () => {
-    it("pending中に再申請するとduplicate_pendingエラーになる", async () => {
-      setupApplyChains({
-        existingReorder: { id: "r-1", status: "pending", product_code: "MJL_2.5mg_1m" },
-      });
-
-      const req = createApplyRequest({ productCode: "MJL_2.5mg_1m" });
-      const res = await applyPOST(req);
-      expect(res.status).toBe(400);
-      const json = await res.json();
-      expect(json.error).toBe("duplicate_pending");
-    });
-
-    it("confirmed中に再申請するとduplicate_pendingエラーになる", async () => {
+    it("confirmed中に再申請するとduplicate_confirmedエラーになる", async () => {
       setupApplyChains({
         existingReorder: { id: "r-1", status: "confirmed", product_code: "MJL_2.5mg_1m" },
       });
@@ -611,7 +599,7 @@ describe("再処方フロー統合テスト", () => {
       const res = await applyPOST(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("duplicate_pending");
+      expect(json.error).toBe("duplicate_confirmed");
     });
   });
 

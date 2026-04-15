@@ -76,6 +76,37 @@ vi.mock("@/lib/medical-fields", () => ({
   isMultiFieldEnabled: vi.fn().mockResolvedValue(false),
 }));
 
+vi.mock("@/lib/distributed-lock", () => ({
+  acquireLock: vi.fn().mockResolvedValue({ acquired: true, release: vi.fn().mockResolvedValue(undefined) }),
+}));
+
+vi.mock("@/lib/purchase/resolve-cart", () => ({
+  resolveCart: vi.fn().mockResolvedValue({
+    items: [{ code: "MJL_2.5mg_1m", title: "マンジャロ 2.5mg 1ヶ月", price: 13000, qty: 1, coolType: null, shippingDelayDays: 0 }],
+    subtotal: 13000,
+    shippingFee: 0,
+    totalAmount: 13000,
+    productCode: "MJL_2.5mg_1m",
+    productName: "マンジャロ 2.5mg 1ヶ月",
+  }),
+}));
+
+vi.mock("@/lib/business-rules", () => ({
+  getBusinessRules: vi.fn().mockResolvedValue({ notifyReorderPaid: false }),
+}));
+
+vi.mock("@/lib/payment-thank-flex", () => ({
+  sendPaymentThankNotification: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/lib/tag-auto-rules", () => ({
+  evaluateTagAutoRules: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/lib/address-utils", () => ({
+  hasAddressDuplication: vi.fn().mockReturnValue(false),
+}));
+
 vi.mock("@/lib/patient-session", () => ({
   verifyPatientSession: vi.fn().mockResolvedValue({ patientId: "PID_001", lineUserId: "U123" }),
   createPatientToken: vi.fn().mockResolvedValue("mock-jwt"),
@@ -178,19 +209,13 @@ describe("POST /api/square/pay", () => {
     const body = await res.json();
 
     expect(body.success).toBe(true);
-    // nonceでカード保存が先に実行される
+    // 決済成功後にpaymentIdでカード保存が実行される（nonceは決済で消費済み）
     expect(saveCardOnFile).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(String),
       "PID_001",
-      "cnon:CARD_NONCE",
+      "PAY_001",
       "test-tenant",
-    );
-    // 保存されたcard_idで決済（nonceではなくccof:を使用）
-    expect(createSquarePayment).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      expect.objectContaining({ sourceId: "ccof:SAVED_CARD" }),
     );
   });
 
@@ -216,18 +241,13 @@ describe("POST /api/square/pay", () => {
     const body = await res.json();
 
     expect(body.success).toBe(true);
-    // nonceでカード保存 → 新card_idで決済
+    // 決済成功後にpaymentIdでカード保存（nonceは決済で消費済み）
     expect(saveCardOnFile).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(String),
       "PID_001",
-      "cnon:CARD_NONCE",
+      "PAY_001",
       "test-tenant",
-    );
-    expect(createSquarePayment).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      expect.objectContaining({ sourceId: "ccof:SAVED_CARD" }),
     );
   });
 

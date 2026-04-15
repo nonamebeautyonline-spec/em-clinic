@@ -429,17 +429,20 @@ describe("health", () => {
 // ============================================================
 describe("profile", () => {
   it("Cookie未設定で401", async () => {
+    vi.mocked(verifyPatientSession).mockResolvedValueOnce(null);
     const { GET } = await import("@/app/api/profile/route");
     const req = makeReq("http://localhost:3000/api/profile");
     const res = await GET(req);
     expect(res.status).toBe(401);
   });
 
-  it("正常系: patient_id+patient_name Cookieで200", async () => {
+  it("正常系: 有効なセッションで200+患者名を返す", async () => {
+    // patientsテーブルから名前取得
+    const patientsChain = getOrCreateChain("patients");
+    patientsChain.maybeSingle = vi.fn().mockResolvedValue({ data: { name: "テスト太郎" }, error: null });
+
     const { GET } = await import("@/app/api/profile/route");
-    const req = makeReq("http://localhost:3000/api/profile", {
-      cookies: { patient_id: "P001", patient_name: "テスト太郎" },
-    });
+    const req = makeReq("http://localhost:3000/api/profile");
     const res = await GET(req);
     const json = await res.json();
     expect(res.status).toBe(200);

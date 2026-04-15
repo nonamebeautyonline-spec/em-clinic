@@ -2,6 +2,8 @@
 // 期限切れのGMO pending ordersを削除（毎時実行）
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
+import { withTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -14,25 +16,40 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { data, error } = await supabaseAdmin
-      .from("gmo_pending_orders")
-      .delete()
-      .lt("expires_at", new Date().toISOString())
-      .select("order_id");
+    // 全テナントのIDを取得
+    const { data: tenants } = await supabaseAdmin
+      .from("tenants")
+      .select("id");
 
-    const count = data?.length || 0;
-    if (error) {
-      console.error("[gmo-pending-cleanup] error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    let totalDeleted = 0;
+    const tenantIds = (tenants || []).map((t) => t.id);
+
+    for (const tenantId of tenantIds) {
+      const { data, error } = await withTenant(
+        supabaseAdmin
+          .from("gmo_pending_orders")
+          .delete()
+          .lt("expires_at", new Date().toISOString())
+          .select("order_id"),
+        tenantId,
+      );
+
+      if (error) {
+        console.error(`[gmo-pending-cleanup] tenant=${tenantId} error:`, error);
+        continue;
+      }
+
+      const count = data?.length || 0;
+      if (count > 0) {
+        console.log(`[gmo-pending-cleanup] tenant=${tenantId} deleted ${count} expired pending orders`);
+        totalDeleted += count;
+      }
     }
 
-    if (count > 0) {
-      console.log(`[gmo-pending-cleanup] deleted ${count} expired pending orders`);
-    }
-
-    return NextResponse.json({ ok: true, deleted: count });
+    return NextResponse.json({ ok: true, deleted: totalDeleted });
   } catch (e) {
     console.error("[gmo-pending-cleanup] exception:", e);
+    notifyCronFailure("gmo-pending-cleanup", e).catch(() => {});
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }

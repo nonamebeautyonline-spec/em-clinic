@@ -133,6 +133,9 @@ vi.mock("@/lib/webhook-tenant-resolver", () => ({
 }));
 
 vi.mock("@/lib/products", () => ({
+  getProducts: vi.fn().mockResolvedValue([
+    { code: "product-a", title: "テスト商品A", shipping_delay_days: 0 },
+  ]),
   getProductNamesMap: vi.fn().mockResolvedValue({ "product-a": "テスト商品A" }),
 }));
 

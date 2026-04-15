@@ -3,6 +3,10 @@
 // 対象: app/api/admin/dashboard-stats-enhanced/route.ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// 環境変数を先に設定（lib/session.tsがトップレベルでSupabase URLを参照するため）
+process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
+process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
+
 // デフォルトのRPCレスポンス（空データ）
 function createEmptyRpcResponse() {
   return {
@@ -43,6 +47,18 @@ vi.mock("jose", () => ({
   jwtVerify: vi.fn().mockResolvedValue({ payload: { userId: "user-1" } }),
 }));
 
+// session モック（lib/session.tsがトップレベルでcreateClientを呼ぶため）
+vi.mock("@/lib/session", () => ({
+  validateSession: vi.fn().mockResolvedValue(true),
+  createSession: vi.fn().mockResolvedValue(undefined),
+}));
+
+// admin-auth モック
+const mockVerifyAdminAuth = vi.fn();
+vi.mock("@/lib/admin-auth", () => ({
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
+}));
+
 // NextRequest互換のモック
 function createMockRequest(url: string, options: { cookie?: string; bearer?: string } = {}) {
   return {
@@ -74,11 +90,14 @@ describe("ダッシュボード拡張統計API (dashboard-stats-enhanced/route.t
     vi.clearAllMocks();
     mockRpcResponse = createEmptyRpcResponse();
     mockRpcError = null;
+    // デフォルトは認証成功
+    mockVerifyAdminAuth.mockResolvedValue(true);
   });
 
   // === 認証テスト ===
   describe("認証", () => {
     it("クッキーもBearerもない場合 → 401", async () => {
+      mockVerifyAdminAuth.mockResolvedValue(false);
       const req = createMockRequest("http://localhost/api/admin/dashboard-stats-enhanced");
       const res = await GET(req);
       expect(res.status).toBe(401);
@@ -96,8 +115,6 @@ describe("ダッシュボード拡張統計API (dashboard-stats-enhanced/route.t
     });
 
     it("Bearerトークン認証 → 200", async () => {
-      // ADMIN_TOKEN 環境変数をセット
-      process.env.ADMIN_TOKEN = "test-admin-token";
       const req = createMockRequest(
         "http://localhost/api/admin/dashboard-stats-enhanced",
         { bearer: "test-admin-token" },
@@ -374,8 +391,7 @@ describe("ダッシュボード拡張統計API (dashboard-stats-enhanced/route.t
   // === JWT検証失敗 ===
   describe("JWT検証失敗", () => {
     it("無効なJWT + Bearerトークンなし → 401", async () => {
-      const { jwtVerify } = await import("jose");
-      vi.mocked(jwtVerify).mockRejectedValueOnce(new Error("invalid token"));
+      mockVerifyAdminAuth.mockResolvedValue(false);
 
       const req = createMockRequest(
         "http://localhost/api/admin/dashboard-stats-enhanced",

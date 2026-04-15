@@ -46,7 +46,7 @@ vi.mock("@/lib/tenant", () => ({
   tenantPayload: (tid: string) => ({ tenant_id: tid }),
 }));
 
-const { processScoring } = await import("@/lib/scoring");
+const { processScoring, addScore, getPatientScore } = await import("@/lib/scoring");
 
 describe("scoring", () => {
   beforeEach(() => {
@@ -71,5 +71,44 @@ describe("scoring", () => {
       p_delta: 50,
       p_tenant_id: "t1",
     });
+  });
+
+  it("tenantId がない場合はスキップすること", async () => {
+    await processScoring("follow", { patientId: "P001" });
+    expect(mockInsertFn).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it("addScore がpatient_scoresにINSERTしRPCを呼ぶこと", async () => {
+    await addScore(
+      { patientId: "P001", scoreChange: 20, reason: "手動加点" },
+      "t1",
+    );
+
+    // patient_scores へのinsert
+    expect(mockInsertFn).toHaveBeenCalled();
+    // RPC呼び出し
+    expect(mockRpc).toHaveBeenCalledWith("increment_lead_score", {
+      p_patient_id: "P001",
+      p_delta: 20,
+      p_tenant_id: "t1",
+    });
+  });
+
+  it("addScore でscoringRuleIdが指定された場合にinsertに含まれること", async () => {
+    await addScore(
+      { patientId: "P001", scoreChange: 10, scoringRuleId: "r1", reason: "ルール適用" },
+      "t1",
+    );
+
+    expect(mockInsertFn).toHaveBeenCalledWith(
+      expect.objectContaining({ scoring_rule_id: "r1" }),
+    );
+  });
+
+  it("getPatientScore が患者のスコアを返すこと", async () => {
+    // makeChainのデフォルトで lead_score: 30 が返る
+    const score = await getPatientScore("P001", "t1");
+    expect(score).toBe(30);
   });
 });

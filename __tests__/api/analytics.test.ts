@@ -39,6 +39,10 @@ vi.mock("@/lib/tenant", () => ({
   strictWithTenant: vi.fn((q: unknown) => q),
 }));
 
+vi.mock("@/lib/products", () => ({
+  getProductNamesMap: vi.fn().mockResolvedValue({}),
+}));
+
 // NextRequest互換のモック
 function createMockRequest(url: string) {
   const parsedUrl = new URL(url);
@@ -103,11 +107,11 @@ describe("売上分析API (analytics/route.ts)", () => {
   });
 
   // ========================================
-  // type=daily: 日別売上推移（daily_metricsテーブルから取得）
+  // type=daily: 日別売上推移（daily_revenue_summary RPC使用）
   // ========================================
   describe("type=daily: 日別売上推移", () => {
-    it("データなし → daily空配列", async () => {
-      metricsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
+    it("データなし（data.data=null） → daily空配列", async () => {
+      rpcMock.mockResolvedValueOnce({ data: { data: null }, error: null });
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=daily");
       const res = await GET(req);
@@ -116,8 +120,8 @@ describe("売上分析API (analytics/route.ts)", () => {
       expect(json.daily).toEqual([]);
     });
 
-    it("data=null → daily空配列", async () => {
-      metricsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
+    it("RPCエラー → daily空配列", async () => {
+      rpcMock.mockResolvedValueOnce({ data: null, error: { message: "RPC error" } });
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=daily");
       const res = await GET(req);
@@ -126,30 +130,32 @@ describe("売上分析API (analytics/route.ts)", () => {
       expect(json.daily).toEqual([]);
     });
 
-    it("daily_metricsデータあり → フロント互換フォーマットに変換される", async () => {
-      metricsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
-        data: [
-          {
-            metric_date: "2026-02-20",
-            card_revenue: 20000,
-            bank_revenue: 5000,
-            refund_amount: 0,
-            card_orders: 2,
-            bank_orders: 1,
-            refund_orders: 0,
-          },
-          {
-            metric_date: "2026-02-21",
-            card_revenue: 15000,
-            bank_revenue: 5000,
-            refund_amount: 5000,
-            card_orders: 1,
-            bank_orders: 1,
-            refund_orders: 1,
-          },
-        ],
+    it("RPC応答あり → フロント互換フォーマットに変換される", async () => {
+      rpcMock.mockResolvedValueOnce({
+        data: {
+          data: [
+            {
+              date: "2026-02-20",
+              square: 20000,
+              bank: 5000,
+              refund: 0,
+              total: 25000,
+              squareCount: 2,
+              bankCount: 1,
+            },
+            {
+              date: "2026-02-21",
+              square: 15000,
+              bank: 5000,
+              refund: 5000,
+              total: 15000,
+              squareCount: 1,
+              bankCount: 1,
+            },
+          ],
+        },
         error: null,
-      }));
+      });
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=daily");
       const res = await GET(req);
@@ -157,14 +163,14 @@ describe("売上分析API (analytics/route.ts)", () => {
       const json = await res.json();
 
       expect(json.daily).toHaveLength(2);
-      // 2/20: card 20000 + bank 5000 = 25000（返金0）
+      // 2/20: square 20000 + bank 5000 = 25000（返金0）
       expect(json.daily[0].date).toBe("2026-02-20");
       expect(json.daily[0].gross).toBe(25000);
       expect(json.daily[0].refunds).toBe(0);
       expect(json.daily[0].revenue).toBe(25000);
       expect(json.daily[0].count).toBe(3);
 
-      // 2/21: card 15000 + bank 5000 = 20000 - refund 5000 = 15000
+      // 2/21: square 15000 + bank 5000 = 20000, refund 5000, total 15000
       expect(json.daily[1].date).toBe("2026-02-21");
       expect(json.daily[1].gross).toBe(20000);
       expect(json.daily[1].refunds).toBe(5000);
@@ -172,15 +178,18 @@ describe("売上分析API (analytics/route.ts)", () => {
       expect(json.daily[1].count).toBe(2);
     });
 
-    it("from/to パラメータが適用される", async () => {
-      metricsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
+    it("from/toパラメータがRPCに渡される", async () => {
+      rpcMock.mockResolvedValueOnce({ data: { data: [] }, error: null });
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=daily&from=2026-01-01&to=2026-01-31");
       const res = await GET(req);
       expect(res.status).toBe(200);
-      // gteとlteが呼ばれていることを確認
-      expect(metricsChain.gte).toHaveBeenCalled();
-      expect(metricsChain.lte).toHaveBeenCalled();
+      // RPCに正しいパラメータが渡されたことを確認
+      expect(rpcMock).toHaveBeenCalledWith("daily_revenue_summary", {
+        p_tenant_id: "test-tenant",
+        p_start_date: "2026-01-01",
+        p_end_date: "2026-01-31",
+      });
     });
   });
 
@@ -319,15 +328,20 @@ describe("売上分析API (analytics/route.ts)", () => {
   });
 
   // ========================================
-  // type=products: 商品別売上内訳（RPC呼び出し）
+  // type=products: 商品別売上内訳（ordersテーブルから直接集計）
   // ========================================
   describe("type=products: 商品別売上内訳", () => {
-    it("RPC成功 → 商品別データを返す", async () => {
-      const productsResult = [
-        { code: "MJL_5mg_1m", product_name: "マンジャロ5mg 1ヶ月", revenue: 45000, count: 2 },
-        { code: "MJL_2.5mg_1m", product_name: "マンジャロ2.5mg 1ヶ月", revenue: 20000, count: 2 },
-      ];
-      rpcMock.mockResolvedValue({ data: productsResult, error: null });
+    it("注文データあり → 商品別に集計して返す", async () => {
+      // ordersテーブルからの直接クエリ結果をモック
+      metricsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
+        data: [
+          { product_code: "MJL_5mg_1m", product_name: "マンジャロ5mg 1ヶ月", amount: 22500, refunded_amount: null, refund_status: null },
+          { product_code: "MJL_5mg_1m", product_name: "マンジャロ5mg 1ヶ月", amount: 22500, refunded_amount: null, refund_status: null },
+          { product_code: "MJL_2.5mg_1m", product_name: "マンジャロ2.5mg 1ヶ月", amount: 10000, refunded_amount: null, refund_status: null },
+          { product_code: "MJL_2.5mg_1m", product_name: "マンジャロ2.5mg 1ヶ月", amount: 10000, refunded_amount: null, refund_status: null },
+        ],
+        error: null,
+      }));
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=products");
       const res = await GET(req);
@@ -335,15 +349,18 @@ describe("売上分析API (analytics/route.ts)", () => {
       const json = await res.json();
 
       expect(json.products).toHaveLength(2);
-      expect(json.products[0].code).toBe("MJL_5mg_1m");
+      // revenue順でソート（降順）
       expect(json.products[0].revenue).toBe(45000);
       expect(json.products[0].count).toBe(2);
-      expect(json.products[1].code).toBe("MJL_2.5mg_1m");
       expect(json.products[1].revenue).toBe(20000);
+      expect(json.products[1].count).toBe(2);
     });
 
-    it("RPC失敗 → products空配列", async () => {
-      rpcMock.mockResolvedValue({ data: null, error: { message: "RPC error" } });
+    it("注文データなし → products空配列", async () => {
+      metricsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
+        data: null,
+        error: { message: "query error" },
+      }));
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=products");
       const res = await GET(req);
@@ -352,17 +369,18 @@ describe("売上分析API (analytics/route.ts)", () => {
       expect(json.products).toEqual([]);
     });
 
-    it("from/toパラメータがRPCに渡される", async () => {
-      rpcMock.mockResolvedValue({ data: [], error: null });
+    it("ordersテーブルから正しくクエリされる", async () => {
+      metricsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
+        data: [],
+        error: null,
+      }));
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=products&from=2026-01-01&to=2026-01-31");
       await GET(req);
 
-      expect(rpcMock).toHaveBeenCalledWith("analytics_product_breakdown", {
-        p_tenant_id: "test-tenant",
-        p_start_date: "2026-01-01",
-        p_end_date: "2026-01-31",
-      });
+      // ordersテーブルが使われることを確認
+      const { supabaseAdmin } = await import("@/lib/supabase");
+      expect(supabaseAdmin.from).toHaveBeenCalledWith("orders");
     });
   });
 });

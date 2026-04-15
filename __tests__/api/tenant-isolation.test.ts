@@ -59,6 +59,10 @@ const TENANT_EXEMPT_ROUTES = new Set([
   "app/api/admin/google-calendar/callback/route.ts",
   // ジャンクションテーブル操作（tenant_idカラムなし、親テーブル経由でテナント分離）
   "app/api/admin/reservation-slots/[id]/courses/route.ts",
+  // ab_test_variants: 親テーブルab_tests経由でテナント分離（ab_test_idで紐づけ）
+  "app/api/admin/line/ab-test/[id]/variants/route.ts",
+  // stylist_shifts: 親テーブルstylists経由でテナント分離（stylist_idで紐づけ）
+  "app/api/admin/stylists/[stylistId]/shifts/route.ts",
 ]);
 
 // platform APIはスーパー管理者用で意図的にテナント横断アクセスするため、テナントフィルター不要

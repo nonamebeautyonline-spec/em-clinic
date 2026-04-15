@@ -86,6 +86,21 @@ vi.mock("@/lib/distributed-lock", () => ({
   acquireLock: vi.fn().mockResolvedValue({ acquired: true, release: vi.fn().mockResolvedValue(undefined) }),
 }));
 
+vi.mock("@/lib/purchase/resolve-cart", () => ({
+  resolveCart: vi.fn().mockResolvedValue({
+    items: [{ code: "MJL_2.5mg_1m", title: "マンジャロ 2.5mg 1ヶ月", price: 13000, qty: 1, coolType: null, shippingDelayDays: 0 }],
+    subtotal: 13000,
+    shippingFee: 0,
+    totalAmount: 13000,
+    productCode: "MJL_2.5mg_1m",
+    productName: "マンジャロ 2.5mg 1ヶ月",
+  }),
+}));
+
+vi.mock("@/lib/address-utils", () => ({
+  hasAddressDuplication: vi.fn().mockReturnValue(false),
+}));
+
 vi.mock("@/lib/business-rules", () => ({
   getBusinessRules: vi.fn().mockResolvedValue({ notifyReorderPaid: false }),
 }));

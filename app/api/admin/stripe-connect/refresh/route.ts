@@ -1,9 +1,17 @@
 // app/api/admin/stripe-connect/refresh/route.ts — Stripe Connectオンボーディング中断時のリフレッシュ
 // オンボーディングが中断された場合に新しいアカウントリンクを生成してリダイレクト
 import { NextRequest, NextResponse } from "next/server";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 import { decodeStripeState, refreshStripeAccountLink } from "@/lib/stripe-connect";
 
 export async function GET(req: NextRequest) {
+  // 管理者認証チェック（Stripeリダイレクト後もブラウザセッション維持）
+  const isAdmin = await verifyAdminAuth(req);
+  if (!isAdmin) {
+    const redirectUrl = new URL("/admin/login", req.nextUrl.origin);
+    return NextResponse.redirect(redirectUrl);
+  }
+
   const state = req.nextUrl.searchParams.get("state");
   const accountId = req.nextUrl.searchParams.get("account_id");
 
