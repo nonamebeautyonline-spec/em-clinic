@@ -42,10 +42,10 @@ function verifyGmoSignature(params: URLSearchParams, shopPass: string): boolean 
     return false;
   }
   const checkString = params.get("CheckString") || "";
-  // CheckString欠落時はリクエスト拒否（fail-closed）
+  // CheckString欠落時は署名検証スキップ（GMO管理画面で署名設定が未有効の場合）
   if (!checkString) {
-    console.error("[gmo/webhook] CheckStringパラメータ欠落 — リクエスト拒否");
-    return false;
+    console.warn("[gmo/webhook] ⚠ CheckStringパラメータが空のため署名検証をスキップ — GMO管理画面で結果通知の署名設定を有効にしてください");
+    return true;
   }
   const shopId = params.get("ShopID") || "";
   const orderId = params.get("OrderID") || "";
