@@ -6,7 +6,21 @@ import { pushMessage } from "@/lib/line-push";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getFlexConfig } from "@/lib/flex-message/config";
 import { DEFAULT_FLEX_CONFIG, getColorsForTab } from "@/lib/flex-message/types";
+import { getSetting } from "@/lib/settings";
 import { tenantPayload } from "@/lib/tenant";
+
+/** 予約日に基づいてphone_prefixを解決（050日リストに含まれれば"050"、それ以外は"090"） */
+async function resolvePhonePrefix(dateStr: string, tenantId?: string): Promise<string> {
+  const raw = await getSetting("consultation", "phone_050_dates", tenantId);
+  let dates: string[] = [];
+  try { dates = raw ? JSON.parse(raw) : []; } catch { /* */ }
+  return dates.includes(dateStr) ? "050" : "090";
+}
+
+/** テキスト内の{phone_prefix}を置換 */
+function applyPhonePrefix(text: string, prefix: string): string {
+  return text.replace(/\{phone_prefix\}/g, prefix);
+}
 
 // デフォルト色（DB未設定時のフォールバック）
 const GRAY_LIGHT = "#999999"; // 取り消し線テキスト
@@ -35,6 +49,7 @@ export async function buildReservationCreatedFlex(dateStr: string, timeStr: stri
   try { cfg = await getFlexConfig(tenantId); } catch {}
   const colors = getColorsForTab(cfg, "reservation");
   const { reservation } = cfg;
+  const phonePrefix = await resolvePhonePrefix(dateStr, tenantId);
 
   return {
     type: "flex" as const,
@@ -66,7 +81,7 @@ export async function buildReservationCreatedFlex(dateStr: string, timeStr: stri
           // LINE Flex APIはtext=""を許可しないため、空文字列の要素はスキップ
           ...(reservation.createdPhoneNotice ? [{
             type: "text" as const,
-            text: reservation.createdPhoneNotice,
+            text: applyPhonePrefix(reservation.createdPhoneNotice, phonePrefix),
             size: "sm" as const,
             color: colors.bodyText,
             wrap: true,
@@ -101,6 +116,7 @@ export async function buildReservationChangedFlex(
   try { cfg = await getFlexConfig(tenantId); } catch {}
   const colors = getColorsForTab(cfg, "reservation");
   const { reservation } = cfg;
+  const phonePrefix = await resolvePhonePrefix(newDateStr, tenantId);
 
   return {
     type: "flex" as const,
@@ -145,7 +161,7 @@ export async function buildReservationChangedFlex(
           // LINE Flex APIはtext=""を許可しないため、空文字列の要素はスキップ
           ...(reservation.changedPhoneNotice ? [{
             type: "text" as const,
-            text: reservation.changedPhoneNotice,
+            text: applyPhonePrefix(reservation.changedPhoneNotice, phonePrefix),
             size: "sm" as const,
             color: colors.bodyText,
             wrap: true,

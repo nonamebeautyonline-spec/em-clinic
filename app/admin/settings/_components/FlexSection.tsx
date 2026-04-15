@@ -705,6 +705,7 @@ export default function FlexSection({ onToast }: Props) {
                                       <label className="block text-sm font-medium text-gray-700 mb-1">電話案内</label>
                                       <textarea value={flexConfig.reservation.createdPhoneNotice} onChange={(e) => updateReservation("createdPhoneNotice", e.target.value)}
                                         rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none" />
+                                      <p className="mt-1 text-xs text-gray-400"><code className="bg-gray-100 px-1 rounded">{"{phone_prefix}"}</code> で発信番号（090/050）を動的表示</p>
                                     </div>
                                     <div>
                                       <label className="block text-sm font-medium text-gray-700 mb-1">補足文言</label>
@@ -724,6 +725,7 @@ export default function FlexSection({ onToast }: Props) {
                                       <label className="block text-sm font-medium text-gray-700 mb-1">電話案内</label>
                                       <textarea value={flexConfig.reservation.changedPhoneNotice} onChange={(e) => updateReservation("changedPhoneNotice", e.target.value)}
                                         rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none" />
+                                      <p className="mt-1 text-xs text-gray-400"><code className="bg-gray-100 px-1 rounded">{"{phone_prefix}"}</code> で発信番号（090/050）を動的表示</p>
                                     </div>
                                   </>
                                 )}
