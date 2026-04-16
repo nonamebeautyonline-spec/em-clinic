@@ -167,9 +167,46 @@ export default function EnhancedDashboard() {
         </div>
       )}
 
-      {/* リアルタイム統計 */}
+      {/* 円グラフ（患者ファネル・処方内訳・決済方法） */}
+      <div className="mb-6">
+        <PieChartsWidget dateRange={dateRange} startDate={startDate} endDate={endDate} />
+      </div>
+
+      {/* KPIカード（ドラッグ並び替え対応） */}
+      <KPICardGrid
+        stats={stats}
+        dateRange={dateRange}
+        widgetSettings={widgetSettings}
+        cardOrder={cardOrder}
+        sensors={sensors}
+        handleDragEnd={handleDragEnd}
+      />
+
+      {/* KPI目標 vs 実績 */}
+      {widgetSettings.kpiTargetChart && (
+        <div className="mb-8">
+          <KPITargetWidget />
+        </div>
+      )}
+
+      {/* タブナビゲーション */}
+      {widgetSettings.detailTabs && (
+        <DashboardDetailTabs
+          stats={stats}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          widgetSettings={widgetSettings}
+        />
+      )}
+
+      {/* 分析ウィジェット */}
+      <div className="mt-8 space-y-6">
+        {widgetSettings.conversionChart && <ConversionWidget />}
+      </div>
+
+      {/* リアルタイム統計（オンライン管理者等） */}
       {dateRange === "today" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
           <RealtimeStatCard
             label="オンライン管理者"
             value={realtimeStats.activeAdminSessions}
@@ -210,43 +247,6 @@ export default function EnhancedDashboard() {
           />
         </div>
       )}
-
-      {/* 円グラフ（患者ファネル・処方内訳・決済方法） */}
-      <div className="mb-6">
-        <PieChartsWidget dateRange={dateRange} startDate={startDate} endDate={endDate} />
-      </div>
-
-      {/* KPIカード（ドラッグ並び替え対応） */}
-      <KPICardGrid
-        stats={stats}
-        dateRange={dateRange}
-        widgetSettings={widgetSettings}
-        cardOrder={cardOrder}
-        sensors={sensors}
-        handleDragEnd={handleDragEnd}
-      />
-
-      {/* KPI目標 vs 実績 */}
-      {widgetSettings.kpiTargetChart && (
-        <div className="mb-8">
-          <KPITargetWidget />
-        </div>
-      )}
-
-      {/* タブナビゲーション */}
-      {widgetSettings.detailTabs && (
-        <DashboardDetailTabs
-          stats={stats}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          widgetSettings={widgetSettings}
-        />
-      )}
-
-      {/* 分析ウィジェット */}
-      <div className="mt-8 space-y-6">
-        {widgetSettings.conversionChart && <ConversionWidget />}
-      </div>
 
       {/* トースト通知コンテナ */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />

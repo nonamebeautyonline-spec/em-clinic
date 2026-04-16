@@ -205,7 +205,8 @@ export default function LineDashboardPage() {
 
       {/* 友だち統計（Lステップ風テーブル） */}
       {(() => {
-        const totalFriends = data.stats.followers + data.stats.blocks;
+        // Insight APIの累積友だち数（LINE公式管理画面の「友だち数」と同値）
+        const totalFriends = data.stats.cumulativeFriends || (data.stats.followers + data.stats.blocks);
         const blockRate = totalFriends > 0
           ? ((data.stats.blocks / totalFriends) * 100).toFixed(1)
           : "0.0";

@@ -135,6 +135,8 @@ export async function GET(req: NextRequest) {
     followers: realtimeCount ?? insightStats.followers,
     targetedReaches: insightStats.targetedReaches,
     blocks: insightStats.blocks,
+    // Insight APIの累積友だち数（LINE公式管理画面の「友だち数」と同値 = ブロック込み）
+    cumulativeFriends: insightStats.followers,
   };
 
   // 2. 今月の送信数 + LINE メッセージ残数

@@ -25,7 +25,7 @@ export interface WidgetSettings {
 
 // カード並び順のデフォルト
 export type KpiKey = keyof WidgetSettings;
-export const DEFAULT_MAIN_ORDER: KpiKey[] = ["kpi_reservations", "kpi_shipping", "kpi_revenue", "kpi_repeat_rate"];
+export const DEFAULT_MAIN_ORDER: KpiKey[] = ["kpi_revenue", "kpi_reservations", "kpi_shipping", "kpi_repeat_rate"];
 export const DEFAULT_CONV_ORDER: KpiKey[] = ["kpi_payment_rate", "kpi_reservation_rate", "kpi_consultation_rate"];
 export const DEFAULT_SUB_ORDER: KpiKey[] = ["kpi_line_registered", "kpi_active_reservations", "kpi_avg_order", "kpi_today_reservations", "kpi_today_paid", "kpi_bank_transfer"];
 
