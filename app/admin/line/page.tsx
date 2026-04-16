@@ -543,30 +543,45 @@ export default function LineDashboardPage() {
                     <tr className="border-b border-gray-100">
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">日付</th>
                       <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">有効友だち</th>
+                      <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">増加</th>
+                      <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">ブロック</th>
                       <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">増減</th>
-                      <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">ブロック人数</th>
-                      <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">ブロック累積</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {data.dailyStats.map((day, i) => {
                       const prev = data.dailyStats[i + 1];
                       const diff = prev ? day.followers - prev.followers : null;
+                      const blocksDaily = day.blocksDaily || 0;
+                      // 増加 = 増減 + ブロック（友だち数の増減にブロック分を加えると純増加数）
+                      const added = diff !== null ? diff + blocksDaily : null;
                       return (
                         <tr key={day.date} className="hover:bg-gray-50/50">
                           <td className="px-5 py-3 text-gray-700 whitespace-nowrap">{formatDateShort(day.date)}</td>
                           <td className="px-5 py-3 text-right font-medium text-gray-900">{day.followers.toLocaleString()}</td>
                           <td className="px-5 py-3 text-right">
+                            {added !== null ? (
+                              <span className="text-xs font-medium text-emerald-600">+{added}</span>
+                            ) : (
+                              <span className="text-xs text-gray-300">—</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            {blocksDaily > 0 ? (
+                              <span className="text-xs font-medium text-red-500">-{blocksDaily}</span>
+                            ) : (
+                              <span className="text-xs text-gray-400">0</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3 text-right">
                             {diff !== null ? (
-                              <span className={`text-xs font-medium ${diff > 0 ? "text-emerald-600" : diff < 0 ? "text-red-500" : "text-gray-400"}`}>
+                              <span className={`text-xs font-bold ${diff > 0 ? "text-emerald-600" : diff < 0 ? "text-red-500" : "text-gray-400"}`}>
                                 {diff > 0 ? `+${diff}` : diff === 0 ? "±0" : String(diff)}
                               </span>
                             ) : (
                               <span className="text-xs text-gray-300">—</span>
                             )}
                           </td>
-                          <td className="px-5 py-3 text-right text-gray-500">{(day.blocksDaily || 0).toLocaleString()}</td>
-                          <td className="px-5 py-3 text-right text-gray-500">{day.blocks.toLocaleString()}</td>
                         </tr>
                       );
                     })}
