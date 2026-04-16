@@ -6,7 +6,7 @@ interface RealtimeStatCardProps {
   unit: string;
   subText?: string;
   icon: ReactNode;
-  color: "emerald" | "blue" | "violet";
+  color: "emerald" | "blue" | "violet" | "rose";
   connected: boolean;
 }
 
@@ -25,6 +25,13 @@ export function RealtimeStatCard({ label, value, unit, subText, icon, color, con
       iconBg: "bg-claude-sand text-claude-charcoal",
       value: "text-claude-near-black",
       pulse: "bg-claude-terracotta",
+    },
+    rose: {
+      bg: "bg-claude-ivory",
+      border: "border-claude-border-warm",
+      iconBg: "bg-claude-sand text-claude-charcoal",
+      value: "text-claude-near-black",
+      pulse: "bg-red-500",
     },
     violet: {
       bg: "bg-claude-ivory",
