@@ -64,7 +64,7 @@ interface NotifyQuota {
 }
 
 interface DashboardData {
-  stats: { followers: number; targetedReaches: number; blocks: number };
+  stats: { followers: number; targetedReaches: number; blocks: number; cumulativeFriends?: number };
   monthlySent: number;
   messageQuota?: MessageQuota;
   notifyQuota?: NotifyQuota;
