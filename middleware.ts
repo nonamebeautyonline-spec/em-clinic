@@ -165,7 +165,7 @@ export async function middleware(req: NextRequest) {
     const newSlug = oldCategoryRedirects[categoryMatch[1]];
     if (newSlug) {
       const url = new URL(req.url);
-      url.pathname = `/lp/column/category/${newSlug}`;
+      url.pathname = `/clinic/column/category/${newSlug}`;
       return NextResponse.redirect(url, 301);
     }
   }
