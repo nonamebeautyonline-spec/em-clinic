@@ -70,6 +70,10 @@ export interface DashboardSnapshot {
   todayMessageCount: number;
   /** 本日の新規患者数（patientsテーブル基準） */
   todayNewPatients: number;
+  /** 本日のフォロー数（followイベント） */
+  todayFollows: number;
+  /** 本日のブロック数（unfollowイベント） */
+  todayBlocks: number;
 }
 
 /**
