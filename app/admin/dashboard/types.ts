@@ -147,6 +147,8 @@ export interface RealtimeStats {
   todayIncomingCount: number;
   todayMessageCount: number;
   todayNewPatients: number;
+  todayFollows: number;
+  todayBlocks: number;
 }
 
 /** API にウィジェット設定を保存する */

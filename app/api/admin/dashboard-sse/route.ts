@@ -123,6 +123,8 @@ async function fetchSnapshot(
     todayOutgoingResult,
     todayIncomingResult,
     todayNewPatientsResult,
+    todayFollowResult,
+    todayUnfollowResult,
   ] = await Promise.all([
     // 今日の予約数
     strictWithTenant(
@@ -228,6 +230,30 @@ async function fetchSnapshot(
         .gte("created_at", startISO)
         .lt("created_at", endISO),
     ),
+    // 本日のフォロー数（message_logのfollowイベント）
+    (() => {
+      let q = supabase
+        .from("message_log")
+        .select("*", { count: "exact", head: true })
+        .eq("message_type", "event")
+        .eq("event_type", "follow")
+        .gte("sent_at", startISO)
+        .lt("sent_at", endISO);
+      if (tenantId) q = q.eq("tenant_id", tenantId);
+      return q;
+    })(),
+    // 本日のブロック数（message_logのunfollowイベント）
+    (() => {
+      let q = supabase
+        .from("message_log")
+        .select("*", { count: "exact", head: true })
+        .eq("message_type", "event")
+        .eq("event_type", "unfollow")
+        .gte("sent_at", startISO)
+        .lt("sent_at", endISO);
+      if (tenantId) q = q.eq("tenant_id", tenantId);
+      return q;
+    })(),
   ]);
 
   return {
@@ -260,6 +286,8 @@ async function fetchSnapshot(
     todayIncomingCount: todayIncomingResult.count ?? 0,
     todayMessageCount: (todayOutgoingResult.count ?? 0) + (todayIncomingResult.count ?? 0),
     todayNewPatients: todayNewPatientsResult.count ?? 0,
+    todayFollows: todayFollowResult.count ?? 0,
+    todayBlocks: todayUnfollowResult.count ?? 0,
   };
 }
 

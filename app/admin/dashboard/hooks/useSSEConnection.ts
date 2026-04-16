@@ -16,6 +16,8 @@ export function useSSEConnection(
     todayIncomingCount: 0,
     todayMessageCount: 0,
     todayNewPatients: 0,
+    todayFollows: 0,
+    todayBlocks: 0,
   });
 
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -147,6 +149,8 @@ export function useSSEConnection(
           todayIncomingCount: data.todayIncomingCount ?? 0,
           todayMessageCount: data.todayMessageCount ?? 0,
           todayNewPatients: data.todayNewPatients ?? 0,
+          todayFollows: data.todayFollows ?? 0,
+          todayBlocks: data.todayBlocks ?? 0,
         });
       } catch {
         // パースエラーは無視
@@ -166,6 +170,8 @@ export function useSSEConnection(
             todayIncomingCount: data.snapshot.todayIncomingCount ?? 0,
             todayMessageCount: data.snapshot.todayMessageCount ?? 0,
             todayNewPatients: data.snapshot.todayNewPatients ?? 0,
+            todayFollows: data.snapshot.todayFollows ?? 0,
+            todayBlocks: data.snapshot.todayBlocks ?? 0,
           });
         }
       } catch {
