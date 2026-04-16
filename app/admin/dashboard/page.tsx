@@ -167,6 +167,37 @@ export default function EnhancedDashboard() {
         </div>
       )}
 
+      {/* リアルタイム統計（送信メッセージ・新規登録） */}
+      {dateRange === "today" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <RealtimeStatCard
+            label="送信メッセージ"
+            value={realtimeStats.todayOutgoingCount}
+            unit="件"
+            subText={`受信 ${realtimeStats.todayIncomingCount.toLocaleString()} / 合計 ${realtimeStats.todayMessageCount.toLocaleString()}`}
+            icon={
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
+            }
+            color="blue"
+            connected={sseStatus === "connected"}
+          />
+          <RealtimeStatCard
+            label="本日の新規登録"
+            value={realtimeStats.todayNewPatients}
+            unit="人"
+            icon={
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
+            }
+            color="violet"
+            connected={sseStatus === "connected"}
+          />
+        </div>
+      )}
+
       {/* 円グラフ（患者ファネル・処方内訳・決済方法） */}
       <div className="mb-6">
         <PieChartsWidget dateRange={dateRange} startDate={startDate} endDate={endDate} />
@@ -204,7 +235,7 @@ export default function EnhancedDashboard() {
         {widgetSettings.conversionChart && <ConversionWidget />}
       </div>
 
-      {/* リアルタイム統計（オンライン管理者等） */}
+      {/* オンライン管理者（最下部） */}
       {dateRange === "today" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
           <RealtimeStatCard
@@ -218,31 +249,6 @@ export default function EnhancedDashboard() {
               </svg>
             }
             color="emerald"
-            connected={sseStatus === "connected"}
-          />
-          <RealtimeStatCard
-            label="送信メッセージ"
-            value={realtimeStats.todayOutgoingCount}
-            unit="件"
-            subText={`受信 ${realtimeStats.todayIncomingCount.toLocaleString()} / 合計 ${realtimeStats.todayMessageCount.toLocaleString()}`}
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-              </svg>
-            }
-            color="blue"
-            connected={sseStatus === "connected"}
-          />
-          <RealtimeStatCard
-            label="本日の新規登録"
-            value={realtimeStats.todayNewPatients}
-            unit="人"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-              </svg>
-            }
-            color="violet"
             connected={sseStatus === "connected"}
           />
         </div>
