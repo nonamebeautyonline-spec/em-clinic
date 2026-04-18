@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   const { data: rd } = await withTenant(
     supabaseAdmin
       .from("redeliveries")
-      .select("id, patient_id, original_order_id, amount, status")
+      .select("id, patient_id, original_order_id, amount, status, product_code, product_name")
       .eq("id", redeliveryId)
       .maybeSingle(),
     tenantId
@@ -51,13 +51,13 @@ export async function POST(req: NextRequest) {
   const now = new Date().toISOString();
   const orderId = `bt_redelivery_${redeliveryId}_${Date.now()}`;
 
-  // ordersにINSERT（振込確認待ち）
+  // ordersにINSERT（振込確認待ち）— 元注文の商品情報・配送先で発送待ち
   const { error } = await supabaseAdmin.from("orders").insert({
     ...tenantPayload(tenantId),
     id: orderId,
     patient_id: patientId,
-    product_code: "REDELIVERY_FEE",
-    product_name: "再配送料",
+    product_code: rd.product_code || "REDELIVERY_FEE",
+    product_name: rd.product_name ? `${rd.product_name}（再配送）` : "再配送",
     amount: rd.amount,
     payment_method: "bank_transfer",
     payment_status: "PENDING",

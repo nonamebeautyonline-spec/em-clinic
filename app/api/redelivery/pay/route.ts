@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   const { data: rd } = await withTenant(
     supabaseAdmin
       .from("redeliveries")
-      .select("id, patient_id, original_order_id, amount, status")
+      .select("id, patient_id, original_order_id, amount, status, product_code, product_name")
       .eq("id", redeliveryId)
       .maybeSingle(),
     tenantId
@@ -129,22 +129,37 @@ export async function POST(req: NextRequest) {
       paymentId = payData.payment?.id || "";
     }
 
-    // 決済成功 → ordersにINSERT + redeliveries更新
+    // 決済成功 → 元注文の商品情報・配送先で発送待ちordersをINSERT
     const orderId = `redelivery-${redeliveryId}-${Date.now()}`;
     const now = new Date().toISOString();
+
+    // 元注文の配送先を取得
+    const { data: origOrder } = await withTenant(
+      supabaseAdmin
+        .from("orders")
+        .select("shipping_name, postal_code, address, phone, email")
+        .eq("id", rd.original_order_id)
+        .maybeSingle(),
+      tenantId
+    );
 
     await supabaseAdmin.from("orders").insert({
       ...tenantPayload(tenantId),
       id: orderId,
       patient_id: patientId,
-      product_code: "REDELIVERY_FEE",
-      product_name: "再配送料",
+      product_code: rd.product_code || "REDELIVERY_FEE",
+      product_name: rd.product_name ? `${rd.product_name}（再配送）` : "再配送",
       amount,
       payment_method: "credit_card",
       payment_status: "paid",
       paid_at: now,
       status: "confirmed",
       shipping_status: "pending",
+      shipping_name: origOrder?.shipping_name || "",
+      postal_code: origOrder?.postal_code || "",
+      address: origOrder?.address || "",
+      phone: origOrder?.phone || "",
+      email: origOrder?.email || "",
       created_at: now,
     });
 
