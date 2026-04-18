@@ -167,46 +167,58 @@ export default function EnhancedDashboard() {
         </div>
       )}
 
-      {/* リアルタイム統計（登録・ブロック・増減） */}
-      {dateRange === "today" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      {/* サマリーカード（純売上・決済数・登録者増減・顧客単価） */}
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <RealtimeStatCard
-            label="本日の登録"
-            value={realtimeStats.todayFollows}
-            unit="人"
-            subText={`患者レコード作成: ${realtimeStats.todayNewPatients}`}
+            label="純売上"
+            value={stats.revenue.total}
+            unit="円"
             icon={
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             }
             color="emerald"
-            connected={sseStatus === "connected"}
+            connected={dateRange === "today" && sseStatus === "connected"}
           />
           <RealtimeStatCard
-            label="本日のブロック"
-            value={realtimeStats.todayBlocks}
-            unit="人"
+            label="決済数"
+            value={stats.shipping.total}
+            unit="件"
+            subText={`新規 ${stats.shipping.first} / 再処方 ${stats.shipping.reorder}`}
             icon={
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
               </svg>
             }
-            color="rose"
-            connected={sseStatus === "connected"}
+            color="blue"
+            connected={dateRange === "today" && sseStatus === "connected"}
           />
           <RealtimeStatCard
-            label="本日の増減"
-            value={realtimeStats.todayFollows - realtimeStats.todayBlocks}
+            label="登録者増減"
+            value={dateRange === "today" ? realtimeStats.todayFollows - realtimeStats.todayBlocks : stats.patients.new}
             unit="人"
-            subText={`送信 ${realtimeStats.todayOutgoingCount.toLocaleString()} / 受信 ${realtimeStats.todayIncomingCount.toLocaleString()}`}
+            subText={dateRange === "today" ? `増加 ${realtimeStats.todayFollows} / ブロック ${realtimeStats.todayBlocks}` : undefined}
             icon={
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
             }
-            color={realtimeStats.todayFollows - realtimeStats.todayBlocks >= 0 ? "emerald" : "rose"}
-            connected={sseStatus === "connected"}
+            color={(dateRange === "today" ? realtimeStats.todayFollows - realtimeStats.todayBlocks : stats.patients.new) >= 0 ? "emerald" : "rose"}
+            connected={dateRange === "today" && sseStatus === "connected"}
+          />
+          <RealtimeStatCard
+            label="顧客単価"
+            value={stats.revenue.avgOrderAmount}
+            unit="円"
+            icon={
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            }
+            color="violet"
+            connected={dateRange === "today" && sseStatus === "connected"}
           />
         </div>
       )}
