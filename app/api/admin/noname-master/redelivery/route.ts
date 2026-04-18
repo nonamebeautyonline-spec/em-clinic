@@ -31,13 +31,21 @@ export async function POST(req: NextRequest) {
   const { data: order } = await strictWithTenant(
     supabaseAdmin
       .from("orders")
-      .select("id, patient_id, product_name")
+      .select("id, patient_id, product_code, product_name")
       .eq("id", orderId)
       .maybeSingle(),
     tenantId
   );
 
   if (!order) return badRequest("注文が見つかりません");
+
+  // product_nameがnullの場合、product_codeから商品名を解決
+  let productName = order.product_name || "";
+  if (!productName && order.product_code) {
+    const { getProductNamesMap } = await import("@/lib/products");
+    const pnMap = await getProductNamesMap(tenantId ?? undefined);
+    productName = pnMap[order.product_code] || order.product_code;
+  }
 
   // 同一注文に対する未決済の再配送請求が既にないかチェック
   const { data: existing } = await strictWithTenant(
@@ -59,6 +67,8 @@ export async function POST(req: NextRequest) {
       ...tenantPayload(tenantId),
       patient_id: order.patient_id,
       original_order_id: orderId,
+      product_code: order.product_code || "",
+      product_name: productName,
       amount: REDELIVERY_FEE,
       status: "pending",
     })

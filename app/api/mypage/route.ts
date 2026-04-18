@@ -7,7 +7,6 @@ import { validateBody } from "@/lib/validations/helpers";
 import { mypageDashboardSchema } from "@/lib/validations/mypage";
 import { isMultiFieldEnabled } from "@/lib/medical-fields";
 import { verifyPatientSession } from "@/lib/patient-session";
-import { getProductNamesMap } from "@/lib/products";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -484,7 +483,7 @@ export async function POST(_req: NextRequest) {
       strictWithTenant(
         supabaseAdmin
           .from("redeliveries")
-          .select("id, original_order_id, amount, status, created_at, orders!redeliveries_original_order_id_fkey(product_name, product_code, amount, paid_at)")
+          .select("id, original_order_id, amount, status, created_at, product_code, product_name")
           .eq("patient_id", patientId)
           .eq("status", "pending"),
         tenantId
@@ -590,27 +589,16 @@ export async function POST(_req: NextRequest) {
       ) : {},
       intakeId: "",
       intakeStatus: patientInfo?.intakeStatus || null,
-      redeliveries: await (async () => {
-        const rdData = redeliveriesRes.data || [];
-        if (rdData.length === 0) return [];
-        const pnMap = await getProductNamesMap(tenantId ?? undefined);
-        return rdData.map((rd: Record<string, unknown>) => {
-        const orderArr = rd.orders as { product_name: string; product_code: string; amount: number; paid_at: string }[] | null;
-        const order = Array.isArray(orderArr) ? orderArr[0] : null;
-        const code = order?.product_code || "";
-        const name = order?.product_name || pnMap[code] || code;
-        return {
-          id: rd.id,
-          originalOrderId: rd.original_order_id,
-          amount: rd.amount,
-          createdAt: rd.created_at,
-          originalProductName: name,
-          originalProductCode: code,
-          originalAmount: order?.amount || 0,
-          originalPaidAt: order?.paid_at || "",
-        };
-      });
-      })(),
+      redeliveries: (redeliveriesRes.data || []).map((rd: Record<string, unknown>) => ({
+        id: rd.id,
+        originalOrderId: rd.original_order_id,
+        amount: rd.amount,
+        createdAt: rd.created_at,
+        originalProductName: (rd.product_name as string) || (rd.product_code as string) || "",
+        originalProductCode: (rd.product_code as string) || "",
+        originalAmount: 0,
+        originalPaidAt: "",
+      })),
     };
 
     // キャッシュ保存（TTL=30分）
