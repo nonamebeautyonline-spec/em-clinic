@@ -52,25 +52,44 @@ export async function POST(req: NextRequest) {
 
     if (provider === "gmo") {
       // GMO決済
-      const { executeGmoPayment } = await import("@/lib/payment/gmo-inline");
-      const gmoResult = await executeGmoPayment({
-        patientId,
-        amount,
-        productCode: "REDELIVERY_FEE",
-        token: useSavedCard ? undefined : (token || sourceId || ""),
-        useSavedCard: !!useSavedCard,
-        tenantId: tid,
-        clientField: `PID:${patientId};Product:REDELIVERY_FEE;Redelivery:${redeliveryId}`,
-      });
+      const { createGmoPayment, createGmoPaymentWithSavedCard, getGmoSavedCard } = await import("@/lib/payment/gmo-inline");
 
-      if (!gmoResult.success) {
-        // 3DS認証が必要な場合
+      let gmoResult: { ok: boolean; orderId?: string; error?: string; needs3ds?: boolean; acsUrl?: string };
+
+      if (useSavedCard) {
+        const saved = await getGmoSavedCard(patientId, tenantId);
+        if (!saved.hasCard || !saved.cardSeq) {
+          return serverError("保存済みカードが見つかりません");
+        }
+        gmoResult = await createGmoPaymentWithSavedCard({
+          memberId: patientId,
+          cardSeq: saved.cardSeq,
+          amount,
+          patientId,
+          productCode: "REDELIVERY_FEE",
+          mode: "redelivery",
+          reorderId: String(redeliveryId),
+          tenantId,
+        });
+      } else {
+        gmoResult = await createGmoPayment({
+          token: token || sourceId || "",
+          amount,
+          patientId,
+          productCode: "REDELIVERY_FEE",
+          mode: "redelivery",
+          reorderId: String(redeliveryId),
+          tenantId,
+        });
+      }
+
+      if (!gmoResult.ok) {
         if (gmoResult.needs3ds && gmoResult.acsUrl) {
           return NextResponse.json({ needs3ds: true, acsUrl: gmoResult.acsUrl });
         }
         return serverError(gmoResult.error || "GMO決済に失敗しました");
       }
-      paymentId = gmoResult.transactionId || "";
+      paymentId = gmoResult.orderId || "";
     } else {
       // Square決済
       const { getActiveSquareAccount, ensureSquareCustomer } = await import("@/lib/payment/square-inline");
