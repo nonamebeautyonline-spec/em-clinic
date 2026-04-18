@@ -92,7 +92,8 @@ export async function POST(req: NextRequest) {
       paymentId = gmoResult.orderId || "";
     } else {
       // Square決済
-      const { getActiveSquareAccount, ensureSquareCustomer } = await import("@/lib/payment/square-inline");
+      const { getActiveSquareAccount } = await import("@/lib/square-account-server");
+      const { ensureSquareCustomer } = await import("@/lib/payment/square-inline");
       const sqConfig = await getActiveSquareAccount(tid);
       if (!sqConfig?.accessToken || !sqConfig?.locationId) {
         return serverError("Square設定が不足しています");
