@@ -77,6 +77,10 @@ export interface RedeliveryItem {
   originalOrderId: string;
   amount: number;
   createdAt: string;
+  originalProductName: string;
+  originalProductCode: string;
+  originalAmount: number;
+  originalPaidAt: string;
 }
 
 export interface PatientDashboardData {

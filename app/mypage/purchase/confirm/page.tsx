@@ -652,10 +652,14 @@ function PurchaseConfirmContent() {
     );
   }
 
+  // 再配送料の元注文情報をSWRで取得
+  const rdDetailKey = isRedeliveryMode ? `/api/redelivery/${redeliveryIdParam}` : null;
+  const { data: rdDetailData } = useSWR(rdDetailKey, swrFetcher, { revalidateOnFocus: false });
+  const rdDetail = rdDetailData?.redelivery as { originalProductName?: string; originalAmount?: number; originalPaidAt?: string } | undefined;
+
   // 再配送料モード: 既存の決済UIと同じ構成で表示
   if (isRedeliveryMode) {
     const redeliveryAmount = 1500;
-    const clinicName = sdkConfig ? "" : "";
     return (
       <div className="min-h-screen bg-slate-50">
         {/* ヘッダー */}
@@ -667,9 +671,19 @@ function PurchaseConfirmContent() {
         </div>
 
         <div className="mx-auto max-w-md px-4 pb-6 pt-4 space-y-4">
-          {/* 商品情報 */}
+          {/* 元注文情報 + 再配送料 */}
           <div className="space-y-2">
             <h2 className="text-sm font-semibold text-slate-900">決済情報</h2>
+            {rdDetail?.originalProductName && (
+              <div className="rounded-2xl border border-slate-200 bg-white shadow-sm px-4 py-3">
+                <div className="text-[11px] text-slate-400 mb-1">対象の注文</div>
+                <div className="text-xs font-semibold text-slate-900">{rdDetail.originalProductName}</div>
+                <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
+                  {rdDetail.originalAmount ? <span>¥{rdDetail.originalAmount.toLocaleString()}</span> : null}
+                  {rdDetail.originalPaidAt ? <span>決済日: {new Date(rdDetail.originalPaidAt).toLocaleDateString("ja-JP")}</span> : null}
+                </div>
+              </div>
+            )}
             <div className="rounded-2xl border border-pink-200 bg-white shadow-sm px-4 py-3.5">
               <div className="flex items-start justify-between gap-2">
                 <div>

@@ -201,8 +201,13 @@ export function OrdersSection() {
       {(data.redeliveries ?? []).map((rd) => (
         <div key={`rd-${rd.id}`} className="mb-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3">
           <div className="text-xs font-semibold text-amber-700 mb-1">再配送料のお支払い</div>
-          <div className="text-sm font-medium text-slate-900">¥{rd.amount.toLocaleString()}</div>
-          <div className="mt-2">
+          <div className="text-[11px] text-slate-600 mb-1">
+            <span className="text-slate-500">対象注文：</span>
+            {rd.originalProductName || rd.originalProductCode || "—"}
+            {rd.originalAmount > 0 && <span className="ml-1 text-slate-400">（¥{rd.originalAmount.toLocaleString()}）</span>}
+          </div>
+          <div className="flex items-baseline justify-between">
+            <div className="text-lg font-semibold text-slate-900">¥{rd.amount.toLocaleString()}</div>
             <button
               type="button"
               onClick={() => {

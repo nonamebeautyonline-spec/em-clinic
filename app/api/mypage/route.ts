@@ -483,7 +483,7 @@ export async function POST(_req: NextRequest) {
       strictWithTenant(
         supabaseAdmin
           .from("redeliveries")
-          .select("id, original_order_id, amount, status, created_at")
+          .select("id, original_order_id, amount, status, created_at, orders!redeliveries_original_order_id_fkey(product_name, product_code, amount, paid_at)")
           .eq("patient_id", patientId)
           .eq("status", "pending"),
         tenantId
@@ -589,12 +589,20 @@ export async function POST(_req: NextRequest) {
       ) : {},
       intakeId: "",
       intakeStatus: patientInfo?.intakeStatus || null,
-      redeliveries: (redeliveriesRes.data || []).map((rd: { id: number; original_order_id: string; amount: number; status: string; created_at: string }) => ({
-        id: rd.id,
-        originalOrderId: rd.original_order_id,
-        amount: rd.amount,
-        createdAt: rd.created_at,
-      })),
+      redeliveries: (redeliveriesRes.data || []).map((rd: Record<string, unknown>) => {
+        const orderArr = rd.orders as { product_name: string; product_code: string; amount: number; paid_at: string }[] | null;
+        const order = Array.isArray(orderArr) ? orderArr[0] : null;
+        return {
+          id: rd.id,
+          originalOrderId: rd.original_order_id,
+          amount: rd.amount,
+          createdAt: rd.created_at,
+          originalProductName: order?.product_name || "",
+          originalProductCode: order?.product_code || "",
+          originalAmount: order?.amount || 0,
+          originalPaidAt: order?.paid_at || "",
+        };
+      }),
     };
 
     // キャッシュ保存（TTL=30分）
