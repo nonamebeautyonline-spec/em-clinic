@@ -3,7 +3,7 @@ import { badRequest, unauthorized, serverError } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantIdOrThrow, strictWithTenant, tenantPayload } from "@/lib/tenant";
-import { pushMessage } from "@/lib/line-messaging";
+import { pushMessage } from "@/lib/line-push";
 import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";

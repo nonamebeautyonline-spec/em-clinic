@@ -697,7 +697,7 @@ function PurchaseConfirmContent() {
                   onTokenReady={handleNonceReady}
                   onError={(msg: string) => setError(msg)}
                   submitting={submitting}
-                  buttonLabel={`¥${redeliveryAmount.toLocaleString()} を支払う`}
+                  buttonLabel={`¥${redeliveryAmount.toLocaleString()} をカードで支払う`}
                 />
               ) : (
                 <SquareCardForm
@@ -706,11 +706,41 @@ function PurchaseConfirmContent() {
                   locationId={sdkConfig.locationId || ""}
                   onNonceReady={handleNonceReady}
                   submitting={submitting}
-                  buttonLabel={`¥${redeliveryAmount.toLocaleString()} を支払う`}
+                  buttonLabel={`¥${redeliveryAmount.toLocaleString()} をカードで支払う`}
                 />
               )}
             </div>
           )}
+
+          {/* 銀行振込 */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={async () => {
+                if (!patientId) { setError("認証情報を取得中です"); return; }
+                startSubmitting();
+                setError(null);
+                try {
+                  const res = await fetch("/api/redelivery/bank-transfer", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({ redeliveryId: Number(redeliveryIdParam) }),
+                  });
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data.error || "エラーが発生しました");
+                  router.push("/mypage/purchase/bank-transfer?code=REDELIVERY_FEE&mode=redelivery&redelivery_id=" + redeliveryIdParam);
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "エラーが発生しました");
+                  stopSubmitting();
+                }
+              }}
+              className="w-full rounded-full border-2 border-blue-400 text-blue-600 py-3 text-sm font-semibold disabled:opacity-50"
+            >
+              銀行振込で支払う
+            </button>
+          </div>
 
           <button
             type="button"

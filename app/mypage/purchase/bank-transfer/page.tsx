@@ -162,13 +162,17 @@ function BankTransferContent() {
   });
   const bankAccount = bankData?.bankAccount ?? null;
 
-  const codeParam = searchParams.get("code") as ProductCode | null;
+  const codeParam = searchParams.get("code") as ProductCode | "REDELIVERY_FEE" | null;
   const modeParam = searchParams.get("mode"); // ★ 追加
   const reorderIdParam = searchParams.get("reorder_id"); // ★ 追加
+  const isRedelivery = codeParam === "REDELIVERY_FEE";
 
   const product = useMemo(
-    () => (codeParam ? PRODUCTS.find((p) => p.code === codeParam) ?? null : null),
-    [codeParam]
+    () => {
+      if (isRedelivery) return null;
+      return codeParam ? PRODUCTS.find((p) => p.code === codeParam) ?? null : null;
+    },
+    [codeParam, isRedelivery]
   );
 
   const handleBack = () => {
@@ -185,6 +189,11 @@ function BankTransferContent() {
   }, [modeParam, router]);
 
   const handleTransferCompleted = () => {
+    if (isRedelivery) {
+      // 再配送料は配送先入力不要 → マイページに戻る
+      router.push("/mypage?refresh=1");
+      return;
+    }
     if (!product || !patientId) return;
 
     // ★ 配送先情報入力画面へ遷移（mode, reorder_idも渡す）
@@ -198,7 +207,7 @@ function BankTransferContent() {
     router.push(`/mypage/purchase/bank-transfer/shipping?${params.toString()}`);
   };
 
-  if (!codeParam || !product) {
+  if (!isRedelivery && (!codeParam || !product)) {
     return (
       <div className="min-h-screen bg-slate-50">
         <div className="mx-auto max-w-md px-4 py-6">

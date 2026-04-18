@@ -2,10 +2,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, unauthorized, serverError, forbidden, conflict } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
-import { verifyPatientSession } from "@/lib/patient-auth";
+import { verifyPatientSession } from "@/lib/patient-session";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
-import { pushMessage } from "@/lib/line-messaging";
+import { pushMessage } from "@/lib/line-push";
 
 export const dynamic = "force-dynamic";
 
