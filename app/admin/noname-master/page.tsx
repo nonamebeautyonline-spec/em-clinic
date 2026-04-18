@@ -58,6 +58,9 @@ export default function NonameMasterPage() {
   const [shippedTracking, setShippedTracking] = useState("");
   const [savingShippedInfo, setSavingShippedInfo] = useState(false);
 
+  // 操作メニュー（三点ドロップダウン）
+  const [actionMenuOrderId, setActionMenuOrderId] = useState<string | null>(null);
+
   // 返金モーダル
   const [refundTarget, setRefundTarget] = useState<Order | null>(null);
   const [refundStep, setRefundStep] = useState<"token" | "action" | "confirm">("token");
@@ -552,7 +555,7 @@ export default function NonameMasterPage() {
                   回数
                 </th>
                 <th className="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase">
-                  {statusFilter === "refund_cancel" ? "ステータス" : "返金"}
+                  {statusFilter === "refund_cancel" ? "ステータス" : "操作"}
                 </th>
               </tr>
             </thead>
@@ -840,19 +843,47 @@ export default function NonameMasterPage() {
                       ) : order.status === "cancelled" ? (
                         <span className="text-slate-400">-</span>
                       ) : (
-                        <button
-                          onClick={() => {
-                            setRefundTarget(order);
-                            setRefundStep("token");
-                            setRefundToken("");
-                            setRefundMemo("");
-                            setRefundError("");
-                            setBankAction("cancel");
-                          }}
-                          className="px-3 py-1.5 text-xs font-medium border border-red-200 text-red-600 rounded-lg hover:bg-red-50"
-                        >
-                          返金
-                        </button>
+                        <div className="relative">
+                          <button
+                            onClick={() => setActionMenuOrderId(actionMenuOrderId === order.id ? null : order.id)}
+                            className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                          >
+                            <svg className="w-5 h-5 text-slate-500" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="6" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="18" r="1.5" /></svg>
+                          </button>
+                          {actionMenuOrderId === order.id && (
+                            <>
+                              <div className="fixed inset-0 z-10" onClick={() => setActionMenuOrderId(null)} />
+                              <div className="absolute right-0 top-8 z-20 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[140px]">
+                                <button
+                                  onClick={() => {
+                                    setActionMenuOrderId(null);
+                                    setRefundTarget(order);
+                                    setRefundStep("token");
+                                    setRefundToken("");
+                                    setRefundMemo("");
+                                    setRefundError("");
+                                    setBankAction("cancel");
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                                  返金
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setActionMenuOrderId(null);
+                                    // TODO: 再配送請求処理
+                                    alert("再配送請求機能は準備中です");
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                                  再配送請求
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>
