@@ -345,6 +345,8 @@ function OrderCard({
         <div className="text-[15px] font-medium text-slate-900 flex items-center gap-1.5">
           <span className="whitespace-pre-line">{(() => {
             const name = order.productName || "";
+            // 再配送注文はproduct_nameをそのまま表示（【再配送】を維持）
+            if (name.startsWith("【再配送】")) return name;
             if (name.includes("\n")) return name;
             const code = order.productCode || "";
             return productLabels[code] || name || code;
