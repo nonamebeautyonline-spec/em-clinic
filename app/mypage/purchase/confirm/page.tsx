@@ -652,102 +652,192 @@ function PurchaseConfirmContent() {
     );
   }
 
-  // 再配送料モード: 商品情報不要
+  // 再配送料モード: 既存の決済UIと同じ構成で表示
   if (isRedeliveryMode) {
     const redeliveryAmount = 1500;
+    const clinicName = sdkConfig ? "" : "";
     return (
       <div className="min-h-screen bg-slate-50">
-        <div className="mx-auto max-w-md px-4 py-6 space-y-4">
-          <h1 className="text-lg font-semibold text-slate-900">{pageTitle}</h1>
+        {/* ヘッダー */}
+        <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-slate-100">
+          <div className="mx-auto max-w-md px-4 py-3">
+            <div className="text-xs text-slate-400">マイページ</div>
+            <h1 className="text-lg font-semibold text-slate-900 mt-0.5">{pageTitle}</h1>
+          </div>
+        </div>
 
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-700">再配送料</span>
-              <span className="text-lg font-bold text-slate-900">¥{redeliveryAmount.toLocaleString()}</span>
+        <div className="mx-auto max-w-md px-4 pb-6 pt-4 space-y-4">
+          {/* 商品情報 */}
+          <div className="space-y-2">
+            <h2 className="text-sm font-semibold text-slate-900">決済情報</h2>
+            <div className="rounded-2xl border border-pink-200 bg-white shadow-sm px-4 py-3.5">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <span className="text-xs font-semibold text-slate-900">再配送料</span>
+                </div>
+                <div className="text-right whitespace-nowrap">
+                  <div className="text-[11px] text-slate-400">お支払い金額</div>
+                  <div className="text-lg font-semibold text-slate-900">¥{redeliveryAmount.toLocaleString()}</div>
+                  <div className="mt-0.5 text-[10px] text-slate-400">税込</div>
+                </div>
+              </div>
             </div>
           </div>
 
+          {/* エラー表示 */}
           {error && (
-            <div className="bg-red-50 border border-red-100 rounded-2xl p-3 text-sm text-red-600">{error}</div>
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
+              <p className="text-[11px] text-red-700 whitespace-pre-line">{error}</p>
+            </div>
           )}
 
           {sdkConfig?.enabled && (
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-              {/* 保存済みカード */}
+            <>
+              {/* 保存済みカードがある場合: カード選択UI */}
               {savedCard?.hasCard && (
-                <div className="mb-4">
-                  <button
-                    onClick={() => { setPaymentMode("saved_card"); submitInlinePayment("__saved_card__"); }}
-                    disabled={submitting}
-                    className="w-full rounded-full bg-emerald-500 text-white py-3 text-sm font-semibold disabled:opacity-50"
+                <div className="space-y-2">
+                  <label
+                    className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${
+                      paymentMode === "saved_card"
+                        ? "border-pink-400 bg-pink-50"
+                        : "border-slate-200 hover:border-slate-300"
+                    }`}
                   >
-                    {submitting && paymentMode === "saved_card" ? "処理中..." : `${savedCard.brand} ****${savedCard.last4} で支払う`}
-                  </button>
-                  <div className="relative my-3">
-                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200" /></div>
-                    <div className="relative flex justify-center"><span className="bg-white px-2 text-xs text-slate-400">または</span></div>
-                  </div>
+                    <input
+                      type="radio"
+                      name="pay_method"
+                      value="saved_card"
+                      checked={paymentMode === "saved_card"}
+                      onChange={() => setPaymentMode("saved_card")}
+                      className="w-4 h-4 mt-0.5 text-pink-500"
+                    />
+                    <div>
+                      <span className="text-[12px] font-medium text-slate-900">
+                        前回のカード（{savedCard.brand} ****{savedCard.last4}）
+                      </span>
+                      <p className="text-[10px] text-slate-500">保存済みカードで即時決済</p>
+                    </div>
+                  </label>
+                  <label
+                    className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${
+                      paymentMode === "new_card"
+                        ? "border-pink-400 bg-pink-50"
+                        : "border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="pay_method"
+                      value="new_card"
+                      checked={paymentMode === "new_card"}
+                      onChange={() => setPaymentMode("new_card")}
+                      className="w-4 h-4 mt-0.5 text-pink-500"
+                    />
+                    <div>
+                      <span className="text-[12px] font-medium text-slate-900">新しいカードで決済</span>
+                    </div>
+                  </label>
                 </div>
               )}
 
-              {/* カードフォーム */}
-              {sdkConfig.provider === "gmo" ? (
-                <GmoCardForm
-                  key={cardFormKey}
-                  shopId={sdkConfig.shopId || ""}
-                  environment={sdkConfig.environment || "production"}
-                  onTokenize={handleNonceReady}
-                  onError={(msg: string) => setError(msg)}
-                  submitting={submitting}
-                />
-              ) : (
-                <SquareCardForm
-                  key={cardFormKey}
-                  applicationId={sdkConfig.applicationId || ""}
-                  locationId={sdkConfig.locationId || ""}
-                  environment={sdkConfig.environment || "production"}
-                  onTokenize={handleNonceReady}
-                  onError={(msg: string) => setError(msg)}
-                  submitting={submitting}
-                />
+              {/* 保存済みカードで即決済 */}
+              {paymentMode === "saved_card" && savedCard?.hasCard && (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    disabled={submitting || !patientId}
+                    onClick={() => submitInlinePayment("__saved_card__")}
+                    className="w-full rounded-full bg-pink-500 text-white py-2.5 text-[12px] font-semibold disabled:opacity-60"
+                  >
+                    {submitting
+                      ? "決済処理中..."
+                      : `${savedCard.brand} ****${savedCard.last4} で決済する`}
+                  </button>
+                  <p className="text-[10px] text-slate-400 leading-relaxed px-1">
+                    {sdkConfig?.provider === "gmo"
+                      ? "カード情報はGMOペイメントゲートウェイ社の安全な環境で処理され、当サイト上では保存されません。PCI DSS準拠のセキュリティ基準で保護されています。"
+                      : "Square決済を使用しており、カード情報は当サービス上では保存されません。カード情報は全てSquare社のセキュリティ基準（PCI DSS）に基づき安全に処理されます。"}
+                  </p>
+                </div>
               )}
-            </div>
+
+              {/* 新規カード入力 */}
+              {paymentMode === "new_card" && (
+                sdkConfig.provider === "gmo" && sdkConfig.shopId ? (
+                  <GmoCardForm
+                    key={cardFormKey}
+                    shopId={sdkConfig.shopId}
+                    environment={sdkConfig.environment || "production"}
+                    onTokenize={handleNonceReady}
+                    onError={handleCardFormError}
+                    disabled={submitting || !patientId}
+                    submitting={submitting}
+                  />
+                ) : sdkConfig.applicationId && sdkConfig.locationId ? (
+                  <SquareCardForm
+                    key={cardFormKey}
+                    applicationId={sdkConfig.applicationId}
+                    locationId={sdkConfig.locationId}
+                    environment={sdkConfig.environment || "production"}
+                    onTokenize={handleNonceReady}
+                    onError={handleCardFormError}
+                    disabled={submitting || !patientId}
+                    submitting={submitting}
+                  />
+                ) : null
+              )}
+
+              {/* 銀行振込 */}
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  disabled={submitting || !patientId}
+                  onClick={async () => {
+                    startSubmitting();
+                    setError(null);
+                    try {
+                      const res = await fetch("/api/redelivery/bank-transfer", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: "include",
+                        body: JSON.stringify({ redeliveryId: Number(redeliveryIdParam) }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data.error || "エラーが発生しました");
+                      router.push("/mypage/purchase/bank-transfer?code=REDELIVERY_FEE&mode=redelivery&redelivery_id=" + redeliveryIdParam);
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : "エラーが発生しました");
+                      stopSubmitting();
+                    }
+                  }}
+                  className="w-full rounded-full bg-blue-500 text-white py-2.5 text-[12px] font-semibold disabled:opacity-60"
+                >
+                  銀行振込で決済
+                </button>
+                <p className="text-[10px] text-slate-500 px-2">
+                  金曜15時〜月曜9時のお振込みはご利用の銀行次第で反映が翌営業日となる場合があります。振込確認後の再配送となります。
+                </p>
+              </div>
+            </>
           )}
 
-          {/* 銀行振込 */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={async () => {
-                if (!patientId) { setError("認証情報を取得中です"); return; }
-                startSubmitting();
-                setError(null);
-                try {
-                  const res = await fetch("/api/redelivery/bank-transfer", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    credentials: "include",
-                    body: JSON.stringify({ redeliveryId: Number(redeliveryIdParam) }),
-                  });
-                  const data = await res.json();
-                  if (!res.ok) throw new Error(data.error || "エラーが発生しました");
-                  router.push("/mypage/purchase/bank-transfer?code=REDELIVERY_FEE&mode=redelivery&redelivery_id=" + redeliveryIdParam);
-                } catch (e) {
-                  setError(e instanceof Error ? e.message : "エラーが発生しました");
-                  stopSubmitting();
-                }
-              }}
-              className="w-full rounded-full border-2 border-blue-400 text-blue-600 py-3 text-sm font-semibold disabled:opacity-50"
-            >
-              銀行振込で支払う
-            </button>
-          </div>
+          {/* 決済処理中の注意表示 */}
+          {submitting && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-4 h-4 border-2 border-amber-300 border-t-amber-600 rounded-full animate-spin flex-shrink-0" />
+                <p className="text-[12px] font-semibold text-amber-800">決済処理中です</p>
+              </div>
+              <p className="text-[10px] text-amber-700 leading-relaxed">
+                画面を閉じたり、ブラウザの戻るボタンを押したりしないでください。
+              </p>
+            </div>
+          )}
 
           <button
             type="button"
             onClick={() => router.push("/mypage")}
-            className="w-full text-center text-sm text-slate-500 py-2"
+            className="w-full rounded-full border border-slate-200 bg-white text-slate-700 py-2 text-[11px] font-medium"
           >
             マイページに戻る
           </button>

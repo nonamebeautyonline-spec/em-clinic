@@ -181,12 +181,12 @@ function BankTransferContent() {
 
   const handleBackConfirm = useCallback(() => {
     // popstateリスナーが再発火しないようにreplaceで遷移
-    if (modeParam === "reorder") {
+    if (isRedelivery || modeParam === "reorder") {
       router.replace("/mypage");
     } else {
       router.replace("/mypage/purchase");
     }
-  }, [modeParam, router]);
+  }, [isRedelivery, modeParam, router]);
 
   const handleTransferCompleted = () => {
     if (isRedelivery) {
@@ -356,7 +356,7 @@ function BankTransferContent() {
             onClick={handleBack}
             className="w-full rounded-full border border-slate-200 bg-white text-slate-700 py-2 text-[11px] font-medium"
           >
-            プラン選択画面に戻る
+            {isRedelivery ? "マイページに戻る" : "プラン選択画面に戻る"}
           </button>
         </div>
 
