@@ -230,7 +230,7 @@ export default function PatientInfoColumn() {
         {isSectionVisible("tags") && <PatientMemoSection
           patientId={selectedPatient?.patient_id || ""}
           initialMemo={patientDetail?.memo || ""}
-          patientName={patientDetail?.patient?.name || selectedPatient?.name || ""}
+          patientName={patientDetail?.patient?.name || selectedPatient?.patient_name || ""}
         />}
 
         {/* 友だち情報 */}
