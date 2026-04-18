@@ -694,19 +694,20 @@ function PurchaseConfirmContent() {
                 <GmoCardForm
                   key={cardFormKey}
                   shopId={sdkConfig.shopId || ""}
-                  onTokenReady={handleNonceReady}
+                  environment={sdkConfig.environment || "production"}
+                  onTokenize={handleNonceReady}
                   onError={(msg: string) => setError(msg)}
                   submitting={submitting}
-                  buttonLabel={`¥${redeliveryAmount.toLocaleString()} をカードで支払う`}
                 />
               ) : (
                 <SquareCardForm
                   key={cardFormKey}
                   applicationId={sdkConfig.applicationId || ""}
                   locationId={sdkConfig.locationId || ""}
-                  onNonceReady={handleNonceReady}
+                  environment={sdkConfig.environment || "production"}
+                  onTokenize={handleNonceReady}
+                  onError={(msg: string) => setError(msg)}
                   submitting={submitting}
-                  buttonLabel={`¥${redeliveryAmount.toLocaleString()} をカードで支払う`}
                 />
               )}
             </div>
