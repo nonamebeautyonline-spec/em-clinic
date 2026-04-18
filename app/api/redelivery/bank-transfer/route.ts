@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     id: orderId,
     patient_id: patientId,
     product_code: rd.product_code || "REDELIVERY_FEE",
-    product_name: rd.product_name ? `${rd.product_name}（再配送）` : "再配送",
+    product_name: rd.product_name ? `【再配送】${rd.product_name}` : "【再配送】",
     amount: rd.amount,
     payment_method: "bank_transfer",
     payment_status: "PENDING",
