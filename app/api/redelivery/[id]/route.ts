@@ -4,6 +4,7 @@ import { unauthorized, forbidden } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyPatientSession } from "@/lib/patient-session";
 import { resolveTenantId, strictWithTenant } from "@/lib/tenant";
+import { getProductNamesMap } from "@/lib/products";
 
 export const dynamic = "force-dynamic";
 
@@ -28,14 +29,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const orderArr = data.orders as unknown as { product_name: string; product_code: string; amount: number; paid_at: string }[] | null;
   const order = Array.isArray(orderArr) ? orderArr[0] : null;
+  const code = order?.product_code || "";
+  const pnMap = code && !order?.product_name ? await getProductNamesMap(tenantId ?? undefined) : {};
+  const productName = order?.product_name || pnMap[code] || code;
 
   return NextResponse.json({
     ok: true,
     redelivery: {
       id: data.id,
       amount: data.amount,
-      originalProductName: order?.product_name || "",
-      originalProductCode: order?.product_code || "",
+      originalProductName: productName,
+      originalProductCode: code,
       originalAmount: order?.amount || 0,
       originalPaidAt: order?.paid_at || "",
     },

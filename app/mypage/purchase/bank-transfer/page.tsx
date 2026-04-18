@@ -188,10 +188,26 @@ function BankTransferContent() {
     }
   }, [isRedelivery, modeParam, router]);
 
-  const handleTransferCompleted = () => {
+  const handleTransferCompleted = async () => {
     if (isRedelivery) {
-      // 再配送料は配送先入力不要 → マイページに戻る
-      router.push("/mypage?refresh=1");
+      // 再配送料は配送先入力不要 → 注文作成してマイページに戻る
+      if (!patientId) return;
+      setSubmitting(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/redelivery/bank-transfer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ redeliveryId: Number(reorderIdParam) }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "エラーが発生しました");
+        router.push("/mypage?refresh=1");
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "エラーが発生しました");
+        setSubmitting(false);
+      }
       return;
     }
     if (!product || !patientId) return;

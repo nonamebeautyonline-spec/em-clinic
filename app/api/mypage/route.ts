@@ -7,6 +7,7 @@ import { validateBody } from "@/lib/validations/helpers";
 import { mypageDashboardSchema } from "@/lib/validations/mypage";
 import { isMultiFieldEnabled } from "@/lib/medical-fields";
 import { verifyPatientSession } from "@/lib/patient-session";
+import { getProductNamesMap } from "@/lib/products";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -589,20 +590,27 @@ export async function POST(_req: NextRequest) {
       ) : {},
       intakeId: "",
       intakeStatus: patientInfo?.intakeStatus || null,
-      redeliveries: (redeliveriesRes.data || []).map((rd: Record<string, unknown>) => {
+      redeliveries: await (async () => {
+        const rdData = redeliveriesRes.data || [];
+        if (rdData.length === 0) return [];
+        const pnMap = await getProductNamesMap(tenantId ?? undefined);
+        return rdData.map((rd: Record<string, unknown>) => {
         const orderArr = rd.orders as { product_name: string; product_code: string; amount: number; paid_at: string }[] | null;
         const order = Array.isArray(orderArr) ? orderArr[0] : null;
+        const code = order?.product_code || "";
+        const name = order?.product_name || pnMap[code] || code;
         return {
           id: rd.id,
           originalOrderId: rd.original_order_id,
           amount: rd.amount,
           createdAt: rd.created_at,
-          originalProductName: order?.product_name || "",
-          originalProductCode: order?.product_code || "",
+          originalProductName: name,
+          originalProductCode: code,
           originalAmount: order?.amount || 0,
           originalPaidAt: order?.paid_at || "",
         };
-      }),
+      });
+      })(),
     };
 
     // キャッシュ保存（TTL=30分）

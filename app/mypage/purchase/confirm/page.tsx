@@ -806,23 +806,8 @@ function PurchaseConfirmContent() {
                 <button
                   type="button"
                   disabled={submitting || !patientId}
-                  onClick={async () => {
-                    startSubmitting();
-                    setError(null);
-                    try {
-                      const res = await fetch("/api/redelivery/bank-transfer", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        credentials: "include",
-                        body: JSON.stringify({ redeliveryId: Number(redeliveryIdParam) }),
-                      });
-                      const data = await res.json();
-                      if (!res.ok) throw new Error(data.error || "エラーが発生しました");
-                      router.push("/mypage/purchase/bank-transfer?code=REDELIVERY_FEE&mode=redelivery&redelivery_id=" + redeliveryIdParam);
-                    } catch (e) {
-                      setError(e instanceof Error ? e.message : "エラーが発生しました");
-                      stopSubmitting();
-                    }
+                  onClick={() => {
+                    router.push("/mypage/purchase/bank-transfer?code=REDELIVERY_FEE&mode=redelivery&redelivery_id=" + redeliveryIdParam);
                   }}
                   className="w-full rounded-full bg-blue-500 text-white py-2.5 text-[12px] font-semibold disabled:opacity-60"
                 >
