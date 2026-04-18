@@ -95,6 +95,7 @@ const CSRF_EXEMPT_PATTERNS = [
   /^\/api\/intake$/,
   /^\/api\/checkout$/,
   /^\/api\/reorder\//,
+  /^\/api\/redelivery\//,
   /^\/api\/reservations$/,
   /^\/api\/mypage/,
   /^\/api\/profile$/,
@@ -290,6 +291,7 @@ export async function middleware(req: NextRequest) {
   const PATIENT_WRITE_PATTERNS = [
     /^\/api\/mypage\//,
     /^\/api\/reorder\//,
+    /^\/api\/redelivery\//,
     /^\/api\/reservations$/,
     /^\/api\/checkout$/,
     /^\/api\/profile$/,

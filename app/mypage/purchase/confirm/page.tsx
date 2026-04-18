@@ -325,8 +325,9 @@ function PurchaseConfirmContent() {
     !addressDuplicated;
 
   // 保存済みカード情報はカードフォーム表示時に遅延取得（初期表示をブロックしない）
+  // redeliveryモードでは即座に取得
   const savedCardUrl = sdkConfig?.provider === "gmo" ? "/api/gmo/saved-card" : "/api/square/saved-card";
-  const savedCardKey = showCardForm && savedCard === null ? savedCardUrl : null;
+  const savedCardKey = (showCardForm || searchParams.get("mode") === "redelivery") && savedCard === null ? savedCardUrl : null;
   const { data: savedCardData, error: savedCardError } = useSWR(savedCardKey, swrFetcher, {
     revalidateOnFocus: false,
   });
