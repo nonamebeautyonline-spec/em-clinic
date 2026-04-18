@@ -451,7 +451,7 @@ async function handleUnfollow(lineUid: string, tenantId: string | null) {
 // =================================================================
 // タグ＋リッチメニュー自動付与
 //   ordersあり → 処方ずみタグ + 処方後メニュー
-//   ordersなし & answerers.nameあり → 個人情報提出ずみタグ + 個人情報入力後メニュー
+//   ordersなし & nameあり → 個人情報提出ずみタグ（メニューはデフォルト「処方前」のまま）
 // =================================================================
 async function autoAssignStatusByPatient(
   patientId: string,
@@ -480,11 +480,11 @@ async function autoAssignStatusByPatient(
       targetTagName = "処方ずみ";
       targetMenuName = "処方後";
     } else {
-      // answerers に名前が入っているか（個人情報提出済み）
+      // 個人情報提出済みならタグ付与（メニューはデフォルト「処方前」のまま）
       const { data: answerer } = await withTenant(
         supabaseAdmin
           .from("patients")
-          .select("name, tel")
+          .select("name")
           .eq("patient_id", patientId)
           .maybeSingle(),
         tenantId
@@ -493,8 +493,7 @@ async function autoAssignStatusByPatient(
       if (!answerer?.name) return;
 
       targetTagName = "個人情報提出ずみ";
-      // リッチメニューはverify完了（tel登録済み）後のみ切り替え
-      targetMenuName = answerer.tel ? "個人情報入力後" : "";
+      targetMenuName = ""; // デフォルトメニュー（処方前）のままでOK
     }
 
     // タグ付与

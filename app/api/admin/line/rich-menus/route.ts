@@ -84,20 +84,16 @@ export async function GET(req: NextRequest) {
       for (const r of chunkResults) rxCount += r.count || 0;
     }
 
-    // 個人情報入力後 = 登録済み（LINE_除外）かつ注文なし
-    const noRxCount = registeredCount - rxCount;
-    // 個人情報入力前 = LINE友だち全体 − 登録済み（デフォルトメニューが表示される未登録者）
-    const preRegCount = allLineCount - registeredCount;
+    // 処方前 = LINE友だち全体 − 処方済み（デフォルトメニューが表示される）
+    const preRxCount = allLineCount - rxCount;
 
     // メニュー名に基づいてカウントをマッピング
     const menus = (data || []).map((menu: Record<string, unknown>) => {
       let user_count = 0;
       if (menu.name === "処方後") {
         user_count = rxCount;
-      } else if (menu.name === "個人情報入力後") {
-        user_count = noRxCount;
-      } else if (menu.name === "個人情報入力前" || menu.selected) {
-        user_count = preRegCount;
+      } else if (menu.name === "処方前" || menu.selected) {
+        user_count = preRxCount;
       }
       return { ...menu, user_count };
     });

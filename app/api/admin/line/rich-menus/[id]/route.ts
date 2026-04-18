@@ -11,9 +11,8 @@ import { logAudit } from "@/lib/audit";
 
 /**
  * メニュー名に基づいて、個別リンク対象のLINE user IDを取得
- * - "処方後"         → ordersがある患者
- * - "個人情報入力後"  → intakeにいてordersがない患者
- * - "個人情報入力前"  → デフォルトメニューなので個別リンク不要
+ * - "処方後"  → ordersがある患者
+ * - "処方前"  → デフォルトメニューなので個別リンク不要
  */
 async function getTargetLineUserIds(menuName: string, tenantId: string | null): Promise<string[]> {
   const PAGE = 1000;
@@ -29,7 +28,6 @@ async function getTargetLineUserIds(menuName: string, tenantId: string | null): 
       if (!data || data.length === 0) break;
 
       const patientIds = Array.from(new Set(data.map(d => d.patient_id)));
-      // patients テーブルから line_id を取得（intake の冗長カラムを使わない）
       const { data: pts } = await strictWithTenant(
         supabaseAdmin.from("patients").select("line_id").in("patient_id", patientIds).not("line_id", "is", null),
         tenantId
@@ -37,36 +35,6 @@ async function getTargetLineUserIds(menuName: string, tenantId: string | null): 
 
       if (pts) lineIds.push(...pts.map(p => p.line_id).filter(Boolean));
       if (data.length < PAGE) break;
-      from += PAGE;
-    }
-    return Array.from(new Set(lineIds));
-  }
-
-  if (menuName === "個人情報入力後") {
-    const lineIds: string[] = [];
-    let from = 0;
-    while (true) {
-      // patients テーブルから line_id を取得（intake の冗長カラムを使わない）
-      const { data: pts } = await strictWithTenant(
-        supabaseAdmin.from("patients").select("patient_id, line_id").not("line_id", "is", null).range(from, from + PAGE - 1),
-        tenantId
-      );
-      if (!pts || pts.length === 0) break;
-
-      const patientIds = pts.map(p => p.patient_id);
-      const { data: orders } = await strictWithTenant(
-        supabaseAdmin.from("orders").select("patient_id").in("patient_id", patientIds),
-        tenantId
-      );
-
-      const orderPatientIds = new Set(orders?.map(o => o.patient_id) || []);
-      for (const p of pts) {
-        if (p.line_id && !orderPatientIds.has(p.patient_id)) {
-          lineIds.push(p.line_id);
-        }
-      }
-
-      if (pts.length < PAGE) break;
       from += PAGE;
     }
     return Array.from(new Set(lineIds));
