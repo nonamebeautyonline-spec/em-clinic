@@ -261,20 +261,22 @@ function BankTransferContent() {
               <div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-semibold text-slate-900">
-                    {product.title}
+                    {isRedelivery ? "再配送料" : product!.title}
                   </span>
                 </div>
+                {!isRedelivery && product && (
                 <p className="mt-1 text-[11px] text-slate-600">
                   {product.mg}／{product.months}ヶ月分（全{product.shots}本）／週1回
                 </p>
+                )}
               </div>
               <div className="text-right whitespace-nowrap">
                 <div className="text-[11px] text-slate-400">お支払い金額</div>
                 <div className="text-lg font-semibold text-slate-900">
-                  ¥{product.price.toLocaleString()}
+                  ¥{isRedelivery ? "1,500" : product!.price.toLocaleString()}
                 </div>
                 <div className="mt-0.5 text-[10px] text-slate-400">
-                  税込／送料込み
+                  税込
                 </div>
               </div>
             </div>
