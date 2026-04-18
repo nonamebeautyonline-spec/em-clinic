@@ -45,7 +45,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // 患者基本情報
     strictWithTenant(supabaseAdmin
       .from("patients")
-      .select("name, name_kana, sex, birthday, line_id, tel")
+      .select("name, name_kana, sex, birthday, line_id, tel, memo")
       .eq("patient_id", patientId)
       .maybeSingle(), tenantId),
     // 決済履歴
@@ -237,6 +237,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       pendingBankTransfer: pendingBankInfo,
       nextReservation: formattedReservation,
       medicalInfo,
+      memo: answerer?.memo || "",
       verifiedPhone: answerer?.tel || null,
       registeredAt: intakeRecord?.created_at || null,
     },

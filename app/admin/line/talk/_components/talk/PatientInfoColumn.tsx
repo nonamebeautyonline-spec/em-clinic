@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useTalkContext } from "./TalkContext";
 import { TagBadge } from "@/components/admin/TagBadge";
@@ -225,6 +226,13 @@ export default function PatientInfoColumn() {
           )}
         </div>}
 
+        {/* 個別メモ */}
+        {isSectionVisible("tags") && <PatientMemoSection
+          patientId={selectedPatient?.patient_id || ""}
+          initialMemo={patientDetail?.memo || ""}
+          patientName={patientDetail?.patient?.name || selectedPatient?.name || ""}
+        />}
+
         {/* 友だち情報 */}
         {isSectionVisible("friendFields") && allFieldDefs.length > 0 && (
           <div className="px-4 py-3 border-b border-gray-100">
@@ -424,6 +432,111 @@ export default function PatientInfoColumn() {
           )}
         </div>}
       </div>
+    </div>
+  );
+}
+
+// 個別メモセクション
+const MEMO_MAX = 10000;
+
+function PatientMemoSection({ patientId, initialMemo, patientName }: {
+  patientId: string;
+  initialMemo: string;
+  patientName: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [memo, setMemo] = useState(initialMemo);
+  const [draft, setDraft] = useState(initialMemo);
+  const [saving, setSaving] = useState(false);
+
+  // patientが切り替わったらリセット
+  const [prevId, setPrevId] = useState(patientId);
+  if (patientId !== prevId) {
+    setPrevId(patientId);
+    setMemo(initialMemo);
+    setDraft(initialMemo);
+    setEditing(false);
+  }
+
+  const handleSave = useCallback(async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/patients/${patientId}/memo`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memo: draft }),
+      });
+      if (res.ok) {
+        setMemo(draft);
+        setEditing(false);
+      }
+    } catch {
+      // エラー時はモーダルを開いたまま
+    } finally {
+      setSaving(false);
+    }
+  }, [patientId, draft, saving]);
+
+  if (!patientId) return null;
+
+  return (
+    <div className="px-4 py-3 border-b border-gray-100">
+      <div className="flex items-center justify-between mb-2">
+        <SectionLabel>個別メモ</SectionLabel>
+        <button
+          onClick={() => { setDraft(memo); setEditing(true); }}
+          className="text-[10px] text-[#00B900] hover:text-[#009900] font-semibold flex items-center gap-0.5 transition-colors"
+        >
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+          編集
+        </button>
+      </div>
+      {memo ? (
+        <p className="text-[11px] text-gray-700 bg-gray-50/80 rounded-md px-2 py-1.5 leading-relaxed whitespace-pre-wrap break-words max-h-32 overflow-y-auto">{memo}</p>
+      ) : (
+        <p className="text-[10px] text-gray-300">メモなし</p>
+      )}
+
+      {/* 編集モーダル */}
+      {editing && (
+        <div className="fixed inset-0 bg-black/30 z-[60] flex items-center justify-center p-4" onClick={() => setEditing(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h3 className="text-sm font-bold text-gray-800">個別メモ編集 (対象: {patientName})</h3>
+              <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="p-5">
+              <textarea
+                value={draft}
+                onChange={e => setDraft(e.target.value.slice(0, MEMO_MAX))}
+                placeholder="テキストを入力"
+                rows={8}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#00B900]/30 focus:border-[#00B900] resize-y"
+              />
+              <div className="text-right text-[11px] text-gray-400 mt-1">{draft.length.toLocaleString()}/{MEMO_MAX.toLocaleString()}</div>
+            </div>
+            <div className="flex gap-3 px-5 py-4 border-t border-gray-100">
+              <button
+                onClick={() => setEditing(false)}
+                className="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex-1 py-2.5 rounded-lg bg-[#00B900] text-white text-sm font-medium hover:bg-[#009900] transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {saving ? "保存中..." : "保存"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

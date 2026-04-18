@@ -96,6 +96,7 @@ export interface PatientDetail {
     allergies: string;
     prescriptionMenu: string;
   } | null;
+  memo: string;
   verifiedPhone: string | null;
   registeredAt: string | null;
 }
