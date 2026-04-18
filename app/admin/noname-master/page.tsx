@@ -853,7 +853,7 @@ export default function NonameMasterPage() {
                           {actionMenuOrderId === order.id && (
                             <>
                               <div className="fixed inset-0 z-10" onClick={() => setActionMenuOrderId(null)} />
-                              <div className="absolute right-0 top-8 z-20 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[140px]">
+                              <div className="absolute right-0 bottom-8 z-20 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[140px]">
                                 <button
                                   onClick={() => {
                                     setActionMenuOrderId(null);
