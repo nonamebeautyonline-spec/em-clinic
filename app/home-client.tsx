@@ -828,6 +828,7 @@ export default function HomeClient() {
             />
             <h1 className="text-5xl font-extrabold tracking-tight text-slate-900 md:text-6xl">
               Lオペ
+              <span className="sr-only"> — LINE公式アカウント運用を業種別に最適化</span>
             </h1>
           </div>
 
@@ -933,6 +934,47 @@ export default function HomeClient() {
               <ServiceCard key={s.key} service={s} index={i} />
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ═══════════ Lオペとは ═══════════ */}
+      <section className="relative bg-white px-6 py-24 md:py-32">
+        <div className="relative mx-auto max-w-3xl">
+          <ScrollReveal direction="up" className="mb-12">
+            <span className="inline-flex items-center gap-3 text-[11px] font-medium tracking-[0.3em] text-slate-400">
+              <span className="h-px w-8 bg-slate-300" />
+              ABOUT
+            </span>
+            <h2 className="mt-4 text-2xl font-bold text-slate-900 md:text-3xl">
+              Lオペとは
+            </h2>
+          </ScrollReveal>
+
+          <ScrollReveal delay={100}>
+            <div className="space-y-6 text-[15px] leading-[1.9] text-slate-600">
+              <p>
+                Lオペ（L-OPE）は、LINE公式アカウントの運用を業種ごとに最適化するプラットフォームです。
+                クリニック・美容サロン・ECなど、それぞれの業務フローに合わせた専用機能を搭載し、
+                汎用ツールでは実現できなかった業種特化型のLINE運用を可能にします。
+              </p>
+              <p>
+                予約管理・顧客CRM・セグメント配信・AI自動返信・オンライン決済・配送管理まで、
+                LINE公式アカウント運用に必要な機能をワンストップで提供。
+                導入から運用開始まで最短2週間、初期設定サポートも無料で対応しています。
+              </p>
+              <p>
+                クリニック向けの「Lオペ for CLINIC」では、LINE上で問診・予約・オンライン診療・処方・決済・配送までを一気通貫で完結。
+                月60時間以上の事務作業削減を実現し、全国のクリニックで導入が進んでいます。
+                サロン向け・EC向けプランも、各業種の課題に特化した機能セットを順次提供中です。
+              </p>
+              <p>
+                スタッフの返信内容から自動で学習するAI機能を搭載しており、
+                運用するほど返信精度が向上し、業務負荷が継続的に下がります。
+                医療レベルのセキュリティ（暗号化・監査ログ・アクセス制御）を標準搭載しているため、
+                個人情報を扱う業種でも安心してご利用いただけます。
+              </p>
+            </div>
+          </ScrollReveal>
         </div>
       </section>
 

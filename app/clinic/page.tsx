@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 import Nav from "./components/Nav";
 import Hero from "./components/Hero";
-import Problems from "./components/Problems";
-import About from "./components/About";
 
 /* ATF（Above The Fold）以外は遅延読み込みで初期JS削減 */
+const Problems = dynamic(() => import("./components/Problems"));
+const About = dynamic(() => import("./components/About"));
 const Features = dynamic(() => import("./components/Features"));
 const Strengths = dynamic(() => import("./components/Strengths"));
 const MidCTA = dynamic(() => import("./components/MidCTA").then((m) => ({ default: m.MidCTA })));
