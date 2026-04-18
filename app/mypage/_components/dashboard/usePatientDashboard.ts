@@ -8,6 +8,7 @@ import type {
   PatientInfo,
   Reservation,
   ReorderItem,
+  RedeliveryItem,
   Order,
   Carrier,
 } from "./types";
@@ -210,6 +211,7 @@ export function usePatientDashboard(): {
         history?: import("./types").PrescriptionHistoryItem[];
         ordersFlags?: import("./types").OrdersFlags;
         reorders?: { id?: unknown; reorder_number?: unknown; timestamp?: unknown; createdAt?: unknown; product_code?: unknown; productCode?: unknown; status?: unknown; note?: unknown; fieldName?: string; fieldColor?: string }[];
+        redeliveries?: RedeliveryItem[];
         hasIntake?: boolean;
         intakeByField?: Record<string, boolean>;
         fieldConfigs?: Record<string, { intake_frequency: string; purchase_flow: string; show_in_reorder: boolean }>;
@@ -250,6 +252,7 @@ export function usePatientDashboard(): {
         orders: api.orders ?? [],
         history: api.history ?? [],
         ordersFlags: api.ordersFlags,
+        redeliveries: api.redeliveries ?? [],
       };
 
       if (finalData.history.length > 0) {

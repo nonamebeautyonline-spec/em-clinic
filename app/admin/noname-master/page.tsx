@@ -870,10 +870,25 @@ export default function NonameMasterPage() {
                                   返金
                                 </button>
                                 <button
-                                  onClick={() => {
+                                  onClick={async () => {
                                     setActionMenuOrderId(null);
-                                    // TODO: 再配送請求処理
-                                    alert("再配送請求機能は準備中です");
+                                    if (!confirm(`${order.patient_name || order.patient_id} に再配送料 ¥1,500 を請求しますか？\nLINEで決済依頼が送信されます。`)) return;
+                                    try {
+                                      const res = await fetch("/api/admin/noname-master/redelivery", {
+                                        method: "POST",
+                                        credentials: "include",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ order_id: order.id }),
+                                      });
+                                      const data = await res.json();
+                                      if (res.ok) {
+                                        alert("再配送料の請求を送信しました");
+                                      } else {
+                                        alert(data.error || "エラーが発生しました");
+                                      }
+                                    } catch {
+                                      alert("通信エラーが発生しました");
+                                    }
                                   }}
                                   className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
                                 >

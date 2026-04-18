@@ -197,6 +197,25 @@ export function OrdersSection() {
         </div>
       )}
 
+      {/* 再配送料の決済カード */}
+      {(data.redeliveries ?? []).map((rd) => (
+        <div key={`rd-${rd.id}`} className="mb-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3">
+          <div className="text-xs font-semibold text-amber-700 mb-1">再配送料のお支払い</div>
+          <div className="text-sm font-medium text-slate-900">¥{rd.amount.toLocaleString()}</div>
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={() => {
+                router.push(`/mypage/purchase/confirm?mode=redelivery&redelivery_id=${rd.id}`);
+              }}
+              className="px-4 py-1.5 rounded-full bg-amber-500 text-white text-[11px] font-semibold shadow-sm"
+            >
+              お支払いへ進む
+            </button>
+          </div>
+        </div>
+      ))}
+
       {/* 通常の注文・発送状況 */}
       {activeOrders.length === 0 ? (
         <div className="text-sm text-slate-600">

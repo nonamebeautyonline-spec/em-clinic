@@ -474,12 +474,20 @@ export async function POST(_req: NextRequest) {
 
     // ★ 全クエリをPromise.allで並列実行（GAS呼び出し廃止）
     // ※ マイページアクセスログは /api/line/track（リッチメニュートラッキング）で自動記録
-    const [patientInfo, nextReservation, ordersAll, reorders, history] = await Promise.all([
+    const [patientInfo, nextReservation, ordersAll, reorders, history, redeliveriesRes] = await Promise.all([
       getPatientInfoFromSupabase(patientId, tenantId),
       getNextReservationFromSupabase(patientId, tenantId),
       getOrdersFromSupabase(patientId, tenantId),
       getReordersFromSupabase(patientId, tenantId),
       getConsultationHistoryFromSupabase(patientId, tenantId),
+      strictWithTenant(
+        supabaseAdmin
+          .from("redeliveries")
+          .select("id, original_order_id, amount, status, created_at")
+          .eq("patient_id", patientId)
+          .eq("status", "pending"),
+        tenantId
+      ),
     ]);
 
     const hasIntake = patientInfo?.hasIntake ?? false;
@@ -581,6 +589,12 @@ export async function POST(_req: NextRequest) {
       ) : {},
       intakeId: "",
       intakeStatus: patientInfo?.intakeStatus || null,
+      redeliveries: (redeliveriesRes.data || []).map((rd: { id: number; original_order_id: string; amount: number; status: string; created_at: string }) => ({
+        id: rd.id,
+        originalOrderId: rd.original_order_id,
+        amount: rd.amount,
+        createdAt: rd.created_at,
+      })),
     };
 
     // キャッシュ保存（TTL=30分）

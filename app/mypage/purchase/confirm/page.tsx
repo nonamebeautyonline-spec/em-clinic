@@ -16,7 +16,7 @@ const swrFetcher = (url: string) =>
   });
 
 
-type Mode = "current" | "first" | "reorder";
+type Mode = "current" | "first" | "reorder" | "redelivery";
 
 // 商品マスタから取得する商品型（productsテーブル準拠）
 type Product = {
@@ -425,8 +425,11 @@ function PurchaseConfirmContent() {
   // キャンペーン終了判定
   const campaignEnded = product?.campaign_price != null && product.campaign_remaining === 0;
 
+  const redeliveryIdParam = searchParams.get("redelivery_id");
+  const isRedeliveryMode = modeParam === "redelivery" && !!redeliveryIdParam;
+
   const isValidMode =
-    modeParam === "current" || modeParam === "first" || modeParam === "reorder";
+    modeParam === "current" || modeParam === "first" || modeParam === "reorder" || modeParam === "redelivery";
 
   const pageTitle =
     modeParam === "current"
@@ -435,7 +438,9 @@ function PurchaseConfirmContent() {
         ? "初回診察用プラン確認"
         : modeParam === "reorder"
           ? "再処方分の内容確認"
-          : "内容確認";
+          : modeParam === "redelivery"
+            ? "再配送料のお支払い"
+            : "内容確認";
 
   const handleBack = () => {
     if (modeParam === "reorder") {
@@ -447,6 +452,7 @@ function PurchaseConfirmContent() {
 
   // hosted モードの既存フロー
   const handleSubmit = async () => {
+    if (isRedeliveryMode) return; // redeliveryモードではinline決済のみ
     if (!product || !modeParam) return;
     if (!patientId) {
       setError("本人確認情報を取得中です。数秒後にもう一度お試しください。");
@@ -495,6 +501,40 @@ function PurchaseConfirmContent() {
   // inline決済: /api/square/pay を呼ぶ共通処理
   const submitInlinePayment = useCallback(
     async (sourceId: string) => {
+      // 再配送料モード: 専用APIを呼ぶ
+      if (isRedeliveryMode && patientId) {
+        startSubmitting();
+        setError(null);
+        try {
+          const isGmo = sdkConfig?.provider === "gmo";
+          const isSavedCard = isGmo && sourceId === "__saved_card__";
+          const res = await fetch("/api/redelivery/pay", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              redeliveryId: Number(redeliveryIdParam),
+              ...(isGmo
+                ? (isSavedCard ? { useSavedCard: true } : { token: sourceId })
+                : { sourceId }),
+            }),
+          });
+          const data = await res.json();
+          if (data.needs3ds && data.acsUrl) {
+            stopSubmitting();
+            window.location.href = data.acsUrl;
+            return;
+          }
+          if (!res.ok) throw new Error(data.message || data.error || "決済に失敗しました");
+          router.push("/mypage?refresh=1");
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "決済処理中にエラーが発生しました");
+          stopSubmitting();
+          setCardFormKey((k) => k + 1);
+        }
+        return;
+      }
+
       if ((!product && !isCartMode) || !patientId || !shippingValid) return;
       if (isCartMode && cartItems.length === 0) return;
       startSubmitting();
@@ -606,6 +646,79 @@ function PurchaseConfirmContent() {
             <div className="h-6 w-24 bg-slate-200 rounded animate-pulse ml-auto" />
           </div>
           <div className="h-10 w-full bg-slate-200 rounded-full animate-pulse" />
+        </div>
+      </div>
+    );
+  }
+
+  // 再配送料モード: 商品情報不要
+  if (isRedeliveryMode) {
+    const redeliveryAmount = 1500;
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="mx-auto max-w-md px-4 py-6 space-y-4">
+          <h1 className="text-lg font-semibold text-slate-900">{pageTitle}</h1>
+
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-slate-700">再配送料</span>
+              <span className="text-lg font-bold text-slate-900">¥{redeliveryAmount.toLocaleString()}</span>
+            </div>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-100 rounded-2xl p-3 text-sm text-red-600">{error}</div>
+          )}
+
+          {sdkConfig?.enabled && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+              {/* 保存済みカード */}
+              {savedCard?.hasCard && (
+                <div className="mb-4">
+                  <button
+                    onClick={() => { setPaymentMode("saved_card"); submitInlinePayment("__saved_card__"); }}
+                    disabled={submitting}
+                    className="w-full rounded-full bg-emerald-500 text-white py-3 text-sm font-semibold disabled:opacity-50"
+                  >
+                    {submitting && paymentMode === "saved_card" ? "処理中..." : `${savedCard.brand} ****${savedCard.last4} で支払う`}
+                  </button>
+                  <div className="relative my-3">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200" /></div>
+                    <div className="relative flex justify-center"><span className="bg-white px-2 text-xs text-slate-400">または</span></div>
+                  </div>
+                </div>
+              )}
+
+              {/* カードフォーム */}
+              {sdkConfig.provider === "gmo" ? (
+                <GmoCardForm
+                  key={cardFormKey}
+                  shopId={sdkConfig.shopId || ""}
+                  onTokenReady={handleNonceReady}
+                  onError={(msg: string) => setError(msg)}
+                  submitting={submitting}
+                  buttonLabel={`¥${redeliveryAmount.toLocaleString()} を支払う`}
+                />
+              ) : (
+                <SquareCardForm
+                  key={cardFormKey}
+                  applicationId={sdkConfig.applicationId || ""}
+                  locationId={sdkConfig.locationId || ""}
+                  onNonceReady={handleNonceReady}
+                  submitting={submitting}
+                  buttonLabel={`¥${redeliveryAmount.toLocaleString()} を支払う`}
+                />
+              )}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => router.push("/mypage")}
+            className="w-full text-center text-sm text-slate-500 py-2"
+          >
+            マイページに戻る
+          </button>
         </div>
       </div>
     );

@@ -72,6 +72,13 @@ export interface ReorderItem {
   fieldColor?: string;       // 診療分野カラーテーマ
 }
 
+export interface RedeliveryItem {
+  id: number;
+  originalOrderId: string;
+  amount: number;
+  createdAt: string;
+}
+
 export interface PatientDashboardData {
   patient: PatientInfo;
   nextReservation?: Reservation | null;
@@ -79,6 +86,7 @@ export interface PatientDashboardData {
   orders: Order[];
   history: PrescriptionHistoryItem[];
   ordersFlags?: OrdersFlags;
+  redeliveries?: RedeliveryItem[];
 }
 
 export interface QueryPatientParams {
