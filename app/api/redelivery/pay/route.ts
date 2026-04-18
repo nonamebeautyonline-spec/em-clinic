@@ -4,7 +4,7 @@ import { badRequest, unauthorized, serverError, forbidden, conflict } from "@/li
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyPatientSession } from "@/lib/patient-session";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
-import { getSettingOrEnv } from "@/lib/settings";
+import { getSetting } from "@/lib/settings";
 import { pushMessage } from "@/lib/line-push";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   const amount = rd.amount;
 
   // 決済プロバイダー判定
-  const provider = await getSettingOrEnv("payment", "provider", "PAYMENT_PROVIDER", tid) || "square";
+  const provider = await getSetting("payment", "provider", tid) || "square";
 
   try {
     let paymentId = "";
@@ -61,8 +61,16 @@ export async function POST(req: NextRequest) {
         if (!saved.hasCard || !saved.cardSeq) {
           return serverError("保存済みカードが見つかりません");
         }
+        // GMO会員IDを取得（patientIdではなくgmo_member_idを使用）
+        const { data: patientRow } = await withTenant(
+          supabaseAdmin.from("patients").select("gmo_member_id").eq("patient_id", patientId).maybeSingle(),
+          tenantId
+        );
+        if (!patientRow?.gmo_member_id) {
+          return serverError("GMO会員情報が見つかりません");
+        }
         gmoResult = await createGmoPaymentWithSavedCard({
-          memberId: patientId,
+          memberId: patientRow.gmo_member_id,
           cardSeq: saved.cardSeq,
           amount,
           patientId,

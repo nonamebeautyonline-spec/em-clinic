@@ -118,8 +118,9 @@ function BankTransferContent() {
   const [error, setError] = useState<string | null>(null);
   const [showBackAlert, setShowBackAlert] = useState(false);
 
-  // ブラウザバック・スマホ戻るボタン検知 → モーダル表示
+  // ブラウザバック・スマホ戻るボタン検知 → モーダル表示（再配送モードでは不要）
   useEffect(() => {
+    if (searchParams.get("code") === "REDELIVERY_FEE") return;
     // ダミーのhistoryエントリを追加（戻るを検知するため）
     history.pushState({ bankTransferGuard: true }, "");
 
@@ -132,7 +133,7 @@ function BankTransferContent() {
 
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, []);
+  }, [searchParams]);
 
   // patientIdをSWRで取得 → useMemoで同期的に導出
   const { data: identityData, error: identityError } = useSWR("/api/mypage/identity", swrFetcher, {
@@ -164,7 +165,7 @@ function BankTransferContent() {
 
   const codeParam = searchParams.get("code") as ProductCode | "REDELIVERY_FEE" | null;
   const modeParam = searchParams.get("mode"); // ★ 追加
-  const reorderIdParam = searchParams.get("reorder_id"); // ★ 追加
+  const reorderIdParam = searchParams.get("reorder_id") || searchParams.get("redelivery_id"); // ★ 追加
   const isRedelivery = codeParam === "REDELIVERY_FEE";
 
   const product = useMemo(
@@ -176,6 +177,10 @@ function BankTransferContent() {
   );
 
   const handleBack = () => {
+    if (isRedelivery) {
+      router.replace("/mypage");
+      return;
+    }
     setShowBackAlert(true);
   };
 
