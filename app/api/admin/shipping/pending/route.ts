@@ -9,6 +9,7 @@ interface OrderRow {
   id: string;
   patient_id: string;
   product_code: string;
+  product_name: string | null;
   payment_method: string;
   paid_at: string | null;
   shipping_date: string | null;
@@ -78,7 +79,7 @@ export async function GET(req: NextRequest) {
       PRODUCT_DELAY[p.code] = p.shipping_delay_days || 0;
     }
 
-    const selectCols = "id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at, custom_sender_name, item_name_cosmetics, use_hexidin, post_office_hold, post_office_name";
+    const selectCols = "id, patient_id, product_code, product_name, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at, custom_sender_name, item_name_cosmetics, use_hexidin, post_office_hold, post_office_name";
 
     // ★ 全ての未発送confirmed注文（カットオフなし・発送漏れも自動検出）
     const { data: ordersConfirmed, error: ordersConfirmedError } = await strictWithTenant(
@@ -161,7 +162,7 @@ export async function GET(req: NextRequest) {
         // ★ 氏名: shipping_name優先、なければpatients.name
         patient_name: shippingName || patientName,
         product_code: order.product_code,
-        product_name: PRODUCT_NAMES[order.product_code] || order.product_code,
+        product_name: order.product_name?.startsWith("【再配送】") ? order.product_name : (PRODUCT_NAMES[order.product_code] || order.product_name || order.product_code),
         payment_method: order.payment_method === "credit_card" ? "クレジットカード" : "銀行振込",
         payment_date: order.paid_at || order.created_at, // ★ pending時はcreated_atを使用
         amount: order.amount || 0,
